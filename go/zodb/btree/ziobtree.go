@@ -333,6 +333,7 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 	n := (len(t) + 1) / 2
 	bt.data = make([]_IOBTreeItem, 0, n)
 	var kprev int64
+	var childrenKind int // 1 - IOBTree, 2 - IOBucket
 	for i, idx := 0, 0; i < n; i++ {
 		key := int64(math.MinInt32) // int32(-∞)   (qualifies for ≤)
 		if i > 0 {
@@ -356,12 +357,23 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 		}
 		kprev = key
 
+		// check all children are of the same type
+		var kind int // see childrenKind ^^^
 		switch child.(type) {
 		default:
 			return fmt.Errorf("data: [%d]: child must be IOBTree|IOBucket; got %T", i, child)
 
-		case *IOBTree:  // ok
-		case *IOBucket: // ok
+		case *IOBTree:
+			kind = 1
+		case *IOBucket:
+			kind = 2
+		}
+
+		if i == 0 {
+			childrenKind = kind
+		}
+		if kind != childrenKind {
+			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
 		bt.data = append(bt.data, _IOBTreeItem{key: kkey, child: child})

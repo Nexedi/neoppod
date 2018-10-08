@@ -333,6 +333,7 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 	n := (len(t) + 1) / 2
 	bt.data = make([]_LOBTreeItem, 0, n)
 	var kprev int64
+	var childrenKind int // 1 - LOBTree, 2 - LOBucket
 	for i, idx := 0, 0; i < n; i++ {
 		key := int64(math.MinInt64) // int64(-∞)   (qualifies for ≤)
 		if i > 0 {
@@ -356,12 +357,23 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 		}
 		kprev = key
 
+		// check all children are of the same type
+		var kind int // see childrenKind ^^^
 		switch child.(type) {
 		default:
 			return fmt.Errorf("data: [%d]: child must be LOBTree|LOBucket; got %T", i, child)
 
-		case *LOBTree:  // ok
-		case *LOBucket: // ok
+		case *LOBTree:
+			kind = 1
+		case *LOBucket:
+			kind = 2
+		}
+
+		if i == 0 {
+			childrenKind = kind
+		}
+		if kind != childrenKind {
+			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
 		bt.data = append(bt.data, _LOBTreeItem{key: kkey, child: child})
