@@ -31,33 +31,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
-// LOBucket is a leaf node of a B⁺ tree.
-//
-// It mimics LOBucket from btree/py.
-type LOBucket struct {
-	zodb.Persistent
-
-	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L179:
-	//
-	// A LOBucket wraps contiguous vectors of keys and values.  Keys are unique,
-	// and stored in sorted order.  The 'values' pointer may be NULL if the
-	// LOBucket is used to implement a set.  Buckets serving as leafs of BTrees
-	// are chained together via 'next', so that the entire LOBTree contents
-	// can be traversed in sorted order quickly and easily.
-
-	next   *LOBucket       // the bucket with the next-larger keys
-	keys   []int64         // 'len' keys, in increasing order
-	values []interface{} // 'len' corresponding values
-}
-
-// _LOBTreeItem mimics BTreeItem from btree/py.
-//
-// XXX export for LOBTree.Children?
-type _LOBTreeItem struct {
-	key   int64
-	child interface{} // LOBTree or LOBucket
-}
-
 // LOBTree is a non-leaf node of a B⁺ tree.
 //
 // It mimics LOBTree from btree/py.
@@ -79,6 +52,33 @@ type LOBTree struct {
 	// from data[i].child are >= data[i].key and < data[i+1].key, at the
 	// endpoints pretending that data[0].key is -∞ and data[len].key is +∞.
 	data []_LOBTreeItem
+}
+
+// _LOBTreeItem mimics BTreeItem from btree/py.
+//
+// XXX export for LOBTree.Children?
+type _LOBTreeItem struct {
+	key   int64
+	child interface{} // LOBTree or LOBucket
+}
+
+// LOBucket is a leaf node of a B⁺ tree.
+//
+// It mimics LOBucket from btree/py.
+type LOBucket struct {
+	zodb.Persistent
+
+	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L179:
+	//
+	// A LOBucket wraps contiguous vectors of keys and values.  Keys are unique,
+	// and stored in sorted order.  The 'values' pointer may be NULL if the
+	// LOBucket is used to implement a set.  Buckets serving as leafs of BTrees
+	// are chained together via 'next', so that the entire LOBTree contents
+	// can be traversed in sorted order quickly and easily.
+
+	next   *LOBucket       // the bucket with the next-larger keys
+	keys   []int64         // 'len' keys, in increasing order
+	values []interface{} // 'len' corresponding values
 }
 
 // Get searches LOBTree by key.

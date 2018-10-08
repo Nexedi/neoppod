@@ -31,33 +31,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
-// IOBucket is a leaf node of a B⁺ tree.
-//
-// It mimics IOBucket from btree/py.
-type IOBucket struct {
-	zodb.Persistent
-
-	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L179:
-	//
-	// A IOBucket wraps contiguous vectors of keys and values.  Keys are unique,
-	// and stored in sorted order.  The 'values' pointer may be NULL if the
-	// IOBucket is used to implement a set.  Buckets serving as leafs of BTrees
-	// are chained together via 'next', so that the entire IOBTree contents
-	// can be traversed in sorted order quickly and easily.
-
-	next   *IOBucket       // the bucket with the next-larger keys
-	keys   []int32         // 'len' keys, in increasing order
-	values []interface{} // 'len' corresponding values
-}
-
-// _IOBTreeItem mimics BTreeItem from btree/py.
-//
-// XXX export for IOBTree.Children?
-type _IOBTreeItem struct {
-	key   int32
-	child interface{} // IOBTree or IOBucket
-}
-
 // IOBTree is a non-leaf node of a B⁺ tree.
 //
 // It mimics IOBTree from btree/py.
@@ -79,6 +52,33 @@ type IOBTree struct {
 	// from data[i].child are >= data[i].key and < data[i+1].key, at the
 	// endpoints pretending that data[0].key is -∞ and data[len].key is +∞.
 	data []_IOBTreeItem
+}
+
+// _IOBTreeItem mimics BTreeItem from btree/py.
+//
+// XXX export for IOBTree.Children?
+type _IOBTreeItem struct {
+	key   int32
+	child interface{} // IOBTree or IOBucket
+}
+
+// IOBucket is a leaf node of a B⁺ tree.
+//
+// It mimics IOBucket from btree/py.
+type IOBucket struct {
+	zodb.Persistent
+
+	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L179:
+	//
+	// A IOBucket wraps contiguous vectors of keys and values.  Keys are unique,
+	// and stored in sorted order.  The 'values' pointer may be NULL if the
+	// IOBucket is used to implement a set.  Buckets serving as leafs of BTrees
+	// are chained together via 'next', so that the entire IOBTree contents
+	// can be traversed in sorted order quickly and easily.
+
+	next   *IOBucket       // the bucket with the next-larger keys
+	keys   []int32         // 'len' keys, in increasing order
+	values []interface{} // 'len' corresponding values
 }
 
 // Get searches IOBTree by key.
