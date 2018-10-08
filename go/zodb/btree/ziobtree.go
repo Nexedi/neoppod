@@ -217,6 +217,7 @@ func (b *iobucketState) PySetState(pystate interface{}) (err error) {
 	b.keys = make([]int32, 0, n)
 	b.values = make([]interface{}, 0, n)
 
+	var kprev int64
 	for i := 0; i < n; i++ {
 		xk := t[2*i]
 		v := t[2*i+1]
@@ -231,7 +232,11 @@ func (b *iobucketState) PySetState(pystate interface{}) (err error) {
 			return fmt.Errorf("data: [%d]: key overflows %T", i, kk)
 		}
 
-		// XXX check keys are sorted?
+		if i > 0 && !(k > kprev) {
+			return fmt.Errorf("data: [%d]: key not ↑", i)
+		}
+		kprev = k
+
 		b.keys = append(b.keys, kk)
 		b.values = append(b.values, v)
 	}
@@ -327,6 +332,7 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 
 	n := (len(t) + 1) / 2
 	bt.data = make([]_IOBTreeItem, 0, n)
+	var kprev int64
 	for i, idx := 0, 0; i < n; i++ {
 		key := int64(math.MinInt32) // int32(-∞)   (qualifies for ≤)
 		if i > 0 {
@@ -344,6 +350,11 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 		if int64(kkey) != key {
 			return fmt.Errorf("data: [%d]: key overflows %T", i, kkey)
 		}
+
+		if i > 1 && !(key > kprev) {
+			fmt.Errorf("data: [%d]: key not ↑", i)
+		}
+		kprev = key
 
 		switch child.(type) {
 		default:
