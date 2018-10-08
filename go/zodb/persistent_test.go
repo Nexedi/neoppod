@@ -54,6 +54,7 @@ func (o *myObjectState) PySetState(pystate interface{}) error {
 func init() {
 	t := reflect.TypeOf
 	RegisterClass("t.zodb.MyObject", t(MyObject{}), t(myObjectState{}))
+	RegisterClassAlias("t.zodb.MyOldObject", "t.zodb.MyObject")
 }
 
 func TestPersistent(t *testing.T) {
@@ -119,7 +120,16 @@ func TestPersistent(t *testing.T) {
 	}
 
 	checkObj(obj, nil, 11, InvalidTid, GHOST, 0, nil)
+	assert.Equal(zclassOf(obj), "t.zodb.MyObject")
 
+	// t.zodb.MyOldObject -> *MyObject
+	xobj = newGhost("t.zodb.MyOldObject", 12, nil)
+	obj, ok = xobj.(*MyObject)
+	if !ok {
+		t.Fatalf("t.zodb.MyOldObject -> %T;  want MyObject", xobj)
+	}
+
+	checkObj(obj, nil, 12, InvalidTid, GHOST, 0, nil)
 	assert.Equal(zclassOf(obj), "t.zodb.MyObject")
 
 

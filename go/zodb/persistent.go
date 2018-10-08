@@ -358,6 +358,38 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 	typeTab[typ] = zc
 }
 
+// RegisterClassAlias registers alias for a ZODB class.
+//
+// When ZODB loads an object whose class is alias, it will be handled like
+// object with specified ZODB class.
+//
+// Class aliases are useful for backward compatibility - sometimes class name
+// of an object changes, but to support loading previously-saved objects, the
+// old class name has to be also supported.
+func RegisterClassAlias(alias, class string) {
+	badf := func(format string, argv ...interface{}) {
+		msg := fmt.Sprintf(format, argv...)
+		panic(fmt.Sprintf("zodb: register class alias (%q -> %q): %s", alias, class, msg))
+	}
+
+	if alias == "" {
+		badf("alias must be not empty")
+	}
+	if class == "" {
+		badf("class must be not empty")
+	}
+	if zc, already := classTab[alias]; already {
+		badf("class %q already registered for type %q", alias, zc.typ)
+	}
+	if _, already := classTab[class]; !already {
+		badf("class %q is not yet registered", class)
+	}
+
+	classTab[alias] = classTab[class]
+	// don't touch typeTab - this way type -> zclass will always go to
+	// original class, not alias.
+}
+
 // NewPersistent creates new instance of persistent type.
 //
 // typ must embed Persistent and must be registered with RegisterClass.
