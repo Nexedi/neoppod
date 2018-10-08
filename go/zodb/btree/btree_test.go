@@ -33,7 +33,7 @@ import (
 
 // kv is one (key, value) pair.
 type kv struct {
-	key   KEY
+	key   int64
 	value interface{}
 }
 
@@ -52,7 +52,7 @@ type testEntry struct {
 
 // bmapping represents Get of Bucket or BTree.
 type bmapping interface {
-	Get(context.Context, KEY) (interface{}, bool, error)
+	Get(context.Context, int64) (interface{}, bool, error)
 }
 
 func TestBTree(t *testing.T) {
@@ -83,18 +83,18 @@ func TestBTree(t *testing.T) {
 
 		obj, ok := xobj.(bmapping)
 		if !ok {
-			t.Fatalf("%s: got %T;  want Bucket|BTree", tt.oid, xobj)
+			t.Fatalf("%s: got %T;  want LOBucket|LOBTree", tt.oid, xobj)
 		}
 
 		want := ""
 		switch tt.kind {
 		case kindBucket:
-			if _, ok = obj.(*Bucket); !ok {
-				want = "Bucket"
+			if _, ok = obj.(*LOBucket); !ok {
+				want = "LOBucket"
 			}
 		case kindBTree:
-			if _, ok = obj.(*BTree); !ok {
-				want = "BTree"
+			if _, ok = obj.(*LOBTree); !ok {
+				want = "LOBTree"
 			}
 		default:
 			panic(0)
@@ -132,12 +132,12 @@ func TestBTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	B3, ok := xB3.(*BTree)
+	B3, ok := xB3.(*LOBTree)
 	if !ok {
-		t.Fatalf("B3: %v; got %T;  want BTree", B3_oid, xB3)
+		t.Fatalf("B3: %v; got %T;  want LOBTree", B3_oid, xB3)
 	}
 
-	for i := KEY(0); i <= B3_maxkey; i++ {
+	for i := int64(0); i <= B3_maxkey; i++ {
 		v, ok, err := B3.Get(ctx, i)
 		if err != nil {
 			t.Fatal(err)
@@ -151,21 +151,21 @@ func TestBTree(t *testing.T) {
 	}
 
 	// verifyFirstBucket verifies that b.firstbucket is correct and returns it.
-	var verifyFirstBucket func(b *BTree) *Bucket
-	verifyFirstBucket = func(b *BTree) *Bucket {
+	var verifyFirstBucket func(b *LOBTree) *LOBucket
+	verifyFirstBucket = func(b *LOBTree) *LOBucket {
 		err := b.PActivate(ctx);	X(err)
 		defer b.PDeactivate()
 
-		var firstbucket *Bucket
+		var firstbucket *LOBucket
 
 		switch child := b.data[0].child.(type) {
 		default:
 			t.Fatalf("btree(%s): child[0] is %T", b.POid(), b.data[0].child)
 
-		case *BTree:
+		case *LOBTree:
 			firstbucket = verifyFirstBucket(child)
 
-		case *Bucket:
+		case *LOBucket:
 			firstbucket = child
 		}
 
