@@ -169,7 +169,7 @@ func TestBTree(t *testing.T) {
 		kmin, okmin, emin := obj.MinKey(ctx)
 		kmax, okmax, emax := obj.MaxKey(ctx)
 		if err := xerr.Merge(emin, emax); err != nil {
-			t.Error(err)
+			t.Errorf("%s: min/max key: %s", tt.oid, err)
 			continue
 		}
 
@@ -189,7 +189,7 @@ func TestBTree(t *testing.T) {
 
 
 	// B3 is a large BTree with {i: i} data.
-	// verify Get(key) and that different bucket links lead to the same in-RAM object.
+	// verify Get(key), {Min,Max}Key and that different bucket links lead to the same in-RAM object.
 	xB3, err := conn.Get(ctx, B3_oid)
 	if err != nil {
 		t.Fatal(err)
@@ -210,6 +210,16 @@ func TestBTree(t *testing.T) {
 		if int64(i) != v {
 			t.Fatalf("B3: get %v -> %v;  want %v", i, v, i)
 		}
+	}
+
+	kmin, okmin, emin := B3.MinKey(ctx)
+	kmax, okmax, emax := B3.MaxKey(ctx)
+	if err := xerr.Merge(emin, emax); err != nil {
+		t.Fatalf("B3: min/max key: %s", err)
+	}
+	if !(kmin == 0 && kmax == B3_maxkey && okmin && okmax) {
+		t.Fatalf("B3: min/max key wrong: got [%v, %v] (%v, %v);  want [%v, %v] (%v, %v)",
+			kmin, kmax, okmin, okmax, 0, B3_maxkey, true, true)
 	}
 
 	// verifyFirstBucket verifies that b.firstbucket is correct and returns it.
