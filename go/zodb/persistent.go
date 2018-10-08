@@ -383,7 +383,7 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 //
 // Class aliases are useful for backward compatibility - sometimes class name
 // of an object changes, but to support loading previously-saved objects, the
-// old class name have to be also supported.
+// old class name has to be also supported.
 func RegisterClassAlias(alias, class string) {
 	badf := func(format string, argv ...interface{}) {
 		msg := fmt.Sprintf(format, argv...)
