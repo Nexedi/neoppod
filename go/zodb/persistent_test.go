@@ -115,7 +115,7 @@ func TestPersistent(t *testing.T) {
 	xobj = newGhost("t.zodb.MyObject", 11, nil)
 	obj, ok := xobj.(*MyObject)
 	if !ok {
-		t.Fatalf("unknown -> %T;  want Broken", xobj)
+		t.Fatalf("t.zodb.MyObject -> %T;  want MyObject", xobj)
 	}
 
 	checkObj(obj, nil, 11, InvalidTid, GHOST, 0, nil)
