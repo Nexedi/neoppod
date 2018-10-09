@@ -1049,6 +1049,10 @@ class NEOThreadedTest(NeoTestBase):
             None if node.getUUID() == storage.uuid else orig(node))
 
     @staticmethod
+    def getConnectionApp(conn):
+        return getattr(conn.getHandler(), 'app', None)
+
+    @staticmethod
     def readCurrent(ob):
         ob._p_activate()
         ob._p_jar.readCurrent(ob)

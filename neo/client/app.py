@@ -445,7 +445,7 @@ class Application(ThreadedApplication):
         packet = Packets.AskStoreObject(oid, serial, compression,
             checksum, compressed_data, data_serial, ttid)
         txn_context.data_dict[oid] = data, serial, txn_context.write(
-            self, packet, oid, oid=oid)
+            self, packet, oid, oid=oid, serial=serial)
 
         while txn_context.data_size >= self._cache.max_size:
             self._waitAnyTransactionMessage(txn_context)
@@ -951,6 +951,6 @@ class Application(ThreadedApplication):
         assert oid not in txn_context.data_dict, oid
         packet = Packets.AskCheckCurrentSerial(ttid, oid, serial)
         txn_context.data_dict[oid] = CHECKED_SERIAL, serial, txn_context.write(
-            self, packet, oid, oid=oid)
+            self, packet, oid, oid=oid, serial=serial)
         self._waitAnyTransactionMessage(txn_context, False)
 

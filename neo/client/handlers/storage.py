@@ -60,11 +60,11 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerObject(self, conn, oid, *args):
         self.app.setHandlerData(args)
 
-    def answerStoreObject(self, conn, conflict, oid):
+    def answerStoreObject(self, conn, conflict, oid, serial):
         txn_context = self.app.getHandlerData()
         if conflict:
             if conflict == ZERO_TID:
-                txn_context.written(self.app, conn.getUUID(), oid, True)
+                txn_context.written(self.app, conn.getUUID(), oid, serial)
                 return
             # Conflicts can not be resolved now because 'conn' is locked.
             # We must postpone the resolution (by queuing the conflict in
