@@ -58,17 +58,19 @@ type bmapping interface {
 	MaxKey(context.Context) (int64, bool, error)
 }
 
-type bucketWrap struct {
-	*LOBucket
+type bucketWrap LOBucket
+
+func (b *bucketWrap) bucket() *LOBucket {
+	return (*LOBucket)(b)
 }
 
 // withBucket runs f with b.LOBucket activated.
 func (b *bucketWrap) withBucket(ctx context.Context, f func()) error {
-	err := b.LOBucket.PActivate(ctx)
+	err := b.bucket().PActivate(ctx)
 	if err != nil {
 		return err
 	}
-	defer b.LOBucket.PDeactivate()
+	defer b.bucket().PDeactivate()
 
 	f()
 	return nil
@@ -76,21 +78,22 @@ func (b *bucketWrap) withBucket(ctx context.Context, f func()) error {
 
 func (b *bucketWrap) Get(ctx context.Context, key int64) (v interface{}, ok bool, err error) {
 	err = b.withBucket(ctx, func() {
-		v, ok = b.LOBucket.get(key)	// XXX -> Get
+		//v, ok = b.LOBucket.get(key)	// XXX -> Get
+		v, ok = b.bucket().get(key)	// XXX -> Get
 	})
 	return
 }
 
 func (b *bucketWrap) MinKey(ctx context.Context) (k int64, ok bool, err error) {
 	err = b.withBucket(ctx, func() {
-		k, ok = b.LOBucket.MinKey()
+		k, ok = b.bucket().MinKey()
 	})
 	return
 }
 
 func (b *bucketWrap) MaxKey(ctx context.Context) (k int64, ok bool, err error) {
 	err = b.withBucket(ctx, func() {
-		k, ok = b.LOBucket.MaxKey()
+		k, ok = b.bucket().MaxKey()
 	})
 	return
 }
@@ -129,7 +132,7 @@ func TestBTree(t *testing.T) {
 				want = "LOBucket"
 			} else {
 				// bucket wrapper that accepts ctx on Get, MinKey etc
-				xobj = &bucketWrap{bobj}
+				xobj = (*bucketWrap)(bobj)
 			}
 		case kindBTree:
 			if _, ok := xobj.(*LOBTree); !ok {
