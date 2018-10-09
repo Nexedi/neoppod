@@ -88,7 +88,7 @@ class Transaction(object):
         raise NEOStorageError(
             'no storage available for write to partition %s' % object_id)
 
-    def written(self, app, uuid, oid, lockless=False):
+    def written(self, app, uuid, oid, lockless=None):
         # When a node is being disconnected by the master because it was
         # not part of the transaction that caused a conflict, we may receive a
         # positive answer (not to be confused with lockless stores) before the
@@ -113,6 +113,10 @@ class Transaction(object):
             #   node that was being disconnected by the master
             return
         if lockless:
+            if lockless != serial: # late lockless write
+                assert lockless < serial, (lockless, serial)
+                uuid_list.append(uuid)
+                return
             # It's safe to do this after the above excepts: either the cell is
             # already marked as lockless or the node will be reported as failed.
             lockless = self.lockless_dict

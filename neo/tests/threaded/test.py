@@ -1472,11 +1472,11 @@ class Test(NEOThreadedTest):
         reports a conflict after that this conflict was fully resolved with
         another node.
         """
-        def answerStoreObject(orig, conn, conflict, oid):
+        def answerStoreObject(orig, conn, conflict, oid, serial):
             if not conflict:
                 p.revert()
                 ll()
-            orig(conn, conflict, oid)
+            orig(conn, conflict, oid, serial)
         if 1:
             s0, s1 = cluster.storage_list
             t1, c1 = cluster.getTransaction()
@@ -1774,7 +1774,7 @@ class Test(NEOThreadedTest):
             f.add(delayAnswerStoreObject, Patch(Transaction, written=written))
         def delayAnswerStoreObject(conn, packet):
             return (isinstance(packet, Packets.AnswerStoreObject)
-                and getattr(conn.getHandler(), 'app', None) is s)
+                and self.getConnectionApp(conn) is s)
         def written(orig, *args):
             orig(*args)
             f.remove(delayAnswerStoreObject)
@@ -2126,7 +2126,7 @@ class Test(NEOThreadedTest):
         # Delay the conflict for the second store of 'a' by t3.
         delay_conflict = {s0.uuid: [1], s1.uuid: [1,0]}
         def delayConflict(conn, packet):
-            app = conn.getHandler().app
+            app = self.getConnectionApp(conn)
             if (isinstance(packet, Packets.AnswerStoreObject)
                 and packet.decode()[0]):
                 conn, = cluster.client.getConnectionList(app)
@@ -2263,6 +2263,102 @@ class Test(NEOThreadedTest):
                     self.assertRaises(POSException.ConflictError, t1.commit)
                     commit23.join()
         self.assertEqual(end, {0: ['tpc_abort']})
+        self.assertPartitionTable(cluster, 'UU|UU')
+
+    @with_cluster(partitions=2, storage_count=2)
+    def testConflictAfterLocklessWrite(self, cluster):
+        """
+        Show that in case of a write to an outdated cell, the client must
+        discard the answer if it comes after a resolved conflict, as the client
+        would not have the data anymore to solve a second conflict (deadlock
+        avoidance). This test reproduces a case where the storage node can't
+        easily return the correct data back to the client.
+
+        The scenario focuses on object A (oid 1) and node s0, which is
+        initially replicating partition 1:
+        1. t1 writes A: s1 conflicts and the answer from s0 is delayed
+        2. t1 writes B: a deadlock is triggered by s0 and internally, the write
+           of A is not considered lockless anymore
+        3. replication of partition 1 finishes: A is marked as locked normally
+           (which can be considered wrong but discarding the write at that
+            point is not trivial and anyway another write is coming)
+        4. t1 resolves A: s1 is not yet notified of the deadlock and accepts
+        5. t1 receives the answer for the first write of A to s1: if it didn't
+           discard it, it would mark the write of A as completed on all nodes
+        6. t1 starts resolving the deadlock, s0 conflicts for the second store
+           and returns that A needs to be rebased (like in 3, questionable)
+        7. the answer of s0 for the rebasing of A contains data from the first
+           write and it is processed first: this is not an issue if the client
+           still has the data (i.e. not moved to transaction cache, or
+           discarded because the cache is too small)
+        """
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        for x in 'ab':
+            r[x] = PCounterWithResolution()
+            t1.commit()
+        cluster.stop(replicas=1)
+        cluster.start()
+        s0, s1 = cluster.sortStorageList()
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        r['a'].value += 1
+        r['b'].value += 2
+        with cluster.newClient(1) as db, ConnectionFilter() as f:
+            delayReplication = f.delayAnswerFetchObjects()
+            delayStore = f.delayAnswerStoreObject(lambda conn:
+                conn.uuid == cluster.client.uuid and
+                self.getConnectionApp(conn) is s0)
+            delayDeadlock = f.delayNotifyDeadlock()
+            delayRebase = f.delayAnswerRebaseObject(lambda conn:
+                # to first process the one from s0
+                self.getConnectionApp(conn) is s1)
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            t2, c2 = cluster.getTransaction(db)
+            r = c2.root()
+            r['a'].value += 3 # for a first conflict on t1/s1
+            t2.commit()
+            r['b'].value += 4 # for a deadlock on t1/s0
+            r['a'].value += 5 # for a second conflict on t1/s0
+            def t1_b(*args, **kw):
+                self.tic() # make sure t2/b will be processed before t1/b
+                yield 0
+            def t1_resolve(*args, **kw):
+                f.remove(delayReplication)
+                self.tic()
+                yield 1
+                f.remove(delayStore)
+                self.tic()
+                f.remove(delayDeadlock)
+            def t2_vote(*args, **kw):
+                yield 0
+                # From now own, prefer reading from s0,
+                # in case that packets from s1 are blocked by the filter.
+                no_read.append(s1.uuid)
+            def t1_end(*args, **kw):
+                yield 0
+                f.remove(delayRebase)
+            commit2 = self.newPausedThread(t2.commit)
+            no_read = []
+            with cluster.client.extraCellSortKey(
+                    lambda cell: cell.getUUID() in no_read), \
+                 self.thread_switcher((commit2,),
+                (1, 1, 0, 0, t1_b, t1_resolve, 0, 0, 0, 0, 1, t2_vote, t1_end),
+                ('tpc_begin', 'tpc_begin', 2, 1, 2, 1, 1,
+                 'RebaseTransaction', 'RebaseTransaction',
+                 'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
+                 'StoreTransaction')) as end:
+                t1.commit()
+                commit2.join()
+        t1.begin()
+        r = c1.root()
+        self.assertEqual(r['a'].value, 9)
+        self.assertEqual(r['b'].value, 6)
+        t1 = end.pop(0)
+        self.assertEqual(t1.pop(), 'StoreTransaction')
+        self.assertEqual(sorted(t1), [1, 2])
+        self.assertFalse(end)
         self.assertPartitionTable(cluster, 'UU|UU')
 
     @with_cluster(storage_count=2, partitions=2)

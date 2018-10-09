@@ -51,7 +51,9 @@ class Transaction(object):
         self.uuid = uuid
         self.serial_dict = {}
         self.store_dict = {}
-        # We must distinguish lockless stores from deadlocks.
+        # Remember the oids for which we didn't check for conflict. This is
+        # used primarily to know when to declare a cell really readable once
+        # the replication is finished.
         self.lockless = set()
 
     def __repr__(self):
@@ -221,6 +223,9 @@ class TransactionManager(EventQueue):
                 # fixing the store lock.
                 if locked == ttid:
                     del self._store_lock_dict[oid]
+            # However here, we don't try to remember lockless writes: later,
+            # we may give write-locks to oids that would normally conflict.
+            # Readable cells prevent such scenario to go wrong.
             lockless = transaction.lockless
             if locking_tid == MAX_TID:
                 if lockless:
@@ -233,7 +238,7 @@ class TransactionManager(EventQueue):
                 # become normal ones: this transaction does not block anymore
                 # replicated partitions from being marked as UP_TO_DATE.
                 oid = [oid
-                    for oid in lockless.intersection(transaction.serial_dict)
+                    for oid in lockless
                     if self.getPartition(oid) not in self._replicating]
                 if oid:
                     lockless.difference_update(oid)
@@ -272,6 +277,8 @@ class TransactionManager(EventQueue):
                 self.lockObject(ttid, serial, oid)
             except ConflictError:
                 recheck_set.add(oid)
+            except Exception, e: # pragma: no cover
+                raise AssertionError(e)
         return recheck_set
 
     def vote(self, ttid, txn_info=None):
