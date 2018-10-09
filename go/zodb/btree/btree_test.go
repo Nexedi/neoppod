@@ -78,7 +78,6 @@ func (b *bucketWrap) withBucket(ctx context.Context, f func()) error {
 
 func (b *bucketWrap) Get(ctx context.Context, key int64) (v interface{}, ok bool, err error) {
 	err = b.withBucket(ctx, func() {
-		//v, ok = b.LOBucket.get(key)	// XXX -> Get
 		v, ok = b.bucket().get(key)	// XXX -> Get
 	})
 	return
