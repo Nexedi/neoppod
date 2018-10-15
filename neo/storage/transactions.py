@@ -160,7 +160,7 @@ class TransactionManager(EventQueue):
         for txn, ttid in sorted((txn, ttid) for ttid, txn in
                                 self._transaction_dict.iteritems()):
             assert txn.lockless.issubset(txn.serial_dict), (
-                txn.lockless, txn.serial_dict)
+                ttid, txn.lockless, txn.serial_dict)
             for oid in txn.lockless:
                 partition = getPartition(oid)
                 if replicated.get(partition):
@@ -471,6 +471,7 @@ class TransactionManager(EventQueue):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
+        assert oid not in transaction.serial_dict
         locked = self.lockObject(ttid, serial, oid)
         transaction.serial_dict[oid] = serial
         if not locked:
@@ -486,6 +487,12 @@ class TransactionManager(EventQueue):
         except KeyError:
             raise NotRegisteredError
         locked = self.lockObject(ttid, serial, oid)
+        if oid in transaction.serial_dict: # initially/still lockless, or undo
+            # XXX: We'd like to do that before calling lockObject,
+            #      to release resources immediately (data, maybe lock)
+            #      in case of delay/conflict.
+            #      But keeping everything consistent is complicated.
+            self._unstore(transaction, oid)
         transaction.serial_dict[oid] = serial
         # store object
         if data is None:
@@ -519,19 +526,22 @@ class TransactionManager(EventQueue):
         except ConflictError, e:
             # Move the data back to the client for conflict resolution,
             # since the client may not have it anymore.
-            try:
-                data_id = transaction.store_dict.pop(oid)[1]
-            except KeyError: # check current
+            return serial, e.tid, self._unstore(transaction, oid)
+
+    def _unstore(self, transaction, oid):
+        try:
+            data_id = transaction.store_dict.pop(oid)[1]
+        except KeyError: # check current
+            data = None
+        else:
+            if data_id is None:
                 data = None
             else:
-                if data_id is None:
-                    data = None
-                else:
-                    dm = self._app.dm
-                    data = dm.loadData(data_id)
-                    dm.releaseData([data_id], True)
-            del transaction.serial_dict[oid]
-            return serial, e.tid, data
+                dm = self._app.dm
+                data = dm.loadData(data_id)
+                dm.releaseData([data_id], True)
+        del transaction.serial_dict[oid]
+        return data
 
     def abort(self, ttid, even_if_locked=False):
         """
