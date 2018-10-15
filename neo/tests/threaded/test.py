@@ -162,6 +162,7 @@ class Test(NEOThreadedTest):
         undo.tpc_finish(txn)
         t.begin()
         self.assertEqual(ob.value, 5)
+        self.assertFalse(cluster.storage.dm.getOrphanList())
         return ob
 
     @with_cluster()
@@ -2168,6 +2169,7 @@ class Test(NEOThreadedTest):
             1: ['StoreTransaction'],
             3: [4, 'StoreTransaction'],
         })
+        self.assertFalse(s1.dm.getOrphanList())
 
     @with_cluster(replicas=1)
     def testNotifyReplicated2(self, cluster):
@@ -2363,6 +2365,59 @@ class Test(NEOThreadedTest):
         self.assertEqual(sorted(t1), [1, 2])
         self.assertFalse(end)
         self.assertPartitionTable(cluster, 'UU|UU')
+
+    @with_cluster(partitions=2, storage_count=2)
+    def testUnstore(self, cluster):
+        """
+        Show that when resolving a conflict after a lockless write, the storage
+        can't easily discard the data of the previous store, as it would make
+        internal data inconsistent. This is currently protected by a assertion
+        when trying to notifying the master that the replication is finished.
+        """
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        for x in 'ab':
+            r[x] = PCounterWithResolution()
+            t1.commit()
+        cluster.stop(replicas=1)
+        cluster.start()
+        s0, s1 = cluster.sortStorageList()
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        r._p_changed = 1
+        r['b'].value += 1
+        with ConnectionFilter() as f:
+            delayReplication = f.delayAnswerFetchObjects()
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            t2, c2 = cluster.getTransaction()
+            x = c2.root()['b']
+            x.value += 2
+            t2.commit()
+            delayStore = f.delayAnswerStoreObject()
+            delayFinish = f.delayAskFinishTransaction()
+            x.value += 3
+            commit2 = self.newPausedThread(t2.commit)
+            def t2_b(*args, **kw):
+                yield 1
+                self.tic()
+                f.remove(delayReplication)
+                f.remove(delayStore)
+                self.tic()
+            def t1_resolve(*args, **kw):
+                yield 0
+                self.tic()
+                f.remove(delayFinish)
+            with self.thread_switcher((commit2,),
+                (1, 0, 0, 1, t2_b, 0, t1_resolve),
+                ('tpc_begin', 'tpc_begin', 0, 2, 2, 'StoreTransaction')) as end:
+                t1.commit()
+                commit2.join()
+        t1.begin()
+        self.assertEqual(c1.root()['b'].value, 6)
+        self.assertPartitionTable(cluster, 'UU|UU')
+        self.assertEqual(end, {0: [2, 2, 'StoreTransaction']})
+        self.assertFalse(s1.dm.getOrphanList())
 
     @with_cluster(storage_count=2, partitions=2)
     def testDeadlockAvoidanceBeforeInvolvingAnotherNode(self, cluster):
