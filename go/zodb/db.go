@@ -24,7 +24,6 @@ package zodb
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -75,6 +74,23 @@ type ConnOptions struct {
 	NoSync bool // don't sync with storage to get its last tid.
 }
 
+// XXX place=?
+func (opt *ConnOptions) String() string {
+	s := "(@"
+	if opt.At != 0 {
+		s += opt.At.String()
+	} else {
+		s += "head"
+	}
+
+	s += ", "
+	if opt.NoSync {
+		s += "no"
+	}
+	s += "sync)"
+	return s
+}
+
 // Open opens new connection to the database.
 //
 // By default the connection is opened to current latest database state; opt.At
@@ -89,18 +105,10 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 			return
 		}
 
-		var argv []interface{}
-		if opt.At != 0 {
-			argv = append(argv, fmt.Sprintf("at=%s", opt.At))
-		}
-		if opt.NoSync {
-			argv = append(argv, "nosync")
-		}
-
 		err = &OpError{
 			URL:  db.stor.URL(),
 			Op:   "open db",
-			Args: argv,
+			Args: opt,
 			Err:  err,
 		}
 	}()
@@ -158,7 +166,7 @@ func (db *DB) get(at Tid) *Connection {
 	})
 
 	// search through window of X previous connections and find out the one
-	// with minimal distance to get to state @at. If all connections are to
+	// with minimal distance to get to state @at. If all connections are too
 	// distant - create connection anew.
 	//
 	// XXX search not only previous, but future too? (we can get back to
