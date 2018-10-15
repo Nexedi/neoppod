@@ -33,7 +33,8 @@ from neo.lib.connection import BaseConnection, \
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
-from neo.lib.protocol import ClusterStates, Enum, NodeStates, NodeTypes, Packets
+from neo.lib.protocol import uuid_str, \
+    ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
 from .. import (getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch,
@@ -263,6 +264,7 @@ class TestSerialized(Serialized):
                 if r:
                     return r
                 Serialized.tic(step=1, timeout=.001)
+            ConnectionFilter.log()
             raise Exception("tic is looping forever")
         return self._epoll.poll(timeout)
 
@@ -549,6 +551,20 @@ class ConnectionFilter(object):
             else:
                 del cls.filter_queue[conn]
 
+    @classmethod
+    def log(cls):
+        try:
+            if cls.filter_queue:
+                logging.info('%s:', cls.__name__)
+                for conn, queue in cls.filter_queue.iteritems():
+                    app = NEOThreadedTest.getConnectionApp(conn)
+                    logging.info('  %s %s:', uuid_str(app.uuid), conn)
+                    for p in queue:
+                        logging.info('    #0x%04x %s',
+                                     p.getId(), p.__class__.__name__)
+        except Exception:
+            logging.exception('')
+
     def add(self, filter, *patches):
         with self.lock:
             self.filter_dict[filter] = patches
@@ -601,6 +617,7 @@ class NEOCluster(object):
                     if lock(False):
                         return True
                     Serialized.tic(step=1, quiet=True, timeout=.001)
+                ConnectionFilter.log()
                 raise Exception("tic is looping forever")
             return lock(False)
         self._lock = _lock
