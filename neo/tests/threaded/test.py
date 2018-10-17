@@ -468,7 +468,7 @@ class Test(NEOThreadedTest):
             s0, s1 = cluster.client.nm.getStorageList()
             conn = s0.getConnection()
             self.assertFalse(conn.isClosed())
-            getCellSortKey = cluster.client.cp.getCellSortKey
+            getCellSortKey = cluster.client.getCellSortKey
             self.assertEqual(getCellSortKey(s0, good), 0)
             cluster.neoctl.dropNode(s0.getUUID())
             self.assertEqual([s1], cluster.client.nm.getStorageList())
@@ -744,20 +744,20 @@ class Test(NEOThreadedTest):
     def testStorageReconnectDuringStore(self, cluster):
         t, c = cluster.getTransaction()
         c.root()[0] = 'ok'
-        cluster.client.cp.closeAll()
+        cluster.client.closeAllStorageConnections()
         t.commit() # store request
 
     @with_cluster(storage_count=2, partitions=2)
     def testStorageReconnectDuringTransactionLog(self, cluster):
         t, c = cluster.getTransaction()
-        cluster.client.cp.closeAll()
+        cluster.client.closeAllStorageConnections()
         tid, (t1,) = cluster.client.transactionLog(
             ZERO_TID, c.db().lastTransaction(), 10)
 
     @with_cluster(storage_count=2, partitions=2)
     def testStorageReconnectDuringUndoLog(self, cluster):
         t, c = cluster.getTransaction()
-        cluster.client.cp.closeAll()
+        cluster.client.closeAllStorageConnections()
         t1, = cluster.client.undoLog(0, 10)
 
     @with_cluster(storage_count=2, replicas=1)

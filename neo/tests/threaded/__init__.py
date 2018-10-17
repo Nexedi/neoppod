@@ -439,12 +439,19 @@ class ClientApplication(Node, neo.client.app.Application):
                 conn = self._getMasterConnection()
             else:
                 assert isinstance(peer, StorageApplication)
-                conn = self.cp.getConnForNode(self.nm.getByUUID(peer.uuid))
+                conn = self.getStorageConnection(self.nm.getByUUID(peer.uuid))
             yield conn
 
     def extraCellSortKey(self, key):
-        return Patch(self.cp, getCellSortKey=lambda orig, cell:
+        return Patch(self, getCellSortKey=lambda orig, cell:
             (orig(cell, lambda: key(cell)), random.random()))
+
+    def closeAllStorageConnections(self):
+        for node in self.nm.getStorageList():
+            conn = node._connection # XXX
+            if conn is not None:
+                conn.setReconnectionNoDelay()
+                conn.close()
 
 class NeoCTL(neo.neoctl.app.NeoCTL):
 
@@ -1045,8 +1052,9 @@ class NEOThreadedTest(NeoTestBase):
 
     @staticmethod
     def noConnection(jar, storage):
-        return Patch(jar.db().storage.app.cp, getConnForNode=lambda orig, node:
-            None if node.getUUID() == storage.uuid else orig(node))
+        return Patch(jar.db().storage.app,
+            getStorageConnection=lambda orig, node:
+                None if node.getUUID() == storage.uuid else orig(node))
 
     @staticmethod
     def getConnectionApp(conn):
