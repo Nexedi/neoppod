@@ -29,10 +29,10 @@ MAX_FAILURE_AGE = 600
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
+    # XXX: This is not a pool anymore.
 
     def __init__(self, app):
         self.app = app
-        self.connection_dict = {}
         # Define a lock in order to create one connection to
         # a storage node at a time to avoid multiple connections
         # to the same node.
@@ -82,39 +82,18 @@ class ConnectionPool(object):
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
-        if node.isRunning():
-            uuid = node.getUUID()
-            try:
-                # Already connected to node
-                return self.connection_dict[uuid]
-            except KeyError:
-                with self._lock:
-                    # Second lookup, if another thread initiated connection
-                    # while we were waiting for connection lock.
-                    try:
-                        return self.connection_dict[uuid]
-                    except KeyError:
-                        # Create new connection to node
-                        conn = self._initNodeConnection(node)
-                        if conn is not None:
-                            self.connection_dict[uuid] = conn
-                            if not conn.isClosed():
-                                return conn
-                            # conn was closed just after the reception of
-                            # AnswerRequestIdentification (e.g. RST upon ACK),
-                            # and removeConnection may have been called (by the
-                            # poll thread) before we add it to connection_dict.
-                            self.connection_dict.pop(uuid, None)
-
-    def removeConnection(self, node):
-        self.connection_dict.pop(node.getUUID(), None)
+        conn = node._connection # XXX
+        if node.isRunning() if conn is None else not node._identified:
+            with self._lock:
+                conn = node._connection # XXX
+                if conn is None:
+                    return self._initNodeConnection(node)
+        return conn
 
     def closeAll(self):
         with self._lock:
-            while 1:
-                try:
-                    conn = self.connection_dict.popitem()[1]
-                except KeyError:
-                    break
-                conn.setReconnectionNoDelay()
-                conn.close()
+            for node in self.app.nm.getStorageList():
+                conn = node._connection # XXX
+                if conn is not None:
+                    conn.setReconnectionNoDelay()
+                    conn.close()
