@@ -1627,7 +1627,7 @@ class Test(NEOThreadedTest):
         with cluster.newClient(1) as db:
             t2, c2 = cluster.getTransaction(db)
             with self.noConnection(c1, s2), self.noConnection(c2, s1):
-                cluster.client.cp.connection_dict[s2.uuid].close()
+                cluster.client.nm.getByUUID(s2.uuid).getConnection().close()
                 self.tic()
                 for c1_aborts in 0, 1:
                     # 0: C1 finishes, C2 vote fails
