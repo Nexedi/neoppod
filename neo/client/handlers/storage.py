@@ -30,20 +30,6 @@ from ..exception import NEOStorageReadRetry, NEOStorageDoesNotExistError
 
 class StorageEventHandler(MTEventHandler):
 
-    def connectionLost(self, conn, new_state):
-        # TODO: refactor with connectionFailed
-        node = self.app.nm.getByAddress(conn.getAddress())
-        assert node is not None
-        self.app.cp.removeConnection(node)
-        super(StorageEventHandler, self).connectionLost(conn, new_state)
-
-    def connectionFailed(self, conn):
-        # Connection to a storage node failed
-        node = self.app.nm.getByAddress(conn.getAddress())
-        assert node is not None
-        self.app.cp.removeConnection(node)
-        super(StorageEventHandler, self).connectionFailed(conn)
-
     def _acceptIdentification(*args):
         pass
 
