@@ -135,6 +135,18 @@ func (b *LOBucket) Entryv() []LOBucketEntry {
 	return ev
 }
 
+// ---- node-level iteration ----
+
+// XXX
+func (t *LOBTree) FirstBucket() *LOBucket {
+	return t.firstbucket
+}
+
+// XXX
+func (b *LOBucket) Next() *LOBucket {
+	return b.next
+}
+
 // ---- point query ----
 
 // Get searches LOBTree by key.

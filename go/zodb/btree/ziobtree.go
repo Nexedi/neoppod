@@ -135,6 +135,18 @@ func (b *IOBucket) Entryv() []IOBucketEntry {
 	return ev
 }
 
+// ---- node-level iteration ----
+
+// XXX
+func (t *IOBTree) FirstBucket() *IOBucket {
+	return t.firstbucket
+}
+
+// XXX
+func (b *IOBucket) Next() *IOBucket {
+	return b.next
+}
+
 // ---- point query ----
 
 // Get searches IOBTree by key.

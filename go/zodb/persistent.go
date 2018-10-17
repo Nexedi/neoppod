@@ -58,6 +58,7 @@ import (
 type Persistent struct {
 	// ZODB class of this object.
 	// XXX it could be deduced via typeTab[reflect.TypeOf(.instance)]
+	// XXX or better drop .instance and deduce it via casting to .zclass.typ
 	zclass *zclass
 
 	jar    *Connection

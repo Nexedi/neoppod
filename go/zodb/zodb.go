@@ -326,6 +326,9 @@ type IStorage interface {
 	IStorageDriver
 
 	Prefetcher
+	//Loader
+	//Iterator
+	//XXXNotifier() -> Notifier // dedicated notifier for every open?
 }
 
 // Prefetcher provides functionality to prefetch objects.
@@ -362,8 +365,8 @@ type IStorageDriver interface {
 	// The notifier represents invalidation channel (notify about changes
 	// made to DB not by us from outside).	XXX
 	//
-	// To simplify drivets, there must be only 1 logical user of
-	// storage-driver level notifier interface. Ccontrary IStorage allows
+	// To simplify drivers, there must be only 1 logical user of
+	// storage-driver level notifier interface. Contrary IStorage allows
 	// for several users of notification channel.	XXX ok?
 	//
 	// XXX -> nil, if driver does not support notifications?
