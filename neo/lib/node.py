@@ -118,8 +118,8 @@ class Node(object):
             if connection.isServer():
                 self.setIdentified()
         else:
-            assert force is not None, \
-                attributeTracker.whoSet(self, '_connection')
+            assert force is not None, (conn,
+                attributeTracker.whoSet(self, '_connection'))
             # The test on peer_id is there to protect against buggy nodes.
             # XXX: handler comparison does not cover all cases: there may
             # be a pending handler change, which won't be detected, or a future
