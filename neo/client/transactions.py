@@ -67,7 +67,7 @@ class Transaction(object):
                 try:
                     conn = conn_dict[uuid]
                 except KeyError:
-                    conn = conn_dict[uuid] = app.cp.getConnForNode(node)
+                    conn = conn_dict[uuid] = app.getStorageConnection(node)
                     if self.locking_tid and 'oid' in kw:
                         # A deadlock happened but this node is not aware of it.
                         # Tell it to write-lock with the same locking tid as

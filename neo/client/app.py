@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import heapq
+import random
 import time
 
 try:
@@ -35,16 +36,20 @@ from neo.lib.protocol import NodeTypes, Packets, \
 from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Empty, Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
+from neo.lib.exception import NodeNotReady
 from .exception import (NEOStorageError, NEOStorageCreationUndoneError,
     NEOStorageReadRetry, NEOStorageNotFoundError, NEOPrimaryMasterLost)
 from .handlers import storage, master
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
-from .pool import ConnectionPool
 from .transactions import TransactionContainer
 from neo.lib.util import p64, u64, parseMasterList
 
 CHECKED_SERIAL = object()
+
+# How long before we might retry a connection to a node to which connection
+# failed in the past.
+MAX_FAILURE_AGE = 600
 
 try:
     from Signals.Signals import SignalHandler
@@ -68,7 +73,6 @@ class Application(ThreadedApplication):
                                           name, **kw)
         # Internal Attributes common to all thread
         self._db = None
-        self.cp = ConnectionPool(self)
         self.primary_master_node = None
         self.trying_master_node = None
 
@@ -102,6 +106,9 @@ class Application(ThreadedApplication):
         # _connecting_to_master_node is used to prevent simultaneous master
         # node connection attempts
         self._connecting_to_master_node = Lock()
+        # same for storage nodes
+        self._connecting_to_storage_node = Lock()
+        self._node_failure_dict = {}
         self.compress = getCompress(compress)
 
     def __getattr__(self, attr):
@@ -246,6 +253,53 @@ class Application(ThreadedApplication):
         logging.info("Connected and ready")
         return conn
 
+    def getStorageConnection(self, node):
+        conn = node._connection # XXX
+        if conn is None and node.isRunning():
+            with self._connecting_to_storage_node:
+                conn = node._connection # XXX
+                if conn is None:
+                    return self._connectToStorageNode(node)
+        return conn
+
+    def _connectToStorageNode(self, node):
+        if self.master_conn is None:
+            raise NEOPrimaryMasterLost
+        conn = MTClientConnection(self, self.storage_event_handler, node,
+                                  dispatcher=self.dispatcher)
+        p = Packets.RequestIdentification(NodeTypes.CLIENT,
+            self.uuid, None, self.name, (), self.id_timestamp)
+        try:
+            self._ask(conn, p, handler=self.storage_bootstrap_handler)
+        except ConnectionClosed:
+            logging.error('Connection to %r failed', node)
+        except NodeNotReady:
+            logging.info('%r not ready', node)
+        else:
+            logging.info('Connected %r', node)
+            # Make sure this node will be considered for the next reads
+            # even if there was a previous recent failure.
+            self._node_failure_dict.pop(node.getUUID(), None)
+            return conn
+        self._node_failure_dict[node.getUUID()] = time.time() + MAX_FAILURE_AGE
+
+    def getCellSortKey(self, cell, random=random.random):
+        # Prefer a node that didn't fail recently.
+        failure = self._node_failure_dict.get(cell.getUUID())
+        if failure:
+            if time.time() < failure:
+                # Or order by date of connection failure.
+                return failure
+            # Do not use 'del' statement: we didn't lock, so another
+            # thread might have removed uuid from _node_failure_dict.
+            self._node_failure_dict.pop(cell.getUUID(), None)
+        # A random one, connected or not, is a trivial and quite efficient way
+        # to distribute the load evenly. On write accesses, a client connects
+        # to all nodes of touched cells, but before that, or if a client is
+        # specialized to only do read-only accesses, it should not limit
+        # itself to only use the first connected nodes.
+        return random()
+
     def registerDB(self, db, limit):
         self._db = db
 
@@ -274,7 +328,6 @@ class Application(ThreadedApplication):
         return int(u64(self.last_oid))
 
     def _askStorageForRead(self, object_id, packet, askStorage=None):
-        cp = self.cp
         pt = self.pt
         # BBB: On Py2, it can be a subclass of bytes (binary from zodbpickle).
         if isinstance(object_id, bytes):
@@ -287,10 +340,10 @@ class Application(ThreadedApplication):
         failed = 0
         while 1:
             cell_list = pt.getCellList(object_id, True)
-            cell_list.sort(key=cp.getCellSortKey)
+            cell_list.sort(key=self.getCellSortKey)
             for cell in cell_list:
                 node = cell.getNode()
-                conn = cp.getConnForNode(node)
+                conn = self.getStorageConnection(node)
                 if conn is not None:
                     try:
                         return askStorage(conn, packet)
@@ -725,8 +778,8 @@ class Application(ThreadedApplication):
         # Ask storage the undo serial (serial at which object's previous data
         # is)
         getCellList = self.pt.getCellList
-        getCellSortKey = self.cp.getCellSortKey
-        getConnForNode = self.cp.getConnForNode
+        getCellSortKey = self.getCellSortKey
+        getConnForNode = self.getStorageConnection
         queue = self._thread_container.queue
         ttid = txn_context.ttid
         undo_object_tid_dict = {}
@@ -816,7 +869,7 @@ class Application(ThreadedApplication):
         packet = Packets.AskTIDs(first, last, INVALID_PARTITION)
         tid_set = set()
         for storage_node in self.pt.getNodeSet(True):
-            conn = self.cp.getConnForNode(storage_node)
+            conn = self.getStorageConnection(storage_node)
             if conn is None:
                 continue
             conn.ask(packet, queue=queue, tid_set=tid_set)
