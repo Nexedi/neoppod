@@ -15,9 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import thread, threading, weakref
-from . import logging
+from . import debug, logging
 from .app import BaseApplication
-from .debug import register as registerLiveDebugger
 from .dispatcher import Dispatcher
 from .locking import SimpleQueue
 
@@ -28,7 +27,10 @@ class app_set(weakref.WeakSet):
             app.log()
 
 app_set = app_set()
-registerLiveDebugger(app_set.on_log)
+
+def registerLiveDebugger():
+    debug.register(app_set.on_log)
+registerLiveDebugger()
 
 
 class ThreadContainer(threading.local):

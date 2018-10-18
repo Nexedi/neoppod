@@ -14,20 +14,35 @@ Topic :: Database
 Topic :: Software Development :: Libraries :: Python Modules
 """
 
-mock = 'neo/tests/mock.py'
-if not os.path.exists(mock):
-    import cStringIO, hashlib, subprocess, urllib, zipfile
-    x = 'pythonmock-0.1.0.zip'
+def get3rdParty(name, tag, url, h, extract=lambda content, name: content):
+    path = 'neo/tests/' + name
+    if os.path.exists(path):
+        return
+    import hashlib, subprocess, urllib
     try:
-        x = subprocess.check_output(('git', 'cat-file', 'blob', x))
+        x = subprocess.check_output(('git', 'cat-file', 'blob', tag))
     except (OSError, subprocess.CalledProcessError):
-        x = urllib.urlopen(
-            'http://downloads.sf.net/sourceforge/python-mock/' + x).read()
-    mock_py = zipfile.ZipFile(cStringIO.StringIO(x)).read('mock.py')
-    if (hashlib.sha256(mock_py).hexdigest() !=
-        'c6ed26e4312ed82160016637a9b6f8baa71cf31a67c555d44045a1ef1d60d1bc'):
-        raise EnvironmentError("SHA checksum mismatch downloading 'mock.py'")
-    open(mock, 'w').write(mock_py)
+        x = urllib.urlopen(url).read()
+    x = extract(x, name)
+    if hashlib.sha256(x).hexdigest() != h:
+        raise EnvironmentError("SHA checksum mismatch downloading '%s'" % name)
+    with open(path, 'wb') as f:
+        f.write(x)
+
+def unzip(content, name):
+    import io, zipfile
+    return zipfile.ZipFile(io.BytesIO(content)).read(name)
+
+x = 'pythonmock-0.1.0.zip'
+get3rdParty('mock.py', x,
+    'http://downloads.sf.net/sourceforge/python-mock/' + x,
+    'c6ed26e4312ed82160016637a9b6f8baa71cf31a67c555d44045a1ef1d60d1bc',
+    unzip)
+
+x = 'ConflictFree.py'
+get3rdParty(x, '3rdparty/' + x, 'https://lab.nexedi.com/nexedi/erp5'
+    '/raw/14b0fcdcc31c5791646f9590678ca028f5d221f5/product/ERP5Type/' + x,
+    'abb7970856540fd02150edd1fa9a3a3e8d0074ec526ab189684ef7ea9b41825f')
 
 zodb_require = ['ZODB3>=3.10dev']
 
@@ -42,6 +57,9 @@ extras_require = {
 }
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
     'neoppod[%s]' % ', '.join(extras_require)]
+extras_require['stress'] = ['NetfilterQueue', 'gevent', 'neoppod[tests]',
+    'cython-zstd', # recommended (log rotation)
+    ]
 
 try:
     from docutils.core import publish_string

@@ -14,11 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import traceback
-import signal
-import imp
-import os
-import sys
+import errno, imp, os, signal, socket, sys, traceback
 from functools import wraps
 import neo
 
@@ -82,9 +78,55 @@ def winpdb(depth=0):
             os.abort()
 
 def register(on_log=None):
-    if on_log is not None:
-        @safe_handler
-        def on_log_signal(signum, signal):
-            on_log()
-        signal.signal(signal.SIGRTMIN+2, on_log_signal)
-    signal.signal(signal.SIGRTMIN+3, debugHandler)
+    try:
+        if on_log is not None:
+            @safe_handler
+            def on_log_signal(signum, signal):
+                on_log()
+            signal.signal(signal.SIGRTMIN+2, on_log_signal)
+        signal.signal(signal.SIGRTMIN+3, debugHandler)
+    except ValueError: # signal only works in main thread
+        pass
+
+
+class PdbSocket(object):
+
+    def __init__(self, socket):
+        # In case that the default timeout is not None.
+        socket.settimeout(None)
+        self._socket = socket
+        self._buf = ''
+
+    def close(self):
+        self._socket.close()
+
+    def write(self, data):
+        self._socket.send(data)
+
+    def readline(self):
+        recv = self._socket.recv
+        data = self._buf
+        while True:
+            i = 1 + data.find('\n')
+            if i:
+                self._buf = data[i:]
+                return data[:i]
+            d = recv(4096)
+            data += d
+            if not d:
+                self._buf = ''
+                return data
+
+    def flush(self):
+        pass
+
+    def closed(self):
+        self._socket.setblocking(0)
+        try:
+            self._socket.recv(0)
+            return True
+        except socket.error, (err, _):
+            if err != errno.EAGAIN:
+                raise
+            self._socket.setblocking(1)
+            return False

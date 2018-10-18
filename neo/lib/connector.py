@@ -34,6 +34,7 @@ class SocketConnector(object):
     is_closed = is_server = None
     connect_limit = {}
     CONNECT_LIMIT = 1
+    KEEPALIVE = 60, 3, 10
     SOMAXCONN = 5 # for threaded tests
 
     def __new__(cls, addr, s=None):
@@ -66,9 +67,10 @@ class SocketConnector(object):
         # The following 3 lines are specific to Linux. It seems that OSX
         # has similar options (TCP_KEEPALIVE/TCP_KEEPINTVL/TCP_KEEPCNT),
         # and Windows has SIO_KEEPALIVE_VALS (fixed count of 10).
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+        idle, cnt, intvl = self.KEEPALIVE
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, idle)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, cnt)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, intvl)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         # disable Nagle algorithm to reduce latency
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)

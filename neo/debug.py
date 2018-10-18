@@ -45,49 +45,11 @@ if IF == 'pdb':
           #('ZPublisher.Publish', 'publish_module_standard'),
          )
 
-    import errno, socket, threading, weakref
-    # Unfortunately, IPython does not always print to given stdout.
-    #from neo.lib.debug import getPdb
+    import socket, threading, weakref
+    from neo.lib.debug import PdbSocket
+    # We don't use the one from neo.lib.debug because unfortunately,
+    # IPython does not always print to given stdout.
     from pdb import Pdb as getPdb
-
-    class Socket(object):
-
-        def __init__(self, socket):
-            # In case that the default timeout is not None.
-            socket.settimeout(None)
-            self._socket = socket
-            self._buf = ''
-
-        def write(self, data):
-            self._socket.send(data)
-
-        def readline(self):
-            recv = self._socket.recv
-            data = self._buf
-            while True:
-                i = 1 + data.find('\n')
-                if i:
-                    self._buf = data[i:]
-                    return data[:i]
-                d = recv(4096)
-                data += d
-                if not d:
-                    self._buf = ''
-                    return data
-
-        def flush(self):
-            pass
-
-        def closed(self):
-            self._socket.setblocking(0)
-            try:
-                self._socket.recv(0)
-                return True
-            except socket.error, (err, _):
-                if err != errno.EAGAIN:
-                    raise
-                self._socket.setblocking(1)
-            return False
 
     def pdb():
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -98,7 +60,7 @@ if IF == 'pdb':
             s.listen(0)
             print 'Listening to %u' % s.getsockname()[1]
             sys.stdout.flush() # BBB: On Python 3, print() takes a 'flush' arg.
-            _socket = Socket(s.accept()[0])
+            _socket = PdbSocket(s.accept()[0])
         finally:
             s.close()
         try:
@@ -155,9 +117,12 @@ if IF == 'pdb':
     if BP:
         setupBreakPoints(BP)
     else:
-        threading.Thread(target=pdb).start()
+        threading.Thread(target=pdb, name='pdb').start()
 
 elif IF == 'frames':
+    # WARNING: Because of https://bugs.python.org/issue17094, the output is
+    #          usually incorrect for subprocesses started by the functional
+    #          test framework.
     import traceback
     write = sys.stderr.write
     for thread_id, frame in sys._current_frames().iteritems():

@@ -86,8 +86,6 @@ SSL = SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"
 logging.default_root_handler.handle = lambda record: None
 
 debug.register()
-# prevent "signal only works in main thread" errors in subprocesses
-debug.register = lambda on_log=None: None
 
 def mockDefaultValue(name, function):
     def method(self, *args, **kw):

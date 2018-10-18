@@ -118,7 +118,7 @@ class PortAllocator(object):
 class Process(object):
 
     _coverage_fd = None
-    _coverage_prefix = os.path.join(getTempDirectory(), 'coverage-')
+    _coverage_prefix = None
     _coverage_index = 0
     on_fork = [logging.resetNids]
     pid = 0
@@ -147,6 +147,9 @@ class Process(object):
         if coverage:
             cls = self.__class__
             cls._coverage_index += 1
+            if not cls._coverage_prefix:
+                cls._coverage_prefix = os.path.join(
+                    getTempDirectory(), 'coverage-')
             coverage_data_path = cls._coverage_prefix + str(cls._coverage_index)
         self._coverage_fd, w = os.pipe()
         def save_coverage(*args):
@@ -293,6 +296,10 @@ class NEOProcess(Process):
           Note: for this change to take effect, the node must be restarted.
         """
         self.uuid = uuid
+
+    @property
+    def logfile(self):
+        return self.arg_dict['logfile']
 
 class NEOCluster(object):
 
@@ -485,14 +492,15 @@ class NEOCluster(object):
                 except (AlreadyStopped, NodeProcessError):
                     pass
 
-    def getZODBStorage(self, **kw):
-        master_nodes = self.master_nodes.replace('/', ' ')
+    def getClientConfig(self, **kw):
+        kw['name'] = self.cluster_name
+        kw['master_nodes'] = self.master_nodes.replace('/', ' ')
         if self.SSL:
             kw['ca'], kw['cert'], kw['key'] = self.SSL
-        result = Storage(
-            master_nodes=master_nodes,
-            name=self.cluster_name,
-            **kw)
+        return kw
+
+    def getZODBStorage(self, **kw):
+        result = Storage(**self.getClientConfig(**kw))
         result.app.max_reconnection_to_master = 10
         self.zodb_storage_list.append(result)
         return result
