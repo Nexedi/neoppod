@@ -38,7 +38,7 @@ class ClientServiceHandler(MasterHandler):
         """
         app = self.app
         # Delay new transaction as long as we are waiting for NotifyReady
-        # answers, otherwise we can know if the client is expected to commit
+        # answers, otherwise we can't know if the client is expected to commit
         # the transaction in full to all these storage nodes.
         if app.storage_starting_set:
             raise DelayEvent
