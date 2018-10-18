@@ -66,7 +66,7 @@ class Application(BaseApplication):
                 if node.isConnected(True):
                     node.getConnection().close()
             self._node.setUUID(uuid)
-            logging.node(self.name, uuid)
+        logging.node(self.name, uuid)
     uuid = property(lambda self: self._node.getUUID(), setUUID)
 
     @property
@@ -109,6 +109,7 @@ class Application(BaseApplication):
             self.nm.createMaster(address=master_address)
         self._node = self.nm.createMaster(address=self.server,
                                           uuid=config.get('uuid'))
+        logging.node(self.name, self.uuid)
 
         logging.debug('IP address is %s, port is %d', *self.server)
 

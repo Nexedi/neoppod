@@ -120,6 +120,7 @@ class Process(object):
     _coverage_fd = None
     _coverage_prefix = os.path.join(getTempDirectory(), 'coverage-')
     _coverage_index = 0
+    on_fork = [logging.resetNids]
     pid = 0
 
     def __init__(self, command, *args, **kw):
@@ -184,6 +185,8 @@ class Process(object):
                 os.write(w, '\0')
                 sys.argv = [command] + args
                 setproctitle(self.command)
+                for on_fork in self.on_fork:
+                    on_fork()
                 self.run()
                 status = 0
             except SystemExit, e:
@@ -720,6 +723,7 @@ class NEOFunctionalTest(NeoTestBase):
 
     def setupLog(self):
         logging.setup(os.path.join(self.getTempDirectory(), 'test.log'))
+        logging.resetNids()
 
     def getTempDirectory(self):
         # build the full path based on test case and current test method

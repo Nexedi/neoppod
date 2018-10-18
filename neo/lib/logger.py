@@ -319,6 +319,10 @@ class NEOLogger(Logger):
             self.info('Node ID: %s', uuid_str(cluster_nid[1]))
             self._nid_dict[name] = cluster_nid
 
+    @property
+    def resetNids(self):
+        return self._nid_dict.clear
+
 
 logging = NEOLogger()
 signal.signal(signal.SIGRTMIN, lambda signum, frame: logging.flush())

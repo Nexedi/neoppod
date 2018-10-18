@@ -54,6 +54,7 @@ class Application(BaseApplication):
         # partitions.
         self.pt = None
         self.uuid = config.get('uuid')
+        logging.node(self.name, self.uuid)
         self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)
         self.cluster_state = None
