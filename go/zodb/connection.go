@@ -50,6 +50,7 @@ type Connection struct {
 	txn  transaction.Transaction // opened under this txn; nil if idle in DB pool.
 	at   Tid                     // current view of database; stable inside a transaction.
 
+	// XXX document it is only a cache - i.e. this is only partial mapping, not for whole db
 	// {} oid -> obj
 	//
 	// rationale:
