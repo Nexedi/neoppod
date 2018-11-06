@@ -2364,6 +2364,114 @@ class Test(NEOThreadedTest):
         self.assertFalse(end)
         self.assertPartitionTable(cluster, 'UU|UU')
 
+    @with_cluster(start_cluster=0, storage_count=2, replicas=1)
+    def testLocklessWriteDuringConflictResolution(self, cluster):
+        """
+        This test reproduces a scenario during which the storage node didn't
+        check for conflicts when notifying the master that a partition is
+        replicated. The consequence was that it kept having write locks in a
+        weird state, relying on replicas to do the checking. While this may
+        work in itself, the code was hazardous and the client can't easily
+        discard such "positive" answers, or process them early enough.
+
+        The scenario focuses on transaction t1 (storing object A)
+        and node s1 (initially replicating the only partition):
+        1. t1 stores: conflict on s0, lockless write on s1
+        2. t2 stores: locked on s0, lockless write on s1
+        3. t1 resolves: deadlock on s0, packet to s1 delayed
+        4. t2 commits: on s1, a single lockless write remains and the storage
+           node notifies the master that it is UP_TO_DATE
+        5. s1 receives the second store from t1: answer delayed
+        6. t2 begins a new transaction
+        7. t1 resolves the deadlock: conflict on s0, s1 asks to rebase
+        8. t2 stores and vote
+        9. s0 down
+        10. while t2 finishes, t1 starts solving the conflict and due to the
+            way packets are processed, it proceeds as follows:
+          a. answer in step 5 is received but not processed
+          b. data asked, but not for the last serial
+             (so there will be yet another conflict to solve)
+          c. new data is stored: client waiting for s1
+          d. answer in step 5 is processed
+
+        What happened before:
+        4. t1 still has the lock
+        5. locked ("Transaction storing more than once")
+        10d. store considered successful, and the data won't be there anymore
+             for the actual conflict
+        -> assertion failure
+
+        Now that the storage nodes discards lockless writes that actually
+        conflict:
+        4. t1 does not have the lock anymore
+        5. conflict
+        10d. ignored (conflict already resolved)
+        -> transaction aborted normally
+        """
+        s0, s1 = cluster.storage_list
+        cluster.start(storage_list=(s0,))
+        t1, c1 = cluster.getTransaction()
+        x1 = c1.root()[''] = PCounterWithResolution()
+        t1.commit()
+        x1.value += 1
+        with cluster.newClient(1) as db, ConnectionFilter() as f:
+            delayReplication = f.delayAnswerFetchObjects()
+            delayed = []
+            delayStore = f.delayAskStoreObject(lambda conn:
+                conn.uuid in delayed and
+                self.getConnectionApp(conn) is cluster.client)
+            delayStored = f.delayAnswerStoreObject(lambda conn:
+                conn.uuid == cluster.client.uuid and
+                self.getConnectionApp(conn).uuid in delayed)
+            def load(orig, oid, at_tid, before_tid):
+                if delayed:
+                    p.revert()
+                    f.remove(delayStored)
+                    s0.stop()
+                    cluster.join((s0,))
+                    self.tic()
+                return orig(oid, at_tid, before_tid)
+            s1.start()
+            self.tic()
+            cluster.neoctl.enableStorageList([s1.uuid])
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            t2, c2 = cluster.getTransaction(db)
+            x2 = c2.root()['']
+            x2.value += 2
+            t2.commit()
+            x2.value += 4
+            def tic1(*args, **kw):
+                yield 1
+                self.tic()
+            def t1_resolve(*args, **kw):
+                delayed.append(s1.uuid)
+                f.remove(delayReplication)
+                self.tic()
+                yield 1
+                self.tic()
+            def t2_begin(*args, **kw):
+                f.remove(delayStore)
+                yield 0
+            @self.newPausedThread
+            def commit2():
+                t2.commit()
+                x2.value += 8
+                t2.commit()
+            with Patch(cluster.client, _loadFromStorage=load) as p, \
+                 self.thread_switcher((commit2,),
+                (1, 0, tic1, 0, t1_resolve, 1, t2_begin, 0, 1, 1, 0),
+                ('tpc_begin', 'tpc_begin', 1, 1, 1, 'StoreTransaction',
+                 'tpc_begin', 'RebaseTransaction', 'RebaseTransaction', 1,
+                 'StoreTransaction')) as end:
+                self.assertRaisesRegexp(NEOStorageError,
+                                        '^partition 0 not fully write-locked$',
+                                        t1.commit)
+                commit2.join()
+        t1.begin()
+        self.assertEqual(x1.value, 14)
+        self.assertPartitionTable(cluster, 'OU')
+
     @with_cluster(partitions=2, storage_count=2)
     def testUnstore(self, cluster):
         """

@@ -178,11 +178,21 @@ class TransactionManager(EventQueue):
                 self._app.master_conn.send(Packets.NotifyReplicationDone(
                     partition, replicated[partition]))
                 replicated[partition] = None
-            for oid, ttid in store_lock_dict.iteritems():
-                if getPartition(oid) in notify:
-                    # Use 'discard' instead of 'remove', for oids that were
-                    # locked after that the partition was replicated.
-                    self._transaction_dict[ttid].lockless.discard(oid)
+            for oid in [oid for oid in store_lock_dict
+                            if getPartition(oid) in notify]:
+                ttid = store_lock_dict.pop(oid)
+                txn = self._transaction_dict[ttid]
+                # Use 'discard' instead of 'remove', for oids that were
+                # locked after that the partition was replicated.
+                txn.lockless.discard(oid)
+                try:
+                    locked = self.lockObject(ttid, txn.serial_dict[oid], oid)
+                except ConflictError:
+                    self._unstore(txn, oid)
+                except (DelayEvent, NonReadableCell), e: # pragma: no cover
+                    raise AssertionError(e)
+                else:
+                    assert locked, (oid, ttid, txn)
 
     def register(self, conn, ttid):
         """
@@ -277,7 +287,7 @@ class TransactionManager(EventQueue):
                 self.lockObject(ttid, serial, oid)
             except ConflictError:
                 recheck_set.add(oid)
-            except Exception, e: # pragma: no cover
+            except (DelayEvent, NonReadableCell), e: # pragma: no cover
                 raise AssertionError(e)
         return recheck_set
 
