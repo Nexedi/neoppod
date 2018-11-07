@@ -35,7 +35,7 @@ from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
     Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
-from .. import expectedFailure, unpickle_state, Patch, TransactionalResource
+from .. import unpickle_state, Patch, TransactionalResource
 from . import ClientApplication, ConnectionFilter, LockLock, NEOCluster, \
     NEOThreadedTest, RandomConflictDict, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
@@ -175,9 +175,9 @@ class Test(NEOThreadedTest):
         with Patch(PCounterWithResolution, _p_resolveConflict=resolve):
             self.assertEqual(self._testUndoConflict(cluster, 1, 3).x, big)
 
-    @expectedFailure(POSException.ConflictError)
     @with_cluster()
     def testUndoConflictDuringStore(self, cluster):
+        with self.expectedFailure(POSException.ConflictError): \
         self._testUndoConflict(cluster, 1)
 
     def testStorageDataLock(self, dedup=False):
@@ -247,7 +247,8 @@ class Test(NEOThreadedTest):
         s.resetNode()
         storage.app.max_reconnection_to_master = 0
         self.assertRaises(NEOPrimaryMasterLost, storage.tpc_vote, t1)
-        expectedFailure(self.assertFalse)(s.dm.getOrphanList())
+        with self.expectedFailure(): \
+        self.assertFalse(s.dm.getOrphanList())
 
     @with_cluster(storage_count=1)
     def testDelayedUnlockInformation(self, cluster):
@@ -2636,8 +2637,8 @@ class Test(NEOThreadedTest):
             self.assertEqual(1, len(getStorageList()))
         with Patch(EventHandler, protocolError=lambda *_: sys.exit()):
             self.tic()
-        expectedFailure(self.assertEqual)(neoctl.getClusterState(),
-                                          ClusterStates.RUNNING)
+        with self.expectedFailure(): \
+        self.assertEqual(neoctl.getClusterState(), ClusterStates.RUNNING)
         self.assertEqual({1: NodeStates.RUNNING, 2: NodeStates.RUNNING},
             {x[2]: x[3] for x in neoctl.getNodeList(NodeTypes.STORAGE)})
 

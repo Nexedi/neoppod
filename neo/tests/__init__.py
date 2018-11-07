@@ -28,6 +28,7 @@ import weakref
 import MySQLdb
 import transaction
 
+from contextlib import contextmanager
 from ConfigParser import SafeConfigParser
 from cStringIO import StringIO
 try:
@@ -214,6 +215,14 @@ class NeoTestBase(unittest.TestCase):
         self.assertEqual(
             expected if isinstance(expected, str) else '|'.join(expected),
             '|'.join(pt._formatRows(sorted(pt.count_dict, key=key))))
+
+    @contextmanager
+    def expectedFailure(self, exception=AssertionError, regex=None):
+        with self.assertRaisesRegexp(exception, regex) as cm:
+            yield
+            raise _UnexpectedSuccess
+        # XXX: passing sys.exc_info() causes deadlocks
+        raise _ExpectedFailure((type(cm.exception), None, None))
 
 class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """

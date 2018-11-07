@@ -32,7 +32,7 @@ from neo.lib.connection import ClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import add64, p64, u64
-from .. import expectedFailure, Patch, TransactionalResource
+from .. import Patch, TransactionalResource
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
     predictable_random, with_cluster
 from .test import PCounter, PCounterWithResolution # XXX
@@ -682,7 +682,8 @@ class ReplicationTests(NEOThreadedTest):
         s0.start()
         self.tic()
         self.assertEqual(2, s0.sqlCount('obj'))
-        expectedFailure(self.assertEqual)(2, count)
+        with self.expectedFailure(): \
+        self.assertEqual(2, count)
 
     @with_cluster(replicas=1)
     def testResumingReplication(self, cluster):
