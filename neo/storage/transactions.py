@@ -580,24 +580,22 @@ class TransactionManager(EventQueue):
                 # Lockless store (we are replicating this partition),
                 # or unresolved deadlock.
                 continue
-            if ttid != write_locking_tid:
-                if __debug__:
-                    other = self._transaction_dict[write_locking_tid]
-                    x = (oid, ttid, write_locking_tid,
-                         self._replicated, transaction.lockless)
-                lockless = oid in transaction.lockless
-                # If there were multiple lockless writes, lockless can be
-                # False (after a rebase) whereas the partition is still not
-                # notified as replicated.
-                assert oid in other.serial_dict and not (lockless and
-                    not self._replicated.get(self.getPartition(oid))), x
-                if not lockless:
+            if ttid == write_locking_tid:
+                del self._store_lock_dict[oid]
+            elif __debug__:
+                other = self._transaction_dict[write_locking_tid]
+                x = (oid, ttid, write_locking_tid,
+                     self._replicated, transaction.lockless)
+                assert oid in other.serial_dict, x
+                if oid in transaction.lockless:
+                    # Several lockless stores for this oid and among them,
+                    # a higher ttid is still pending.
+                    assert transaction < other, x
+                    # There may remain a single lockless store so we'll need
+                    # this partition to be checked in _notifyReplicated.
+                    assert self._replicated.get(self.getPartition(oid)), x
+                else: # unresolved deadlock
                     assert not locked, x
-                    continue # unresolved deadlock
-                # Several lockless stores for this oid and among them,
-                # a higher ttid is still pending.
-                assert transaction < other, x
-            del self._store_lock_dict[oid]
         # remove the transaction
         del self._transaction_dict[ttid]
         if self._replicated:
