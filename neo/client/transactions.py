@@ -105,22 +105,15 @@ class Transaction(object):
         # conflict. Because we have no way to identify such case, we must keep
         # the data in self.data_dict until all nodes have answered so we remain
         # able to resolve conflicts.
+        data, serial, uuid_list = self.data_dict[oid]
         try:
-            data, serial, uuid_list = self.data_dict[oid]
             uuid_list.remove(uuid)
-        except KeyError:
-            # 1. store to S1 and S2
-            # 2. S2 reports a conflict
-            # 3. store to S1 and S2 # conflict resolution
-            # 4. S1 does not report a conflict (lockless)
-            # 5. S2 answers before S1 for the second store
-            return
         except ValueError:
             # The most common case for this exception is because nodeLost()
-            # tries all oids blindly. Other possible cases:
-            # - like above (KeyError), but with S2 answering last
-            # - answer to resolved conflict before the first answer from a
-            #   node that was being disconnected by the master
+            # tries all oids blindly.
+            # Another possible case is when we receive several positive answers
+            # from a node that is being disconnected by the master, whereas the
+            # first one (at least) should actually be conflict answer.
             return
         if lockless:
             if lockless != serial: # late lockless write
