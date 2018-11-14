@@ -19,6 +19,7 @@ from ZODB.POSException import StorageTransactionError
 from neo.lib.connection import ConnectionClosed
 from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import Packets
+from neo.lib.util import dump
 from .exception import NEOStorageError
 
 @apply
@@ -51,6 +52,15 @@ class Transaction(object):
         self.resolved_dict = {}             # {oid: serial}
         # involved storage nodes; connection is None is connection was lost
         self.conn_dict = {}                 # {node_id: connection}
+
+    def __repr__(self):
+        error = self.error
+        return ("<%s ttid=%s locking_tid=%s voted=%u"
+                " #queue=%s #writing=%s #written=%s%s>") % (
+            self.__class__.__name__,
+            dump(self.ttid), dump(self.locking_tid), self.voted,
+            len(self.queue._queue), len(self.data_dict), len(self.cache_dict),
+            ' error=%r' % error if error else '')
 
     def wakeup(self, conn):
         self.queue.put((conn, _WakeupPacket, {}))

@@ -123,6 +123,8 @@ class Application(ThreadedApplication):
     def log(self):
         super(Application, self).log()
         logging.info("%r", self._cache)
+        for txn_context in self._txn_container.itervalues():
+            logging.info("%r", txn_context)
 
     @property
     def txn_contexts(self):
