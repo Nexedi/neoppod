@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import defaultdict
 from .locking import Lock, Empty
 EMPTY = {}
 NOBODY = []
@@ -33,25 +34,17 @@ class Dispatcher:
     """Register a packet, connection pair as expecting a response packet."""
 
     def __init__(self):
-        self.message_table = {}
-        self.queue_dict = {}
+        self.message_table = defaultdict(dict)
+        self.queue_dict = defaultdict(int)
         self.lock = Lock()
 
-    def _decrefQueue(self, queue):
-        queue_id = id(queue)
+    def _decrefQueue(self, queue_id):
         queue_dict = self.queue_dict
-        if queue_dict[queue_id] == 1:
-            queue_dict.pop(queue_id)
+        count = queue_dict.get(queue_id) - 1
+        if count:
+            queue_dict[queue_id] = count
         else:
-            queue_dict[queue_id] -= 1
-
-    def _increfQueue(self, queue):
-        queue_id = id(queue)
-        queue_dict = self.queue_dict
-        try:
-            queue_dict[queue_id] += 1
-        except KeyError:
-            queue_dict[queue_id] = 1
+            del queue_dict[queue_id]
 
     # For poll thread (connection lock already taken).
 
@@ -68,7 +61,7 @@ class Dispatcher:
             # Queue before decref so that pending() does not need to lock
             # (imagine it's called between the following 2 lines).
             queue.put((conn, packet, kw))
-            self._decrefQueue(queue)
+            self._decrefQueue(id(queue))
         return True
 
     def unregister(self, conn):
@@ -86,15 +79,15 @@ class Dispatcher:
                 if queue_id not in notified_set:
                     queue.put((conn, _ConnectionClosed, EMPTY))
                     notified_set.add(queue_id)
-                _decrefQueue(queue)
+                _decrefQueue(queue_id)
 
     # For worker threads.
 
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply."""
         with self.lock:
-            self.message_table.setdefault(id(conn), {})[msg_id] = queue
-            self._increfQueue(queue)
+            self.message_table[id(conn)][msg_id] = queue
+            self.queue_dict[id(queue)] += 1
 
     def forget_queue(self, queue, flush_queue=True):
         """
