@@ -37,20 +37,6 @@ class Dispatcher:
         self.queue_dict = {}
         self.lock = Lock()
 
-    def dispatch(self, conn, msg_id, packet, kw):
-        """
-        Retrieve register-time provided queue, and put conn and packet in it.
-        """
-        with self.lock:
-            queue = self.message_table.get(id(conn), EMPTY).pop(msg_id, None)
-            if queue is None:
-                return False
-            elif queue is NOBODY:
-                return True
-            self._decrefQueue(queue)
-            queue.put((conn, packet, kw))
-        return True
-
     def _decrefQueue(self, queue):
         queue_id = id(queue)
         queue_dict = self.queue_dict
@@ -67,11 +53,23 @@ class Dispatcher:
         except KeyError:
             queue_dict[queue_id] = 1
 
-    def register(self, conn, msg_id, queue):
-        """Register an expectation for a reply."""
+    # For poll thread (connection lock already taken).
+
+    def dispatch(self, conn, msg_id, packet, kw):
+        """
+        Retrieve register-time provided queue, and put conn and packet in it.
+        """
         with self.lock:
-            self.message_table.setdefault(id(conn), {})[msg_id] = queue
-            self._increfQueue(queue)
+            queue = self.message_table.get(id(conn), EMPTY).pop(msg_id, None)
+            if queue is None:
+                return False
+            elif queue is NOBODY:
+                return True
+            # Queue before decref so that pending() does not need to lock
+            # (imagine it's called between the following 2 lines).
+            queue.put((conn, packet, kw))
+            self._decrefQueue(queue)
+        return True
 
     def unregister(self, conn):
         """ Unregister a connection and put fake packet in queues to unlock
@@ -84,10 +82,19 @@ class Dispatcher:
                 if queue is NOBODY:
                     continue
                 queue_id = id(queue)
+                # decref after like in dispatch()
                 if queue_id not in notified_set:
                     queue.put((conn, _ConnectionClosed, EMPTY))
                     notified_set.add(queue_id)
                 _decrefQueue(queue)
+
+    # For worker threads.
+
+    def register(self, conn, msg_id, queue):
+        """Register an expectation for a reply."""
+        with self.lock:
+            self.message_table.setdefault(id(conn), {})[msg_id] = queue
+            self._increfQueue(queue)
 
     def forget_queue(self, queue, flush_queue=True):
         """
@@ -97,7 +104,6 @@ class Dispatcher:
         flush_queue (boolean, default=True)
             All packets in queue get flushed.
         """
-        # XXX: expensive lookup: we iterate over the whole dict
         found = 0
         with self.lock:
             for message_table in self.message_table.itervalues():
@@ -105,21 +111,20 @@ class Dispatcher:
                     if queue is t_queue:
                         found += 1
                         message_table[msg_id] = NOBODY
-            refcount = self.queue_dict.pop(id(queue), 0)
-            assert refcount == found, (refcount, found)
-            if flush_queue:
-                get = queue.get
-                while True:
-                    try:
-                        get(block=False)
-                    except Empty:
-                        break
-
-    def registered(self, conn):
-        """Check if a connection is registered into message table."""
-        return len(self.message_table.get(id(conn), EMPTY)) != 0
+        # No other thread is going to handle this queue
+        # so we don't need the lock anymore.
+        refcount = self.queue_dict.pop(id(queue), 0)
+        assert refcount == found, (refcount, found)
+        if flush_queue:
+            get = queue.get
+            while True:
+                try:
+                    get(block=False)
+                except Empty:
+                    break
 
     def pending(self, queue):
-        with self.lock:
-            return not queue.empty() or self.queue_dict.get(id(queue), 0) > 0
+        # Check queue_dict first so that we don't need to lock
+        # (imagine other methods are called between the 2 conditions).
+        return self.queue_dict.get(id(queue), 0) > 0 or not queue.empty()
 

@@ -589,6 +589,11 @@ class ClientApplication(Node, neo.client.app.Application):
                 conn.setReconnectionNoDelay()
                 conn.close()
 
+    def registeredInDispatcher(self, conn):
+        """Check if a connection is registered into message table."""
+        return bool(self.dispatcher.message_table.get(id(conn)))
+
+
 class NeoCTL(neo.neoctl.app.NeoCTL):
 
     def __init__(self, *args, **kw):

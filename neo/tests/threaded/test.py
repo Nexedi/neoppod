@@ -614,7 +614,7 @@ class Test(NEOThreadedTest):
             # XXX: the test originally checked that 'unregister' method
             #      was called (even if it's useless in this case),
             #      but we would need an API to do that easily.
-            self.assertFalse(cluster.client.dispatcher.registered(conn))
+            self.assertFalse(cluster.client.registeredInDispatcher(conn))
 
     @with_cluster(replicas=2)
     def test_notifyPartitionChanges(self, cluster):
