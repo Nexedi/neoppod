@@ -127,8 +127,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
             for oid in oid_list:
                 invalidate(oid, tid)
                 if oid == loading:
-                    app._loading_oid = None
-                    app._loading_invalidated = tid
+                    app._loading_invalidated.append(tid)
             db = app.getDB()
             if db is not None:
                 db.invalidate(tid, oid_list)

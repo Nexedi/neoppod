@@ -410,8 +410,16 @@ class Application(ThreadedApplication):
                 if result:
                     return result
                 self._loading_oid = oid
+                self._loading_invalidated = []
             finally:
                 release()
+            # While the cache lock is released, an arbitrary number of
+            # invalidations may be processed, for this oid or not. And at this
+            # precise moment, if both tid and before_tid are None (which is
+            # unlikely to happen with recent ZODB), self.last_tid can be any
+            # new tid. Since we can get any serial from storage, fixing
+            # next_tid requires to keep a list of all possible serials.
+
             # When not bound to a ZODB Connection, load() may be the
             # first method called and last_tid may still be None.
             # This happens, for example, when opening the DB.
@@ -423,12 +431,11 @@ class Application(ThreadedApplication):
             acquire()
             try:
                 if self._loading_oid:
-                    # Common case (no race condition).
-                    self._cache.store(oid, data, tid, next_tid)
-                elif self._loading_invalidated:
-                    # oid has just been invalidated.
                     if not next_tid:
-                        next_tid = self._loading_invalidated
+                        for t in self._loading_invalidated:
+                            if tid < t:
+                                next_tid = t
+                                break
                     self._cache.store(oid, data, tid, next_tid)
                 # Else, we just reconnected to the master.
             finally:

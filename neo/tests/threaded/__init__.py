@@ -26,6 +26,7 @@ from zlib import decompress
 import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
+from neo.admin.handler import MasterEventHandler
 from neo.client import Storage
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, \
@@ -36,6 +37,7 @@ from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import uuid_str, \
     ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
+from neo.master.recovery import  RecoveryManager
 from .. import (getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch,
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER)
@@ -119,9 +121,12 @@ class Serialized(object):
     detect which node has a readable epoll object.
     """
     check_timeout = False
+    _disabled = False
 
     @classmethod
     def init(cls):
+        if cls._disabled:
+            return
         cls._busy = set()
         cls._busy_cond = threading.Condition(threading.Lock())
         cls._epoll = select.epoll()
@@ -138,6 +143,8 @@ class Serialized(object):
 
     @classmethod
     def stop(cls):
+        if cls._disabled:
+            return
         assert not cls._fd_dict, ("file descriptor leak (%r)\nThis may happen"
             " when a test fails, in which case you can see the real exception"
             " by disabling this one." % cls._fd_dict)
@@ -147,6 +154,25 @@ class Serialized(object):
     @classmethod
     def _sort_key(cls, fd_event):
         return -cls._fd_dict[fd_event[0]]._last
+
+    @classmethod
+    @contextmanager
+    def until(cls, patched=None, **patch):
+        if cls._disabled:
+            if patched is None:
+                yield int
+            else:
+                l = threading.Lock()
+                l.acquire()
+                (name, patch), = patch.iteritems()
+                def release():
+                    p.revert()
+                    l.release()
+                with Patch(patched, **{name: lambda *args, **kw:
+                        patch(release, *args, **kw)}) as p:
+                    yield l.acquire
+        else:
+            yield cls.tic
 
     @classmethod
     @contextmanager
@@ -174,6 +200,10 @@ class Serialized(object):
             #      We also increase SocketConnector.SOMAXCONN in tests so that
             #      a connection attempt is never delayed inside the kernel.
             timeout=0):
+        if cls._disabled:
+            if timeout:
+                time.sleep(timeout)
+            return
         # If you're in a pdb here, 'n' switches to another thread
         # (the following lines are not supposed to be debugged into)
         with cls._tic_lock, cls.pdb():
@@ -208,6 +238,8 @@ class Serialized(object):
                 cls._sched_lock.acquire()
 
     def __init__(self, app, busy=True):
+        if self._disabled:
+            return
         self._epoll = app.em.epoll
         app.em.epoll = self
         # XXX: It may have been initialized before the SimpleQueue is patched.
@@ -360,7 +392,8 @@ class ServerNode(Node):
         finally:
             self._afterRun()
             logging.debug('stopping %r', self)
-            self.em.epoll.exit()
+            if isinstance(self.em.epoll, Serialized):
+                self.em.epoll.exit()
 
     def _afterRun(self):
         try:
@@ -427,7 +460,8 @@ class ClientApplication(Node, neo.client.app.Application):
         try:
             super(ClientApplication, self)._run()
         finally:
-            self.em.epoll.exit()
+            if isinstance(self.em.epoll, Serialized):
+                self.em.epoll.exit()
 
     def start(self):
         isinstance(self.em.epoll, Serialized) or Serialized(self)
@@ -616,6 +650,8 @@ class NEOCluster(object):
 
     def __init__(orig, self): # temporary definition for SimpleQueue patch
         orig(self)
+        if Serialized._disabled:
+            return
         lock = self._lock
         def _lock(blocking=True):
             if blocking:
@@ -765,22 +801,41 @@ class NEOCluster(object):
         self.started = True
         self._patch()
         self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
-        for node in self.master_list if master_list is None else master_list:
-            node.start()
-        for node in self.admin_list:
-            node.start()
-        Serialized.tic()
+        if master_list is None:
+            master_list = self.master_list
         if storage_list is None:
             storage_list = self.storage_list
-        for node in storage_list:
-            node.start()
-        Serialized.tic()
-        if recovering:
-            expected_state = ClusterStates.RECOVERING
-        else:
-            self.startCluster()
-            Serialized.tic()
-            expected_state = ClusterStates.RUNNING, ClusterStates.BACKINGUP
+        def answerPartitionTable(release, orig, *args):
+            orig(*args)
+            release()
+        def dispatch(release, orig, handler, *args):
+            orig(handler, *args)
+            node_list = handler.app.nm.getStorageList(only_identified=True)
+            if len(node_list) == len(storage_list) and not any(
+                    node.getConnection().isPending() for node in node_list):
+                release()
+        expected_state = (ClusterStates.RECOVERING,) if recovering else (
+            ClusterStates.RUNNING, ClusterStates.BACKINGUP)
+        def notifyClusterInformation(release, orig, handler, conn, state):
+            orig(handler, conn, state)
+            if state in expected_state:
+                release()
+        with Serialized.until(MasterEventHandler,
+                answerPartitionTable=answerPartitionTable) as tic1, \
+             Serialized.until(RecoveryManager, dispatch=dispatch) as tic2, \
+             Serialized.until(MasterEventHandler,
+                notifyClusterInformation=notifyClusterInformation) as tic3:
+            for node in master_list:
+                node.start()
+            for node in self.admin_list:
+                node.start()
+            tic1()
+            for node in storage_list:
+                node.start()
+            tic2()
+            if not recovering:
+                self.startCluster()
+                tic3()
         self.checkStarted(expected_state, storage_list)
 
     def checkStarted(self, expected_state, storage_list=None):
@@ -1120,12 +1175,16 @@ def predictable_random(seed=None):
         return wraps(wrapped)(wrapper)
     return decorator
 
-def with_cluster(start_cluster=True, **cluster_kw):
+def with_cluster(serialized=True, start_cluster=True, **cluster_kw):
     def decorator(wrapped):
         def wrapper(self, *args, **kw):
-            with NEOCluster(**cluster_kw) as cluster:
-                if start_cluster:
-                    cluster.start()
-                return wrapped(self, cluster, *args, **kw)
+            try:
+                Serialized._disabled = not serialized
+                with NEOCluster(**cluster_kw) as cluster:
+                    if start_cluster:
+                        cluster.start()
+                    return wrapped(self, cluster, *args, **kw)
+            finally:
+                Serialized._disabled = False
         return wraps(wrapped)(wrapper)
     return decorator

@@ -37,7 +37,7 @@ from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
     Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
 from .. import unpickle_state, Patch, TransactionalResource
 from . import ClientApplication, ConnectionFilter, LockLock, NEOCluster, \
-    NEOThreadedTest, RandomConflictDict, ThreadId, with_cluster
+    NEOThreadedTest, RandomConflictDict, Serialized, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.transactions import Transaction
@@ -978,6 +978,45 @@ class Test(NEOThreadedTest):
             # enough view of the DB.
             self.assertFalse(invalidations(c1))
             self.assertEqual(x1.value, 1)
+
+    @with_cluster(serialized=False)
+    def testExternalInvalidation2(self, cluster):
+        t, c = cluster.getTransaction()
+        r = c.root()
+        x = r[''] = PCounter()
+        t.commit()
+        tid1 = x._p_serial
+        nonlocal_ = [0, 1]
+        l1 = threading.Lock(); l1.acquire()
+        l2 = threading.Lock(); l2.acquire()
+        def invalidateObjects(orig, *args):
+            if not nonlocal_[0]:
+                l1.acquire()
+            orig(*args)
+            nonlocal_[0] += 1
+            if nonlocal_[0] == 2:
+                l2.release()
+        def _cache_lock_release(orig):
+            orig()
+            if nonlocal_[1]:
+                nonlocal_[1] = 0
+                l1.release()
+                l2.acquire()
+        with cluster.newClient() as client, \
+              Patch(client.notifications_handler,
+                    invalidateObjects=invalidateObjects):
+            client.sync()
+            with cluster.master.filterConnection(client) as mc2:
+                mc2.delayInvalidateObjects()
+                x._p_changed = 1
+                t.commit()
+                tid2 = x._p_serial
+                self.assertEqual((tid1, tid2), client.load(x._p_oid)[1:])
+            r._p_changed = 1
+            t.commit()
+            with Patch(client, _cache_lock_release=_cache_lock_release):
+                self.assertEqual((tid2, None), client.load(x._p_oid)[1:])
+        self.assertEqual(nonlocal_, [2, 0])
 
     @with_cluster(storage_count=2, partitions=2)
     def testReadVerifyingStorage(self, cluster):
