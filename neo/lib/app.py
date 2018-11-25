@@ -101,3 +101,8 @@ class BaseApplication(object):
         self.nm.close()
         self.em.close()
         self.__dict__.clear()
+
+    def setUUID(self, uuid):
+        if self.uuid != uuid:
+            self.uuid = uuid
+            logging.node(self.name, uuid)

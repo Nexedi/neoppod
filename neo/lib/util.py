@@ -23,6 +23,20 @@ from Queue import deque
 from struct import pack, unpack, Struct
 from time import gmtime
 
+# https://stackoverflow.com/a/6163157
+def nextafter():
+    global nextafter
+    from ctypes import CDLL, util as ctypes_util, c_double
+    from time import time
+    _libm = CDLL(ctypes_util.find_library('m'))
+    nextafter = _libm.nextafter
+    nextafter.restype = c_double
+    nextafter.argtypes = c_double, c_double
+    x = time()
+    y = nextafter(x, float('inf'))
+    assert x < y and (x+y)/2 in (x,y), (x, y)
+nextafter()
+
 TID_LOW_OVERFLOW = 2**32
 TID_LOW_MAX = TID_LOW_OVERFLOW - 1
 SECOND_PER_TID_LOW = 60.0 / TID_LOW_OVERFLOW

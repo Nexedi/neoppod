@@ -81,6 +81,11 @@ class BackupApplication(object):
         self.nm.close()
         del self.__dict__
 
+    def setUUID(self, uuid):
+        if self.uuid != uuid:
+            self.uuid = uuid
+            logging.info('Upstream Node ID: %s', uuid_str(uuid))
+
     def log(self):
         self.nm.log()
         if self.pt is not None:

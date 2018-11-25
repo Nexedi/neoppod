@@ -19,8 +19,7 @@ from collections import deque
 
 from neo.lib import logging
 from neo.lib.app import BaseApplication, buildOptionParser
-from neo.lib.protocol import uuid_str, \
-    CellStates, ClusterStates, NodeTypes, Packets
+from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, Packets
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import StoppedOperation, PrimaryFailure
 from neo.lib.pt import PartitionTable
@@ -122,6 +121,7 @@ class Application(BaseApplication):
         # force node uuid from command line argument, for testing purpose only
         if 'uuid' in config:
             self.uuid = config['uuid']
+            logging.node(self.name, self.uuid)
 
         registerLiveDebugger(on_log=self.log)
 
@@ -157,6 +157,7 @@ class Application(BaseApplication):
 
         # load configuration
         self.uuid = dm.getUUID()
+        logging.node(self.name, self.uuid)
         num_partitions = dm.getNumPartitions()
         num_replicas = dm.getNumReplicas()
         ptid = dm.getPTID()
@@ -169,7 +170,6 @@ class Application(BaseApplication):
             self.pt = PartitionTable(num_partitions, num_replicas)
 
         logging.info('Configuration loaded:')
-        logging.info('UUID      : %s', uuid_str(self.uuid))
         logging.info('PTID      : %s', dump(ptid))
         logging.info('Name      : %s', self.name)
         logging.info('Partitions: %s', num_partitions)
@@ -254,9 +254,7 @@ class Application(BaseApplication):
                                      self.devpath)
         self.master_node, self.master_conn, num_partitions, num_replicas = \
             bootstrap.getPrimaryConnection()
-        uuid = self.uuid
-        logging.info('I am %s', uuid_str(uuid))
-        self.dm.setUUID(uuid)
+        self.dm.setUUID(self.uuid)
 
         # Reload a partition table from the database. This is necessary
         # when a previous primary master died while sending a partition

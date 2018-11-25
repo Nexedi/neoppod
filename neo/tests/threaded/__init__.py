@@ -1027,6 +1027,7 @@ class NEOThreadedTest(NeoTestBase):
         self.__run_count[test_id] = 1 + i
         if i:
             test_id += '-%s' % i
+        logging._nid_dict.clear()
         logging.setup(os.path.join(getTempDirectory(), test_id + '.log'))
         return LoggerThreadName()
 

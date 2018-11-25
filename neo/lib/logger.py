@@ -22,6 +22,9 @@ from time import time
 from traceback import format_exception
 import bz2, inspect, neo, os, signal, sqlite3, sys, threading
 
+from .util import nextafter
+INF = float('inf')
+
 # Stats for storage node of matrix test (py2.7:SQLite)
 RECORD_SIZE = ( 234360832 # extra memory used
               - 16777264  # sum of raw data ('msg' attribute)
@@ -59,9 +62,8 @@ class NEOLogger(Logger):
         self.parent = root = getLogger()
         if not root.handlers:
             root.addHandler(self.default_root_handler)
-        self._db = None
-        self._record_queue = deque()
-        self._record_size = 0
+        self.__reset()
+        self._nid_dict = {}
         self._async = set()
         l = threading.Lock()
         self._acquire = l.acquire
@@ -74,6 +76,12 @@ class NEOLogger(Logger):
                 release()
         self._release = _release
         self.backlog()
+
+    def __reset(self):
+        self._db = None
+        self._node = {}
+        self._record_queue = deque()
+        self._record_size = 0
 
     def __enter__(self):
         self._acquire()
@@ -149,9 +157,7 @@ class NEOLogger(Logger):
         if self._db is not None:
             self._db.close()
             if not filename:
-                self._db = None
-                self._record_queue.clear()
-                self._record_size = 0
+                self.__reset()
                 return
         if filename:
             self._db = sqlite3.connect(filename, check_same_thread=False)
@@ -161,45 +167,52 @@ class NEOLogger(Logger):
             if 1: # Not only when logging everything,
                   # but also for interoperability with logrotate.
                 q("PRAGMA journal_mode = MEMORY")
-            if reset:
-                for t in 'log', 'packet':
+            for t, columns in (('log', (
+                                  "level INTEGER NOT NULL",
+                                  "pathname TEXT",
+                                  "lineno INTEGER",
+                                  "msg TEXT",
+                              )),
+                              ('packet', (
+                                  "msg_id INTEGER NOT NULL",
+                                  "code INTEGER NOT NULL",
+                                  "peer TEXT NOT NULL",
+                                  "body BLOB",
+                              ))):
+                if reset:
                     q('DROP TABLE IF EXISTS ' + t)
-            q("""CREATE TABLE IF NOT EXISTS log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    date REAL NOT NULL,
-                    name TEXT,
-                    level INTEGER NOT NULL,
-                    pathname TEXT,
-                    lineno INTEGER,
-                    msg TEXT)
-              """)
-            q("""CREATE INDEX IF NOT EXISTS _log_i1 ON log(date)""")
-            q("""CREATE TABLE IF NOT EXISTS packet (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    date REAL NOT NULL,
-                    name TEXT,
-                    msg_id INTEGER NOT NULL,
-                    code INTEGER NOT NULL,
-                    peer TEXT NOT NULL,
-                    body BLOB)
-              """)
-            q("""CREATE INDEX IF NOT EXISTS _packet_i1 ON packet(date)""")
+                    q('DROP TABLE IF EXISTS %s1' % t)
+                elif (2, 'name', 'TEXT', 0, None, 0) in q(
+                        "PRAGMA table_info(%s)" % t):
+                    q("ALTER TABLE %s RENAME TO %s1" % (t, t))
+                columns = (
+                    "date REAL PRIMARY KEY",
+                    "node INTEGER",
+                ) + columns
+                q("CREATE TABLE IF NOT EXISTS %s (\n  %s) WITHOUT ROWID"
+                  % (t, ',\n  '.join(columns)))
             q("""CREATE TABLE IF NOT EXISTS protocol (
-                    date REAL PRIMARY KEY NOT NULL,
-                    text BLOB NOT NULL)
+                    date REAL PRIMARY KEY,
+                    text BLOB NOT NULL) WITHOUT ROWID
+              """)
+            q("""CREATE TABLE IF NOT EXISTS node (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT,
+                    cluster TEXT,
+                    nid INTEGER)
               """)
             with open(inspect.getsourcefile(p)) as p:
                 p = buffer(bz2.compress(p.read()))
-            for t, in q("SELECT text FROM protocol ORDER BY date DESC"):
-                if p == t:
-                    break
-            else:
+            x = q("SELECT text FROM protocol ORDER BY date DESC LIMIT 1"
+                ).fetchone()
+            if (x and x[0]) != p:
                 try:
-                    t = self._record_queue[0].created
+                    x = self._record_queue[0].created
                 except IndexError:
-                    t = time()
-                with self._db:
-                    q("INSERT INTO protocol VALUES (?,?)", (t, p))
+                    x = time()
+                q("INSERT INTO protocol VALUES (?,?)", (x, p))
+                self._db.commit()
+            self._node = {x[1:]: x[0] for x in q("SELECT * FROM node")}
 
     def setup(self, filename=None, reset=False):
         with self:
@@ -217,6 +230,20 @@ class NEOLogger(Logger):
         return True
 
     def _emit(self, r):
+        try:
+            nid = self._node[r._node]
+        except KeyError:
+            if r._node == (None, None, None):
+                nid = None
+            else:
+                try:
+                    nid = 1 + max(x for x in self._node.itervalues()
+                                    if x is not None)
+                except ValueError:
+                    nid = 0
+                self._db.execute("INSERT INTO node VALUES (?,?,?,?)",
+                    (nid,) + r._node)
+            self._node[r._node] = nid
         if type(r) is PacketRecord:
             ip, port = r.addr
             peer = ('%s %s ([%s]:%s)' if ':' in ip else '%s %s (%s:%s)') % (
@@ -224,15 +251,22 @@ class NEOLogger(Logger):
             msg = r.msg
             if msg is not None:
                 msg = buffer(msg)
-            self._db.execute("INSERT INTO packet VALUES (NULL,?,?,?,?,?,?)",
-                (r.created, r._name, r.msg_id, r.code, peer, msg))
+            q = "INSERT INTO packet VALUES (?,?,?,?,?,?)"
+            x = [r.created, nid, r.msg_id, r.code, peer, msg]
         else:
             pathname = os.path.relpath(r.pathname, *neo.__path__)
-            self._db.execute("INSERT INTO log VALUES (NULL,?,?,?,?,?,?)",
-                (r.created, r._name, r.levelno, pathname, r.lineno, r.msg))
+            q = "INSERT INTO log VALUES (?,?,?,?,?,?)"
+            x = [r.created, nid, r.levelno, pathname, r.lineno, r.msg]
+        while 1:
+            try:
+                self._db.execute(q, x)
+                break
+            except sqlite3.IntegrityError:
+                x[0] = nextafter(x[0], INF)
 
     def _queue(self, record):
-        record._name = self.name and str(self.name)
+        name = self.name and str(self.name)
+        record._node = (name,) + self._nid_dict.get(name, (None, None))
         self._acquire()
         try:
             if self._max_size is None:
@@ -276,6 +310,14 @@ class NEOLogger(Logger):
                 uuid=connection.getUUID(),
                 addr=connection.getAddress(),
                 msg=body))
+
+    def node(self, *cluster_nid):
+        name = self.name and str(self.name)
+        prev = self._nid_dict.get(name)
+        if prev != cluster_nid:
+            from .protocol import uuid_str
+            self.info('Node ID: %s', uuid_str(cluster_nid[1]))
+            self._nid_dict[name] = cluster_nid
 
 
 logging = NEOLogger()

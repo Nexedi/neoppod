@@ -21,7 +21,7 @@ from time import time
 from neo.lib import logging, util
 from neo.lib.app import BaseApplication, buildOptionParser
 from neo.lib.debug import register as registerLiveDebugger
-from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID
+from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.handler import EventHandler
 from neo.lib.connection import ListeningConnection, ClientConnection
@@ -58,7 +58,7 @@ class Application(BaseApplication):
     backup_app = None
     truncate_tid = None
 
-    def uuid(self, uuid):
+    def setUUID(self, uuid):
         node = self.nm.getByUUID(uuid)
         if node is not self._node:
             if node:
@@ -66,7 +66,8 @@ class Application(BaseApplication):
                 if node.isConnected(True):
                     node.getConnection().close()
             self._node.setUUID(uuid)
-    uuid = property(lambda self: self._node.getUUID(), uuid)
+            logging.node(self.name, uuid)
+    uuid = property(lambda self: self._node.getUUID(), setUUID)
 
     @property
     def election(self):
@@ -264,7 +265,6 @@ class Application(BaseApplication):
 
         if self.uuid is None:
             self.uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
-            logging.info('My UUID: ' + uuid_str(self.uuid))
         self._node.setRunning()
         self._node.id_timestamp = None
         self.primary = monotonic_time()

@@ -19,6 +19,7 @@
 
 import argparse, bz2, gzip, errno, os, signal, sqlite3, sys, time
 from bisect import insort
+from itertools import chain
 from logging import getLevelName
 from zlib import decompress
 
@@ -26,16 +27,20 @@ comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat')
 
 class Log(object):
 
-    _log_id = _packet_id = -1
+    _log_date = _packet_date = 0
     _protocol_date = None
 
     def __init__(self, db_path, decode=0, date_format=None,
-                       filter_from=None, node_column=True, node_list=None):
+                       filter_from=None, show_cluster=False, no_nid=False,
+                       node_column=True, node_list=None):
         self._date_format = '%F %T' if date_format is None else date_format
         self._decode = decode
         self._filter_from = filter_from
+        self._no_nid = no_nid
         self._node_column = node_column
         self._node_list = node_list
+        self._node_dict = {}
+        self._show_cluster = show_cluster
         name = os.path.basename(db_path)
         try:
             name, ext = name.rsplit(os.extsep, 1)
@@ -57,35 +62,61 @@ class Log(object):
         self._default_name = name
 
     def __iter__(self):
-        db =  self._db
+        q = self._db.execute
         try:
-            db.execute("BEGIN")
+            q("BEGIN")
             yield
-            nl = "SELECT * FROM log WHERE id>?"
-            np = "SELECT * FROM packet WHERE id>?"
             date = self._filter_from
-            if date:
-                date = " AND date>=%f" % date
-                nl += date
-                np += date
-            nl = db.execute(nl, (self._log_id,))
-            np = db.execute(np, (self._packet_id,))
+            if date and max(self._log_date, self._packet_date) < date:
+                log_args = packet_args = date,
+                date = " WHERE date>=?"
+            else:
+                self._filter_from = None
+                log_args = self._log_date,
+                packet_args = self._packet_date,
+                date = " WHERE date>?"
+            old = "SELECT date, name, NULL, NULL, %s FROM %s" + date
+            new = ("SELECT date, name, cluster, nid, %s"
+                   " FROM %s JOIN node ON node=id" + date)
+            log = 'level, pathname, lineno, msg'
+            pkt = 'msg_id, code, peer, body'
+            try:
+                nl = q(new % (log, 'log'), log_args)
+            except sqlite3.OperationalError:
+                nl = q(old % (log, 'log'), log_args)
+                np = q(old % (pkt, 'packet'), packet_args)
+            else:
+                np = q(new % (pkt, 'packet'), packet_args)
+                try:
+                    nl = chain(q(old % (log, 'log1'), log_args), nl)
+                    np = chain(q(old % (pkt, 'packet1'), packet_args), np)
+                except sqlite3.OperationalError:
+                    pass
             try:
                 p = np.next()
-                self._reload(p[1])
+                self._reload(p[0])
             except StopIteration:
                 p = None
-            for self._log_id, date, name, level, pathname, lineno, msg in nl:
-                while p and p[1] < date:
+            for date, name, cluster, nid, level, pathname, lineno, msg in nl:
+                while p and p[0] < date:
                     yield self._packet(*p)
-                    p = np.fetchone()
-                yield date, name, getLevelName(level), msg.splitlines()
+                    p = next(np, None)
+                self._log_date = date
+                yield (date, self._node(name, cluster, nid),
+                       getLevelName(level), msg.splitlines())
             if p:
                 yield self._packet(*p)
                 for p in np:
                     yield self._packet(*p)
         finally:
-            db.rollback()
+            self._db.rollback()
+
+    def _node(self, name, cluster, nid):
+        if nid and not self._no_nid:
+            name = self.uuid_str(nid)
+            if self._show_cluster:
+                name = cluster + '/' + name
+        return name
 
     def _reload(self, date):
         q = self._db.execute
@@ -143,8 +174,8 @@ class Log(object):
         for msg in msg_list:
             print prefix + msg
 
-    def _packet(self, id, date, name, msg_id, code, peer, body):
-        self._packet_id = id
+    def _packet(self, date, name, cluster, nid, msg_id, code, peer, body):
+        self._packet_date = date
         if self._next_protocol <= date:
             self._reload(date)
         try:
@@ -174,7 +205,7 @@ class Log(object):
                             args = self._decompress(args, path)
                     if args and self._decode:
                         msg[0] += ' \t| ' + repr(args)
-        return date, name, 'PACKET', msg
+        return date, self._node(name, cluster, nid), 'PACKET', msg
 
     def _decompress(self, args, path):
         if args:
@@ -250,6 +281,11 @@ def main():
              ' if N < 0; N can also be a string that is parseable by dateutil')
     _('file', nargs='+',
         help='log file, compressed (gz, bz2 or xz) or not')
+    _ = parser.add_mutually_exclusive_group().add_argument
+    _('-C', '--cluster', action="store_true",
+        help='show cluster name in node column')
+    _('-N', '--no-nid', action="store_true",
+        help='always show node name (instead of NID) in node column')
     args = parser.parse_args()
     if args.sleep_interval <= 0:
         parser.error("sleep_interval must be positive")
@@ -275,7 +311,8 @@ def main():
         node_column = True
     log_list = [Log(db_path,
                     2 if args.decompress else 1 if args.all else 0,
-                    args.date, filter_from, node_column, node_list)
+                    args.date, filter_from, args.cluster, args.no_nid,
+                    node_column, node_list)
                 for db_path in args.file]
     if args.follow:
         try:
