@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -218,7 +218,7 @@ const (
 	zIterPreloaded                        // data for this iteration was already preloaded
 )
 
-// NextTxn iterates to next/previous transaction record according to iteration direction
+// NextTxn iterates to next/previous transaction record according to iteration direction.
 func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, error) {
 	// TODO err -> OpError("iter", tidmin..tidmax)
 	switch {
@@ -246,7 +246,7 @@ func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, 
 	return &zi.iter.Txnh.TxnInfo, zi, nil
 }
 
-// NextData iterates to next data record and loads data content
+// NextData iterates to next data record and loads data content.
 func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
 	// TODO err -> OpError("iter", tidmin..tidmax)
 	err := zi.iter.NextData()
@@ -370,7 +370,7 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 	return txnhFound, nil
 }
 
-// Iterate creates zodb-level iterator for tidMin..tidMax range
+// Iterate creates zodb-level iterator for tidMin..tidMax range.
 func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	// when iterating use IO optimized for sequential access
 	fsSeq := seqReadAt(fs.file)

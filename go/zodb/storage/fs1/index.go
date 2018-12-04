@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -83,7 +83,7 @@ const (
 	posValidMask   uint64   = 1<<48 - 1                 // 0x0000ffffffffffff
 )
 
-// IndexSaveError is the error type returned by index save routines
+// IndexSaveError is the error type returned by index save routines.
 type IndexSaveError struct {
 	Err error // error that occurred during the operation
 }
@@ -92,7 +92,7 @@ func (e *IndexSaveError) Error() string {
 	return "index save: " + e.Err.Error()
 }
 
-// Save saves index to a writer
+// Save saves index to a writer.
 func (fsi *Index) Save(w io.Writer) (err error) {
 	defer func() {
 		if err == nil {
@@ -201,7 +201,7 @@ func (fsi *Index) SaveFile(path string) error {
 	return nil
 }
 
-// IndexLoadError is the error type returned by index load routines
+// IndexLoadError is the error type returned by index load routines.
 type IndexLoadError struct {
 	Filename string // present if used IO object was with .Name()
 	Pos      int64
@@ -220,7 +220,7 @@ func (e *IndexLoadError) Error() string {
 	return s
 }
 
-// LoadIndex loads index from a reader
+// LoadIndex loads index from a reader.
 func LoadIndex(r io.Reader) (fsi *Index, err error) {
 	var picklePos int64
 	defer func() {
@@ -388,7 +388,7 @@ func treeEqual(a, b *fsb.Tree) bool {
 
 // --- build index from FileStorage data ---
 
-// IndexUpdateProgress is data sent by Index.Update to notify about progress
+// IndexUpdateProgress is data sent by Index.Update to notify about progress.
 type IndexUpdateProgress struct {
 	TopPos     int64  // data range to update to; if = -1 -- till EOF
 	TxnIndexed int    // # transactions read/indexed so far
@@ -410,8 +410,9 @@ type IndexUpdateProgress struct {
 // which position in data the index could be updated.
 //
 // On success returned error is nil and index.TopPos is set to either:
-// - topPos (if it is != -1), or
-// - r's position at which read got EOF (if topPos=-1).
+//
+//	- topPos (if it is != -1), or
+//	- r's position at which read got EOF (if topPos=-1).
 func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, progress func(*IndexUpdateProgress)) (err error) {
 	defer xerr.Contextf(&err, "%sreindex %v..%v", ioprefix(r), index.TopPos, topPos)
 
@@ -553,7 +554,7 @@ func indexCorrupt(f interface{}, format string, argv ...interface{}) *IndexCorru
 	return &IndexCorruptError{DataFileName: ioname(f), Detail: fmt.Sprintf(format, argv...)}
 }
 
-// IndexVerifyProgress is data sent by Index.Verify to notify about progress
+// IndexVerifyProgress is data sent by Index.Verify to notify about progress.
 type IndexVerifyProgress struct {
 	TxnTotal   int                   // total # of transactions to verify; if = -1 -- whole data
 	TxnChecked int
@@ -575,8 +576,9 @@ type IndexVerifyProgress struct {
 // exactly the same as if it was build anew for data in range ..index.TopPos .
 //
 // Returned error is either:
-// - of type *IndexCorruptError, when data in index was found not to match original data, or
-// - any other error type representing e.g. IO error when reading original data or something else.
+//
+//	- of type *IndexCorruptError, when data in index was found not to match original data, or
+//	- any other error type representing e.g. IO error when reading original data or something else.
 func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int, progress func(*IndexVerifyProgress)) (oidChecked map[zodb.Oid]struct{}, err error) {
 	defer func() {
 		if _, ok := err.(*IndexCorruptError); ok {
@@ -672,7 +674,7 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int, progres
 	return oidChecked, nil
 }
 
-// VerifyForFile checks index correctness against FileStorage data in file @ path
+// VerifyForFile checks index correctness against FileStorage data in file @ path.
 //
 // See Verify for semantic description.
 func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int, progress func(*IndexVerifyProgress)) (oidChecked map[zodb.Oid]struct{}, err error) {
