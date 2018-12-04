@@ -486,6 +486,10 @@ func (c *Client) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxn
 	panic("TODO")
 }
 
+func (c *Client) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
+	panic("TODO")
+}
+
 
 // ---- ZODB open/url support ----
 

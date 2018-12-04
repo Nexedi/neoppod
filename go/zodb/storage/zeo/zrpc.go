@@ -54,18 +54,20 @@ var protoVersions = []string{
 
 // zLink is ZEO connection between client (local end) and server (remote end).
 //
-// zLink provides service to make RPC requests.
-// XXX and receive notification from server (server sends invalidations)
+// zLink provides service to make and receive RPC requests.
 //
 // create zLink via dialZLink or handshake.
 type zLink struct {
 	link  net.Conn		// underlying network
 	rxbuf rbuf.RingBuf	// buffer for reading from link
 
-	// calls in-flight
+	// our in-flight calls
 	callMu  sync.Mutex
 	callTab map[int64]chan msg // msgid -> rxc for that call; nil when closed
 	callID  int64              // ID for next call; incremented at every call
+
+	// methods peer can invoke
+	methTab map[string]func(interface{})
 
 	serveWg	 sync.WaitGroup	// for serveRecv
 	down1    sync.Once
@@ -98,6 +100,8 @@ func (zl *zLink) shutdown(err error) {
 		for _, rxc := range callTab {
 			rxc <- msg{arg: nil} // notify link was closed	XXX ok? or err explicitly?
 		}
+
+		// XXX close watcher
 	})
 }
 
@@ -138,24 +142,33 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 		return err
 	}
 
-	if m.method != ".reply" {
-		// TODO add notification channel (server calls client by itself")
-		return fmt.Errorf(".%d: method=%q; expected \".reply\"", m.msgid, m.method)
+	// "invalidateTransaction", tid, oidv
+
+	if m.method == ".reply" {
+		// lookup call by msgid and dispatch result to waiter
+		zl.callMu.Lock()
+		rxc := zl.callTab[m.msgid]
+		if rxc != nil {
+			delete(zl.callTab, m.msgid)
+		}
+		zl.callMu.Unlock()
+
+		if rxc == nil {
+			return fmt.Errorf(".%d: unexpected reply", m.msgid)
+		}
+
+		rxc <- m
+		return nil
 	}
 
-	// lookup call by msgid and dispatch result to waiter
-	zl.callMu.Lock()
-	rxc := zl.callTab[m.msgid]
-	if rxc != nil {
-		delete(zl.callTab, m.msgid)
-	}
-	zl.callMu.Unlock()
 
-	if rxc == nil {
-		return fmt.Errorf(".%d: unexpected reply", m.msgid)
+	// XXX currently only async/ no other flags handled
+	f := zl.methTab[m.method]
+	if f == nil {
+		return fmt.Errorf(".%d: unknown method=%q", m.msgid, m.method)
 	}
 
-	rxc <- m
+	f(m.arg)
 	return nil
 }
 
@@ -216,7 +229,7 @@ func pktDecode(pkb *pktBuf) (msg, error) {
 }
 
 
-// call makes 1 RPC call to server, waits for reply and returns it.
+// Call makes 1 RPC call to server, waits for reply and returns it.
 func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, _ error) {
 	// defer func() ...
 	reply, err := zl._call(ctx, method, argv...)
@@ -268,6 +281,12 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 	return reply, nil
 }
 
+// RegisterMethod registers f to be called when remote	XXX
+// FIXME -> provide methodTable to dial, so that it is available right from start without any race
+func (zl *zLink) RegisterMethod(method string, f func(arg interface{})) {
+	// XXX only "async" (without reply)
+	// XXX
+}
 
 // ---- raw IO ----
 

@@ -91,6 +91,9 @@ func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIte
 	panic("TODO")
 }
 
+func (z *zeo) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
+	panic("TODO")
+}
 
 // errorUnexpectedReply is returned by zLink.Call callers when reply was
 // received successfully, but is not what the caller expected.
@@ -307,7 +310,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (_ zodb.I
 		return nil, fmt.Errorf("TODO write mode not implemented")
 	}
 
-	zl, err := dialZLink(ctx, net, addr)
+	zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable
 	if err != nil {
 		return nil, err
 	}

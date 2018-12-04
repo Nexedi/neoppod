@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -32,12 +32,12 @@ import (
 	"lab.nexedi.com/kirr/go123/xbytes"
 )
 
-// FileHeader represents header of whole data file
+// FileHeader represents header of whole data file.
 type FileHeader struct {
 	Magic [4]byte
 }
 
-// TxnHeader represents header of a transaction record
+// TxnHeader represents header of a transaction record.
 type TxnHeader struct {
 	Pos     int64 // position of transaction start
 	LenPrev int64 // whole previous transaction record length (see EOF/error rules in Load)
@@ -52,7 +52,7 @@ type TxnHeader struct {
 	workMem []byte
 }
 
-// DataHeader represents header of a data record
+// DataHeader represents header of a data record.
 type DataHeader struct {
 	Pos        int64    // position of data record start
 	Oid        zodb.Oid
@@ -110,25 +110,26 @@ func (e *RecordError) Error() string {
 }
 
 
-// err creates RecordError for transaction located at txnh.Pos in f
+// err creates RecordError for transaction located at txnh.Pos in f.
 func (txnh *TxnHeader) err(f interface{}, subj string, err error) error {
 	return &RecordError{ioname(f), "transaction record", txnh.Pos, subj, err}
 }
 
 
-// err creates RecordError for data record located at dh.Pos in f
+// err creates RecordError for data record located at dh.Pos in f.
 func (dh *DataHeader) err(f interface{}, subj string, err error) error {
 	return &RecordError{ioname(f), "data record", dh.Pos, subj, err}
 }
 
 
 // ierr is an interface for something which can create errors.
+//
 // it is used by TxnHeader and DataHeader to create appropriate errors with their context.
 type ierr interface {
 	err(f interface{}, subj string, err error) error
 }
 
-// errf is syntactic shortcut for err and fmt.Errorf
+// errf is syntactic shortcut for err and fmt.Errorf.
 func errf(f interface{}, e ierr, subj, format string, a ...interface{}) error {
 	return e.err(f, subj, fmt.Errorf(format, a...))
 }
@@ -151,7 +152,7 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 	_, err := r.ReadAt(fh.Magic[:], 0)
 	err = okEOF(err)
 	if err != nil {
-		return err
+		return fmt.Errorf("%sread magic: %s", ioprefix(r), err)
 	}
 	if string(fh.Magic[:]) != Magic {
 		return fmt.Errorf("%sinvalid fs1 magic %q", ioprefix(r), fh.Magic)
@@ -169,12 +170,12 @@ func (txnh *TxnHeader) HeaderLen() int64 {
 	return TxnHeaderFixSize + int64(len(txnh.workMem))
 }
 
-// DataPos returns start position of data inside transaction record
+// DataPos returns start position of data inside transaction record.
 func (txnh *TxnHeader) DataPos() int64 {
 	return txnh.Pos + txnh.HeaderLen()
 }
 
-// DataLen returns length of all data inside transaction record container
+// DataLen returns length of all data inside transaction record container.
 func (txnh *TxnHeader) DataLen() int64 {
 	return txnh.Len - txnh.HeaderLen() - 8 /* trailer redundant length */
 }
@@ -329,7 +330,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	return err
 }
 
-// loadStrings makes sure strings that are part of transaction header are loaded
+// loadStrings makes sure strings that are part of transaction header are loaded.
 func (txnh *TxnHeader) loadStrings(r io.ReaderAt) error {
 	// XXX make it no-op if strings are already loaded?
 
@@ -659,7 +660,8 @@ func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 
 // LoadData loads data for the data record taking backpointers into account.
 //
-// NOTE on success dh state is changed to data header of original data transaction.
+// On success dh state is changed to data header of original data transaction.
+//
 // NOTE "deleted" records are indicated via returning buf with .Data=nil without error.
 func (dh *DataHeader) LoadData(r io.ReaderAt) (*mem.Buf, error) {
 	// scan via backpointers
@@ -686,7 +688,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt) (*mem.Buf, error) {
 
 // --- raw iteration ---
 
-// Iter is combined 2-level iterator over transaction and data records
+// Iter is combined 2-level iterator over transaction and data records.
 type Iter struct {
 	R   io.ReaderAt
 	Dir IterDir
@@ -728,13 +730,13 @@ func (it *Iter) NextTxn(flags TxnLoadFlags) error {
 	return err
 }
 
-// NextData iterates to next data record header inside current transaction
+// NextData iterates to next data record header inside current transaction.
 func (it *Iter) NextData() error {
 	return it.Datah.LoadNext(it.R, &it.Txnh)
 }
 
 
-// Iterate creates Iter to iterate over r starting from posStart in direction dir
+// Iterate creates Iter to iterate over r starting from posStart in direction dir.
 func Iterate(r io.ReaderAt, posStart int64, dir IterDir) *Iter {
 	it := &Iter{R: r, Dir: dir, Txnh: TxnHeader{Pos: posStart}}
 	switch dir {

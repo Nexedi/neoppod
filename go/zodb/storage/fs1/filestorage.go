@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -75,7 +75,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/mem"
-	"lab.nexedi.com/kirr/go123/xerr"
+//	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // FileStorage is a ZODB storage which stores data in simple append-only file
@@ -84,6 +84,11 @@ import (
 // It is on-disk compatible with FileStorage from ZODB/py.
 type FileStorage struct {
 	file  *os.File
+
+	// protects updates to index and to everything below - in other words
+	// to everything that depends on what current last transaction is.
+	mu sync.RWMutex
+
 	index *Index // oid -> data record position in transaction which last changed oid
 
 	// transaction headers for min/max transactions committed
@@ -96,12 +101,16 @@ type FileStorage struct {
 var _ zodb.IStorageDriver = (*FileStorage)(nil)
 
 func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
-	// XXX must be under lock
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+
 	return fs.txnhMax.Tid, nil // txnhMax.Tid = 0, if empty
 }
 
 func (fs *FileStorage) LastOid(_ context.Context) (zodb.Oid, error) {
-	// XXX must be under lock
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+
 	lastOid, _ := fs.index.Last() // returns zero-value, if empty
 	return lastOid, nil
 }
@@ -150,7 +159,9 @@ func (fs *FileStorage) Load_XXXWithNextSerialXXX(_ context.Context, xid zodb.Xid
 // FIXME kill nextSerial support after neo/py cache does not depend on next_serial
 func (fs *FileStorage) load(xid zodb.Xid) (buf *mem.Buf, serial, nextSerial zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction which changed this oid
+	fs.mu.RLock()
 	dataPos, ok := fs.index.Get(xid.Oid)
+	fs.mu.RUnlock()
 	if !ok {
 		return nil, 0, 0, &zodb.NoObjectError{Oid: xid.Oid}
 	}
@@ -231,7 +242,7 @@ const (
 	zIterPreloaded                        // data for this iteration was already preloaded
 )
 
-// NextTxn iterates to next/previous transaction record according to iteration direction
+// NextTxn iterates to next/previous transaction record according to iteration direction.
 func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, error) {
 	// TODO err -> OpError("iter", tidmin..tidmax)
 	switch {
@@ -259,7 +270,7 @@ func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, 
 	return &zi.iter.Txnh.TxnInfo, zi, nil
 }
 
-// NextData iterates to next data record and loads data content
+// NextData iterates to next data record and loads data content.
 func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
 	// TODO err -> OpError("iter", tidmin..tidmax)
 	err := zi.iter.NextData()
@@ -313,11 +324,12 @@ func (e *iterStartError) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIt
 //
 // if there is no such transaction returned error will be EOF.
 func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, error) {
-	// XXX read snapshot under lock
+	fs.mu.RLock()
 
 	// check for empty database
 	if fs.txnhMin.Len == 0 {
 		// empty database - no such record
+		fs.mu.RUnlock()
 		return TxnHeader{}, io.EOF
 	}
 
@@ -326,6 +338,8 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 	var tmin, tmax TxnHeader
 	tmin.CloneFrom(&fs.txnhMin)
 	tmax.CloneFrom(&fs.txnhMax)
+
+	fs.mu.RUnlock()
 
 	if tmax.Tid < tid {
 		return TxnHeader{}, io.EOF // no such record
@@ -383,7 +397,7 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 	return txnhFound, nil
 }
 
-// Iterate creates zodb-level iterator for tidMin..tidMax range
+// Iterate creates zodb-level iterator for tidMin..tidMax range.
 func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	// when iterating use IO optimized for sequential access
 	fsSeq := seqReadAt(fs.file)
@@ -421,10 +435,35 @@ func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.
 	return ziter
 }
 
+// --- watcher ---
+
+func (fs *FileStorage) watch() {
+	// XXX
+}
+
+func (fs *FileStorage) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
+	panic("TODO")
+}
+
 // --- open + rebuild index ---
 
-// open opens FileStorage without loading index
-func open(path string) (_ *FileStorage, err error) {
+func (fs *FileStorage) Close() error {
+	// XXX stop watcher
+
+	err := fs.file.Close()
+	if err != nil {
+		return &zodb.OpError{URL: fs.URL(), Op: "close", Args: nil, Err: err}
+	}
+
+	// TODO if opened !ro -> .saveIndex()
+
+	return nil
+}
+
+// Open opens FileStorage @path.
+//
+// TODO read-write support
+func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
 	fs := &FileStorage{}
 
 	f, err := os.Open(path)
@@ -438,6 +477,8 @@ func open(path string) (_ *FileStorage, err error) {
 		}
 	}()
 
+	// XXX wrap err with "open <path>" ?
+
 	// check file magic
 	fh := FileHeader{}
 	err = fh.Load(f)
@@ -445,131 +486,67 @@ func open(path string) (_ *FileStorage, err error) {
 		return nil, err
 	}
 
-	// FIXME rework opening logic to support case when last txn was committed only partially
-
-	// determine topPos from file size
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	topPos := fi.Size()
-
-	// read tidMin/tidMax
-	err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)
-	err = okEOF(err) // e.g. it is EOF when file is empty
-	if err != nil {
-		return nil, err
-	}
-	err = fs.txnhMax.Load(f, topPos, LoadAll)
-	// expect EOF forward
-	// FIXME ^^^ it will be no EOF if a txn was committed only partially
-	if err != io.EOF {
-		if err == nil {
-			err = fmt.Errorf("%s: no EOF after topPos", f.Name())
-		}
-		return nil, fmt.Errorf("%s: %s", f.Name(), err)
-	}
-
-	// .LenPrev must be good or EOF backward
-	switch fs.txnhMax.LenPrev {
-	case -1:
-		return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
-	case 0:
-		// ok - EOF backward
-
-	default:
-		// .LenPrev is ok - read last previous record
-		err = fs.txnhMax.LoadPrev(f, LoadAll)
+	// load index
+	fseq := seqReadAt(f)
+	index, err := LoadIndexFile(f.Name() + ".index")
+	if err == nil {
+		// index exists & loaded ok - quickly verify its sanity for last 100 transactions
+		_, err = index.Verify(ctx, fseq, 100, nil/*no progress*/)
 		if err != nil {
-			return nil, err
+			index = nil // not sane - we will rebuild
 		}
 	}
-
-	return fs, nil
-}
-
-// Open opens FileStorage @path.
-//
-// TODO read-write support
-func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
-	// open data file
-	fs, err := open(path)
 	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err != nil {
-			fs.file.Close() // XXX lclose
-		}
-	}()
-
-	// load-verify / rebuild index
-	err = fs.loadIndex(ctx)
-	if err != nil {
+		// index either did not exist, or corrupt or IO error - rebuild it from scratch
 		log.Print(err)
-		log.Printf("%s: index recompute...", path)
-		fs.index, err = fs.computeIndex(ctx)
+		log.Printf("%s: index rebuild...", path)
+		index, err = BuildIndex(ctx, fseq, nil/*no progress; XXX log it? */)
 		if err != nil {
 			return nil, err
 		}
-
-		// TODO if opened !ro -> .saveIndex()
 	}
 
-	return fs, nil
-}
-
-func (fs *FileStorage) Close() error {
-	err := fs.file.Close()
+	// index loaded. In particular this gives us index.TopPos that is, possibly
+	// outdated, valid position for start of a transaction in the data file.
+	// Update the index starting from that till latest transaction.
+	err = index.Update(ctx, fseq, -1, nil/*no progress; XXX log it? */)
 	if err != nil {
-		return &zodb.OpError{URL: fs.URL(), Op: "close", Args: nil, Err: err}
-	}
-
-	// TODO if opened !ro -> .saveIndex()
-
-	return nil
-}
-
-func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
-	// XXX lock?
-	return BuildIndex(ctx, seqReadAt(fs.file), nil/*no progress; XXX somehow log it? */)
-}
-
-// loadIndex loads on-disk index to RAM and verifies it against data lightly
-func (fs *FileStorage) loadIndex(ctx context.Context) (err error) {
-	// XXX lock?
-	defer xerr.Contextf(&err, "%s", fs.file.Name())
-
-	index, err := LoadIndexFile(fs.file.Name() + ".index")
-	if err != nil {
-		return err
-	}
-
-	topPos := fs.txnhMax.Pos + fs.txnhMax.Len
-	if index.TopPos != topPos {
-		return fmt.Errorf("inconsistent index topPos: data=%d  index=%d", topPos, index.TopPos)
-	}
-
-	// quickly verify index sanity for last 100 transactions
-	_, err = index.Verify(ctx, seqReadAt(fs.file), 100, nil/*no progress*/)
-	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fs.index = index
-	return nil
-}
 
-// saveIndex flushes in-RAM index to disk
-func (fs *FileStorage) saveIndex() (err error) {
-	// XXX lock?
-	defer xerr.Contextf(&err, "%s", fs.file.Name())
+	// now we have the index covering till last transaction in data file.
+	// fill-in min/max txnh
+	if index.TopPos > txnValidFrom {
+		err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)
+		err = noEOF(err)
+		if err != nil {
+			return nil, err
+		}
 
-	err = fs.index.SaveFile(fs.file.Name() + ".index")
-	if err != nil {
-		return err
+		_ = fs.txnhMax.Load(f, index.TopPos, LoadAll)
+		// NOTE it will be EOF on stable storage, but it might be non-EOF
+		// if a txn-in-progress was committed only partially. We care only
+		// that we read .LenPrev ok.
+		switch fs.txnhMax.LenPrev {
+		case -1:
+			return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
+		case 0:
+			return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction): unexpected EOF backward", f.Name(), fs.txnhMax.Pos)
+
+		default:
+			// .LenPrev is ok - read last previous record
+			err = fs.txnhMax.LoadPrev(f, LoadAll)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
-	// XXX fsync here?
-	return nil
+	// there might be simultaneous updates to the data file from outside.
+	// launch the watcher who will observe them.
+	//go fs.watcher()
+
+	return fs, nil
 }

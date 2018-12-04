@@ -323,11 +323,18 @@ func (e *OpError) Cause() error {
 
 // IStorage is the interface provided by opened ZODB storage.
 type IStorage interface {
-	IStorageDriver
+	//IStorageDriver
 
+	// same as in IStorageDriver
+	URL() string
+	Close() error
+	LastTid(context.Context) (Tid, error)
+	Loader
+	Iterator
+	// no watcher
+
+	// additional to IStorageDriver
 	Prefetcher
-	//Loader
-	//Iterator
 	//XXXNotifier() -> Notifier // dedicated notifier for every open?
 }
 
@@ -359,7 +366,9 @@ type IStorageDriver interface {
 
 	Loader
 	Iterator
+	Watcher
 
+/*
 	// Notifier returns storage driver notifier.
 	//
 	// The notifier represents invalidation channel (notify about changes
@@ -372,6 +381,7 @@ type IStorageDriver interface {
 	// XXX -> nil, if driver does not support notifications?
 	// XXX or always support them, even with FileStorage (inotify)?
 	//Notifier() Notifier
+*/
 }
 
 // Loader provides functionality to load objects.
@@ -435,6 +445,7 @@ type Committer interface {
 }
 
 
+/*
 // Notifier allows to be notified of changes made to database by other clients.
 type Notifier interface {
 
@@ -443,6 +454,16 @@ type Notifier interface {
 	// XXX ...
 	// XXX overflow -> special error
 	Read(ctx context.Context) (Tid, []Oid, error)
+}
+*/
+
+// Watcher allows to be notified of changes to database.
+type Watcher interface {
+
+	// Watch waits-for and returns next event corresponding to comitted transaction.
+	//
+	// XXX queue overflow -> special error?
+	Watch(ctx context.Context) (Tid, []Oid, error)
 }
 
 
