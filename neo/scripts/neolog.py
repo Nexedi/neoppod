@@ -273,8 +273,8 @@ def main():
         help='only show log entries from the given node'
              ' (only useful for logs produced by threaded tests),'
              " special value '-' hides the column")
-    _('-s', '--sleep-interval', type=float, default=1, metavar='N',
-        help='with -f, sleep for approximately N seconds (default 1.0)'
+    _('-s', '--sleep-interval', type=float, default=1., metavar='N',
+        help='with -f, sleep for approximately N seconds (default %(default)s)'
              ' between iterations')
     _('--from', dest='filter_from', metavar='N',
         help='show records more recent that timestamp N if N > 0, or now+N'
