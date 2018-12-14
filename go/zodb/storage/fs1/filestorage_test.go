@@ -20,15 +20,19 @@
 package fs1
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"reflect"
 	"testing"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/exc"
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // one database transaction record
@@ -340,4 +344,104 @@ func BenchmarkIterate(b *testing.B) {
 	}
 
 	b.StopTimer()
+}
+
+
+func TestWatch(t *testing.T) {
+	//xtesting.NeedPy(t, "zodbtools")
+	needZODBPy(t)
+	workdir := xworkdir(t)
+	tfs := workdir + "/t.fs"
+
+	// Object represents object state to be committed.
+	type Object struct {
+		oid  zodb.Oid
+		data string
+	}
+
+	// zcommit commits new transaction into tfs with data specified by objv.
+	zcommit := func(at zodb.Tid, objv ...Object) (_ zodb.Tid, err error) {
+		defer xerr.Contextf(&err, "zcommit @%s", at)
+
+		// prepare text input for `zodb commit`
+		zin := &bytes.Buffer{}
+		fmt.Fprintf(zin, "user %q\n", "author")
+		fmt.Fprintf(zin, "description %q\n", fmt.Sprintf("test commit; at=%s", at))
+		fmt.Fprintf(zin, "extension %q\n", "")
+		for _, obj := range objv {
+			fmt.Fprintf(zin, "obj %s %d null:00\n", obj.oid, len(obj.data))
+			zin.WriteString(obj.data)
+			zin.WriteString("\n")
+		}
+		zin.WriteString("\n")
+
+		// run py `zodb commit`
+		cmd:= exec.Command("python2", "-m", "zodbtools.zodb", "commit", tfs, at.String())
+		cmd.Stdin  = zin
+		cmd.Stderr = os.Stderr
+		out, err := cmd.Output()
+		if err != nil {
+			return zodb.InvalidTid, err
+		}
+
+		out = bytes.TrimSuffix(out, []byte("\n"))
+		tid, err := zodb.ParseTid(string(out))
+		if err != nil {
+			return zodb.InvalidTid, fmt.Errorf("committed, but invalid output: %s", err)
+		}
+
+		return tid, nil
+	}
+
+	xcommit := func(at zodb.Tid, objv ...Object) zodb.Tid {
+		t.Helper()
+		tid, err := zcommit(at, objv...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tid
+	}
+
+	// force tfs creation & open tfs at go side
+	at := xcommit(0, Object{0, "data0"})
+
+	fs := xfsopen(t, tfs)
+	ctx := context.Background()
+
+	checkLastTid := func(lastOk zodb.Tid) {
+		t.Helper()
+		head, err := fs.LastTid(ctx)
+		if err != nil {
+			t.Fatalf("check last_tid: %s", err)
+		}
+		if head != lastOk {
+			t.Fatalf("check last_tid: got %s;  want %s", head, lastOk)
+		}
+	}
+
+	checkLastTid(at)
+
+	// commit -> check watcher observes what we committed.
+	for i := zodb.Oid(0); i < 1000; i++ {
+		at = xcommit(at,
+			Object{0, fmt.Sprintf("data0.%d", i)},
+			Object{i, fmt.Sprintf("data%d", i)})
+
+		tid, objv, err := fs.Watch(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if objvWant := []zodb.Oid{0, i}; !(tid == at && reflect.DeepEqual(objv, objvWant)) {
+			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", tid, objv, at, objvWant)
+		}
+	}
+
+	err := fs.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = fs.Watch(ctx)
+	// assert err = "closed"
 }

@@ -75,7 +75,9 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/mem"
-//	"lab.nexedi.com/kirr/go123/xerr"
+	"lab.nexedi.com/kirr/go123/xerr"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 // FileStorage is a ZODB storage which stores data in simple append-only file
@@ -437,8 +439,61 @@ func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.
 
 // --- watcher ---
 
-func (fs *FileStorage) watch() {
-	// XXX
+func (fs *FileStorage) watcher() {
+	err := fs.watch()
+	// XXX fs.watchErr = err  (-> fail other operations)
+	_ = err
+}
+
+func (fs *FileStorage) watch() (err error) {
+	f := fs.file
+	defer xerr.Contextf(&err, "%s: watch", f.Name())
+
+	// setup watcher to changes on f
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer w.Close()	// XXX lclose
+
+	err = w.Add(f.Name())
+	if err != nil {
+		return err
+	}
+
+	toppos := fs.index.TopPos
+
+	// loop checking f.size vs topPos vs posLastChecked (XXX)
+	for {
+		fi, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		fsize := fi.Size()
+		if fsize > toppos {
+			// XXX
+		}
+
+		select {
+		// XXX handle quit
+
+		case err := <-w.Errors:
+			if err == fsnotify.ErrEventOverflow {
+				// events lost, but it is safe since we are always rechecking file size
+				continue
+			}
+
+			// shutdown
+			return err
+
+		case <-w.Events:
+			// we got some kind of "file was modified" event (e.g.
+			// write, truncate, chown ...) -> it is time to check the file again.
+			continue
+
+		// TODO + time.After(30s) to avoid stalls due to e.g. OS notification errors
+		}
+	}
 }
 
 func (fs *FileStorage) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
@@ -546,7 +601,7 @@ func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
 
 	// there might be simultaneous updates to the data file from outside.
 	// launch the watcher who will observe them.
-	//go fs.watcher()
+	go fs.watcher()
 
 	return fs, nil
 }
