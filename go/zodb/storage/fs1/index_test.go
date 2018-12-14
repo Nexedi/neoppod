@@ -293,7 +293,7 @@ var haveZODBPy = false
 var workRoot string
 
 func TestMain(m *testing.M) {
-	// check whether we have zodb/py
+	// check whether we have zodb/py	XXX + zodbtools
 	cmd := exec.Command("python2", "-c", "import ZODB")
 	err := cmd.Run()
 	if err == nil {

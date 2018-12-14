@@ -435,6 +435,8 @@ func TestWatch(t *testing.T) {
 		if objvWant := []zodb.Oid{0, i}; !(tid == at && reflect.DeepEqual(objv, objvWant)) {
 			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", tid, objv, at, objvWant)
 		}
+
+		checkLastTid(at)
 	}
 
 	err := fs.Close()
@@ -443,5 +445,5 @@ func TestWatch(t *testing.T) {
 	}
 
 	_, _, err = fs.Watch(ctx)
-	// assert err = "closed"
+	// XXX assert err = "closed"
 }

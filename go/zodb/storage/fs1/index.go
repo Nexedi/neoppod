@@ -469,7 +469,7 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, pro
 		// do not update the index immediately so that in case of error
 		// in the middle of txn's data, index stays consistent and
 		// correct for topPos pointing to previous transaction.
-		update := map[zodb.Oid]int64{} // XXX malloc every time -> better reuse
+		update := map[zodb.Oid]int64{}
 		for {
 			err = it.NextData()
 			if err != nil {
@@ -492,7 +492,7 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, pro
 		// notify progress
 		if progress != nil {
 			pd.TxnIndexed++
-			progress(pd)
+			progress(pd)	// XXX + update
 		}
 	}
 
