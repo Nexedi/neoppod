@@ -35,6 +35,8 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
+import "log"
+
 // one database transaction record
 type dbEntry struct {
 	Header TxnHeader
@@ -346,6 +348,15 @@ func BenchmarkIterate(b *testing.B) {
 	b.StopTimer()
 }
 
+var tracef = func(format string, argv ...interface{}) {
+	log.Printf("W  " + format, argv...)
+}
+
+func init() {
+	log.SetFlags(log.Lmicroseconds)
+}
+
+
 
 func TestWatch(t *testing.T) {
 	//xtesting.NeedPy(t, "zodbtools")
@@ -394,6 +405,8 @@ func TestWatch(t *testing.T) {
 	}
 
 	xcommit := func(at zodb.Tid, objv ...Object) zodb.Tid {
+		tracef("\n\n-> xcommit %s", at)
+		defer tracef("<- xcommit")
 		t.Helper()
 		tid, err := zcommit(at, objv...)
 		if err != nil {
@@ -420,6 +433,9 @@ func TestWatch(t *testing.T) {
 	}
 
 	checkLastTid(at)
+
+	//time.Sleep(3*time.Second)
+	//tracef("AAA")
 
 	// commit -> check watcher observes what we committed.
 	for i := zodb.Oid(0); i < 1000; i++ {

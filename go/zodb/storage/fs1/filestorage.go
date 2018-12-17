@@ -453,6 +453,7 @@ func (fs *FileStorage) watcher(w *fsnotify.Watcher) {
 	err := fs._watcher(w)
 	// XXX fs.watchErr = err  (-> fail other operations)
 	_ = err
+	log.Print(err)
 }
 
 func (fs *FileStorage) _watcher(w *fsnotify.Watcher) (err error) {
@@ -471,21 +472,25 @@ func (fs *FileStorage) _watcher(w *fsnotify.Watcher) (err error) {
 mainloop:
 	for {
 		if !first {
+			tracef("select ...")
 			select {
 			// XXX handle close
 
 			case err := <-w.Errors:
+				tracef("error: %s", err)
 				if err != fsnotify.ErrEventOverflow {
 					return err
 				}
 				// events lost, but it is safe since we are always rechecking file size
 
-			case <-w.Events:
+			case e := <-w.Events:
 				// we got some kind of "file was modified" event (e.g.
 				// write, truncate, chown ...) -> it is time to check the file again.
+				tracef("event: %s", e)
 
 			case <-tick.C:
 				// recheck the file periodically.
+				tracef("tick")
 			}
 		}
 		first = false
@@ -496,6 +501,7 @@ mainloop:
 			return err
 		}
 		fsize := fi.Size()
+		tracef("toppos: %d\tfsize: %d\n", idx.TopPos, fsize)
 		switch {
 		case fsize == idx.TopPos:
 			continue // same as before
@@ -506,6 +512,7 @@ mainloop:
 
 		// there is some data after toppos - try to advance as much as we can.
 		// start iterating afresh with empty buffer.
+		tracef("scanning ...")
 		it := Iterate(seqReadAt(f), idx.TopPos, IterForward)
 		for {
 			err = it.NextTxn(LoadNoStrings)
@@ -542,6 +549,8 @@ mainloop:
 
 			// read ok - reset t₀(partial)
 			t0partial = time.Time{}
+
+			tracef("@%d tid=%s st=%q", it.Txnh.Pos, it.Txnh.Tid, it.Txnh.Status)
 
 			// XXX dup wrt Index.Update
 
@@ -583,8 +592,11 @@ mainloop:
 			}
 			fs.mu.Unlock()
 
+			tracef("-> tid=%s  δoidv=%v", it.Txnh.Tid, oidv) // XXX oidv=[0,0] - recheck
+
 			// XXX cancel on close
 			fs.watchq <- watchEvent{it.Txnh.Tid, oidv}
+			//tracef("zzz")
 		}
 	}
 }
@@ -599,11 +611,14 @@ func (fs *FileStorage) Watch(ctx context.Context) (_ zodb.Tid, _ []zodb.Oid, err
 	defer xerr.Contextf(&err, "%s: watch", fs.file.Name())
 
 	// XXX handle close
+	//tracef("watch -> select ...")
 	select {
 	case <-ctx.Done():
+		//tracef("\t-> canceled")
 		return zodb.InvalidTid, nil, ctx.Err()
 
 	case w := <-fs.watchq:
+		//tracef("\t-> data")
 		return w.tid, w.oidv, nil
 	}
 }
@@ -627,7 +642,9 @@ func (fs *FileStorage) Close() error {
 //
 // TODO read-write support
 func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
-	fs := &FileStorage{}
+	fs := &FileStorage{
+		watchq: make(chan watchEvent),
+	}
 
 	f, err := os.Open(path)
 	if err != nil {
