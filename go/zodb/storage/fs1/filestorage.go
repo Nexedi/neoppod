@@ -71,6 +71,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
@@ -78,6 +79,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/pkg/errors"
 )
 
 // FileStorage is a ZODB storage which stores data in simple append-only file
@@ -98,7 +100,8 @@ type FileStorage struct {
 	txnhMin TxnHeader
 	txnhMax TxnHeader
 
-	watchq chan XXX
+	// driver client <- watcher: data file updates.
+	watchq chan interface{}	// XXX
 }
 
 // IStorageDriver
@@ -447,13 +450,18 @@ func (fs *FileStorage) watcher() {
 	_ = err
 }
 
+// watch watches updates to fs.file and notifies subscriber about new transaction via fs.watchq.
+//
+// watch is the only place that mutates index and txnh{Min,Max}.
+// XXX ^^^ will change after commit is implemented.
 func (fs *FileStorage) watch() (err error) {
 	f := fs.file
+	idx := fs.index
 	defer xerr.Contextf(&err, "%s: watch", f.Name())
 
 	// XXX race -> start watching before FileStorage is returned to user
 
-	// setup watcher to changes on f
+	// setup watcher to observe changes on f
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -469,34 +477,33 @@ func (fs *FileStorage) watch() (err error) {
 	//
 	// besides relying on notify we also check file periodically to avoid
 	// stalls due to e.g. OS notification errors.
-	toppos := fs.index.TopPos
 	var it *Iter
-	resetit := func() { // reset it to start from toppos with empty buffer
-		it = Iterate(seqReadAt(f), toppos, IterForward)
+	itReset := func() { // reset it to (re)start from toppos with empty buffer
+		it = Iterate(seqReadAt(f), idx.TopPos, IterForward)
 	}
-	resetit()
+	itReset()
 	tick := time.NewTicker(1*time.Second)
 	defer tick.Stop()
-	var tpartWrite time.Time
+	var t0partial time.Time
 
 	for {
 		// XXX select here
 
+		// check f size, to see whether there could be any updates.
 		fi, err := f.Stat()
 		if err != nil {
 			return err
 		}
 		fsize := fi.Size()
 		switch {
-		case fsize == toppos:
+		case fsize == idx.TopPos:
 			continue // same as before
-		case fsize < toppos:
+		case fsize < idx.TopPos:
 			// XXX add pack support
-			return fmt.Errorf("file truncated (%d -> %d)", toppos, fsize)
+			return fmt.Errorf("file truncated (%d -> %d)", idx.TopPos, fsize)
 		}
 
-		// there is some data after toppos - try to read it. always create buffer
-		// anew, since there could be written and then aborted transactions.
+		// there is some data after toppos - try to read it.
 		err = it.NextTxn(LoadNoStrings)
 		if err != nil {
 			// transaction header could not be fully read.
@@ -506,33 +513,34 @@ func (fs *FileStorage) watch() (err error) {
 			// region overlaps page boundary.
 			//
 			// we check for some time to distinguish in-progress write from just
-			// garbage.
+			// trailing garbage.
 			if errors.Cause(err) == io.ErrUnexpectedEOF {
 				now := time.Now()
-				if tpartWrite.IsZero() {
-					tpartWrite = now
-				} else if now.Sub(tpartialStart) > 3*time.Second {
-					return err
+				if t0partial.IsZero() {
+					t0partial = now
+				} else if now.Sub(t0partial) > 3*time.Second {
+					return err // garbage
 				}
 			} else {
 				// not ok - e.g. IO error
-				// EOF is ok - it is e.g. when transaction was aborted
+				// only EOF is ok - it is e.g. when transaction was aborted
 				if err != io.EOF {
 					return err
 				}
 
-				// EOF - reset t(partial)
-				tpartWrite = time.Time{}
+				// EOF - reset t₀(partial)
+				t0partial = time.Time{}
 
 			}
 
-			// after an error (EOF, partial read) we have to retry with
+			// after any error (EOF, partial read) we have to retry with
 			// reset bufferring.
-			resetit()
+			itReset()
 			continue
 		}
 
-		tpartWrite = time.Time{} // reset
+		// read ok - reset t₀(partial)
+		t0partial = time.Time{}
 
 		// XXX dup wrt Index.Update
 
@@ -540,8 +548,8 @@ func (fs *FileStorage) watch() (err error) {
 		// whether it is finished transaction or not.
 		if it.Txnh.Status == zodb.TxnInprogress {
 			// not yet. we have to reset because transaction finish writes
-			// what we have already buffered.
-			resetit()
+			// to what we have already buffered.
+			itReset()
 			continue
 		}
 
@@ -563,11 +571,15 @@ func (fs *FileStorage) watch() (err error) {
 			oidv = append(oidv, it.Datah.Oid)
 		}
 
-		// update index
+		// update index & txnh{MinMax}
 		fs.mu.Lock()
-		index.TopPos = it.Txnh.Pos + it.Txnh.Len
+		idx.TopPos = it.Txnh.Pos + it.Txnh.Len
 		for oid, pos := range update {
-			index.Set(oid, pos)
+			idx.Set(oid, pos)
+		}
+		fs.txnhMax.CloneFrom(&it.Txnh)
+		if fs.txnhMin.Len == 0 { // was empty
+			fs.txnhMin.CloneFrom(&it.Txnh)
 		}
 		fs.mu.Unlock()
 
@@ -597,11 +609,9 @@ func (fs *FileStorage) watch() (err error) {
 	}
 }
 
-//func (fs *FileStorage) readUpdates() {
-//}
-
 func (fs *FileStorage) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
 	panic("TODO")
+	// <-fs.watchq
 }
 
 // --- open + rebuild index ---
