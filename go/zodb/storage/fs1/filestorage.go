@@ -101,7 +101,7 @@ type FileStorage struct {
 	txnhMax TxnHeader
 
 	// driver client <- watcher: data file updates.
-	watchq chan interface{}	// XXX
+	watchq chan watchEvent
 }
 
 // IStorageDriver
@@ -450,14 +450,14 @@ func (fs *FileStorage) watcher() {
 	_ = err
 }
 
-// watch watches updates to fs.file and notifies subscriber about new transaction via fs.watchq.
+// watch watches updates to .file and notifies Watch about new transactions.
 //
 // watch is the only place that mutates index and txnh{Min,Max}.
 // XXX ^^^ will change after commit is implemented.
 func (fs *FileStorage) watch() (err error) {
 	f := fs.file
 	idx := fs.index
-	defer xerr.Contextf(&err, "%s: watch", f.Name())
+	defer xerr.Contextf(&err, "%s: watcher", f.Name())
 
 	// XXX race -> start watching before FileStorage is returned to user
 
@@ -477,15 +477,10 @@ func (fs *FileStorage) watch() (err error) {
 	//
 	// besides relying on notify we also check file periodically to avoid
 	// stalls due to e.g. OS notification errors.
-	var it *Iter
-	itReset := func() { // reset it to (re)start from toppos with empty buffer
-		it = Iterate(seqReadAt(f), idx.TopPos, IterForward)
-	}
-	itReset()
 	tick := time.NewTicker(1*time.Second)
 	defer tick.Stop()
 	var t0partial time.Time
-
+mainloop:
 	for {
 		// XXX select here
 
@@ -503,90 +498,91 @@ func (fs *FileStorage) watch() (err error) {
 			return fmt.Errorf("file truncated (%d -> %d)", idx.TopPos, fsize)
 		}
 
-		// there is some data after toppos - try to read it.
-		err = it.NextTxn(LoadNoStrings)
-		if err != nil {
-			// transaction header could not be fully read.
-			//
-			// Even though FileStorage code always calls write with full txn
-			// header, the kernel could do the write in parts, e.g. if written
-			// region overlaps page boundary.
-			//
-			// we check for some time to distinguish in-progress write from just
-			// trailing garbage.
-			if errors.Cause(err) == io.ErrUnexpectedEOF {
-				now := time.Now()
-				if t0partial.IsZero() {
-					t0partial = now
-				} else if now.Sub(t0partial) > 3*time.Second {
-					return err // garbage
-				}
-			} else {
-				// not ok - e.g. IO error
-				// only EOF is ok - it is e.g. when transaction was aborted
-				if err != io.EOF {
-					return err
-				}
-
-				// EOF - reset t₀(partial)
-				t0partial = time.Time{}
-
-			}
-
-			// after any error (EOF, partial read) we have to retry with
-			// reset bufferring.
-			itReset()
-			continue
-		}
-
-		// read ok - reset t₀(partial)
-		t0partial = time.Time{}
-
-		// XXX dup wrt Index.Update
-
-		// we could successfully read the transaction header. Try to see now,
-		// whether it is finished transaction or not.
-		if it.Txnh.Status == zodb.TxnInprogress {
-			// not yet. we have to reset because transaction finish writes
-			// to what we have already buffered.
-			itReset()
-			continue
-		}
-
-		// it is fully-committed transaction. scan its data records to update
-		// our index & notify watchers. There is no expected errors here.
-		var oidv []zodb.Oid
-		update := map[zodb.Oid]int64{}
+		// there is some data after toppos - try to advance as much as we can.
+		// start iterating afresh with empty buffer.
+		it := Iterate(seqReadAt(f), idx.TopPos, IterForward)
 		for {
-			err = it.NextData()
+			err = it.NextTxn(LoadNoStrings)
 			if err != nil {
-				err = okEOF(err)
-				if err != nil {
-					return err
+				// transaction header could not be fully read.
+				//
+				// Even though FileStorage code always calls write with full txn
+				// header, the kernel could do the write in parts, e.g. if written
+				// region overlaps page boundary.
+				//
+				// we check for some time to distinguish in-progress write from just
+				// trailing garbage.
+				if errors.Cause(err) == io.ErrUnexpectedEOF {
+					now := time.Now()
+					if t0partial.IsZero() {
+						t0partial = now
+					} else if now.Sub(t0partial) > 3*time.Second {
+						return err // garbage
+					}
+				} else {
+					// not ok - e.g. IO error
+					// only EOF is ok - it can happen when transaction was aborted
+					if err != io.EOF {
+						return err
+					}
+
+					// EOF - reset t₀(partial)
+					t0partial = time.Time{}
 				}
-				break
+
+				// after any error (EOF, partial read) we have to resync
+				continue mainloop
 			}
 
-			update[it.Datah.Oid] = it.Datah.Pos
-			oidv = append(oidv, it.Datah.Oid)
-		}
+			// read ok - reset t₀(partial)
+			t0partial = time.Time{}
 
-		// update index & txnh{MinMax}
-		fs.mu.Lock()
-		idx.TopPos = it.Txnh.Pos + it.Txnh.Len
-		for oid, pos := range update {
-			idx.Set(oid, pos)
-		}
-		fs.txnhMax.CloneFrom(&it.Txnh)
-		if fs.txnhMin.Len == 0 { // was empty
-			fs.txnhMin.CloneFrom(&it.Txnh)
-		}
-		fs.mu.Unlock()
+			// XXX dup wrt Index.Update
 
-		// XXX -> watchq
+			// we could successfully read the transaction header. Try to see now,
+			// whether it is finished transaction or not.
+			if it.Txnh.Status == zodb.TxnInprogress {
+				// not yet. we have to resync because transaction finish writes
+				// to what we have already buffered.
+				continue mainloop
+			}
+
+			// it is fully-committed transaction. scan its data records to update
+			// our index & notify watchers. There is no expected errors here.
+			var oidv []zodb.Oid
+			update := map[zodb.Oid]int64{}
+			for {
+				err = it.NextData()
+				if err != nil {
+					err = okEOF(err)
+					if err != nil {
+						return err
+					}
+					break
+				}
+
+				update[it.Datah.Oid] = it.Datah.Pos
+				oidv = append(oidv, it.Datah.Oid)
+			}
+
+			// update index & txnh{MinMax}
+			fs.mu.Lock()
+			idx.TopPos = it.Txnh.Pos + it.Txnh.Len
+			for oid, pos := range update {
+				idx.Set(oid, pos)
+			}
+			fs.txnhMax.CloneFrom(&it.Txnh)
+			if fs.txnhMin.Len == 0 { // was empty
+				fs.txnhMin.CloneFrom(&it.Txnh)
+			}
+			fs.mu.Unlock()
+
+			// XXX cancel on close
+			fs.watchq <- watchEvent{it.Txnh.Tid, oidv}
+		}
 
 		select {
-		// XXX handle quit
+		// XXX handle close
 
 		case err := <-w.Errors:
 			if err == fsnotify.ErrEventOverflow {
@@ -609,9 +605,23 @@ func (fs *FileStorage) watch() (err error) {
 	}
 }
 
-func (fs *FileStorage) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
-	panic("TODO")
-	// <-fs.watchq
+// watchEvent is one event from watch to Watch
+type watchEvent struct {
+	tid  zodb.Tid
+	oidv []zodb.Oid
+}
+
+func (fs *FileStorage) Watch(ctx context.Context) (_ zodb.Tid, _ []zodb.Oid, err error) {
+	defer xerr.Contextf(&err, "%s: watch", fs.file.Name())
+
+	// XXX handle close
+	select {
+	case <-ctx.Done():
+		return zodb.InvalidTid, nil, ctx.Err()
+
+	case w := <-fs.watchq:
+		return w.tid, w.oidv, nil
+	}
 }
 
 // --- open + rebuild index ---
