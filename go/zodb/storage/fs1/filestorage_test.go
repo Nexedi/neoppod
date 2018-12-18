@@ -367,6 +367,8 @@ func BenchmarkIterate(b *testing.B) {
 
 
 func TestWatch(t *testing.T) {
+	X := exc.Raiseif
+
 	//xtesting.NeedPy(t, "zodbtools")
 	needZODBPy(t)
 	workdir := xworkdir(t)
@@ -398,10 +400,7 @@ func TestWatch(t *testing.T) {
 		cmd:= exec.Command("python2", "-m", "zodbtools.zodb", "commit", tfs, at.String())
 		cmd.Stdin  = zin
 		cmd.Stderr = os.Stderr
-		out, err := cmd.Output()
-		if err != nil {
-			return zodb.InvalidTid, err
-		}
+		out, err := cmd.Output(); X(err)
 
 		out = bytes.TrimSuffix(out, []byte("\n"))
 		tid, err := zodb.ParseTid(string(out))
@@ -416,10 +415,7 @@ func TestWatch(t *testing.T) {
 		//tracef("-> xcommit %s", at)
 		//defer tracef("<- xcommit")
 		t.Helper()
-		tid, err := zcommit(at, objv...)
-		if err != nil {
-			t.Fatal(err)
-		}
+		tid, err := zcommit(at, objv...); X(err)
 		return tid
 	}
 
@@ -432,10 +428,7 @@ func TestWatch(t *testing.T) {
 
 	checkLastTid := func(lastOk zodb.Tid) {
 		t.Helper()
-		head, err := fs.LastTid(ctx)
-		if err != nil {
-			t.Fatalf("check last_tid: %s", err)
-		}
+		head, err := fs.LastTid(ctx); X(err)
 		if head != lastOk {
 			t.Fatalf("check last_tid: got %s;  want %s", head, lastOk)
 		}
@@ -467,10 +460,7 @@ func TestWatch(t *testing.T) {
 		checkLastTid(at)
 	}
 
-	err := fs.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	err := fs.Close(); X(err)
 
 	e, ok := <-watchq
 	if ok {

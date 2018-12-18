@@ -452,6 +452,7 @@ func (fs *FileStorage) watcher(w *fsnotify.Watcher) {
 	defer w.Close() // XXX lclose
 	err := fs._watcher(w)
 	// it is ok if we got read error due to file being closed
+	// XXX it can also be ErrFileClosing which is internal
 	if e, _ := errors.Cause(err).(*os.PathError); e != nil && e.Err == os.ErrClosed {
 		select {
 		case <-fs.down:
@@ -646,9 +647,8 @@ func (fs *FileStorage) Close() error {
 }
 
 // Open opens FileStorage @path.
-//
-// TODO read-write support
 func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileStorage, err error) {
+	// TODO read-write support
 	if !opt.ReadOnly {
 		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
 	}
@@ -693,6 +693,8 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 		log.Print(err)
 		log.Printf("%s: index rebuild...", path)
 		index, err = BuildIndex(ctx, fseq, nil/*no progress; XXX log it? */)
+		// XXX cause=ErrUnexpectedEOF -> let watcher decide what was
+		// it: garbage or in-progress transaction
 		if err != nil {
 			return nil, err
 		}

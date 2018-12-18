@@ -453,7 +453,10 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, pro
 			return err
 		}
 
-		// XXX check txnh.Status != TxnInprogress
+		// this transaction was only voted, not fully committed yet.
+		if it.Txnh.Status == zodb.TxnInprogress {
+			return nil
+		}
 
 		// check for topPos overlapping txn & whether we are done.
 		// topPos=-1 will never match here
@@ -693,7 +696,7 @@ func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int, pr
 		return nil, err
 	}
 
-	topPos := fi.Size() // XXX there might be last TxnInprogress transaction	XXX
+	topPos := fi.Size() // XXX there might be last TxnInprogress transaction XXX
 	if index.TopPos != topPos {
 		return nil, indexCorrupt(f, "topPos mismatch: data=%v  index=%v", topPos, index.TopPos)
 	}
