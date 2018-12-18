@@ -606,12 +606,14 @@ mainloop:
 
 			//tracef("-> tid=%s  δoidv=%v", it.Txnh.Tid, oidv)
 
-			select {
-			case <-fs.down:
-				return nil
+			if fs.watchq != nil {
+				select {
+				case <-fs.down:
+					return nil
 
-			case fs.watchq <- zodb.WatchEvent{it.Txnh.Tid, oidv}:
-				// ok
+				case fs.watchq <- zodb.WatchEvent{it.Txnh.Tid, oidv}:
+					// ok
+				}
 			}
 		}
 	}

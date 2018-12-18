@@ -463,8 +463,8 @@ type Notifier interface {
 
 // WatchEvent is one event describing observed database change.
 type WatchEvent struct {
-	Tid  Tid
-	Oidv []Oid
+	Tid     Tid
+	Changev []Oid	// XXX name
 }
 
 // Watcher allows to be notified of changes to database.
