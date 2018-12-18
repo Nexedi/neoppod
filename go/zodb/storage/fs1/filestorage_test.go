@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"reflect"
@@ -36,8 +37,6 @@ import (
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
 )
-
-import "log"
 
 // one database transaction record
 type dbEntry struct {
@@ -487,4 +486,28 @@ func TestWatch(t *testing.T) {
 // TestOpenRecovery verifies how Open handles data file with not-finished voted
 // transaction in the end.
 func TestOpenRecovery(t *testing.T) {
+	X := exc.Raiseif
+	main, err := ioutil.ReadFile("testdata/1.fs"); X(err)
+	index, err := ioutil.ReadFile("testdata/1.fs.index"); X(err)
+	lastTidOk := _1fs_dbEntryv[len(_1fs_dbEntryv)-1].Header.Tid
+	voteTail, err := ioutil.ReadFile("testdata/1vote.tail"); X(err)
+
+	workdir := xworkdir(t)
+	ctx := context.Background()
+
+	for l := len(voteTail); l >= 0; l-- {
+		t.Run(fmt.Sprintf("tail=+vote%d", l), func(t *testing.T) {
+			tfs := fmt.Sprintf("%s/1+vote%d.fs", workdir, l)
+			err := ioutil.WriteFile(tfs, append(main, voteTail[:l]...), 0600); X(err)
+			err = ioutil.WriteFile(tfs+".index", index, 0600); X(err)
+
+			fs := xfsopen(t, tfs)
+			head, err := fs.LastTid(ctx); X(err)
+			if head != lastTidOk {
+				t.Fatalf("last_tid: %s  ; expected: %s", head, lastTidOk)
+			}
+
+			err = fs.Close(); X(err)
+		})
+	}
 }
