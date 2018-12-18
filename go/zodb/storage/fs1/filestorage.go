@@ -91,17 +91,17 @@ type FileStorage struct {
 
 	// protects updates to index and to txnh{Min,Max} - in other words
 	// to everything that depends on what current last transaction is.
-	mu sync.RWMutex
-
-	index *Index // oid -> data record position in transaction which last changed oid
-
-	// transaction headers for min/max transactions committed
-	// (both with .Len=0 & .Tid=0 if database is empty)
-	txnhMin TxnHeader
-	txnhMax TxnHeader
+	mu      sync.RWMutex
+	index   *Index    // oid -> data record position in transaction which last changed oid
+	txnhMin TxnHeader // transaction headers for min/max transactions committed
+	txnhMax TxnHeader // (both with .Len=0 & .Tid=0 if database is empty)
 
 	// driver client <- watcher: data file updates.
 	watchq chan watchEvent
+
+	down     chan struct{} // ready when FileStorage is no longer operational
+	downOnce sync.Once
+	errClose error         // error from .file.Close()
 }
 
 // IStorageDriver
@@ -451,9 +451,19 @@ func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.
 func (fs *FileStorage) watcher(w *fsnotify.Watcher) {
 	defer w.Close() // XXX lclose
 	err := fs._watcher(w)
+	// it is ok if we got read error due to file being closed
+	if e, _ := errors.Cause(err).(*os.PathError); e != nil && e.Err == os.ErrClosed {
+		select {
+		case <-fs.down:
+			err = nil
+		default:
+		}
+	}
+
 	// XXX fs.watchErr = err  (-> fail other operations)
-	_ = err
-	log.Print(err)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func (fs *FileStorage) _watcher(w *fsnotify.Watcher) (err error) {
@@ -474,7 +484,9 @@ mainloop:
 		if !first {
 			//tracef("select ...")
 			select {
-			// XXX handle close
+			case <-fs.down:
+				// closed
+				return nil
 
 			case err := <-w.Errors:
 				//tracef("error: %s", err)
@@ -506,7 +518,7 @@ mainloop:
 		case fsize == idx.TopPos:
 			continue // same as before
 		case fsize < idx.TopPos:
-			// XXX add pack support
+			// XXX add pack support?
 			return fmt.Errorf("file truncated (%d -> %d)", idx.TopPos, fsize)
 		}
 
@@ -592,11 +604,15 @@ mainloop:
 			}
 			fs.mu.Unlock()
 
-			tracef("-> tid=%s  δoidv=%v", it.Txnh.Tid, oidv) // XXX oidv=[0,0] - recheck
+			tracef("-> tid=%s  δoidv=%v", it.Txnh.Tid, oidv)
 
-			// XXX cancel on close
-			fs.watchq <- watchEvent{it.Txnh.Tid, oidv}
-			//tracef("zzz")
+			select {
+			case <-fs.down:
+				return nil
+
+			case fs.watchq <- watchEvent{it.Txnh.Tid, oidv}:
+				// ok
+			}
 		}
 	}
 }
@@ -607,30 +623,35 @@ type watchEvent struct {
 	oidv []zodb.Oid
 }
 
+// XXX doc
 func (fs *FileStorage) Watch(ctx context.Context) (_ zodb.Tid, _ []zodb.Oid, err error) {
 	defer xerr.Contextf(&err, "%s: watch", fs.file.Name())
 
-	// XXX handle close
-	//tracef("watch -> select ...")
 	select {
 	case <-ctx.Done():
-		//tracef("\t-> canceled")
 		return zodb.InvalidTid, nil, ctx.Err()
 
+	case <-fs.down:
+		return zodb.InvalidTid, nil, os.ErrClosed // FIXME -> proper error
+
 	case w := <-fs.watchq:
-		//tracef("\t-> data")
 		return w.tid, w.oidv, nil
 	}
 }
 
 // --- open + rebuild index ---
 
-func (fs *FileStorage) Close() error {
-	// XXX stop watcher
+func (fs *FileStorage) shutdown() {
+	fs.downOnce.Do(func() {
+		fs.errClose = fs.file.Close()
+		close(fs.down)
+	})
+}
 
-	err := fs.file.Close()
-	if err != nil {
-		return &zodb.OpError{URL: fs.URL(), Op: "close", Args: nil, Err: err}
+func (fs *FileStorage) Close() error {
+	fs.shutdown()
+	if fs.errClose != nil {
+		return &zodb.OpError{URL: fs.URL(), Op: "close", Args: nil, Err: fs.errClose}
 	}
 
 	// TODO if opened !ro -> .saveIndex()
@@ -644,6 +665,7 @@ func (fs *FileStorage) Close() error {
 func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
 	fs := &FileStorage{
 		watchq: make(chan watchEvent),
+		down:   make(chan struct{}),
 	}
 
 	f, err := os.Open(path)

@@ -29,6 +29,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/exc"
@@ -468,5 +470,7 @@ func TestWatch(t *testing.T) {
 	}
 
 	_, _, err = fs.Watch(ctx)
-	// XXX assert err = "closed"
+	if e, eWant := errors.Cause(err), os.ErrClosed; e != eWant {
+		t.Fatalf("watch after close -> %v;  want: cause %v", err, eWant)
+	}
 }
