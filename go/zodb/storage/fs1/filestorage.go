@@ -97,7 +97,7 @@ type FileStorage struct {
 	txnhMax TxnHeader // (both with .Len=0 & .Tid=0 if database is empty)
 
 	// driver client <- watcher: data file updates.
-	watchq chan watchEvent
+	watchq chan zodb.WatchEvent
 
 	down     chan struct{} // ready when FileStorage is no longer operational
 	downOnce sync.Once
@@ -513,7 +513,7 @@ mainloop:
 			return err
 		}
 		fsize := fi.Size()
-		tracef("toppos: %d\tfsize: %d\n", idx.TopPos, fsize)
+		//tracef("toppos: %d\tfsize: %d\n", idx.TopPos, fsize)
 		switch {
 		case fsize == idx.TopPos:
 			continue // same as before
@@ -562,7 +562,7 @@ mainloop:
 			// read ok - reset t₀(partial)
 			t0partial = time.Time{}
 
-			tracef("@%d tid=%s st=%q", it.Txnh.Pos, it.Txnh.Tid, it.Txnh.Status)
+			//tracef("@%d tid=%s st=%q", it.Txnh.Pos, it.Txnh.Tid, it.Txnh.Status)
 
 			// XXX dup wrt Index.Update
 
@@ -604,25 +604,20 @@ mainloop:
 			}
 			fs.mu.Unlock()
 
-			tracef("-> tid=%s  δoidv=%v", it.Txnh.Tid, oidv)
+			//tracef("-> tid=%s  δoidv=%v", it.Txnh.Tid, oidv)
 
 			select {
 			case <-fs.down:
 				return nil
 
-			case fs.watchq <- watchEvent{it.Txnh.Tid, oidv}:
+			case fs.watchq <- zodb.WatchEvent{it.Txnh.Tid, oidv}:
 				// ok
 			}
 		}
 	}
 }
 
-// watchEvent is one event from watch to Watch
-type watchEvent struct {
-	tid  zodb.Tid
-	oidv []zodb.Oid
-}
-
+/*
 // XXX doc
 func (fs *FileStorage) Watch(ctx context.Context) (_ zodb.Tid, _ []zodb.Oid, err error) {
 	defer xerr.Contextf(&err, "%s: watch", fs.file.Name())
@@ -638,6 +633,7 @@ func (fs *FileStorage) Watch(ctx context.Context) (_ zodb.Tid, _ []zodb.Oid, err
 		return w.tid, w.oidv, nil
 	}
 }
+*/
 
 // --- open + rebuild index ---
 
@@ -662,9 +658,13 @@ func (fs *FileStorage) Close() error {
 // Open opens FileStorage @path.
 //
 // TODO read-write support
-func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
+func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileStorage, err error) {
+	if !opt.ReadOnly {
+		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
+	}
+
 	fs := &FileStorage{
-		watchq: make(chan watchEvent),
+		watchq: opt.WatchQ,
 		down:   make(chan struct{}),
 	}
 

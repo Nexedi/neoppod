@@ -283,7 +283,7 @@ func (r rpc) ereplyf(format string, argv ...interface{}) *errorUnexpectedReply {
 
 // ---- open ----
 
-func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (_ zodb.IStorageDriver, err error) {
+func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb.IStorageDriver, err error) {
 	url := u.String()
 	defer xerr.Contextf(&err, "open %s:", url)
 
@@ -309,6 +309,8 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (_ zodb.I
 	if !opt.ReadOnly {
 		return nil, fmt.Errorf("TODO write mode not implemented")
 	}
+
+	// XXX handle opt.WatchQ
 
 	zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable
 	if err != nil {

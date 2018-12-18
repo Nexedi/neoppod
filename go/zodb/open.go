@@ -35,8 +35,21 @@ type OpenOptions struct {
 	NoCache  bool // don't use cache for read/write operations; prefetch will be noop
 }
 
+// DriverOptions describes options for DriverOpener
+type DriverOptions struct {
+	ReadOnly bool // whether to open storage as read-only
+
+	// Channel where watched storage events have to be delivered.
+	// WatchQ can be nil to ignore such events. However if WatchQ != nil, the events
+	// have to be consumed or else the storage driver will misbehave - e.g.
+	// it can get out of sync with the on-disk database file.
+	//
+	// XXX the channel will be closed after ... ?
+	WatchQ chan WatchEvent
+}
+
 // DriverOpener is a function to open a storage driver.
-type DriverOpener func (ctx context.Context, u *url.URL, opt *OpenOptions) (IStorageDriver, error)
+type DriverOpener func (ctx context.Context, u *url.URL, opt *DriverOptions) (IStorageDriver, error)
 
 // {} scheme -> DriverOpener
 var driverRegistry = map[string]DriverOpener{}
@@ -77,7 +90,12 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
 	}
 
-	storDriver, err := opener(ctx, u, opt)
+	drvOpt := &DriverOptions{
+		ReadOnly: opt.ReadOnly,
+		// TODO watchq
+	}
+
+	storDriver, err := opener(ctx, u, drvOpt)
 	if err != nil {
 		return nil, err
 	}

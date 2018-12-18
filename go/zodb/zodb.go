@@ -352,6 +352,8 @@ type Prefetcher interface {
 }
 
 // IStorageDriver is the raw interface provided by ZODB storage drivers.
+//
+// A storage driver is created by DriverOpener
 type IStorageDriver interface {
 	// URL returns URL of how the storage was opened
 	URL() string
@@ -366,21 +368,21 @@ type IStorageDriver interface {
 
 	Loader
 	Iterator
+/*
 	Watcher
 
-/*
 	// Notifier returns storage driver notifier.
 	//
 	// The notifier represents invalidation channel (notify about changes
-	// made to DB not by us from outside).	XXX
+	// made to DB).	XXX
 	//
 	// To simplify drivers, there must be only 1 logical user of
 	// storage-driver level notifier interface. Contrary IStorage allows
 	// for several users of notification channel.	XXX ok?
-	//
-	// XXX -> nil, if driver does not support notifications?
-	// XXX or always support them, even with FileStorage (inotify)?
 	//Notifier() Notifier
+
+	// XXX Watch() -> Watcher
+	// XXX SetWatcher(watchq)	SetWatchSink() ? XXX -> ctor ?
 */
 }
 
@@ -456,6 +458,12 @@ type Notifier interface {
 	Read(ctx context.Context) (Tid, []Oid, error)
 }
 */
+
+// WatchEvent is one event describing observed database change.
+type WatchEvent struct {
+	Tid  Tid
+	Oidv []Oid
+}
 
 // Watcher allows to be notified of changes to database.
 type Watcher interface {

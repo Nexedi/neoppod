@@ -494,7 +494,7 @@ func (c *Client) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
 // ---- ZODB open/url support ----
 
 
-func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorageDriver, error) {
+func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (zodb.IStorageDriver, error) {
 	// neo://name@master1,master2,...,masterN?options
 
 	if u.User == nil {
@@ -506,6 +506,8 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zo
 	if !opt.ReadOnly {
 		return nil, fmt.Errorf("neo: %s: TODO write mode not implemented", u)
 	}
+
+	// XXX handle opt.WatchQ
 
 	// XXX check/use other url fields
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
