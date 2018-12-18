@@ -354,14 +354,14 @@ func BenchmarkIterate(b *testing.B) {
 	b.StopTimer()
 }
 
-// XXX kill
-var tracef = func(format string, argv ...interface{}) {
-	log.Printf("W  " + format, argv...)
-}
-
-func init() {
-	log.SetFlags(log.Lmicroseconds)
-}
+// // XXX kill
+// var tracef = func(format string, argv ...interface{}) {
+// 	log.Printf("W  " + format, argv...)
+// }
+// 
+// func init() {
+// 	log.SetFlags(log.Lmicroseconds)
+// }
 
 
 
@@ -412,8 +412,8 @@ func TestWatch(t *testing.T) {
 	}
 
 	xcommit := func(at zodb.Tid, objv ...Object) zodb.Tid {
-		tracef("-> xcommit %s", at)
-		defer tracef("<- xcommit")
+		//tracef("-> xcommit %s", at)
+		//defer tracef("<- xcommit")
 		t.Helper()
 		tid, err := zcommit(at, objv...)
 		if err != nil {
@@ -482,4 +482,9 @@ func TestWatch(t *testing.T) {
 	//if e, eWant := errors.Cause(err), os.ErrClosed; e != eWant {
 	//	t.Fatalf("watch after close -> %v;  want: cause %v", err, eWant)
 	//}
+}
+
+// TestOpenRecovery verifies how Open handles data file with not-finished voted
+// transaction in the end.
+func TestOpenRecovery(t *testing.T) {
 }

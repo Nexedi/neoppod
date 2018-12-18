@@ -623,24 +623,6 @@ mainloop:
 	}
 }
 
-/*
-// XXX doc
-func (fs *FileStorage) Watch(ctx context.Context) (_ zodb.Tid, _ []zodb.Oid, err error) {
-	defer xerr.Contextf(&err, "%s: watch", fs.file.Name())
-
-	select {
-	case <-ctx.Done():
-		return zodb.InvalidTid, nil, ctx.Err()
-
-	case <-fs.down:
-		return zodb.InvalidTid, nil, os.ErrClosed // FIXME -> proper error
-
-	case w := <-fs.watchq:
-		return w.tid, w.oidv, nil
-	}
-}
-*/
-
 // --- open + rebuild index ---
 
 func (fs *FileStorage) shutdown() {
@@ -652,6 +634,8 @@ func (fs *FileStorage) shutdown() {
 
 func (fs *FileStorage) Close() error {
 	fs.shutdown()
+	// XXX wait for watcher?
+
 	if fs.errClose != nil {
 		return &zodb.OpError{URL: fs.URL(), Op: "close", Args: nil, Err: fs.errClose}
 	}
