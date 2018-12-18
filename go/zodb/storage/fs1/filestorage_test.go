@@ -348,6 +348,7 @@ func BenchmarkIterate(b *testing.B) {
 	b.StopTimer()
 }
 
+// XXX kill
 var tracef = func(format string, argv ...interface{}) {
 	log.Printf("W  " + format, argv...)
 }
@@ -405,7 +406,7 @@ func TestWatch(t *testing.T) {
 	}
 
 	xcommit := func(at zodb.Tid, objv ...Object) zodb.Tid {
-		tracef("\n\n-> xcommit %s", at)
+		tracef("-> xcommit %s", at)
 		defer tracef("<- xcommit")
 		t.Helper()
 		tid, err := zcommit(at, objv...)
@@ -444,7 +445,7 @@ func TestWatch(t *testing.T) {
 	// run py `zodb commit`.
 	//
 	// if one day it is either fixed, or worked around, we could ↑ 10 to 100.
-	for i := zodb.Oid(0); i < 10; i++ {
+	for i := zodb.Oid(1); i <= 10; i++ {
 		at = xcommit(at,
 			Object{0, fmt.Sprintf("data0.%d", i)},
 			Object{i, fmt.Sprintf("data%d", i)})

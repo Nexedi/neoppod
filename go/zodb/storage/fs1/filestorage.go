@@ -472,25 +472,25 @@ func (fs *FileStorage) _watcher(w *fsnotify.Watcher) (err error) {
 mainloop:
 	for {
 		if !first {
-			tracef("select ...")
+			//tracef("select ...")
 			select {
 			// XXX handle close
 
 			case err := <-w.Errors:
-				tracef("error: %s", err)
+				//tracef("error: %s", err)
 				if err != fsnotify.ErrEventOverflow {
 					return err
 				}
 				// events lost, but it is safe since we are always rechecking file size
 
-			case e := <-w.Events:
+			case <-w.Events:
 				// we got some kind of "file was modified" event (e.g.
 				// write, truncate, chown ...) -> it is time to check the file again.
-				tracef("event: %s", e)
+				//tracef("event: %s", e)
 
 			case <-tick.C:
 				// recheck the file periodically.
-				tracef("tick")
+				//tracef("tick")
 			}
 		}
 		first = false
@@ -512,7 +512,7 @@ mainloop:
 
 		// there is some data after toppos - try to advance as much as we can.
 		// start iterating afresh with empty buffer.
-		tracef("scanning ...")
+		//tracef("scanning ...")
 		it := Iterate(seqReadAt(f), idx.TopPos, IterForward)
 		for {
 			err = it.NextTxn(LoadNoStrings)
