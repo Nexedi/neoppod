@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -434,11 +434,17 @@ func TestWatch(t *testing.T) {
 
 	checkLastTid(at)
 
-	//time.Sleep(3*time.Second)
-	//tracef("AAA")
-
 	// commit -> check watcher observes what we committed.
-	for i := zodb.Oid(0); i < 1000; i++ {
+	//
+	// XXX python `import pkg_resources` takes ~ 200ms.
+	// https://github.com/pypa/setuptools/issues/510
+	//
+	// Since pkg_resources are used everywhere (e.g. in zodburi to find all
+	// uri resolvers) this import slowness becomes the major component to
+	// run py `zodb commit`.
+	//
+	// if one day it is either fixed, or worked around, we could ↑ 10 to 100.
+	for i := zodb.Oid(0); i < 10; i++ {
 		at = xcommit(at,
 			Object{0, fmt.Sprintf("data0.%d", i)},
 			Object{i, fmt.Sprintf("data%d", i)})
