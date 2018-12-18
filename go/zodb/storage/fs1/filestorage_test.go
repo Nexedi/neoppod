@@ -116,10 +116,12 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect objState) {
 }
 
 func xfsopen(t testing.TB, path string) *FileStorage {
+	t.Helper()
 	return xfsopenopt(t, path, &zodb.DriverOptions{ReadOnly: true})
 }
 
 func xfsopenopt(t testing.TB, path string, opt *zodb.DriverOptions) *FileStorage {
+	t.Helper()
 	fs, err := Open(context.Background(), path, opt)
 	if err != nil {
 		t.Fatal(err)
@@ -490,7 +492,7 @@ func TestOpenRecovery(t *testing.T) {
 	main, err := ioutil.ReadFile("testdata/1.fs"); X(err)
 	index, err := ioutil.ReadFile("testdata/1.fs.index"); X(err)
 	lastTidOk := _1fs_dbEntryv[len(_1fs_dbEntryv)-1].Header.Tid
-	voteTail, err := ioutil.ReadFile("testdata/1vote.tail"); X(err)
+	voteTail, err := ioutil.ReadFile("testdata/1voted.tail"); X(err)
 
 	workdir := xworkdir(t)
 	ctx := context.Background()
