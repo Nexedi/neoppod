@@ -507,8 +507,8 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (
 		return nil, fmt.Errorf("neo: %s: TODO write mode not implemented", u)
 	}
 
-	// XXX handle opt.WatchQ
-	if opt.WatchQ != nil {
+	// XXX handle opt.Watchq
+	if opt.Watchq != nil {
 		panic("TODO watchq")
 	}
 

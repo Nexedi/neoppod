@@ -97,7 +97,7 @@ type FileStorage struct {
 	txnhMax TxnHeader // (both with .Len=0 & .Tid=0 if database is empty)
 
 	// driver client <- watcher: data file updates.
-	watchq chan zodb.WatchEvent
+	watchq chan<- zodb.WatchEvent
 
 	down     chan struct{} // ready when FileStorage is no longer operational
 	downOnce sync.Once
@@ -464,6 +464,10 @@ func (fs *FileStorage) watcher(w *fsnotify.Watcher) {
 	if err != nil {
 		log.Print(err)
 	}
+
+	if fs.watchq != nil {
+		close(fs.watchq)
+	}
 }
 
 func (fs *FileStorage) _watcher(w *fsnotify.Watcher) (err error) {
@@ -666,7 +670,7 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 	}
 
 	fs := &FileStorage{
-		watchq: opt.WatchQ,
+		watchq: opt.Watchq,
 		down:   make(chan struct{}),
 	}
 

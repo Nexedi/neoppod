@@ -40,12 +40,13 @@ type DriverOptions struct {
 	ReadOnly bool // whether to open storage as read-only
 
 	// Channel where watched storage events have to be delivered.
-	// WatchQ can be nil to ignore such events. However if WatchQ != nil, the events
+	//
+	// Watchq can be nil to ignore such events. However if Watchq != nil, the events
 	// have to be consumed or else the storage driver will misbehave - e.g.
 	// it can get out of sync with the on-disk database file.
 	//
-	// XXX the channel will be closed after ... ?
-	WatchQ chan WatchEvent
+	// The storage driver closes !nil Watchq when the driver is closed.
+	Watchq chan<- WatchEvent
 }
 
 // DriverOpener is a function to open a storage driver.

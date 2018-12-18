@@ -310,8 +310,8 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		return nil, fmt.Errorf("TODO write mode not implemented")
 	}
 
-	// XXX handle opt.WatchQ
-	if opt.WatchQ != nil {
+	// XXX handle opt.Watchq
+	if opt.Watchq != nil {
 		panic("TODO watchq")
 	}
 

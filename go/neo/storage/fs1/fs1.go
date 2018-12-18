@@ -49,7 +49,7 @@ type Backend struct {
 var _ storage.Backend = (*Backend)(nil)
 
 func Open(ctx context.Context, path string) (*Backend, error) {
-	zstor, err := fs1.Open(ctx, path)
+	zstor, err := fs1.Open(ctx, path, &zodb.DriverOptions{ReadOnly: true}) // XXX RO? +Watchq?
 	if err != nil {
 		return nil, err
 	}

@@ -426,7 +426,7 @@ func TestWatch(t *testing.T) {
 	at := xcommit(0, Object{0, "data0"})
 
 	watchq := make(chan zodb.WatchEvent)
-	fs := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, WatchQ: watchq})
+	fs := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
 	ctx := context.Background()
 
 	checkLastTid := func(lastOk zodb.Tid) {
@@ -471,8 +471,10 @@ func TestWatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := <-watchq
-	_ = e
+	e, ok := <-watchq
+	if ok {
+		t.Fatalf("watch after close -> %v;  want closed", e)
+	}
 	_ = errors.Cause(nil)
 	// XXX e.Err == ErrClosed
 

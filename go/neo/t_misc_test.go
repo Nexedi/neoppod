@@ -24,6 +24,7 @@ import (
 	"context"
 	"math"
 
+	"lab.nexedi.com/kirr/neo/go/zodb"
 	zfs1 "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 	bfs1 "lab.nexedi.com/kirr/neo/go/neo/storage/fs1"
 	"lab.nexedi.com/kirr/go123/exc"
@@ -40,7 +41,7 @@ func gox(wg interface { Go(func() error) }, xf func()) {
 }
 
 func xfs1stor(path string) *zfs1.FileStorage {
-	stor, err := zfs1.Open(bg, path)
+	stor, err := zfs1.Open(bg, path, &zodb.DriverOptions{ReadOnly: true})	// XXX opts = ?
 	exc.Raiseif(err)
 	return stor
 }
