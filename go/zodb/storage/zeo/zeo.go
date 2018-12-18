@@ -311,6 +311,9 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	}
 
 	// XXX handle opt.WatchQ
+	if opt.WatchQ != nil {
+		panic("TODO watchq")
+	}
 
 	zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable
 	if err != nil {

@@ -508,6 +508,9 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (
 	}
 
 	// XXX handle opt.WatchQ
+	if opt.WatchQ != nil {
+		panic("TODO watchq")
+	}
 
 	// XXX check/use other url fields
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?

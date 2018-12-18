@@ -352,8 +352,6 @@ type Prefetcher interface {
 }
 
 // IStorageDriver is the raw interface provided by ZODB storage drivers.
-//
-// A storage driver is created by DriverOpener
 type IStorageDriver interface {
 	// URL returns URL of how the storage was opened
 	URL() string
@@ -368,7 +366,11 @@ type IStorageDriver interface {
 
 	Loader
 	Iterator
-/*
+
+	// A storage driver also delivers database change events to watchq
+	// channel, which is passed to it when the driver is created.
+
+/* XXX kill
 	Watcher
 
 	// Notifier returns storage driver notifier.
