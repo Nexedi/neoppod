@@ -96,10 +96,10 @@ type FileStorage struct {
 	txnhMin TxnHeader // transaction headers for min/max transactions committed
 	txnhMax TxnHeader // (both with .Len=0 & .Tid=0 if database is empty)
 
-	// driver client <- watcher: data file updates.
+	// driver client <- watcher: database commits.
 	watchq chan<- zodb.WatchEvent
 
-	down     chan struct{} // ready when FileStorage is no longer operational
+	down     chan struct{} // closed when FileStorage is no longer operational
 	downOnce sync.Once
 	errClose error         // error from .file.Close()
 }
@@ -444,7 +444,7 @@ func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.
 
 // --- watcher ---
 
-// watcher watches updates to .file and notifies Watch about new transactions.
+// watcher watches updates to .file and notifies client about new transactions.
 //
 // watcher is the only place that mutates index and txnh{Min,Max}.
 // XXX ^^^ will change after commit is implemented.
@@ -452,8 +452,9 @@ func (fs *FileStorage) watcher(w *fsnotify.Watcher) {
 	defer w.Close() // XXX lclose
 	err := fs._watcher(w)
 	// it is ok if we got read error due to file being closed
-	// XXX it can also be ErrFileClosing which is internal
-	if e, _ := errors.Cause(err).(*os.PathError); e != nil && e.Err == os.ErrClosed {
+	if e, _ := errors.Cause(err).(*os.PathError); e != nil && (e.Err == os.ErrClosed ||
+		// XXX it can also be internal.poll.ErrFileClosing
+		e.Err.Error() == "use of closed file") {
 		select {
 		case <-fs.down:
 			err = nil

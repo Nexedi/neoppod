@@ -359,7 +359,7 @@ func BenchmarkIterate(b *testing.B) {
 // var tracef = func(format string, argv ...interface{}) {
 // 	log.Printf("W  " + format, argv...)
 // }
-// 
+//
 // func init() {
 // 	log.SetFlags(log.Lmicroseconds)
 // }
