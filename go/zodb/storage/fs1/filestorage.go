@@ -814,7 +814,7 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 
 	var errFirstRead chan error
 	if checkTailGarbage {
-		defer xerr.Contextf(&err, "open %s: checking whether it is garbage at @%d", path, index.TopPos)
+		defer xerr.Contextf(&err, "open %s: checking whether it is garbage @%d", path, index.TopPos)
 		errFirstRead = make(chan error, 1)
 	}
 

@@ -482,17 +482,27 @@ func TestOpenRecovery(t *testing.T) {
 	main, err := ioutil.ReadFile("testdata/1.fs"); X(err)
 	index, err := ioutil.ReadFile("testdata/1.fs.index"); X(err)
 	lastTidOk := _1fs_dbEntryv[len(_1fs_dbEntryv)-1].Header.Tid
+	topPos := int64(_1fs_indexTopPos)
 	voteTail, err := ioutil.ReadFile("testdata/1voted.tail"); X(err)
 
 	workdir := xworkdir(t)
 	ctx := context.Background()
 
-	for l := len(voteTail); l >= 0; l-- {
+	// checkL runs f on main + voteTail[:l]
+	checkL := func(t *testing.T, l int, f func(t *testing.T, tfs string)) {
 		t.Run(fmt.Sprintf("tail=+vote%d", l), func(t *testing.T) {
 			tfs := fmt.Sprintf("%s/1+vote%d.fs", workdir, l)
 			err := ioutil.WriteFile(tfs, append(main, voteTail[:l]...), 0600); X(err)
 			err = ioutil.WriteFile(tfs+".index", index, 0600); X(err)
 
+			f(t, tfs)
+		})
+	}
+
+	// if txn header can be fully read - it should be all ok
+	// XXX also test +0?
+	for l := len(voteTail); l >= TxnHeaderFixSize; l-- {
+		checkL(t, l, func(t *testing.T, tfs string) {
 			fs := xfsopen(t, tfs)
 			head, err := fs.LastTid(ctx); X(err)
 			if head != lastTidOk {
@@ -500,6 +510,22 @@ func TestOpenRecovery(t *testing.T) {
 			}
 
 			err = fs.Close(); X(err)
+		})
+	}
+
+	// if txn header is not complete - open should fail
+	for _, l := range []int{TxnHeaderFixSize-1,1} {
+		checkL(t, l, func(t *testing.T, tfs string) {
+			_, err := Open(ctx, tfs, &zodb.DriverOptions{ReadOnly: true})
+			estr := ""
+			if err != nil {
+				estr = err.Error()
+			}
+			ewant := fmt.Sprintf("open %s: checking whether it is garbage @%d: %s",
+				tfs, topPos, &RecordError{tfs, "transaction record", topPos, "read", io.ErrUnexpectedEOF})
+			if estr != ewant {
+				t.Fatalf("unexpected error:\nhave: %q\nwant: %q", estr, ewant)
+			}
 		})
 	}
 }
