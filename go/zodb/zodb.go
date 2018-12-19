@@ -323,19 +323,21 @@ func (e *OpError) Cause() error {
 
 // IStorage is the interface provided by opened ZODB storage.
 type IStorage interface {
-	//IStorageDriver
-
 	// same as in IStorageDriver
 	URL() string
 	Close() error
 	LastTid(context.Context) (Tid, error)
 	Loader
 	Iterator
-	// no watcher
 
 	// additional to IStorageDriver
 	Prefetcher
-	//XXXNotifier() -> Notifier // dedicated notifier for every open?
+
+	// Watch returns new watcher over the storage.
+	//
+	// The watcher represents invalidation channel (notify about changes
+	// made to DB).	XXX
+	//Watch() Watcher	XXX -> Watch(watchq) ?   (then how to unsubscribe)
 }
 
 // Prefetcher provides functionality to prefetch objects.
@@ -369,23 +371,6 @@ type IStorageDriver interface {
 
 	// A storage driver also delivers database change events to watchq
 	// channel, which is passed to it when the driver is created.
-
-/* XXX kill
-	Watcher
-
-	// Notifier returns storage driver notifier.
-	//
-	// The notifier represents invalidation channel (notify about changes
-	// made to DB).	XXX
-	//
-	// To simplify drivers, there must be only 1 logical user of
-	// storage-driver level notifier interface. Contrary IStorage allows
-	// for several users of notification channel.	XXX ok?
-	//Notifier() Notifier
-
-	// XXX Watch() -> Watcher
-	// XXX SetWatcher(watchq)	SetWatchSink() ? XXX -> ctor ?
-*/
 }
 
 // Loader provides functionality to load objects.
@@ -449,18 +434,6 @@ type Committer interface {
 }
 
 
-/*
-// Notifier allows to be notified of changes made to database by other clients.
-type Notifier interface {
-
-	// Read returns next notification event.
-	//
-	// XXX ...
-	// XXX overflow -> special error
-	Read(ctx context.Context) (Tid, []Oid, error)
-}
-*/
-
 // WatchEvent is one event describing observed database change.
 type WatchEvent struct {
 	Tid     Tid
@@ -473,7 +446,12 @@ type Watcher interface {
 	// Watch waits-for and returns next event corresponding to comitted transaction.
 	//
 	// XXX queue overflow -> special error?
-	Watch(ctx context.Context) (Tid, []Oid, error)
+	Watch(ctx context.Context) (WatchEvent, error)	// XXX name -> Read? ReadEvent?
+
+
+	// Close stops the watcher.
+	// err is always nil.	XXX ok?
+	Close() error
 }
 
 

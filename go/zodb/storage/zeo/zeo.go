@@ -91,9 +91,6 @@ func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIte
 	panic("TODO")
 }
 
-func (z *zeo) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
-	panic("TODO")
-}
 
 // errorUnexpectedReply is returned by zLink.Call callers when reply was
 // received successfully, but is not what the caller expected.
@@ -315,7 +312,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		panic("TODO watchq")
 	}
 
-	zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable
+	zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable {invalidateTransaction tid, oidv} -> ...
 	if err != nil {
 		return nil, err
 	}
