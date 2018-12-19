@@ -355,17 +355,7 @@ func BenchmarkIterate(b *testing.B) {
 	b.StopTimer()
 }
 
-// // XXX kill
-// var tracef = func(format string, argv ...interface{}) {
-// 	log.Printf("W  " + format, argv...)
-// }
-//
-// func init() {
-// 	log.SetFlags(log.Lmicroseconds)
-// }
-
-
-
+// TestWatch verifies that watcher can observes commits done from outside.
 func TestWatch(t *testing.T) {
 	X := exc.Raiseif
 
@@ -412,8 +402,6 @@ func TestWatch(t *testing.T) {
 	}
 
 	xcommit := func(at zodb.Tid, objv ...Object) zodb.Tid {
-		//tracef("-> xcommit %s", at)
-		//defer tracef("<- xcommit")
 		t.Helper()
 		tid, err := zcommit(at, objv...); X(err)
 		return tid
@@ -500,8 +488,11 @@ func TestOpenRecovery(t *testing.T) {
 	}
 
 	// if txn header can be fully read - it should be all ok
-	// XXX also test +0?
+	lok := []int{0}
 	for l := len(voteTail); l >= TxnHeaderFixSize; l-- {
+		lok = append(lok, l)
+	}
+	for _, l := range lok {
 		checkL(t, l, func(t *testing.T, tfs string) {
 			fs := xfsopen(t, tfs)
 			head, err := fs.LastTid(ctx); X(err)
@@ -513,7 +504,8 @@ func TestOpenRecovery(t *testing.T) {
 		})
 	}
 
-	// if txn header is not complete - open should fail
+	// if txn header is stably incomplete - open should fail
+	// XXX better check 0..sizeof(txnh)-1 but in this range each check is slow.
 	for _, l := range []int{TxnHeaderFixSize-1,1} {
 		checkL(t, l, func(t *testing.T, tfs string) {
 			_, err := Open(ctx, tfs, &zodb.DriverOptions{ReadOnly: true})
