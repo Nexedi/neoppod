@@ -597,9 +597,10 @@ mainloop:
 						return err // garbage
 					}
 				} else {
-					// not ok - e.g. IO error
-					// only EOF is ok - it can happen when transaction was aborted
+					// only EOF is ok - it can happen when transaction was aborted,
+					// or when we reach file end after scanning several txns.
 					if err != io.EOF {
+						// not ok - e.g. IO or consistency check error
 						return err
 					}
 
