@@ -476,13 +476,17 @@ func TestOpenRecovery(t *testing.T) {
 	workdir := xworkdir(t)
 	ctx := context.Background()
 
-	// checkL runs f on main + voteTail[:l]
+	// checkL runs f on main + voteTail[:l] . Two cases are verified:
+	// 1) when index is already present, and
+	// 2) when initially there is no index.
 	checkL := func(t *testing.T, l int, f func(t *testing.T, tfs string)) {
-		t.Run(fmt.Sprintf("tail=+vote%d", l), func(t *testing.T) {
-			tfs := fmt.Sprintf("%s/1+vote%d.fs", workdir, l)
+		tfs := fmt.Sprintf("%s/1+vote%d.fs", workdir, l)
+		t.Run(fmt.Sprintf("oldindex=n/tail=+vote%d", l), func(t *testing.T) {
 			err := ioutil.WriteFile(tfs, append(main, voteTail[:l]...), 0600); X(err)
-			err = ioutil.WriteFile(tfs+".index", index, 0600); X(err)
-
+			f(t, tfs)
+		})
+		t.Run(fmt.Sprintf("oldindex=y/tail=+vote%d", l), func(t *testing.T) {
+			err := ioutil.WriteFile(tfs+".index", index, 0600); X(err)
 			f(t, tfs)
 		})
 	}
@@ -495,12 +499,13 @@ func TestOpenRecovery(t *testing.T) {
 	for _, l := range lok {
 		checkL(t, l, func(t *testing.T, tfs string) {
 			fs := xfsopen(t, tfs)
+			defer func() {
+				err = fs.Close(); X(err)
+			}()
 			head, err := fs.LastTid(ctx); X(err)
 			if head != lastTidOk {
 				t.Fatalf("last_tid: %s  ; expected: %s", head, lastTidOk)
 			}
-
-			err = fs.Close(); X(err)
 		})
 	}
 

@@ -101,9 +101,10 @@ type FileStorage struct {
 	// driver client <- watcher: database commits.
 	watchq chan<- zodb.WatchEvent
 
-	down     chan struct{} // ready when storage is no longer operational
-	downOnce sync.Once     // shutdown may be due to both Close and IO error in watcher
-	errClose error         // error from .file.Close()
+	down     chan struct{}  // ready when storage is no longer operational
+	downOnce sync.Once      // shutdown may be due to both Close and IO error in watcher
+	errClose error          // error from .file.Close()
+	watchWg  sync.WaitGroup // to wait for watcher finish
 }
 
 // IStorageDriver
@@ -471,6 +472,7 @@ func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.
 //
 // if errFirstRead is !nil, the error of reading first transaction header is sent to it.
 func (fs *FileStorage) watcher(w *fsnotify.Watcher, errFirstRead chan<- error) {
+	defer fs.watchWg.Done()
 	defer w.Close() // XXX lclose
 	err := fs._watcher(w, errFirstRead)
 	// it is ok if we got read error due to file being closed
@@ -692,7 +694,7 @@ func (fs *FileStorage) shutdown(reason error) {
 
 func (fs *FileStorage) Close() error {
 	fs.shutdown(fmt.Errorf("closed"))
-	// XXX wait for watcher?
+	fs.watchWg.Wait()
 
 	if fs.errClose != nil {
 		return fs.zerr("close", nil, fs.errClose)
@@ -819,6 +821,7 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 		errFirstRead = make(chan error, 1)
 	}
 
+	fs.watchWg.Add(1)
 	go fs.watcher(w, errFirstRead)
 
 	if checkTailGarbage {

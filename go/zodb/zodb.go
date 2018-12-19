@@ -442,12 +442,10 @@ type WatchEvent struct {
 
 // Watcher allows to be notified of changes to database.
 type Watcher interface {
-
 	// Watch waits-for and returns next event corresponding to comitted transaction.
 	//
 	// XXX queue overflow -> special error?
 	Watch(ctx context.Context) (WatchEvent, error)	// XXX name -> Read? ReadEvent?
-
 
 	// Close stops the watcher.
 	// err is always nil.	XXX ok?
