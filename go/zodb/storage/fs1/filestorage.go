@@ -687,17 +687,15 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 		log.Print(err)
 		log.Printf("%s: index rebuild...", path)
 		index, err = BuildIndex(ctx, fseq, nil/*no progress; XXX log it? */)
-		// XXX cause=ErrUnexpectedEOF -> let watcher decide what was
-		// it: garbage or in-progress transaction
-		if err != nil {
-			return nil, err
-		}
+	} else {
+		// index loaded. In particular this gives us index.TopPos that is, possibly
+		// outdated, valid position for start of a transaction in the data file.
+		// Update the index starting from that till latest transaction.
+		err = index.Update(ctx, fseq, -1, nil/*no progress; XXX log it? */)
 	}
 
-	// index loaded. In particular this gives us index.TopPos that is, possibly
-	// outdated, valid position for start of a transaction in the data file.
-	// Update the index starting from that till latest transaction.
-	err = index.Update(ctx, fseq, -1, nil/*no progress; XXX log it? */)
+	// XXX cause=ErrUnexpectedEOF -> let watcher decide what was
+	// it: garbage or in-progress transaction
 	if err != nil {
 		return nil, err
 	}
