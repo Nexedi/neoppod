@@ -52,6 +52,7 @@ type DB struct {
 
 	// information about invalidations
 	// XXX -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
+	// XXX -> ΔTail<tid, oid>
 	invTab []invEntry // order by ↑= .tid
 }
 

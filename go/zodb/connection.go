@@ -50,10 +50,24 @@ type Connection struct {
 	txn  transaction.Transaction // opened under this txn; nil if idle in DB pool.
 	at   Tid                     // current view of database; stable inside a transaction.
 
-	// XXX document it is only a cache - i.e. this is only partial mapping, not for whole db
-	// {} oid -> obj
-	//
-	// rationale:
+	cache LiveCache // cache of connection's in-RAM objects
+}
+
+// LiveCache keeps registry of live in-RAM objects for a Connection.
+//
+// It semantically consists of
+//
+//	{} oid -> obj
+//
+// but does not hold strong reference to cached objects.
+//
+// LiveCache is safe for multiple simultaneous read access.
+// LiveCache is not safe for multiple simultaneous read/write access -
+// the caller must explicitly serialize access with e.g. .Lock() .
+//
+// XXX try to hide locking from user?
+type LiveCache struct {
+	// rationale for using weakref:
 	//
 	// on invalidations: we need to go oid -> obj and invalidate it.
 	// -> Connection need to keep {} oid -> obj.
@@ -99,7 +113,8 @@ type Connection struct {
 	//
 	// NOTE2 finalizers don't run on when they are attached to an object in cycle.
 	// Hopefully we don't have cycles with BTree/Bucket.
-	objmu  sync.Mutex
+
+	sync.Mutex
 	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
 
 	// hooks for application to influence live caching decisions.
@@ -124,10 +139,12 @@ type LiveCacheControl interface {
 // newConnection creates new Connection associated with db.
 func newConnection(db *DB, at Tid) *Connection {
 	return &Connection{
-		stor:   db.stor,
-		db:     db,
-		at:     at,
-		objtab: make(map[Oid]*weak.Ref),
+		stor:  db.stor,
+		db:    db,
+		at:    at,
+		cache: LiveCache{
+			objtab: make(map[Oid]*weak.Ref),
+		},
 	}
 }
 
@@ -135,6 +152,11 @@ func newConnection(db *DB, at Tid) *Connection {
 func (conn *Connection) At() Tid {
 	conn.checkLive("at")
 	return conn.at
+}
+
+// Cache returns connection's cache of live objects.
+func (conn *Connection) Cache() *LiveCache {
+	return &conn.cache
 }
 
 // wrongClassError is the error cause returned when ZODB object's class is not what was expected.
@@ -146,31 +168,39 @@ func (e *wrongClassError) Error() string {
 	return fmt.Sprintf("wrong class: want %q; have %q", e.want, e.have)
 }
 
-// get is like Get, but used when we already know object class.
+// Get lookups object corresponding to oid in the cache.
 //
-// Use-case: in ZODB references are (pyclass, oid), so new ghost is created
-// without further loading anything.
-func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
-	conn.objmu.Lock() // XXX -> rlock?
-	wobj := conn.objtab[oid]
+// It is not safe to call Get from multiple goroutines simultaneously.
+func (cache *LiveCache) Get(oid Oid) IPersistent {
+	wobj := cache.objtab[oid]
 	var obj IPersistent
-	checkClass := false
 	if wobj != nil {
 		if xobj := wobj.Get(); xobj != nil {
 			obj = xobj.(IPersistent)
 		}
 	}
+	return obj
+}
+
+// get is like Get, but used when we already know object class.
+//
+// Use-case: in ZODB references are (pyclass, oid), so new ghost is created
+// without further loading anything.
+func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
+	conn.cache.Lock() // XXX -> rlock?
+	obj := conn.cache.Get(oid)
+	checkClass := false
 	if obj == nil {
 		obj = newGhost(class, oid, conn)
 		//if obj == nil {
-		//	conn.objmu.Unlock()
+		//	conn.cache.Unlock()
 		//	return nil, fmt.Errorf("get %s: class %q not supported", Xid{conn.at, oid}, class)
 		//}
-		conn.objtab[oid] = weak.NewRef(obj)
+		conn.cache.objtab[oid] = weak.NewRef(obj)
 	} else {
 		checkClass = true
 	}
-	conn.objmu.Unlock()
+	conn.cache.Unlock()
 
 	if checkClass {
 		if cls := ClassOf(obj); class != cls {
@@ -196,20 +226,16 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (_ IPersistent, err er
 	conn.checkTxnCtx(ctx, "Get")
 	defer xerr.Contextf(&err, "Get %s", oid)
 
-	conn.objmu.Lock() // XXX -> rlock?
-	wobj := conn.objtab[oid]
-	var xobj interface{}
-	if wobj != nil {
-		xobj = wobj.Get()
-	}
-	conn.objmu.Unlock()
+	conn.cache.Lock() // XXX -> rlock?
+	obj := conn.cache.Get(oid)
+	conn.cache.Unlock()
 
-	// object was already there in objtab.
-	if xobj != nil {
-		return xobj.(IPersistent), nil
+	// object was already there in cache.
+	if obj != nil {
+		return obj, nil
 	}
 
-	// object is not there in objtab - raw load it, get its class -> get(pyclass, oid)
+	// object is not in cache - raw load it, get its class -> get(pyclass, oid)
 	// XXX "py always" hardcoded
 	class, pystate, serial, err := conn.loadpy(ctx, oid)
 	if err != nil {
@@ -217,7 +243,7 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (_ IPersistent, err er
 		return nil, err
 	}
 
-	obj, err := conn.get(class, oid)
+	obj, err = conn.get(class, oid)
 	if err != nil {
 		return nil, err
 	}
