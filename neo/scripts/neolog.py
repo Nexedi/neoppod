@@ -107,19 +107,36 @@ class Log(object):
                 self._reload(p[0])
             except StopIteration:
                 p = None
-            for date, name, cluster, nid, level, pathname, lineno, msg in nl:
-                while p and p[0] < date:
-                    yield self._packet(*p)
-                    p = next(np, None)
-                self._log_date = date
-                yield (date, self._node(name, cluster, nid),
-                       getLevelName(level), msg.splitlines())
+            except sqlite3.DatabaseError, e:
+                yield time.time(), None, 'PACKET', self._exc(e)
+                p = None
+            try:
+                for date, name, cluster, nid, level, pathname, lineno, msg in nl:
+                    while p and p[0] < date:
+                        yield self._packet(*p)
+                        try:
+                            p = next(np, None)
+                        except sqlite3.DatabaseError, e:
+                            yield time.time(), None, 'PACKET', self._exc(e)
+                            p = None
+                    self._log_date = date
+                    yield (date, self._node(name, cluster, nid),
+                           getLevelName(level), msg.splitlines())
+            except sqlite3.DatabaseError, e:
+                yield time.time(), None, 'LOG', self._exc(e)
             if p:
                 yield self._packet(*p)
-                for p in np:
-                    yield self._packet(*p)
+                try:
+                    for p in np:
+                        yield self._packet(*p)
+                except sqlite3.DatabaseError, e:
+                    yield time.time(), None, 'PACKET', self._exc(e)
         finally:
             self._db.rollback()
+
+    @staticmethod
+    def _exc(e):
+        return ('%s: %s' % (type(e).__name__, e)).splitlines()
 
     def _node(self, name, cluster, nid):
         if nid and not self._no_nid:
