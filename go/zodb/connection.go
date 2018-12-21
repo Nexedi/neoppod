@@ -118,7 +118,7 @@ type LiveCache struct {
 	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
 
 	// hooks for application to influence live caching decisions.
-	cacheControl LiveCacheControl
+	control LiveCacheControl
 }
 
 // LiveCacheControl is the interface that allows applications to influence
@@ -180,6 +180,16 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 		}
 	}
 	return obj
+}
+
+// SetControl installs c to handle cache decisions.
+//
+// Any previously installed cache control is uninstalled.
+// Passing nil sets the cache to have no control installed at all.
+//
+// It is not safe to call SetControl simultaneously to other cache operations.
+func (cache *LiveCache) SetControl(c LiveCacheControl) {
+	cache.control = c
 }
 
 // get is like Get, but used when we already know object class.

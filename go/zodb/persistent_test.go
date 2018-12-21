@@ -137,4 +137,5 @@ func TestPersistent(t *testing.T) {
 	// TODO activate again	- refcnt++
 	// TODO deactivate	- refcnt--
 	// TODO deactivate	- state dropped
+	// TODO invalidate	- must be on txn boundary; state dropped
 }
