@@ -23,7 +23,17 @@ from itertools import chain
 from logging import getLevelName
 from zlib import decompress
 
-comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat')
+try:
+    import zstd
+except ImportError:
+    zstdcat = 'zstdcat'
+else:
+    from cStringIO import StringIO
+    def zstdcat(path):
+        with open(path, 'rb') as f:
+            return StringIO(zstd.decompress(f.read()))
+
+comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat', zst=zstdcat)
 
 class Log(object):
 
