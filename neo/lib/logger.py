@@ -102,7 +102,7 @@ class NEOLogger(Logger):
         if self._db is None:
             return
         q = self._db.execute
-        if not q("SELECT id FROM packet LIMIT 1").fetchone():
+        if not q("SELECT 1 FROM packet LIMIT 1").fetchone():
             q("DROP TABLE protocol")
             # DROP TABLE already replaced previous data with zeros,
             # so VACUUM is not really useful. But here, it should be free.

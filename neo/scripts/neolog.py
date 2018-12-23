@@ -77,7 +77,7 @@ class Log(object):
                 date = " WHERE date>?"
             old = "SELECT date, name, NULL, NULL, %s FROM %s" + date
             new = ("SELECT date, name, cluster, nid, %s"
-                   " FROM %s JOIN node ON node=id" + date)
+                   " FROM %s LEFT JOIN node ON node=id" + date)
             log = 'level, pathname, lineno, msg'
             pkt = 'msg_id, code, peer, body'
             try:
