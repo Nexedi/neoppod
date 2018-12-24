@@ -61,9 +61,8 @@ type Connection struct {
 //
 // but does not hold strong reference to cached objects.
 //
-// LiveCache is safe for multiple simultaneous read access.
-// LiveCache is not safe for multiple simultaneous read/write access -
-// the caller must explicitly serialize access with e.g. .Lock() .
+// LiveCache is safe to access for multiple-readers / single-writer.
+// To do so the caller must explicitly serialize access with e.g. .Lock() .
 //
 // XXX try to hide locking from user?
 type LiveCache struct {
@@ -170,7 +169,7 @@ func (e *wrongClassError) Error() string {
 
 // Get lookups object corresponding to oid in the cache.
 //
-// It is not safe to call Get from multiple goroutines simultaneously.
+// If object is found, it is guaranteed to stay in live cache while the caller keeps reference to it.
 func (cache *LiveCache) Get(oid Oid) IPersistent {
 	wobj := cache.objtab[oid]
 	var obj IPersistent
