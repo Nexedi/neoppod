@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -613,7 +613,7 @@ func TestCache(t *testing.T) {
 
 	// XXX verify caching vs ctx cancel
 	// XXX verify db inconsistency checks
-	// XXX verify loading with before > cache.before
+	// XXX verify loading with at > cache.head
 }
 
 type Checker struct {

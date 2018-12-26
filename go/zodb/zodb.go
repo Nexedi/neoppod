@@ -437,7 +437,7 @@ type CommitEvent struct {
 
 // Watcher allows to be notified of changes to database.
 //
-// Watcher is safe to be used from multiple goroutines simultaneously.
+// Watcher is safe to use from multiple goroutines simultaneously.
 type Watcher interface {
 	// AddWatch registers watchq to be notified of database changes.
 	//

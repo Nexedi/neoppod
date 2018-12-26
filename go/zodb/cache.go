@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -31,7 +31,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xcontainer/list"
 )
 
-// TODO handle invalidations from the database.
+// FIXME watch over storage and update cache to new commits there.
 
 // XXX managing LRU under 1 big gcMu might be bad for scalability.
 // TODO maintain nhit / nmiss + way to read cache stats
@@ -46,8 +46,9 @@ type Cache struct {
 
 	mu sync.RWMutex
 
-	// cache is fully synchronized with storage for transactions with tid <= head.
-	// XXX clarify ^^^ (it means if revCacheEntry.head=∞ it is Cache.head)
+	// cache is currently synchronized with storage for transactions with tid <= head.
+	// XXX clarify ^^^ (it means if revCacheEntry.head=∞ it is Cache.head)	XXX
+	// XXX load(at > head) -> wait?
 	head Tid
 
 	entryMap map[Oid]*oidCacheEntry // oid -> oid's cache entries
@@ -89,7 +90,7 @@ type revCacheEntry struct {
 	// ( this way we do not need to bump .head to next tid in many
 	//   unchanged cache entries when a transaction invalidation comes )
 	//
-	// .head can be > cache.head and still finite - that represents a
+	// .head can be > cache.head and still finite - that represents a	XXX
 	// case when load with tid > cache.head was called.
 	head Tid
 
