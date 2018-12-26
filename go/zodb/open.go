@@ -35,7 +35,7 @@ type OpenOptions struct {
 	NoCache  bool // don't use cache for read/write operations; prefetch will be noop
 }
 
-// DriverOptions describes options for DriverOpener
+// DriverOptions describes options for DriverOpener.
 type DriverOptions struct {
 	ReadOnly bool // whether to open storage as read-only
 
@@ -91,9 +91,10 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
 	}
 
+	drvWatchq := make(chan WatchEvent)
 	drvOpt := &DriverOptions{
 		ReadOnly: opt.ReadOnly,
-		// TODO watchq
+		Watchq:   drvWatchq,
 	}
 
 	storDriver, err := opener(ctx, u, drvOpt)
@@ -111,6 +112,11 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 	return &storage{
 		IStorageDriver: storDriver,
 		l1cache:        cache,
+
+		drvWatchq: drvWatchq,
+		watchReq:  make(chan watchRequest),
+		watchTab:  make(map[chan WatchEvent]struct{}),
+
 	}, nil
 }
 
@@ -123,10 +129,18 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 type storage struct {
 	IStorageDriver
 	l1cache *Cache // can be =nil, if opened with NoCache
+
+	// watcher
+	drvWatchq chan WatchEvent              // watchq passed to driver
+	watchReq  chan watchRequest            // {Add,Del}Watch requests go here
+	watchTab  map[chan WatchEvent]struct{} // registered watchers
 }
 
-
 // loading goes through cache - this way prefetching can work
+
+// XXX Close   - stop watching? (driver will close watchq in its own Close)
+// XXX LastTid - report only LastTid for which cache is ready?
+//		 or driver.LastTid(), then wait cache is ready?
 
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	// XXX here: offload xid validation from cache and driver ?
@@ -142,4 +156,64 @@ func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 	if s.l1cache != nil {
 		s.l1cache.Prefetch(ctx, xid)
 	}
+}
+
+// watcher
+
+// watchRequest represents request to add/del a watch.
+type watchRequest struct {
+	op     watchOp         // add or del
+	ack    chan struct{}   // when request processed
+	watchq chan WatchEvent // {Add,Del}Watch argument
+}
+
+type watchOp int
+
+const (
+	addWatch watchOp = 0
+	delWatch watchOp = 1
+)
+
+func (s *storage) watcher() {
+	for {
+		select {
+		case req := <-s.watchReq:
+			switch req.op {
+			case addWatch:
+				s.watchTab[req.watchq] = struct{}{}
+
+			case delWatch:
+				delete(s.watchTab, req.watchq)
+
+			default:
+				panic("bad watch request op")
+			}
+
+			close(req.ack)
+
+		case event, ok := <-s.drvWatchq:
+			if !ok {
+				// XXX storage closed
+			}
+
+			// deliver event to all watchers
+			for watchq := range s.watchTab {
+				watchq <- event
+			}
+		}
+	}
+}
+
+func (s *storage) AddWatch(watchq chan WatchEvent) {
+	// XXX when already Closed?
+	ack := make(chan struct{})
+	s.watchReq <- watchRequest{addWatch, ack, watchq}
+	<-ack
+}
+
+func (s *storage) DelWatch(watchq chan WatchEvent) {
+	// XXX when already Closed?
+	ack := make(chan struct{})
+	s.watchReq <- watchRequest{delWatch, ack, watchq}
+	<-ack
 }

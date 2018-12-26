@@ -332,12 +332,7 @@ type IStorage interface {
 
 	// additional to IStorageDriver
 	Prefetcher
-
-	// Watch returns new watcher over the storage.
-	//
-	// The watcher represents invalidation channel (notify about changes
-	// made to DB).	XXX
-	//Watch() Watcher	XXX -> Watch(watchq) ?   (then how to unsubscribe)
+	Watcher
 }
 
 // Prefetcher provides functionality to prefetch objects.
@@ -441,15 +436,25 @@ type WatchEvent struct {
 }
 
 // Watcher allows to be notified of changes to database.
+//
+// Watcher is safe to be used from multiple goroutines simultaneously.
 type Watcher interface {
-	// Watch waits-for and returns next event corresponding to comitted transaction.
+	// AddWatch registers watchq to be notified of database changes.
 	//
-	// XXX queue overflow -> special error?
-	Watch(ctx context.Context) (WatchEvent, error)	// XXX name -> Read? ReadEvent?
+	// Whenever a new transaction is committed into the database,
+	// corresponding event will be sent to watchq.
+	//
+	// Once registered, watchq must be read. Not doing so will stuck whole storage.
+	//
+	// Multiple AddWatch calls with the same watchq register watchq only once.
+	AddWatch(watchq chan WatchEvent)
 
-	// Close stops the watcher.
-	// err is always nil.	XXX ok?
-	Close() error
+	// DelWatch unregisters watchq to be notified of database changes.
+	//
+	// After DelWatch call completes, no new events will be sent to watchq.
+	//
+	// DelWatch is noop if watchq was not registered.
+	DelWatch(watchq chan WatchEvent)
 }
 
 

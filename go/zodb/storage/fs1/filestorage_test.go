@@ -430,7 +430,7 @@ func TestWatch(t *testing.T) {
 	// https://github.com/pypa/setuptools/issues/510
 	//
 	// Since pkg_resources are used everywhere (e.g. in zodburi to find all
-	// uri resolvers) this import slowness becomes the major component to
+	// uri resolvers) this import slowness becomes the major part of time to
 	// run py `zodb commit`.
 	//
 	// if one day it is either fixed, or worked around, we could ↑ 10 to 100.
