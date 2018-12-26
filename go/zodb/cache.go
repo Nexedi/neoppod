@@ -32,6 +32,9 @@ import (
 )
 
 // FIXME watch over storage and update cache to new commits there.
+// ( need to keep δtail for looking a bit into future for loads with at
+//   slightly in the past: e.g. DB changes frequently, and every connection
+//   open results in slightly lagging at )
 
 // XXX managing LRU under 1 big gcMu might be bad for scalability.
 // TODO maintain nhit / nmiss + way to read cache stats
