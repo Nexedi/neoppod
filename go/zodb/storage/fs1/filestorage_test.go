@@ -410,7 +410,7 @@ func TestWatch(t *testing.T) {
 	// force tfs creation & open tfs at go side
 	at := xcommit(0, Object{0, "data0"})
 
-	watchq := make(chan zodb.WatchEvent)
+	watchq := make(chan zodb.CommitEvent)
 	fs := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
 	ctx := context.Background()
 

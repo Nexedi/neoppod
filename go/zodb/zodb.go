@@ -429,8 +429,8 @@ type Committer interface {
 }
 
 
-// WatchEvent is one event describing observed database change.
-type WatchEvent struct {
+// CommitEvent is event describing one observed database commit.
+type CommitEvent struct {
 	Tid     Tid
 	Changev []Oid	// XXX name
 }
@@ -447,14 +447,14 @@ type Watcher interface {
 	// Once registered, watchq must be read. Not doing so will stuck whole storage.
 	//
 	// Multiple AddWatch calls with the same watchq register watchq only once.
-	AddWatch(watchq chan WatchEvent)
+	AddWatch(watchq chan CommitEvent)
 
 	// DelWatch unregisters watchq to be notified of database changes.
 	//
 	// After DelWatch call completes, no new events will be sent to watchq.
 	//
 	// DelWatch is noop if watchq was not registered.
-	DelWatch(watchq chan WatchEvent)
+	DelWatch(watchq chan CommitEvent)
 }
 
 

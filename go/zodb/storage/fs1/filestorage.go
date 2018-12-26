@@ -99,7 +99,7 @@ type FileStorage struct {
 	downErr error     // !nil when the storage is no longer operational
 
 	// driver client <- watcher: database commits.
-	watchq chan<- zodb.WatchEvent
+	watchq chan<- zodb.CommitEvent
 
 	down     chan struct{}  // ready when storage is no longer operational
 	downOnce sync.Once      // shutdown may be due to both Close and IO error in watcher
@@ -668,7 +668,7 @@ mainloop:
 				case <-fs.down:
 					return nil
 
-				case fs.watchq <- zodb.WatchEvent{it.Txnh.Tid, oidv}:
+				case fs.watchq <- zodb.CommitEvent{it.Txnh.Tid, oidv}:
 					// ok
 				}
 			}

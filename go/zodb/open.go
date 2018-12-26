@@ -46,7 +46,7 @@ type DriverOptions struct {
 	// it can get out of sync with the on-disk database file.
 	//
 	// The storage driver closes !nil Watchq when the driver is closed.
-	Watchq chan<- WatchEvent
+	Watchq chan<- CommitEvent
 }
 
 // DriverOpener is a function to open a storage driver.
@@ -91,7 +91,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
 	}
 
-	drvWatchq := make(chan WatchEvent)
+	drvWatchq := make(chan CommitEvent)
 	drvOpt := &DriverOptions{
 		ReadOnly: opt.ReadOnly,
 		Watchq:   drvWatchq,
@@ -115,7 +115,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 
 		drvWatchq: drvWatchq,
 		watchReq:  make(chan watchRequest),
-		watchTab:  make(map[chan WatchEvent]struct{}),
+		watchTab:  make(map[chan CommitEvent]struct{}),
 
 	}, nil
 }
@@ -131,9 +131,9 @@ type storage struct {
 	l1cache *Cache // can be =nil, if opened with NoCache
 
 	// watcher
-	drvWatchq chan WatchEvent              // watchq passed to driver
-	watchReq  chan watchRequest            // {Add,Del}Watch requests go here
-	watchTab  map[chan WatchEvent]struct{} // registered watchers
+	drvWatchq chan CommitEvent              // watchq passed to driver
+	watchReq  chan watchRequest             // {Add,Del}Watch requests go here
+	watchTab  map[chan CommitEvent]struct{} // registered watchers
 }
 
 // loading goes through cache - this way prefetching can work
@@ -162,9 +162,9 @@ func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 
 // watchRequest represents request to add/del a watch.
 type watchRequest struct {
-	op     watchOp         // add or del
-	ack    chan struct{}   // when request processed
-	watchq chan WatchEvent // {Add,Del}Watch argument
+	op     watchOp          // add or del
+	ack    chan struct{}    // when request processed
+	watchq chan CommitEvent // {Add,Del}Watch argument
 }
 
 type watchOp int
@@ -204,14 +204,16 @@ func (s *storage) watcher() {
 	}
 }
 
-func (s *storage) AddWatch(watchq chan WatchEvent) {
+// AddWatch implements Watcher.
+func (s *storage) AddWatch(watchq chan CommitEvent) {
 	// XXX when already Closed?
 	ack := make(chan struct{})
 	s.watchReq <- watchRequest{addWatch, ack, watchq}
 	<-ack
 }
 
-func (s *storage) DelWatch(watchq chan WatchEvent) {
+// DelWatch implements Watcher.
+func (s *storage) DelWatch(watchq chan CommitEvent) {
 	// XXX when already Closed?
 	ack := make(chan struct{})
 	s.watchReq <- watchRequest{delWatch, ack, watchq}
