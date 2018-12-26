@@ -32,9 +32,15 @@ import (
 )
 
 // FIXME watch over storage and update cache to new commits there.
-// ( need to keep δtail for looking a bit into future for loads with at
+//
+// ( Will need to keep δtail for looking a bit into future for loads with at
 //   slightly in the past: e.g. DB changes frequently, and every connection
-//   open results in slightly lagging at )
+//   open results in slightly lagging at.
+//
+//   With δtail we will be able to look ahead in [at, .cache.head] range and
+//   mark just loaded RCE as having .head=∞, if object is not changed there,
+//   instead of marking RCE with .head=at and this way needing to load the same
+//   object again for next connection open )
 
 // XXX managing LRU under 1 big gcMu might be bad for scalability.
 // TODO maintain nhit / nmiss + way to read cache stats
