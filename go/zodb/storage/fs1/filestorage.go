@@ -503,6 +503,11 @@ func (fs *FileStorage) watcher(w *fsnotify.Watcher, errFirstRead chan<- error) {
 // _watcher serves watcher and returns either when fs is closed (ok), or when
 // it hits any kind of non-recoverable error.
 func (fs *FileStorage) _watcher(w *fsnotify.Watcher, errFirstRead chan<- error) (err error) {
+	tracef := func(format string, argv ...interface{}) {
+		log.Printf("    fs1: watcher: " + format, argv...)
+	}
+	tracef(">>>")
+
 	f := fs.file
 	idx := fs.index
 	defer xerr.Contextf(&err, "%s: watcher", f.Name())
@@ -524,12 +529,15 @@ func (fs *FileStorage) _watcher(w *fsnotify.Watcher, errFirstRead chan<- error) 
 mainloop:
 	for {
 		if !first {
+			tracef("select ...")
 			select {
 			case <-fs.down:
 				// closed
+				tracef("down")
 				return nil
 
 			case err := <-w.Errors:
+				tracef("error")
 				if err != fsnotify.ErrEventOverflow {
 					return err
 				}
@@ -538,9 +546,11 @@ mainloop:
 			case <-w.Events:
 				// we got some kind of "file was modified" event (e.g.
 				// write, truncate, chown ...) -> it is time to check the file again.
+				tracef("event")
 
 			case <-tick.C:
 				// recheck the file periodically.
+				tracef("tick")
 			}
 
 			// we will be advancing through the file as much as we can.
@@ -569,6 +579,7 @@ mainloop:
 			return err
 		}
 		fsize := fi.Size()
+		tracef("toppos: %d\tfsize: %d\n", idx.TopPos, fsize)
 		switch {
 		case fsize == idx.TopPos:
 			continue // same as before
@@ -579,6 +590,7 @@ mainloop:
 
 		// there is some data after toppos - try to advance as much as we can.
 		// start iterating afresh with new empty buffer.
+		tracef("scanning ...")
 		it := Iterate(seqReadAt(f), idx.TopPos, IterForward)
 		for {
 			err = it.NextTxn(LoadNoStrings)
@@ -616,6 +628,8 @@ mainloop:
 
 			// read ok - reset t₀(partial)
 			t0partial = time.Time{}
+
+			tracef("@%d tid=%s st=%q", it.Txnh.Pos, it.Txnh.Tid, it.Txnh.Status)
 
 			if errFirstRead != nil {
 				errFirstRead <- nil // ok
@@ -661,6 +675,8 @@ mainloop:
 				fs.txnhMin.CloneFrom(&it.Txnh)
 			}
 			fs.mu.Unlock()
+
+			tracef("-> tid=%s  δoidv=%v", it.Txnh.Tid, oidv)
 
 			// notify client
 			if fs.watchq != nil {
@@ -711,6 +727,9 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 	if !opt.ReadOnly {
 		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
 	}
+
+	log.Print()
+	log.Printf("fs1 open, watchq: %v", opt.Watchq)
 
 	fs := &FileStorage{
 		watchq: opt.Watchq,

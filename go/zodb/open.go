@@ -109,7 +109,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		cache = NewCache(storDriver, 128 * 4*1024)
 	}
 
-	return &storage{
+	stor := &storage{
 		IStorageDriver: storDriver,
 		l1cache:        cache,
 
@@ -117,7 +117,10 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		watchReq:  make(chan watchRequest),
 		watchTab:  make(map[chan CommitEvent]struct{}),
 
-	}, nil
+	}
+	go stor.watcher()	// XXX stop on close
+
+	return stor, nil
 }
 
 
