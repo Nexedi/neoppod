@@ -197,7 +197,10 @@ func (s *storage) watcher() {
 
 		case event, ok := <-s.drvWatchq:
 			if !ok {
-				// XXX storage closed
+				// storage closed
+				// XXX close all subscribers' watchq?
+				// XXX AddWatch/DelWatch after watcher exits?
+				return
 			}
 
 			// deliver event to all watchers
