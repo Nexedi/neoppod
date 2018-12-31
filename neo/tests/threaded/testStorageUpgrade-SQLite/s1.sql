@@ -48,7 +48,9 @@ CREATE TABLE trans (
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid INTEGER NOT NULL,
-                 PRIMARY KEY (partition, tid));
+                 PRIMARY KEY (partition, tid)
+            ) WITHOUT ROWID
+            ;
 INSERT INTO "trans" VALUES(1,231616946283203125,0,X'0000000000000000',X'',X'',X'',231616946283203125);
 CREATE TABLE ttrans (
                  partition INTEGER NOT NULL,

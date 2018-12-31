@@ -48,7 +48,9 @@ CREATE TABLE trans (
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid INTEGER NOT NULL,
-                 PRIMARY KEY (partition, tid));
+                 PRIMARY KEY (partition, tid)
+            ) WITHOUT ROWID
+            ;
 CREATE TABLE ttrans (
                  partition INTEGER NOT NULL,
                  tid INTEGER NOT NULL,

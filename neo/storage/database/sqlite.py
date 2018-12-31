@@ -179,7 +179,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid INTEGER NOT NULL,
-                 PRIMARY KEY (partition, tid))
+                 PRIMARY KEY (partition, tid)
+            ) WITHOUT ROWID
             """
 
         # The table "obj" stores committed object metadata.
@@ -189,7 +190,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (partition, oid, tid))
+                 PRIMARY KEY (partition, oid, tid)
+            ) WITHOUT ROWID
             """
         index_dict['obj'] = (
             "CREATE INDEX %s ON %s(partition, tid, oid)",
