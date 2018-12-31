@@ -206,10 +206,10 @@ class NEOLogger(Logger):
             x = q("SELECT text FROM protocol ORDER BY date DESC LIMIT 1"
                 ).fetchone()
             if (x and x[0]) != p:
-                try:
-                    x = self._record_queue[0].created
-                except IndexError:
-                    x = time()
+                # In case of multithreading, we can have locally unsorted
+                # records so we can't find the oldest one (it may not be
+                # pushed to queue): let's use 0 on log rotation.
+                x = time() if x else 0
                 q("INSERT INTO protocol VALUES (?,?)", (x, p))
                 self._db.commit()
             self._node = {x[1:]: x[0] for x in q("SELECT * FROM node")}
