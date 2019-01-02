@@ -298,6 +298,13 @@ class TestRunner(BenchmarkRunner):
         x('-S', '--stop-on-success', action='store_true', default=None,
             help='Opposite of --stop-on-error: stop as soon as a test'
                  ' passes. Details about errors are not printed at exit.')
+        x = parser.add_mutually_exclusive_group().add_argument
+        x('-p', '--dump-protocol', const=True,
+            dest='protocol', action='store_const',
+            help='Dump schema of protocol instead of checking it.')
+        x('-P', '--no-check-protocol', const=False,
+            dest='protocol', action='store_const',
+            help='Do not check schema of protocol.')
         _('-r', '--readable-tid', action='store_true',
             help='Change master behaviour to generate readable TIDs for easier'
                  ' debugging (rather than from current time).')
@@ -347,6 +354,7 @@ Environment Variables:
             coverage = args.coverage,
             cov_unit = args.cov_unit,
             only = args.only,
+            protocol = args.protocol,
             stop_on_success = args.stop_on_success,
             readable_tid = args.readable_tid,
         )
@@ -374,19 +382,26 @@ Environment Variables:
                 self.__coverage.save()
                 del self.__coverage
                 orig(self, success)
-        try:
-            for _ in xrange(config.loop):
-                if config.unit:
-                    runner.run('Unit tests', UNIT_TEST_MODULES, only)
-                if config.functional:
-                    runner.run('Functional tests', FUNC_TEST_MODULES, only)
-                if config.zodb:
-                    runner.run('ZODB tests', ZODB_TEST_MODULES, only)
-        except KeyboardInterrupt:
-            config['mail_to'] = None
-            traceback.print_exc()
-        except StopOnSuccess:
-            pass
+        if config.protocol is False:
+            from contextlib import nested
+            protocol_checker = nested()
+        else:
+            from neo.tests.protocol_checker import protocolChecker
+            protocol_checker = protocolChecker(config.protocol)
+        with protocol_checker:
+            try:
+                for _ in xrange(config.loop):
+                    if config.unit:
+                        runner.run('Unit tests', UNIT_TEST_MODULES, only)
+                    if config.functional:
+                        runner.run('Functional tests', FUNC_TEST_MODULES, only)
+                    if config.zodb:
+                        runner.run('ZODB tests', ZODB_TEST_MODULES, only)
+            except KeyboardInterrupt:
+                config['mail_to'] = None
+                traceback.print_exc()
+            except StopOnSuccess:
+                pass
         if config.coverage:
             coverage.stop()
             if coverage.neotestrunner:
