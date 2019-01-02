@@ -263,13 +263,11 @@ class Packet(object):
     _answer = None
     _code = None
     _id = None
-    allow_dict = False
     nodelay = True
     poll_thread = False
 
     def __init__(self, *args):
         assert self._code is not None, "Packet class not registered"
-        assert self.allow_dict or dict not in map(type, args), args
         self._args = args
 
     def setId(self, value):
@@ -471,7 +469,7 @@ class Packets(dict):
         that haven't been unlocked.
 
         :nodes: M -> S
-        """, allow_dict=True)
+        """)
 
     AskFinalTID, AnswerFinalTID = request("""
         Return final tid if ttid has been committed, to recover from certain
@@ -692,7 +690,7 @@ class Packets(dict):
                 If current_serial's data is current on storage.
 
         :nodes: C -> S
-        """, allow_dict=True)
+        """)
 
     AskTIDsFrom, AnswerTIDsFrom = request("""
         Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
@@ -713,7 +711,7 @@ class Packets(dict):
         specified.
 
         :nodes: ctl -> A -> M
-        """, error=True, allow_dict=True)
+        """, error=True)
 
     CheckPartition = notify("""
         Ask a storage node to compare a partition with all other nodes.
@@ -781,7 +779,7 @@ class Packets(dict):
                    no new data up to 'tid' for the given partition
 
         :nodes: M -> S
-        """, allow_dict=True)
+        """)
 
     NotifyReplicationDone = notify("""
         Notify the master node that a partition has been successfully
@@ -802,7 +800,7 @@ class Packets(dict):
         and reply with the list of records we should not have.
 
         :nodes: S -> S
-        """, allow_dict=True)
+        """)
 
     AddTransaction = notify("""
         Send metadata of a transaction to a node that does not have them.
