@@ -734,9 +734,6 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
 	}
 
-	log.Print()
-	log.Printf("fs1 open, watchq: %v", opt.Watchq)
-
 	fs := &FileStorage{
 		watchq: opt.Watchq,
 		down:   make(chan struct{}),
