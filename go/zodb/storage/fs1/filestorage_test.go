@@ -424,6 +424,17 @@ func TestWatch(t *testing.T) {
 
 	checkLastTid(at)
 
+	checkLoad := func(at zodb.Tid, oid zodb.Oid, dataOk string, serialOk zodb.Tid) {
+		t.Helper()
+		xid := zodb.Xid{at, oid}
+		buf, serial, err := fs.Load(ctx, xid); X(err)
+		data := string(buf.XData())
+		if !(data == dataOk && serial == serialOk) {
+			t.Fatalf("check load %s:\nhave: %q %s\nwant: %q %s",
+				xid, data, serial, dataOk, serialOk)
+		}
+	}
+
 	// commit -> check watcher observes what we committed.
 	//
 	// XXX python `import pkg_resources` takes ~ 300ms.
@@ -435,9 +446,11 @@ func TestWatch(t *testing.T) {
 	//
 	// if one day it is either fixed, or worked around, we could ↑ 10 to 100.
 	for i := zodb.Oid(1); i <= 10; i++ {
+		data0 := fmt.Sprintf("data0.%d", i)
+		datai := fmt.Sprintf("data%d", i)
 		at = xcommit(at,
-			Object{0, fmt.Sprintf("data0.%d", i)},
-			Object{i, fmt.Sprintf("data%d", i)})
+			Object{0, data0},
+			Object{i, datai})
 
 		e := <-watchq	// XXX err?
 
@@ -446,6 +459,10 @@ func TestWatch(t *testing.T) {
 		}
 
 		checkLastTid(at)
+
+		// make sure we can load what was committed.
+		checkLoad(at, 0, data0, at)
+		checkLoad(at, i, datai, at)
 	}
 
 	err := fs.Close(); X(err)
