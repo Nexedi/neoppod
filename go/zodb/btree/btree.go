@@ -1,6 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
-//
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 
 // Package btree provides B⁺ Trees for ZODB.
 //

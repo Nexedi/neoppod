@@ -3,8 +3,8 @@
 // Copyright (c) 2001, 2002 Zope Foundation and Contributors.
 // All Rights Reserved.
 //
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This software is subject to the provisions of the Zope Public License,
 // Version 2.1 (ZPL).  A copy of the ZPL should accompany this distribution.
@@ -226,12 +226,15 @@ func (b *IOBucket) get(key int32) (interface{}, bool) {
 
 // ---- min/max key ----
 
-// XXX
-func (t *IOBTree) MinKey(ctx context.Context) (_ int32, _ bool, err error) {
+// MinKey returns minimum key in IOBTree.
+//
+// If the tree is empty, ok=false is returned.
+// t does not need to be activated beforehand.
+func (t *IOBTree) MinKey(ctx context.Context) (_ int32, ok bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
 	err = t.PActivate(ctx)
 	if err != nil {
-		return 0, false, err	// XXX 0 ok?
+		return 0, false, err
 	}
 
 	if len(t.data) == 0 {
@@ -240,6 +243,7 @@ func (t *IOBTree) MinKey(ctx context.Context) (_ int32, _ bool, err error) {
 		return 0, false, nil
 	}
 
+	// NOTE -> can also use t.firstBucket
 	for {
 		child := t.data[0].child.(zodb.IPersistent)
 		t.PDeactivate()
@@ -260,12 +264,15 @@ func (t *IOBTree) MinKey(ctx context.Context) (_ int32, _ bool, err error) {
 	}
 }
 
-// XXX
+// MaxKey returns maximum key in IOBTree.
+//
+// If the tree is empty, ok=false is returned.
+// t does not need to be activated beforehand.
 func (t *IOBTree) MaxKey(ctx context.Context) (_ int32, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
 	err = t.PActivate(ctx)
 	if err != nil {
-		return 0, false, err	// XXX 0 ok?
+		return 0, false, err
 	}
 
 	l := len(t.data)
@@ -295,16 +302,20 @@ func (t *IOBTree) MaxKey(ctx context.Context) (_ int32, _ bool, err error) {
 	}
 }
 
-// XXX
-func (b *IOBucket) MinKey() (int32, bool) {
+// MinKey returns minimum key in IOBucket.
+//
+// If the bucket is empty, ok=false is returned.
+func (b *IOBucket) MinKey() (_ int32, ok bool) {
 	if len(b.keys) == 0 {
 		return 0, false
 	}
 	return b.keys[0], true
 }
 
-// XXX
-func (b *IOBucket) MaxKey() (int32, bool) {
+// MaxKey returns maximum key in IOBucket.
+//
+// If the bucket is empty, ok=false is returned.
+func (b *IOBucket) MaxKey() (_ int32, ok bool) {
 	l := len(b.keys)
 	if l == 0 {
 		return 0, false
