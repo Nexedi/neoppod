@@ -231,10 +231,11 @@ const dumpSummary = "dump content of a ZODB database"
 
 func dumpUsage(w io.Writer) {
 	fmt.Fprintf(w,
-`Usage: zodb dump [OPTIONS] <storage> [tidmin..tidmax]
+`Usage: zodb dump [OPTIONS] <storage> [<tidrange>]
 Dump content of a ZODB database.
 
 <storage> is an URL (see 'zodb help zurl') of a ZODB-storage.
+<tidrange> is a history range (see 'zodb help tidrange') to dump.
 
 Options:
 

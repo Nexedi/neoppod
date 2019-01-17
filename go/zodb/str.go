@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -141,6 +141,8 @@ Error:
 // ParseTidRange parses string of form "<tidmin>..<tidmax>" into tidMin, tidMax pair.
 //
 // Both <tidmin> and <tidmax> can be empty, in which case defaults 0 and TidMax are used.
+//
+// See `zodb help tidrange` for accepted tidrange syntax.
 //
 // XXX also check tidMin < tidMax here? or allow reverse ranges ?
 func ParseTidRange(s string) (tidMin, tidMax Tid, err error) {
