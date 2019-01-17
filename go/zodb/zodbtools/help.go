@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -62,7 +62,40 @@ for example
 	0285cbac258bf266:0000000000000001	- oid 1 at first newest transaction changing it with tid <= 0285cbac258bf266
 `
 
+const helpTidRange =
+`Many zodb commands can be invoked on specific range of database history and
+accept <tidrange> parameter for that. The syntax for <tidrange> is
+
+    tidmin..tidmax
+
+where tidmin and tidmax specify [tidmin, tidmax] range of transactions, ends
+inclusive. Both tidmin and tidmax are optional and default to
+
+    tidmin: 0   (start of database history)
+    tidmax: +∞  (end of database history)
+
+If a tid (tidmin or tidmax) is given, it has to be specified as follows:
+
+    - a 16-digit hex number specifying transaction ID, e.g. 0285cbac258bf266
+
+    TODO (recheck what git does and use dateparser):
+
+    - absolute timestamp,
+    - relative timestamp, e.g. yesterday, 1.week.ago
+
+Example tid ranges:
+
+    ..                                  whole database history
+    000000000000aaaa..                  transactions starting from 000000000000aaaa till latest
+    ..000000000000bbbb                  transactions starting from database beginning till 000000000000bbbb
+    000000000000aaaa..000000000000bbbb  transactions starting from 000000000000aaaa till 000000000000bbbb
+
+In commands <tidrange> is optional - if it is not given at all, it defaults to
+0..+∞, i.e. to whole database history.
+`
+
 var helpTopics = prog.HelpRegistry{
-	{"zurl",  "specifying database URL",	helpZURL},
-	{"xid",   "specifying object address",	helpXid},
+	{"zurl",     "specifying database URL",   helpZURL},
+	{"xid",      "specifying object address", helpXid},
+	{"tidrange", "specifying history range",  helpTidRange},
 }
