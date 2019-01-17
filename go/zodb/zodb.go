@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -322,8 +322,14 @@ func (e *OpError) Cause() error {
 
 // IStorage is the interface provided by opened ZODB storage.
 type IStorage interface {
-	IStorageDriver
+	// same as in IStorageDriver
+	URL() string
+	Close() error
+	LastTid(context.Context) (Tid, error)
+	Loader
+	Iterator
 
+	// additional to IStorageDriver
 	Prefetcher
 }
 
