@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -68,6 +68,9 @@ type Client struct {
 	// protected by .node.StateMu
 	operational bool // XXX <- somehow move to NodeApp?
 	opReady	    chan struct{} // reinitialized each time state becomes non-operational
+
+	// driver client <- watcher: database commits.
+	watchq chan<- zodb.CommitEvent // FIXME stub
 }
 
 var _ zodb.IStorageDriver = (*Client)(nil)
@@ -103,6 +106,9 @@ func (c *Client) Close() error {
 	c.talkMasterCancel()
 	// XXX wait talkMaster finishes -> XXX return err from that?
 	// XXX what else?
+	if c.watchq != nil {
+		close(c.watchq)
+	}
 	return nil
 }
 
@@ -507,9 +513,11 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (
 		return nil, fmt.Errorf("neo: %s: TODO write mode not implemented", u)
 	}
 
-	// XXX handle opt.Watchq
+	// FIXME handle opt.Watchq
+	// for now we pretend as if the database is not changing.
 	if opt.Watchq != nil {
-		panic("TODO watchq")
+		log.Error(ctx, "neo: FIXME: watchq support not implemented - there" +
+			       "won't be notifications about database changes")
 	}
 
 	// XXX check/use other url fields
@@ -519,6 +527,7 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (
 	//     as ctx for open can be done after open finishes - not covering
 	//     whole storage working lifetime.
 	c := NewClient(u.User.Username(), u.Host, net)
+	c.watchq = opt.Watchq
 	return c, nil
 }
 

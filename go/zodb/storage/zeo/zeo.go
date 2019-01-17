@@ -24,6 +24,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"sync"
@@ -43,6 +44,8 @@ type zeo struct {
 	mu      sync.Mutex
 	lastTid zodb.Tid
 
+	// driver client <- watcher: database commits.
+	watchq chan<- zodb.CommitEvent // FIXME stub
 
 	url string // we were opened via this
 }
@@ -307,9 +310,11 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		return nil, fmt.Errorf("TODO write mode not implemented")
 	}
 
-	// XXX handle opt.Watchq
+	// FIXME handle opt.Watchq
+	// for now we pretend as if the database is not changing.
 	if opt.Watchq != nil {
-		panic("TODO watchq")
+		log.Print("zeo: FIXME: watchq support not implemented - there" +
+			  "won't be notifications about database changes")
 	}
 
 	zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable {invalidateTransaction tid, oidv} -> ...
@@ -324,7 +329,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	}()
 
 
-	z := &zeo{srv: zl, url: url}
+	z := &zeo{srv: zl, watchq: opt.Watchq, url: url}
 
 	rpc := z.rpc("register")
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
@@ -370,7 +375,11 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 }
 
 func (z *zeo) Close() error {
-	return z.srv.Close()
+	err := z.srv.Close()
+	if z.watchq != nil {
+		close(z.watchq)
+	}
+	return err
 }
 
 func (z *zeo) URL() string {
