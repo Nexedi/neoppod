@@ -135,7 +135,7 @@ func (b *LOBucket) Entryv() []LOBucketEntry {
 	return ev
 }
 
-// ---- node-level iteration ----
+// ---- leaf nodes iteration ----
 
 // FirstBucket returns bucket containing the smallest key in the tree.
 func (t *LOBTree) FirstBucket() *LOBucket {

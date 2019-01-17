@@ -133,7 +133,7 @@ func (b *Bucket) Entryv() []BucketEntry {
 	return ev
 }
 
-// ---- node-level iteration ----
+// ---- leaf nodes iteration ----
 
 // FirstBucket returns bucket containing the smallest key in the tree.
 func (t *BTree) FirstBucket() *Bucket {

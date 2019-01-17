@@ -135,7 +135,7 @@ func (b *IOBucket) Entryv() []IOBucketEntry {
 	return ev
 }
 
-// ---- node-level iteration ----
+// ---- leaf nodes iteration ----
 
 // FirstBucket returns bucket containing the smallest key in the tree.
 func (t *IOBTree) FirstBucket() *IOBucket {
