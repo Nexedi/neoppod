@@ -95,6 +95,7 @@ type IOBucketEntry struct {
 	value interface{}
 }
 
+// ---- access []entry ----
 
 // Key returns IOBTree entry key.
 func (e *IOEntry) Key() int32 { return e.key }
@@ -134,6 +135,7 @@ func (b *IOBucket) Entryv() []IOBucketEntry {
 	return ev
 }
 
+// ---- point query ----
 
 // Get searches IOBTree by key.
 //
@@ -210,9 +212,104 @@ func (b *IOBucket) get(key int32) (interface{}, bool) {
 	return b.values[i], true
 }
 
-// TODO IOBucket.MinKey
-// TODO IOBucket.MaxKey
+// ---- min/max key ----
 
+// MinKey returns minimum key in IOBTree.
+//
+// If the tree is empty, ok=false is returned.
+// The tree does not need to be activated beforehand.
+func (t *IOBTree) MinKey(ctx context.Context) (_ int32, ok bool, err error) {
+	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
+	err = t.PActivate(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+
+	if len(t.data) == 0 {
+		// empty btree
+		t.PDeactivate()
+		return 0, false, nil
+	}
+
+	// NOTE -> can also use t.firstbucket
+	for {
+		child := t.data[0].child.(zodb.IPersistent)
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+
+		switch child := child.(type) {
+		case *IOBTree:
+			t = child
+
+		case *IOBucket:
+			k, ok := child.MinKey()
+			child.PDeactivate()
+			return k, ok, nil
+		}
+	}
+}
+
+// MaxKey returns maximum key in IOBTree.
+//
+// If the tree is empty, ok=false is returned.
+// The tree does not need to be activated beforehand.
+func (t *IOBTree) MaxKey(ctx context.Context) (_ int32, _ bool, err error) {
+	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
+	err = t.PActivate(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+
+	l := len(t.data)
+	if l == 0 {
+		// empty btree
+		t.PDeactivate()
+		return 0, false, nil
+	}
+
+	for {
+		child := t.data[l-1].child.(zodb.IPersistent)
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+
+		switch child := child.(type) {
+		case *IOBTree:
+			t = child
+
+		case *IOBucket:
+			k, ok := child.MaxKey()
+			child.PDeactivate()
+			return k, ok, nil
+		}
+	}
+}
+
+// MinKey returns minimum key in IOBucket.
+//
+// If the bucket is empty, ok=false is returned.
+func (b *IOBucket) MinKey() (_ int32, ok bool) {
+	if len(b.keys) == 0 {
+		return 0, false
+	}
+	return b.keys[0], true
+}
+
+// MaxKey returns maximum key in IOBucket.
+//
+// If the bucket is empty, ok=false is returned.
+func (b *IOBucket) MaxKey() (_ int32, ok bool) {
+	l := len(b.keys)
+	if l == 0 {
+		return 0, false
+	}
+	return b.keys[l-1], true
+}
 
 // ---- serialization ----
 

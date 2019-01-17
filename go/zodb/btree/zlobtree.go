@@ -95,6 +95,7 @@ type LOBucketEntry struct {
 	value interface{}
 }
 
+// ---- access []entry ----
 
 // Key returns LOBTree entry key.
 func (e *LOEntry) Key() int64 { return e.key }
@@ -134,6 +135,7 @@ func (b *LOBucket) Entryv() []LOBucketEntry {
 	return ev
 }
 
+// ---- point query ----
 
 // Get searches LOBTree by key.
 //
@@ -210,9 +212,104 @@ func (b *LOBucket) get(key int64) (interface{}, bool) {
 	return b.values[i], true
 }
 
-// TODO LOBucket.MinKey
-// TODO LOBucket.MaxKey
+// ---- min/max key ----
 
+// MinKey returns minimum key in LOBTree.
+//
+// If the tree is empty, ok=false is returned.
+// The tree does not need to be activated beforehand.
+func (t *LOBTree) MinKey(ctx context.Context) (_ int64, ok bool, err error) {
+	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
+	err = t.PActivate(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+
+	if len(t.data) == 0 {
+		// empty btree
+		t.PDeactivate()
+		return 0, false, nil
+	}
+
+	// NOTE -> can also use t.firstbucket
+	for {
+		child := t.data[0].child.(zodb.IPersistent)
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+
+		switch child := child.(type) {
+		case *LOBTree:
+			t = child
+
+		case *LOBucket:
+			k, ok := child.MinKey()
+			child.PDeactivate()
+			return k, ok, nil
+		}
+	}
+}
+
+// MaxKey returns maximum key in LOBTree.
+//
+// If the tree is empty, ok=false is returned.
+// The tree does not need to be activated beforehand.
+func (t *LOBTree) MaxKey(ctx context.Context) (_ int64, _ bool, err error) {
+	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
+	err = t.PActivate(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+
+	l := len(t.data)
+	if l == 0 {
+		// empty btree
+		t.PDeactivate()
+		return 0, false, nil
+	}
+
+	for {
+		child := t.data[l-1].child.(zodb.IPersistent)
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+
+		switch child := child.(type) {
+		case *LOBTree:
+			t = child
+
+		case *LOBucket:
+			k, ok := child.MaxKey()
+			child.PDeactivate()
+			return k, ok, nil
+		}
+	}
+}
+
+// MinKey returns minimum key in LOBucket.
+//
+// If the bucket is empty, ok=false is returned.
+func (b *LOBucket) MinKey() (_ int64, ok bool) {
+	if len(b.keys) == 0 {
+		return 0, false
+	}
+	return b.keys[0], true
+}
+
+// MaxKey returns maximum key in LOBucket.
+//
+// If the bucket is empty, ok=false is returned.
+func (b *LOBucket) MaxKey() (_ int64, ok bool) {
+	l := len(b.keys)
+	if l == 0 {
+		return 0, false
+	}
+	return b.keys[l-1], true
+}
 
 // ---- serialization ----
 

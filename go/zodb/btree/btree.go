@@ -1,6 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
-//
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 
 // Package btree provides B⁺ Trees for ZODB.
 //
@@ -21,6 +20,8 @@
 // BTree and Bucket represent an intermediate and a leaf tree node correspondingly.
 //
 // node.Get(key) performs point-query.
+//
+// node.{Min,Max}Key() returns key-range limit for all children/values under the node.
 //
 // node.Entryv() returns [] of (key, child/value).
 //
