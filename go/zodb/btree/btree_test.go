@@ -58,6 +58,7 @@ type bmapping interface {
 	MaxKey(context.Context) (int64, bool, error)
 }
 
+// bucketWrap is syntatic sugar to automatically activate/deactivate a bucket on Get/{Min,Max}Key calls.
 type bucketWrap LOBucket
 
 func (b *bucketWrap) bucket() *LOBucket {
