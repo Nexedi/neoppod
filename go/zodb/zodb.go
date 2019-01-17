@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -431,8 +431,8 @@ type Committer interface {
 
 // CommitEvent is event describing one observed database commit.
 type CommitEvent struct {
-	Tid     Tid
-	Changev []Oid	// XXX name
+	Tid     Tid   // ID of committed transaction
+	Changev []Oid // ID of objects changed by committed transaction
 }
 
 // Watcher allows to be notified of changes to database.
