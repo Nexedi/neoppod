@@ -227,7 +227,7 @@ func (b *Bucket) get(key KEY) (interface{}, bool) {
 // MinKey returns minimum key in BTree.
 //
 // If the tree is empty, ok=false is returned.
-// t does not need to be activated beforehand.
+// The tree does not need to be activated beforehand.
 func (t *BTree) MinKey(ctx context.Context) (_ KEY, ok bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
 	err = t.PActivate(ctx)
@@ -265,7 +265,7 @@ func (t *BTree) MinKey(ctx context.Context) (_ KEY, ok bool, err error) {
 // MaxKey returns maximum key in BTree.
 //
 // If the tree is empty, ok=false is returned.
-// t does not need to be activated beforehand.
+// The tree does not need to be activated beforehand.
 func (t *BTree) MaxKey(ctx context.Context) (_ KEY, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
 	err = t.PActivate(ctx)
