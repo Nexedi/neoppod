@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -32,6 +32,7 @@ import (
 	"strings"
 	"testing"
 
+	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fsb"
 )
@@ -201,7 +202,7 @@ func TestIndexLoadFromPy(t *testing.T) {
 
 // test zodb/py can read index data as saved by us
 func TestIndexSaveToPy(t *testing.T) {
-	needZODBPy(t)
+	xtesting.NeedPy(t, "ZODB")
 	workdir := xworkdir(t)
 
 	err := _1fs_index.SaveFile(workdir + "/1.fs.index")
@@ -289,19 +290,11 @@ func BenchmarkIndexGet(b *testing.B) {
 	}
 }
 
-var haveZODBPy = false
 var workRoot string
 
 func TestMain(m *testing.M) {
-	// check whether we have zodb/py
-	cmd := exec.Command("python2", "-c", "import ZODB")
-	err := cmd.Run()
-	if err == nil {
-		haveZODBPy = true
-	}
-
 	// setup work root for all tests
-	workRoot, err = ioutil.TempDir("", "t-index")
+	workRoot, err := ioutil.TempDir("", "t-index")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -311,13 +304,6 @@ func TestMain(m *testing.M) {
 	os.RemoveAll(workRoot)
 
 	os.Exit(exit)
-}
-
-func needZODBPy(t *testing.T) {
-	if haveZODBPy {
-		return
-	}
-	t.Skipf("skipping: zodb/py is not available")
 }
 
 // create temp dir inside workRoot
