@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -32,7 +32,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
-// paramFunc is a function to retrieve 1 storage parameter
+// paramFunc is a function to retrieve 1 storage parameter.
 type paramFunc func(ctx context.Context, stor zodb.IStorage) (string, error)
 
 var infov = []struct {name string; getParam paramFunc} {
@@ -56,7 +56,7 @@ func init() {
 	}
 }
 
-// Info prints general information about a ZODB storage
+// Info prints general information about a ZODB storage.
 func Info(ctx context.Context, w io.Writer, stor zodb.IStorage, parameterv []string) error {
 	wantnames := false
 	if len(parameterv) == 0 {

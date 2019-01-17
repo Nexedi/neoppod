@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package zodbtools provides tools for managing ZODB databases
+// Package zodbtools provides tools for managing ZODB databases.
 package zodbtools
 
 import "lab.nexedi.com/kirr/go123/prog"

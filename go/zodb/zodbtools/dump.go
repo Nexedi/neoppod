@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017  Nexedi SA and Contributors.
+// Copyright (C) 2016-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -67,7 +67,7 @@ import (
 )
 
 
-// dumper dumps zodb record to a writer
+// dumper dumps zodb record to a writer.
 type dumper struct {
 	W          io.Writer
 	HashOnly   bool		// whether to dump only hashes of data without content
@@ -80,7 +80,7 @@ type dumper struct {
 var _LF = []byte{'\n'}
 
 
-// DumpData dumps one data record
+// DumpData dumps one data record.
 func (d *dumper) DumpData(datai *zodb.DataInfo) (err error) {
 	// XXX do we need this context ?
 	// see for rationale in similar place in DumpTxn
@@ -139,7 +139,7 @@ func (d *dumper) DumpData(datai *zodb.DataInfo) (err error) {
 	return err
 }
 
-// DumpTxn dumps one transaction record
+// DumpTxn dumps one transaction record.
 func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.IDataIterator) (err error) {
 	// XXX do we need this context ?
 	// rationale: dataIter.NextData() if error in db - will include db context
@@ -185,7 +185,7 @@ func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.
 	return err
 }
 
-// Dump dumps transaction records in between tidMin..tidMax
+// Dump dumps transaction records in between tidMin..tidMax .
 func (d *dumper) Dump(ctx context.Context, stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
 	var txni     *zodb.TxnInfo
 	var dataIter zodb.IDataIterator
