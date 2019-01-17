@@ -3,8 +3,8 @@
 // Copyright (c) 2001, 2002 Zope Foundation and Contributors.
 // All Rights Reserved.
 //
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This software is subject to the provisions of the Zope Public License,
 // Version 2.1 (ZPL).  A copy of the ZPL should accompany this distribution.
@@ -231,14 +231,14 @@ func (b *IOBucket) get(key int32) (interface{}, bool) {
 
 type iobucketState IOBucket // hide state methods from public API
 
-// DropState implements Stateful to discard bucket state.
+// DropState implements zodb.Stateful to discard bucket state.
 func (b *iobucketState) DropState() {
 	b.next = nil
 	b.keys = nil
 	b.values = nil
 }
 
-// PySetState implements PyStateful to set bucket data from pystate.
+// PySetState implements zodb.PyStateful to set bucket data from pystate.
 func (b *iobucketState) PySetState(pystate interface{}) (err error) {
 	t, ok := pystate.(pickle.Tuple)
 	if !ok {

@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -50,7 +50,7 @@ type testEntry struct {
 	itemv []kv
 }
 
-// bmapping represents Get of Bucket or BTree.
+// bmapping represents LOBTree or a LOBucket wrapper.
 type bmapping interface {
 	Get(context.Context, int64) (interface{}, bool, error)
 }
