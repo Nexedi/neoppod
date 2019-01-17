@@ -39,7 +39,7 @@ type OpenOptions struct {
 type DriverOptions struct {
 	ReadOnly bool // whether to open storage as read-only
 
-	// Channel where watched storage events have to be delivered.
+	// Channel where storage events have to be delivered.
 	//
 	// Watchq can be nil to ignore such events. However if Watchq != nil, the events
 	// have to be consumed or else the storage driver will misbehave - e.g.
