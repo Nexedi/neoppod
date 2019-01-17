@@ -229,7 +229,7 @@ func (b *IOBucket) get(key int32) (interface{}, bool) {
 // MinKey returns minimum key in IOBTree.
 //
 // If the tree is empty, ok=false is returned.
-// t does not need to be activated beforehand.
+// The tree does not need to be activated beforehand.
 func (t *IOBTree) MinKey(ctx context.Context) (_ int32, ok bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
 	err = t.PActivate(ctx)
@@ -267,7 +267,7 @@ func (t *IOBTree) MinKey(ctx context.Context) (_ int32, ok bool, err error) {
 // MaxKey returns maximum key in IOBTree.
 //
 // If the tree is empty, ok=false is returned.
-// t does not need to be activated beforehand.
+// The tree does not need to be activated beforehand.
 func (t *IOBTree) MaxKey(ctx context.Context) (_ int32, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
 	err = t.PActivate(ctx)

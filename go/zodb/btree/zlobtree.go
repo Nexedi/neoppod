@@ -229,7 +229,7 @@ func (b *LOBucket) get(key int64) (interface{}, bool) {
 // MinKey returns minimum key in LOBTree.
 //
 // If the tree is empty, ok=false is returned.
-// t does not need to be activated beforehand.
+// The tree does not need to be activated beforehand.
 func (t *LOBTree) MinKey(ctx context.Context) (_ int64, ok bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
 	err = t.PActivate(ctx)
@@ -267,7 +267,7 @@ func (t *LOBTree) MinKey(ctx context.Context) (_ int64, ok bool, err error) {
 // MaxKey returns maximum key in LOBTree.
 //
 // If the tree is empty, ok=false is returned.
-// t does not need to be activated beforehand.
+// The tree does not need to be activated beforehand.
 func (t *LOBTree) MaxKey(ctx context.Context) (_ int64, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
 	err = t.PActivate(ctx)
