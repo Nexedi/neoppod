@@ -142,6 +142,8 @@ Error:
 //
 // Both <tidmin> and <tidmax> can be empty, in which case defaults 0 and TidMax are used.
 //
+// See `zodb help tidrange` for accepted tidrange syntax.
+//
 // XXX also check tidMin < tidMax here? or allow reverse ranges ?
 func ParseTidRange(s string) (tidMin, tidMax Tid, err error) {
 	s1, s2, err := xstrings.Split2(s, "..")
