@@ -25,7 +25,7 @@
 //
 // node.Entryv() returns [] of (key, child/value).
 //
-// BTree.FirstBucket() and Bucket.Next() allows to iterate in terms of B⁺ tree nodes.
+// BTree.FirstBucket() and Bucket.Next() allow to iterate through leaf B⁺ tree nodes.
 //
 // --------
 //

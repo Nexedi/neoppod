@@ -137,12 +137,12 @@ func (b *IOBucket) Entryv() []IOBucketEntry {
 
 // ---- node-level iteration ----
 
-// XXX
+// FirstBucket returns bucket containing the smallest key in the tree.
 func (t *IOBTree) FirstBucket() *IOBucket {
 	return t.firstbucket
 }
 
-// XXX
+// Next returns tree bucket with next larger keys relative to current bucket.
 func (b *IOBucket) Next() *IOBucket {
 	return b.next
 }
@@ -243,7 +243,7 @@ func (t *IOBTree) MinKey(ctx context.Context) (_ int32, ok bool, err error) {
 		return 0, false, nil
 	}
 
-	// NOTE -> can also use t.firstBucket
+	// NOTE -> can also use t.firstbucket
 	for {
 		child := t.data[0].child.(zodb.IPersistent)
 		t.PDeactivate()
