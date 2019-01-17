@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -24,7 +24,6 @@ package zodb
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -75,6 +74,27 @@ type ConnOptions struct {
 	NoSync bool // don't sync with storage to get its last tid.
 }
 
+// String represents connection options in human-readable form.
+//
+// For example:
+//
+//	(@head, sync)
+func (opt *ConnOptions) String() string {
+	s := "(@"
+	if opt.At != 0 {
+		s += opt.At.String()
+	} else {
+		s += "head"
+	}
+
+	s += ", "
+	if opt.NoSync {
+		s += "no"
+	}
+	s += "sync)"
+	return s
+}
+
 // Open opens new connection to the database.
 //
 // By default the connection is opened to current latest database state; opt.At
@@ -89,18 +109,10 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 			return
 		}
 
-		var argv []interface{}
-		if opt.At != 0 {
-			argv = append(argv, fmt.Sprintf("at=%s", opt.At))
-		}
-		if opt.NoSync {
-			argv = append(argv, "nosync")
-		}
-
 		err = &OpError{
 			URL:  db.stor.URL(),
 			Op:   "open db",
-			Args: argv,
+			Args: opt,
 			Err:  err,
 		}
 	}()
