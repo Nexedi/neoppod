@@ -25,6 +25,8 @@
 //
 // node.Entryv() returns [] of (key, child/value).
 //
+// BTree.FirstBucket() and Bucket.Next() allow to iterate through leaf B⁺ tree nodes.
+//
 // --------
 //
 // (*) https://github.com/zopefoundation/ZODB/blob/3.10.7-4-gb8d7a8567/src/BTrees/Development.txt#L211

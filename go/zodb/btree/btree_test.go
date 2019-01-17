@@ -253,6 +253,7 @@ func TestBTree(t *testing.T) {
 	}
 
 	// XXX verify Entryv ?
+	// XXX verify FirstBucket / Next ?
 
 	verifyFirstBucket(B3)
 }

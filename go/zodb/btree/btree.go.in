@@ -133,6 +133,18 @@ func (b *Bucket) Entryv() []BucketEntry {
 	return ev
 }
 
+// ---- leaf nodes iteration ----
+
+// FirstBucket returns bucket containing the smallest key in the tree.
+func (t *BTree) FirstBucket() *Bucket {
+	return t.firstbucket
+}
+
+// Next returns tree bucket with next larger keys relative to current bucket.
+func (b *Bucket) Next() *Bucket {
+	return b.next
+}
+
 // ---- point query ----
 
 // Get searches BTree by key.

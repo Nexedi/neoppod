@@ -135,6 +135,18 @@ func (b *LOBucket) Entryv() []LOBucketEntry {
 	return ev
 }
 
+// ---- leaf nodes iteration ----
+
+// FirstBucket returns bucket containing the smallest key in the tree.
+func (t *LOBTree) FirstBucket() *LOBucket {
+	return t.firstbucket
+}
+
+// Next returns tree bucket with next larger keys relative to current bucket.
+func (b *LOBucket) Next() *LOBucket {
+	return b.next
+}
+
 // ---- point query ----
 
 // Get searches LOBTree by key.

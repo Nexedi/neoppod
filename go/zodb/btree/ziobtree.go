@@ -135,6 +135,18 @@ func (b *IOBucket) Entryv() []IOBucketEntry {
 	return ev
 }
 
+// ---- leaf nodes iteration ----
+
+// FirstBucket returns bucket containing the smallest key in the tree.
+func (t *IOBTree) FirstBucket() *IOBucket {
+	return t.firstbucket
+}
+
+// Next returns tree bucket with next larger keys relative to current bucket.
+func (b *IOBucket) Next() *IOBucket {
+	return b.next
+}
+
 // ---- point query ----
 
 // Get searches IOBTree by key.
