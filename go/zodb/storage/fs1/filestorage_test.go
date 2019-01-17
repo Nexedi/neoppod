@@ -32,6 +32,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/exc"
@@ -359,8 +360,7 @@ func BenchmarkIterate(b *testing.B) {
 func TestWatch(t *testing.T) {
 	X := exc.Raiseif
 
-	//xtesting.NeedPy(t, "zodbtools")
-	needZODBPy(t)
+	xtesting.NeedPy(t, "zodbtools")
 	workdir := xworkdir(t)
 	tfs := workdir + "/t.fs"
 
