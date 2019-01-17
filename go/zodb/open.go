@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -35,8 +35,13 @@ type OpenOptions struct {
 	NoCache  bool // don't use cache for read/write operations; prefetch will be noop
 }
 
+// DriverOptions describes options for DriverOpener.
+type DriverOptions struct {
+	ReadOnly bool // whether to open storage as read-only
+}
+
 // DriverOpener is a function to open a storage driver.
-type DriverOpener func (ctx context.Context, u *url.URL, opt *OpenOptions) (IStorageDriver, error)
+type DriverOpener func (ctx context.Context, u *url.URL, opt *DriverOptions) (IStorageDriver, error)
 
 // {} scheme -> DriverOpener
 var driverRegistry = map[string]DriverOpener{}
@@ -77,7 +82,11 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
 	}
 
-	storDriver, err := opener(ctx, u, opt)
+	drvOpt := &DriverOptions{
+		ReadOnly: opt.ReadOnly,
+	}
+
+	storDriver, err := opener(ctx, u, drvOpt)
 	if err != nil {
 		return nil, err
 	}
