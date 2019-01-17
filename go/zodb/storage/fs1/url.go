@@ -23,6 +23,7 @@ package fs1
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/url"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -39,7 +40,15 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (zodb.I
 		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
 	}
 
+	// FIXME handle opt.Watchq
+	// for now we pretend as if the database is not changing.
+	if opt.Watchq != nil {
+		log.Print("fs1: FIXME: watchq support not implemented - there" +
+			  "won't be notifications about database changes")
+	}
+
 	fs, err := Open(ctx, path)
+	fs.watchq = opt.Watchq
 	return fs, err
 }
 

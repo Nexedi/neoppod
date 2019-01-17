@@ -361,6 +361,9 @@ type IStorageDriver interface {
 
 	Loader
 	Iterator
+
+	// A storage driver also delivers database change events to watchq
+	// channel, which is passed to it when the driver is created.
 }
 
 // Loader provides functionality to load objects.
@@ -423,6 +426,12 @@ type Committer interface {
 	// TpcAbort(txn)
 }
 
+
+// CommitEvent is event describing one observed database commit.
+type CommitEvent struct {
+	Tid     Tid   // ID of committed transaction
+	Changev []Oid // ID of objects changed by committed transaction
+}
 
 // Notifier allows to be notified of database changes made by other clients.
 type Notifier interface {

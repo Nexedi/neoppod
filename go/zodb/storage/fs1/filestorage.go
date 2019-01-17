@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -90,6 +90,9 @@ type FileStorage struct {
 	// (both with .Len=0 & .Tid=0 if database is empty)
 	txnhMin TxnHeader
 	txnhMax TxnHeader
+
+	// driver client <- watcher: database commits.
+	watchq chan<- zodb.CommitEvent // FIXME stub
 }
 
 // IStorageDriver
@@ -508,6 +511,9 @@ func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
 
 func (fs *FileStorage) Close() error {
 	err := fs.file.Close()
+	if fs.watchq != nil {
+		close(fs.watchq)
+	}
 	if err != nil {
 		return &zodb.OpError{URL: fs.URL(), Op: "close", Args: nil, Err: err}
 	}

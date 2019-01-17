@@ -38,6 +38,17 @@ type OpenOptions struct {
 // DriverOptions describes options for DriverOpener.
 type DriverOptions struct {
 	ReadOnly bool // whether to open storage as read-only
+
+	// Channel where storage events have to be delivered.
+	//
+	// Watchq can be nil to ignore such events. However if Watchq != nil, the events
+	// have to be consumed or else the storage driver will misbehave - e.g.
+	// it can get out of sync with the on-disk database file.
+	//
+	// The storage driver closes !nil Watchq when the driver is closed.
+	//
+	// TODO extend watchq to also receive errors from watcher.
+	Watchq chan<- CommitEvent
 }
 
 // DriverOpener is a function to open a storage driver.
@@ -84,6 +95,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 
 	drvOpt := &DriverOptions{
 		ReadOnly: opt.ReadOnly,
+		Watchq:   nil,          // TODO use watchq to implement high-level watching
 	}
 
 	storDriver, err := opener(ctx, u, drvOpt)
