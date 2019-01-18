@@ -61,10 +61,9 @@ type Connection struct {
 //
 // but does not hold strong reference to cached objects.
 //
-// LiveCache is safe to access for multiple-readers / single-writer.
-// To do so the caller must explicitly serialize access with e.g. .Lock() .
+// LiveCache is not safe to use from multiple goroutines simultaneously.
 //
-// XXX try to hide locking from user?
+// Use .Lock() / .Unlock() to serialize access.
 type LiveCache struct {
 	// rationale for using weakref:
 	//
@@ -196,18 +195,13 @@ func (cache *LiveCache) SetControl(c LiveCacheControl) {
 // Use-case: in ZODB references are (pyclass, oid), so new ghost is created
 // without further loading anything.
 func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
+	checkClass := true
 	conn.cache.Lock() // XXX -> rlock?
 	obj := conn.cache.Get(oid)
-	checkClass := false
 	if obj == nil {
 		obj = newGhost(class, oid, conn)
-		//if obj == nil {
-		//	conn.cache.Unlock()
-		//	return nil, fmt.Errorf("get %s: class %q not supported", Xid{conn.at, oid}, class)
-		//}
 		conn.cache.objtab[oid] = weak.NewRef(obj)
-	} else {
-		checkClass = true
+		checkClass = false
 	}
 	conn.cache.Unlock()
 
