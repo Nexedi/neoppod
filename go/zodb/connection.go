@@ -180,6 +180,16 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 	return obj
 }
 
+// SetControl installs c to handle cache decisions.
+//
+// Any previously installed cache control is uninstalled.
+// Passing nil sets the cache to have no control installed at all.
+//
+// It is not safe to call SetControl simultaneously to other cache operations.
+func (cache *LiveCache) SetControl(c LiveCacheControl) {
+	cache.control = c
+}
+
 // get is like Get, but used when we already know object class.
 //
 // Use-case: in ZODB references are (pyclass, oid), so new ghost is created
