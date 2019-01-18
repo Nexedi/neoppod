@@ -565,12 +565,14 @@ mainloop:
 			for {
 				select {
 				case err := <-w.Errors:
+					traceWatch("drain: error: %s", err)
 					if err != fsnotify.ErrEventOverflow {
 						// unexpected error -> shutdown
 						return err
 					}
 
-				case <-w.Events:
+				case ev := <-w.Events:
+					traceWatch("drain: event: %s", ev)
 
 				default:
 					break drain
@@ -642,8 +644,6 @@ mainloop:
 				errFirstRead = nil
 			}
 
-			// XXX dup wrt Index.Update
-
 			// we could successfully read the transaction header. Try to see now,
 			// whether it is finished transaction or not.
 			if it.Txnh.Status == zodb.TxnInprogress {
@@ -653,9 +653,11 @@ mainloop:
 			}
 
 			// it is fully-committed transaction. Scan its data records to update
-			// our index & notify watchers. There is no expected errors here.
-			var oidv []zodb.Oid
-			update := map[zodb.Oid]int64{}
+			// our index & notify client watchers. There is no expected errors here.
+			//
+			// (keep in sync with Index.Update)
+			var δoid []zodb.Oid
+			δidx := map[zodb.Oid]int64{} // oid -> pos(data record)
 			for {
 				err = it.NextData()
 				if err != nil {
@@ -666,14 +668,14 @@ mainloop:
 					break
 				}
 
-				update[it.Datah.Oid] = it.Datah.Pos
-				oidv = append(oidv, it.Datah.Oid)
+				δidx[it.Datah.Oid] = it.Datah.Pos
+				δoid = append(δoid, it.Datah.Oid)
 			}
 
 			// update index & txnh{Min,Max}
 			fs.mu.Lock()
 			idx.TopPos = it.Txnh.Pos + it.Txnh.Len
-			for oid, pos := range update {
+			for oid, pos := range δidx {
 				idx.Set(oid, pos)
 			}
 			fs.txnhMax.CloneFrom(&it.Txnh)
@@ -682,7 +684,7 @@ mainloop:
 			}
 			fs.mu.Unlock()
 
-			traceWatch("-> tid=%s  δoidv=%v", it.Txnh.Tid, oidv)
+			traceWatch("-> tid=%s  δoidv=%v", it.Txnh.Tid, δoid)
 
 			// notify client
 			if fs.watchq != nil {
@@ -690,7 +692,7 @@ mainloop:
 				case <-fs.down:
 					return nil
 
-				case fs.watchq <- zodb.CommitEvent{it.Txnh.Tid, oidv}:
+				case fs.watchq <- zodb.CommitEvent{it.Txnh.Tid, δoid}:
 					// ok
 				}
 			}

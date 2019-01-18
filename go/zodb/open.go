@@ -46,6 +46,8 @@ type DriverOptions struct {
 	// it can get out of sync with the on-disk database file.
 	//
 	// The storage driver closes !nil Watchq when the driver is closed.
+	//
+	// TODO extend watchq to also receive errors from watcher.
 	Watchq chan<- CommitEvent
 }
 

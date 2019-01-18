@@ -472,6 +472,8 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, pro
 		// do not update the index immediately so that in case of error
 		// in the middle of txn's data, index stays consistent and
 		// correct for topPos pointing to previous transaction.
+		//
+		// (keep in sync with FileStorage.watcher)
 		update := map[zodb.Oid]int64{}
 		for {
 			err = it.NextData()
@@ -495,7 +497,7 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, pro
 		// notify progress
 		if progress != nil {
 			pd.TxnIndexed++
-			progress(pd)	// XXX + update
+			progress(pd)
 		}
 	}
 
@@ -696,7 +698,9 @@ func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int, pr
 		return nil, err
 	}
 
-	topPos := fi.Size() // XXX there might be last TxnInprogress transaction XXX
+	// FIXME there might be last TxnInprogress transaction.
+	// TODO  -> try to read txn header, and if it is ø or in-progress - that's ok.
+	topPos := fi.Size()
 	if index.TopPos != topPos {
 		return nil, indexCorrupt(f, "topPos mismatch: data=%v  index=%v", topPos, index.TopPos)
 	}

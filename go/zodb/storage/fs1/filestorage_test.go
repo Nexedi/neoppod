@@ -30,8 +30,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
@@ -356,7 +354,7 @@ func BenchmarkIterate(b *testing.B) {
 	b.StopTimer()
 }
 
-// TestWatch verifies that watcher can observes commits done from outside.
+// TestWatch verifies that watcher can observe commits done from outside.
 func TestWatch(t *testing.T) {
 	X := exc.Raiseif
 
@@ -390,7 +388,10 @@ func TestWatch(t *testing.T) {
 		cmd:= exec.Command("python2", "-m", "zodbtools.zodb", "commit", tfs, at.String())
 		cmd.Stdin  = zin
 		cmd.Stderr = os.Stderr
-		out, err := cmd.Output(); X(err)
+		out, err := cmd.Output()
+		if err != nil {
+			return zodb.InvalidTid, err
+		}
 
 		out = bytes.TrimSuffix(out, []byte("\n"))
 		tid, err := zodb.ParseTid(string(out))
@@ -452,7 +453,8 @@ func TestWatch(t *testing.T) {
 			Object{0, data0},
 			Object{i, datai})
 
-		e := <-watchq	// XXX err?
+		// TODO also test for watcher errors
+		e := <-watchq
 
 		if objvWant := []zodb.Oid{0, i}; !(e.Tid == at && reflect.DeepEqual(e.Changev, objvWant)) {
 			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", e.Tid, e.Changev, at, objvWant)
@@ -471,13 +473,6 @@ func TestWatch(t *testing.T) {
 	if ok {
 		t.Fatalf("watch after close -> %v;  want closed", e)
 	}
-	_ = errors.Cause(nil)
-	// XXX e.Err == ErrClosed
-
-	//_, _, err = fs.Watch(ctx)
-	//if e, eWant := errors.Cause(err), os.ErrClosed; e != eWant {
-	//	t.Fatalf("watch after close -> %v;  want: cause %v", err, eWant)
-	//}
 }
 
 // TestOpenRecovery verifies how Open handles data file with not-finished voted
