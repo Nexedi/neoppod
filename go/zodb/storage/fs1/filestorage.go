@@ -271,7 +271,7 @@ const (
 
 // NextTxn iterates to next/previous transaction record according to iteration direction.
 func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, error) {
-	// TODO err -> OpError("iter", tidmin..tidmax)
+	// TODO err -> zerr("iter", tidmin..tidmax)
 	switch {
 	case zi.zFlags & zIterEOF != 0:
 		return nil, nil, io.EOF
@@ -299,7 +299,7 @@ func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, 
 
 // NextData iterates to next data record and loads data content.
 func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
-	// TODO err -> OpError("iter", tidmin..tidmax)
+	// TODO err -> zerr("iter", tidmin..tidmax)
 	err := zi.iter.NextData()
 	if err != nil {
 		return nil, err
