@@ -71,11 +71,15 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xerr"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/pkg/errors"
 )
 
 // FileStorage is a ZODB storage which stores data in simple append-only file
@@ -84,15 +88,23 @@ import (
 // It is on-disk compatible with FileStorage from ZODB/py.
 type FileStorage struct {
 	file  *os.File
-	index *Index // oid -> data record position in transaction which last changed oid
 
-	// transaction headers for min/max transactions committed
-	// (both with .Len=0 & .Tid=0 if database is empty)
-	txnhMin TxnHeader
-	txnhMax TxnHeader
+	// mu protects updates to index and to txnh{Min,Max} - in other words
+	// to everything that depends on what current last transaction is.
+	// mu also protects downErr.
+	mu      sync.RWMutex
+	index   *Index    // oid -> data record position in transaction which last changed oid
+	txnhMin TxnHeader // transaction headers for min/max transactions committed
+	txnhMax TxnHeader // (both with .Len=0 & .Tid=0 if database is empty)
+	downErr error     // !nil when the storage is no longer operational
 
 	// driver client <- watcher: database commits.
-	watchq chan<- zodb.CommitEvent // FIXME stub
+	watchq chan<- zodb.CommitEvent
+
+	down     chan struct{}  // ready when storage is no longer operational
+	downOnce sync.Once      // shutdown may be due to both Close and IO error in watcher
+	errClose error          // error from .file.Close()
+	watchWg  sync.WaitGroup // to wait for watcher finish
 }
 
 // IStorageDriver
@@ -104,12 +116,24 @@ func (fs *FileStorage) zerr(op string, args interface{}, err error) *zodb.OpErro
 }
 
 func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
-	// XXX must be under lock
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+
+	if fs.downErr != nil {
+		return zodb.InvalidTid, fs.zerr("last_tid", nil, fs.downErr)
+	}
+
 	return fs.txnhMax.Tid, nil // txnhMax.Tid = 0, if empty
 }
 
 func (fs *FileStorage) LastOid(_ context.Context) (zodb.Oid, error) {
-	// XXX must be under lock
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+
+	if fs.downErr != nil {
+		return zodb.InvalidOid, fs.zerr("last_oid", nil, fs.downErr)
+	}
+
 	lastOid, _ := fs.index.Last() // returns zero-value, if empty
 	return lastOid, nil
 }
@@ -148,7 +172,13 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *mem.Buf, seri
 
 func (fs *FileStorage) load(xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction which changed this oid
+	fs.mu.RLock()
+	if err := fs.downErr; err != nil {
+		fs.mu.RUnlock()
+		return nil, 0, err
+	}
 	dataPos, ok := fs.index.Get(xid.Oid)
+	fs.mu.RUnlock()
 	if !ok {
 		return nil, 0, &zodb.NoObjectError{Oid: xid.Oid}
 	}
@@ -308,11 +338,18 @@ func (e *iterStartError) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIt
 //
 // if there is no such transaction returned error will be EOF.
 func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, error) {
-	// XXX read snapshot under lock
+	fs.mu.RLock()
+
+	// no longer operational
+	if err := fs.downErr; err != nil {
+		fs.mu.RUnlock()
+		return TxnHeader{}, err
+	}
 
 	// check for empty database
 	if fs.txnhMin.Len == 0 {
 		// empty database - no such record
+		fs.mu.RUnlock()
 		return TxnHeader{}, io.EOF
 	}
 
@@ -321,6 +358,8 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 	var tmin, tmax TxnHeader
 	tmin.CloneFrom(&fs.txnhMin)
 	tmax.CloneFrom(&fs.txnhMax)
+
+	fs.mu.RUnlock()
 
 	if tmax.Tid < tid {
 		return TxnHeader{}, io.EOF // no such record
@@ -411,11 +450,283 @@ func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.
 	return ziter
 }
 
+// --- watcher ---
+
+// watcher watches updates to .file and notifies client about new transactions.
+//
+// watcher is the only place that mutates index and txnh{Min,Max}.
+// XXX ^^^ will change after commit is implemented.
+//
+// if errFirstRead is !nil, the error of reading first transaction header is sent to it.
+func (fs *FileStorage) watcher(w *fsnotify.Watcher, errFirstRead chan<- error) {
+	defer fs.watchWg.Done()
+	defer w.Close() // XXX lclose
+	err := fs._watcher(w, errFirstRead)
+	// it is ok if we got read error due to file being closed
+	if e, _ := errors.Cause(err).(*os.PathError); e != nil && (e.Err == os.ErrClosed ||
+		// XXX it can also be internal.poll.ErrFileClosing
+		e.Err.Error() == "use of closed file") {
+		select {
+		case <-fs.down:
+			err = nil
+		default:
+		}
+	}
+
+	if err != nil {
+		log.Print(err)
+	}
+
+	// if watcher failed with e.g. IO error, we no longer know what is real
+	// last_tid and which objects were modified after it.
+	// -> storage operations have to fail from now on.
+	fs.shutdown(err)
+
+	if fs.watchq != nil {
+		close(fs.watchq)
+	}
+}
+
+const watchTrace = false
+
+func traceWatch(format string, argv ...interface{}) {
+	if !watchTrace {
+		return
+	}
+	log.Printf("    fs1: watcher: " + format, argv...)
+}
+
+// _watcher serves watcher and returns either when fs is closed (ok), or when
+// it hits any kind of non-recoverable error.
+func (fs *FileStorage) _watcher(w *fsnotify.Watcher, errFirstRead chan<- error) (err error) {
+	traceWatch(">>>")
+
+	f := fs.file
+	idx := fs.index
+	defer xerr.Contextf(&err, "%s: watcher", f.Name())
+	defer func() {
+		if errFirstRead != nil {
+			errFirstRead <- err
+			errFirstRead = nil
+		}
+	}()
+
+	// loop checking f.size vs topPos
+	//
+	// besides relying on fsnotify we also check file periodically to avoid
+	// stalls due to e.g. OS notification errors.
+	tick := time.NewTicker(1*time.Second)
+	defer tick.Stop()
+	var t0partial time.Time
+	first := true
+mainloop:
+	for {
+		if !first {
+			traceWatch("select ...")
+			select {
+			case <-fs.down:
+				// closed
+				traceWatch("down")
+				return nil
+
+			case err := <-w.Errors:
+				traceWatch("error: %s", err)
+				if err != fsnotify.ErrEventOverflow {
+					return err
+				}
+				// events lost, but it is safe since we are always rechecking file size
+
+			case ev := <-w.Events:
+				// we got some kind of "file was modified" event (e.g.
+				// write, truncate, chown ...) -> it is time to check the file again.
+				traceWatch("event: %s", ev)
+
+			case <-tick.C:
+				// recheck the file periodically.
+				traceWatch("tick")
+			}
+
+			// we will be advancing through the file as much as we can.
+			// drain everything what is currently left in fs watcher queue.
+		drain:
+			for {
+				select {
+				case err := <-w.Errors:
+					traceWatch("drain: error: %s", err)
+					if err != fsnotify.ErrEventOverflow {
+						// unexpected error -> shutdown
+						return err
+					}
+
+				case ev := <-w.Events:
+					traceWatch("drain: event: %s", ev)
+
+				default:
+					break drain
+				}
+			}
+		}
+		first = false
+
+		// check f size, to see whether there could be any updates.
+		fi, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		fsize := fi.Size()
+		traceWatch("toppos: %d\tfsize: %d\n", idx.TopPos, fsize)
+		switch {
+		case fsize == idx.TopPos:
+			continue // same as before
+		case fsize < idx.TopPos:
+			// XXX add pack support?
+			return fmt.Errorf("file truncated (%d -> %d)", idx.TopPos, fsize)
+		}
+
+		// there is some data after toppos - try to advance as much as we can.
+		// start iterating afresh with new empty buffer.
+		traceWatch("scanning ...")
+		it := Iterate(seqReadAt(f), idx.TopPos, IterForward)
+		for {
+			err = it.NextTxn(LoadNoStrings)
+			if err != nil {
+				// transaction header could not be fully read.
+				//
+				// even though FileStorage code always calls write with full txn
+				// header, the kernel could do the write in parts, e.g. if written
+				// region overlaps page boundary.
+				//
+				// we check for some time to distinguish in-progress write from just
+				// trailing garbage.
+				if errors.Cause(err) == io.ErrUnexpectedEOF {
+					now := time.Now()
+					if t0partial.IsZero() {
+						t0partial = now
+					} else if now.Sub(t0partial) > 3*time.Second {
+						return err // garbage
+					}
+				} else {
+					// only EOF is ok - it can happen when transaction was aborted,
+					// or when we reach file end after scanning several txns.
+					if err != io.EOF {
+						// not ok - e.g. IO or consistency check error
+						return err
+					}
+
+					// EOF - reset t₀(partial)
+					t0partial = time.Time{}
+				}
+
+				// after any error (EOF, partial read) we have to resync
+				continue mainloop
+			}
+
+			// read ok - reset t₀(partial)
+			t0partial = time.Time{}
+
+			traceWatch("@%d tid=%s st=%q", it.Txnh.Pos, it.Txnh.Tid, it.Txnh.Status)
+
+			if errFirstRead != nil {
+				errFirstRead <- nil // ok
+				errFirstRead = nil
+			}
+
+			// we could successfully read the transaction header. Try to see now,
+			// whether it is finished transaction or not.
+			if it.Txnh.Status == zodb.TxnInprogress {
+				// not yet. We have to resync because transaction finish writes
+				// to what we have already buffered.
+				continue mainloop
+			}
+
+			// it is fully-committed transaction. Scan its data records to update
+			// our index & notify client watchers. There is no expected errors here.
+			//
+			// (keep in sync with Index.Update)
+			var δoid []zodb.Oid
+			δidx := map[zodb.Oid]int64{} // oid -> pos(data record)
+			for {
+				err = it.NextData()
+				if err != nil {
+					err = okEOF(err)
+					if err != nil {
+						return err
+					}
+					break
+				}
+
+				δidx[it.Datah.Oid] = it.Datah.Pos
+				δoid = append(δoid, it.Datah.Oid)
+			}
+
+			// update index & txnh{Min,Max}
+			fs.mu.Lock()
+			idx.TopPos = it.Txnh.Pos + it.Txnh.Len
+			for oid, pos := range δidx {
+				idx.Set(oid, pos)
+			}
+			fs.txnhMax.CloneFrom(&it.Txnh)
+			if fs.txnhMin.Len == 0 { // was empty
+				fs.txnhMin.CloneFrom(&it.Txnh)
+			}
+			fs.mu.Unlock()
+
+			traceWatch("-> tid=%s  δoidv=%v", it.Txnh.Tid, δoid)
+
+			// notify client
+			if fs.watchq != nil {
+				select {
+				case <-fs.down:
+					return nil
+
+				case fs.watchq <- zodb.CommitEvent{it.Txnh.Tid, δoid}:
+					// ok
+				}
+			}
+		}
+	}
+}
+
 // --- open + rebuild index ---
 
-// open opens FileStorage without loading index
-func open(path string) (_ *FileStorage, err error) {
-	fs := &FileStorage{}
+// shutdown marks storage as no longer operational with specified reason.
+//
+// only the first call takes the effect.
+func (fs *FileStorage) shutdown(reason error) {
+	fs.downOnce.Do(func() {
+		fs.errClose = fs.file.Close()
+		close(fs.down)
+
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+		fs.downErr = fmt.Errorf("not operational due: %s", reason)
+	})
+}
+
+func (fs *FileStorage) Close() error {
+	fs.shutdown(fmt.Errorf("closed"))
+	fs.watchWg.Wait()
+
+	if fs.errClose != nil {
+		return fs.zerr("close", nil, fs.errClose)
+	}
+
+	// TODO if opened !ro -> .saveIndex()
+
+	return nil
+}
+
+// Open opens FileStorage @path.
+func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileStorage, err error) {
+	// TODO read-write support
+	if !opt.ReadOnly {
+		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
+	}
+
+	fs := &FileStorage{
+		watchq: opt.Watchq,
+		down:   make(chan struct{}),
+	}
 
 	f, err := os.Open(path)
 	if err != nil {
@@ -424,9 +735,11 @@ func open(path string) (_ *FileStorage, err error) {
 	fs.file = f
 	defer func() {
 		if err != nil {
-			f.Close() // XXX -> lclose
+			fs.shutdown(err)
 		}
 	}()
+
+	// XXX wrap err with "open <path>" ?
 
 	// check file magic
 	fh := FileHeader{}
@@ -435,134 +748,104 @@ func open(path string) (_ *FileStorage, err error) {
 		return nil, err
 	}
 
-	// FIXME rework opening logic to support case when last txn was committed only partially
-
-	// determine topPos from file size
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	topPos := fi.Size()
-
-	// read tidMin/tidMax
-	err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)
-	err = okEOF(err) // e.g. it is EOF when file is empty
-	if err != nil {
-		return nil, err
-	}
-	err = fs.txnhMax.Load(f, topPos, LoadAll)
-	// expect EOF forward
-	// FIXME ^^^ it will be no EOF if a txn was committed only partially
-	if err != io.EOF {
-		if err == nil {
-			err = fmt.Errorf("%s: no EOF after topPos", f.Name())
-		}
-		return nil, fmt.Errorf("%s: %s", f.Name(), err)
-	}
-
-	// .LenPrev must be good or EOF backward
-	switch fs.txnhMax.LenPrev {
-	case -1:
-		return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
-	case 0:
-		// ok - EOF backward
-
-	default:
-		// .LenPrev is ok - read last previous record
-		err = fs.txnhMax.LoadPrev(f, LoadAll)
+	// load index
+	fseq := seqReadAt(f)
+	index, err := LoadIndexFile(f.Name() + ".index")
+	if err == nil {
+		// index exists & loaded ok - quickly verify its sanity for last 100 transactions
+		_, err = index.Verify(ctx, fseq, 100, nil/*no progress*/)
 		if err != nil {
-			return nil, err
+			index = nil // not sane - we will rebuild
 		}
 	}
-
-	return fs, nil
-}
-
-// Open opens FileStorage @path.
-//
-// TODO read-write support
-func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
-	// open data file
-	fs, err := open(path)
 	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err != nil {
-			fs.file.Close() // XXX lclose
-		}
-	}()
-
-	// load-verify / rebuild index
-	err = fs.loadIndex(ctx)
-	if err != nil {
+		// index either did not exist, or corrupt or IO error - rebuild it from scratch
 		log.Print(err)
-		log.Printf("%s: index recompute...", path)
-		fs.index, err = fs.computeIndex(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		// TODO if opened !ro -> .saveIndex()
+		log.Printf("%s: index rebuild...", path)
+		index, err = BuildIndex(ctx, fseq, nil/*no progress; XXX log it? */)
+	} else {
+		// index loaded. In particular this gives us index.TopPos that is, possibly
+		// outdated, valid position for start of a transaction in the data file.
+		// Update the index starting from that till latest transaction.
+		err = index.Update(ctx, fseq, -1, nil/*no progress; XXX log it? */)
 	}
 
-	return fs, nil
-}
-
-func (fs *FileStorage) Close() error {
-	err := fs.file.Close()
-	if fs.watchq != nil {
-		close(fs.watchq)
+	// it can be either garbage or in-progress transaction.
+	// defer to watcher to clarify this for us.
+	checkTailGarbage := false
+	if errors.Cause(err) == io.ErrUnexpectedEOF {
+		err = nil
+		checkTailGarbage = true
 	}
 	if err != nil {
-		return fs.zerr("close", nil, err)
-	}
-
-	// TODO if opened !ro -> .saveIndex()
-
-	return nil
-}
-
-func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
-	// XXX lock?
-	return BuildIndex(ctx, seqReadAt(fs.file), nil/*no progress; XXX somehow log it? */)
-}
-
-// loadIndex loads on-disk index to RAM and verifies it against data lightly
-func (fs *FileStorage) loadIndex(ctx context.Context) (err error) {
-	// XXX lock?
-	defer xerr.Contextf(&err, "%s", fs.file.Name())
-
-	index, err := LoadIndexFile(fs.file.Name() + ".index")
-	if err != nil {
-		return err
-	}
-
-	topPos := fs.txnhMax.Pos + fs.txnhMax.Len
-	if index.TopPos != topPos {
-		return fmt.Errorf("inconsistent index topPos: data=%d  index=%d", topPos, index.TopPos)
-	}
-
-	// quickly verify index sanity for last 100 transactions
-	_, err = index.Verify(ctx, seqReadAt(fs.file), 100, nil/*no progress*/)
-	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fs.index = index
-	return nil
-}
 
-// saveIndex flushes in-RAM index to disk
-func (fs *FileStorage) saveIndex() (err error) {
-	// XXX lock?
-	defer xerr.Contextf(&err, "%s", fs.file.Name())
+	// now we have the index covering till last transaction in data file.
+	// fill-in min/max txnh
+	if index.TopPos > txnValidFrom {
+		err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)
+		err = noEOF(err)
+		if err != nil {
+			return nil, err
+		}
 
-	err = fs.index.SaveFile(fs.file.Name() + ".index")
-	if err != nil {
-		return err
+		_ = fs.txnhMax.Load(f, index.TopPos, LoadAll)
+		// NOTE it will be EOF on stable storage, but it might be non-EOF
+		// if a txn-in-progress was committed only partially. We care only
+		// that we read .LenPrev ok.
+		switch fs.txnhMax.LenPrev {
+		case -1:
+			return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
+		case 0:
+			return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction): unexpected EOF backward", f.Name(), fs.txnhMax.Pos)
+
+		default:
+			// .LenPrev is ok - read last previous record
+			err = fs.txnhMax.LoadPrev(f, LoadAll)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
-	// XXX fsync here?
-	return nil
+	// there might be simultaneous updates to the data file from outside.
+	// launch the watcher who will observe them.
+	//
+	// the filesystem watcher is setup before fs returned to user to avoid
+	// race of missing early file writes.
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	err = w.Add(f.Name())
+	if err != nil {
+		w.Close()	// XXX lclose
+		return nil, err
+	}
+
+	var errFirstRead chan error
+	if checkTailGarbage {
+		defer xerr.Contextf(&err, "open %s: checking whether it is garbage @%d", path, index.TopPos)
+		errFirstRead = make(chan error, 1)
+	}
+
+	fs.watchWg.Add(1)
+	go fs.watcher(w, errFirstRead)
+
+	if checkTailGarbage {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+
+		case err = <-errFirstRead:
+			if err != nil {
+				return nil, err // it was garbage
+			}
+		}
+	}
+
+	return fs, nil
 }

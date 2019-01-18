@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -152,7 +152,7 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 	_, err := r.ReadAt(fh.Magic[:], 0)
 	err = okEOF(err)
 	if err != nil {
-		return err
+		return fmt.Errorf("%sread magic: %s", ioprefix(r), err)
 	}
 	if string(fh.Magic[:]) != Magic {
 		return fmt.Errorf("%sinvalid fs1 magic %q", ioprefix(r), fh.Magic)

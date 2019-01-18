@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -453,7 +453,10 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, pro
 			return err
 		}
 
-		// XXX check txnh.Status != TxnInprogress
+		// this transaction was only voted, not fully committed yet.
+		if it.Txnh.Status == zodb.TxnInprogress {
+			return nil
+		}
 
 		// check for topPos overlapping txn & whether we are done.
 		// topPos=-1 will never match here
@@ -469,7 +472,9 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, pro
 		// do not update the index immediately so that in case of error
 		// in the middle of txn's data, index stays consistent and
 		// correct for topPos pointing to previous transaction.
-		update := map[zodb.Oid]int64{} // XXX malloc every time -> better reuse
+		//
+		// (keep in sync with FileStorage.watcher)
+		update := map[zodb.Oid]int64{}
 		for {
 			err = it.NextData()
 			if err != nil {
@@ -693,7 +698,9 @@ func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int, pr
 		return nil, err
 	}
 
-	topPos := fi.Size() // XXX there might be last TxnInprogress transaction
+	// FIXME there might be last TxnInprogress transaction.
+	// TODO  -> try to read txn header, and if it is ø or in-progress - that's ok.
+	topPos := fi.Size()
 	if index.TopPos != topPos {
 		return nil, indexCorrupt(f, "topPos mismatch: data=%v  index=%v", topPos, index.TopPos)
 	}

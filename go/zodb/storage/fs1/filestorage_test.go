@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -20,15 +20,21 @@
 package fs1
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"os/exec"
 	"reflect"
 	"testing"
 
+	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/exc"
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // one database transaction record
@@ -109,7 +115,13 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect objState) {
 }
 
 func xfsopen(t testing.TB, path string) *FileStorage {
-	fs, err := Open(context.Background(), path)
+	t.Helper()
+	return xfsopenopt(t, path, &zodb.DriverOptions{ReadOnly: true})
+}
+
+func xfsopenopt(t testing.TB, path string, opt *zodb.DriverOptions) *FileStorage {
+	t.Helper()
+	fs, err := Open(context.Background(), path, opt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +129,7 @@ func xfsopen(t testing.TB, path string) *FileStorage {
 }
 
 func TestLoad(t *testing.T) {
-	fs := xfsopen(t, "testdata/1.fs") // TODO open read-only
+	fs := xfsopen(t, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
 	// current knowledge of what was "before" for an oid as we scan over
@@ -266,7 +278,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 }
 
 func TestIterate(t *testing.T) {
-	fs := xfsopen(t, "testdata/1.fs") // TODO open ro
+	fs := xfsopen(t, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
 	// all []tids in test database
@@ -302,7 +314,7 @@ func TestIterate(t *testing.T) {
 }
 
 func BenchmarkIterate(b *testing.B) {
-	fs := xfsopen(b, "testdata/1.fs") // TODO open ro
+	fs := xfsopen(b, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
 	ctx := context.Background()
@@ -340,4 +352,189 @@ func BenchmarkIterate(b *testing.B) {
 	}
 
 	b.StopTimer()
+}
+
+// TestWatch verifies that watcher can observe commits done from outside.
+func TestWatch(t *testing.T) {
+	X := exc.Raiseif
+
+	xtesting.NeedPy(t, "zodbtools")
+	workdir := xworkdir(t)
+	tfs := workdir + "/t.fs"
+
+	// Object represents object state to be committed.
+	type Object struct {
+		oid  zodb.Oid
+		data string
+	}
+
+	// zcommit commits new transaction into tfs with data specified by objv.
+	zcommit := func(at zodb.Tid, objv ...Object) (_ zodb.Tid, err error) {
+		defer xerr.Contextf(&err, "zcommit @%s", at)
+
+		// prepare text input for `zodb commit`
+		zin := &bytes.Buffer{}
+		fmt.Fprintf(zin, "user %q\n", "author")
+		fmt.Fprintf(zin, "description %q\n", fmt.Sprintf("test commit; at=%s", at))
+		fmt.Fprintf(zin, "extension %q\n", "")
+		for _, obj := range objv {
+			fmt.Fprintf(zin, "obj %s %d null:00\n", obj.oid, len(obj.data))
+			zin.WriteString(obj.data)
+			zin.WriteString("\n")
+		}
+		zin.WriteString("\n")
+
+		// run py `zodb commit`
+		cmd:= exec.Command("python2", "-m", "zodbtools.zodb", "commit", tfs, at.String())
+		cmd.Stdin  = zin
+		cmd.Stderr = os.Stderr
+		out, err := cmd.Output()
+		if err != nil {
+			return zodb.InvalidTid, err
+		}
+
+		out = bytes.TrimSuffix(out, []byte("\n"))
+		tid, err := zodb.ParseTid(string(out))
+		if err != nil {
+			return zodb.InvalidTid, fmt.Errorf("committed, but invalid output: %s", err)
+		}
+
+		return tid, nil
+	}
+
+	xcommit := func(at zodb.Tid, objv ...Object) zodb.Tid {
+		t.Helper()
+		tid, err := zcommit(at, objv...); X(err)
+		return tid
+	}
+
+	// force tfs creation & open tfs at go side
+	at := xcommit(0, Object{0, "data0"})
+
+	watchq := make(chan zodb.CommitEvent)
+	fs := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
+	ctx := context.Background()
+
+	checkLastTid := func(lastOk zodb.Tid) {
+		t.Helper()
+		head, err := fs.LastTid(ctx); X(err)
+		if head != lastOk {
+			t.Fatalf("check last_tid: got %s;  want %s", head, lastOk)
+		}
+	}
+
+	checkLastTid(at)
+
+	checkLoad := func(at zodb.Tid, oid zodb.Oid, dataOk string, serialOk zodb.Tid) {
+		t.Helper()
+		xid := zodb.Xid{at, oid}
+		buf, serial, err := fs.Load(ctx, xid); X(err)
+		data := string(buf.XData())
+		if !(data == dataOk && serial == serialOk) {
+			t.Fatalf("check load %s:\nhave: %q %s\nwant: %q %s",
+				xid, data, serial, dataOk, serialOk)
+		}
+	}
+
+	// commit -> check watcher observes what we committed.
+	//
+	// XXX python `import pkg_resources` takes ~ 300ms.
+	// https://github.com/pypa/setuptools/issues/510
+	//
+	// Since pkg_resources are used everywhere (e.g. in zodburi to find all
+	// uri resolvers) this import slowness becomes the major part of time to
+	// run py `zodb commit`.
+	//
+	// if one day it is either fixed, or worked around, we could ↑ 10 to 100.
+	for i := zodb.Oid(1); i <= 10; i++ {
+		data0 := fmt.Sprintf("data0.%d", i)
+		datai := fmt.Sprintf("data%d", i)
+		at = xcommit(at,
+			Object{0, data0},
+			Object{i, datai})
+
+		// TODO also test for watcher errors
+		e := <-watchq
+
+		if objvWant := []zodb.Oid{0, i}; !(e.Tid == at && reflect.DeepEqual(e.Changev, objvWant)) {
+			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", e.Tid, e.Changev, at, objvWant)
+		}
+
+		checkLastTid(at)
+
+		// make sure we can load what was committed.
+		checkLoad(at, 0, data0, at)
+		checkLoad(at, i, datai, at)
+	}
+
+	err := fs.Close(); X(err)
+
+	e, ok := <-watchq
+	if ok {
+		t.Fatalf("watch after close -> %v;  want closed", e)
+	}
+}
+
+// TestOpenRecovery verifies how Open handles data file with not-finished voted
+// transaction in the end.
+func TestOpenRecovery(t *testing.T) {
+	X := exc.Raiseif
+	main, err := ioutil.ReadFile("testdata/1.fs"); X(err)
+	index, err := ioutil.ReadFile("testdata/1.fs.index"); X(err)
+	lastTidOk := _1fs_dbEntryv[len(_1fs_dbEntryv)-1].Header.Tid
+	topPos := int64(_1fs_indexTopPos)
+	voteTail, err := ioutil.ReadFile("testdata/1voted.tail"); X(err)
+
+	workdir := xworkdir(t)
+	ctx := context.Background()
+
+	// checkL runs f on main + voteTail[:l] . Two cases are verified:
+	// 1) when index is already present, and
+	// 2) when initially there is no index.
+	checkL := func(t *testing.T, l int, f func(t *testing.T, tfs string)) {
+		tfs := fmt.Sprintf("%s/1+vote%d.fs", workdir, l)
+		t.Run(fmt.Sprintf("oldindex=n/tail=+vote%d", l), func(t *testing.T) {
+			err := ioutil.WriteFile(tfs, append(main, voteTail[:l]...), 0600); X(err)
+			f(t, tfs)
+		})
+		t.Run(fmt.Sprintf("oldindex=y/tail=+vote%d", l), func(t *testing.T) {
+			err := ioutil.WriteFile(tfs+".index", index, 0600); X(err)
+			f(t, tfs)
+		})
+	}
+
+	// if txn header can be fully read - it should be all ok
+	lok := []int{0}
+	for l := len(voteTail); l >= TxnHeaderFixSize; l-- {
+		lok = append(lok, l)
+	}
+	for _, l := range lok {
+		checkL(t, l, func(t *testing.T, tfs string) {
+			fs := xfsopen(t, tfs)
+			defer func() {
+				err = fs.Close(); X(err)
+			}()
+			head, err := fs.LastTid(ctx); X(err)
+			if head != lastTidOk {
+				t.Fatalf("last_tid: %s  ; expected: %s", head, lastTidOk)
+			}
+		})
+	}
+
+	// if txn header is stably incomplete - open should fail
+	// XXX better check 0..sizeof(txnh)-1 but in this range each check is slow.
+	for _, l := range []int{TxnHeaderFixSize-1,1} {
+		checkL(t, l, func(t *testing.T, tfs string) {
+			_, err := Open(ctx, tfs, &zodb.DriverOptions{ReadOnly: true})
+			estr := ""
+			if err != nil {
+				estr = err.Error()
+			}
+			ewant := fmt.Sprintf("open %s: checking whether it is garbage @%d: %s",
+				tfs, topPos, &RecordError{tfs, "transaction record", topPos, "read", io.ErrUnexpectedEOF})
+			if estr != ewant {
+				t.Fatalf("unexpected error:\nhave: %q\nwant: %q", estr, ewant)
+			}
+		})
+	}
 }

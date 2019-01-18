@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-# Copyright (C) 2017-2018  Nexedi SA and Contributors.
+# Copyright (C) 2017-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -21,7 +21,10 @@
 """generate reference fs1 database and index for tests"""
 
 from ZODB.FileStorage import FileStorage
-from zodbtools.test.gen_testdata import gen_testdb
+from ZODB import DB
+from zodbtools.test.gen_testdata import gen_testdb, precommit
+from os import stat, remove
+from shutil import copyfile
 from golang.gcompat import qq
 
 import struct
@@ -133,6 +136,38 @@ def main():
             emit("\t\t},")
             emit("\t},")
         emit("}")
+    stor.close()
+
+
+    # prepare file with voted (not fully committed) tail
+    voted = "testdata/1voted.fs"
+    copyfile(outfs, voted)
+    vstor = FileStorage(voted)
+    vdb   = DB(vstor)
+    vconn = vdb.open()
+    vroot = vconn.root()
+    vroot._p_activate() # to know its current serial
+
+    txn = precommit(u"author", u"description", {'aaa': 'bbb'})
+    vstor.tpc_begin(txn)
+    vstor.store(vroot._p_oid, vroot._p_serial, '000 data 000', '', txn)
+    vstor.tpc_vote(txn)
+    # NO tpc_finish here so that status remain 'c' (voted) instead of ' ' (committed)
+
+    st = stat(outfs)
+    l  = st.st_size
+    vf = open(voted, 'rb')
+    vf.seek(l)
+    voted_tail = vf.read()
+    assert voted_tail[-1+8+8+1] == 'c'  # voted, not finished (' ')
+
+    with open("testdata/1voted.tail", "wb") as vt:
+        vt.write(voted_tail)
+
+    remove(voted)
+    remove(voted+".index")
+    remove(voted+".tmp")
+    remove(voted+".lock")
 
 
 if __name__ == '__main__':
