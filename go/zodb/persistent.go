@@ -281,31 +281,36 @@ var typeTab  = make(map[reflect.Type]*zclass) // {} type  -> zclass
 
 // ClassOf returns ZODB class of a Go object.
 //
-// If ZODB class was not registered for obj's type, "" is returned.	// XXX
-// XXX -> keep obj IPersistent and add TypeOf(interface{}) ?
-//func ClassOf(obj IPersistent) string {
-func ClassOf(obj interface{}) string {
+// The following is returned:
+//
+//	- if obj's type was registered (RegisterClass) -- corresponding class.
+//	- for Broken objects -- ZODB.Broken("<broken-class>").
+//	- else -- ZODB.Go("<fully-qualified-type(obj)>")
+func ClassOf(obj IPersistent) string {
 	zb, broken := obj.(*Broken)
 	if broken {
 		return fmt.Sprintf("ZODB.Broken(%q)", zb.class)
 	}
 
 	typ := reflect.TypeOf(obj)
-	zc, ok := typeTab[typ.Elem()]
+	typ = typ.Elem() // *MyPersistent -> MyPersistent
+	zc, ok := typeTab[typ]
 	if ok {
 		return zc.class
 	}
 
-	// XXX can we get vvv at all if obj is IPersistent? -> yes, if type was not registered.
-
-	// not Broken and type not registered to ZODB -> Broken(fullGoType(obj))
-	fullType := "go:" + typ.PkgPath()
-	if typ.PkgPath() != "" { // it could be builtin type, e.g. string
+	// the type was not registered to ZODB
+	fullType := typ.PkgPath()
+	if typ.PkgPath() != "" {
 		fullType += "."
 	}
 	fullType += typ.Name()
-	//return fmt.Sprintf("ZODB.Broken(%q)", fullType)
-	return fullType
+	if fullType == "" {
+		// fallback, since it is possible if the type is anonymous
+		// XXX not fully qualified
+		fullType = fmt.Sprintf("*%T", typ)
+	}
+	return fmt.Sprintf("ZODB.Go(%q)", fullType)
 }
 
 var rIPersistent = reflect.TypeOf((*IPersistent)(nil)).Elem() // typeof(IPersistent)

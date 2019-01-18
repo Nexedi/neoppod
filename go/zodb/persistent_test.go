@@ -51,6 +51,11 @@ func (o *myObjectState) PySetState(pystate interface{}) error {
 	return nil
 }
 
+// Peristent that is not registered to ZODB.
+type Unregistered struct {
+	Persistent
+}
+
 func init() {
 	t := reflect.TypeOf
 	RegisterClass("t.zodb.MyObject", t(MyObject{}), t(myObjectState{}))
@@ -131,6 +136,10 @@ func TestPersistent(t *testing.T) {
 
 	checkObj(obj, nil, 12, InvalidTid, GHOST, 0, nil)
 	assert.Equal(ClassOf(obj), "t.zodb.MyObject")
+
+	// ClassOf(unregistered-obj)
+	obj2 := &Unregistered{}
+	assert.Equal(ClassOf(obj2), `ZODB.Go("lab.nexedi.com/kirr/neo/go/zodb.Unregistered")`)
 
 
 	// TODO activate	- jar has to load, state changes
