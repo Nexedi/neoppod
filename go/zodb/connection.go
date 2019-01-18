@@ -206,7 +206,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	conn.cache.Unlock()
 
 	if checkClass {
-		if cls := zclassOf(obj); class != cls {
+		if cls := ClassOf(obj); class != cls {
 			var err error = &wrongClassError{class, cls}
 			xerr.Contextf(&err, "get %s", Xid{conn.at, oid})
 			return nil, err

@@ -278,15 +278,38 @@ type zclass struct {
 var classTab = make(map[string]*zclass)       // {} class -> zclass
 var typeTab  = make(map[reflect.Type]*zclass) // {} type  -> zclass
 
-// zclassOf returns ZODB class of a Go object.
+// ClassOf returns ZODB class of a Go object.
 //
-// If ZODB class was not registered for obj's type, "" is returned.
-func zclassOf(obj IPersistent) string {
-	zc, ok := typeTab[reflect.TypeOf(obj).Elem()]
-	if !ok {
-		return ""
+// The following is returned:
+//
+//	- if obj's type was registered (RegisterClass) -- corresponding class.
+//	- for Broken objects -- ZODB.Broken("<broken-class>").
+//	- else -- ZODB.Go("<fully-qualified-type(obj)>")
+func ClassOf(obj IPersistent) string {
+	zb, broken := obj.(*Broken)
+	if broken {
+		return fmt.Sprintf("ZODB.Broken(%q)", zb.class)
 	}
-	return zc.class
+
+	typ := reflect.TypeOf(obj)
+	typ = typ.Elem() // *MyPersistent -> MyPersistent
+	zc, ok := typeTab[typ]
+	if ok {
+		return zc.class
+	}
+
+	// the type was not registered to ZODB
+	fullType := typ.PkgPath()
+	if typ.PkgPath() != "" {
+		fullType += "."
+	}
+	fullType += typ.Name()
+	if fullType == "" {
+		// fallback, since it is possible if the type is anonymous
+		// XXX not fully qualified
+		fullType = fmt.Sprintf("*%T", typ)
+	}
+	return fmt.Sprintf("ZODB.Go(%q)", fullType)
 }
 
 var rIPersistent = reflect.TypeOf((*IPersistent)(nil)).Elem() // typeof(IPersistent)

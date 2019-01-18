@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -49,6 +49,11 @@ func (o *myObjectState) PySetState(pystate interface{}) error {
 
 	o.value = s
 	return nil
+}
+
+// Peristent that is not registered to ZODB.
+type Unregistered struct {
+	Persistent
 }
 
 func init() {
@@ -120,7 +125,7 @@ func TestPersistent(t *testing.T) {
 	}
 
 	checkObj(obj, nil, 11, InvalidTid, GHOST, 0, nil)
-	assert.Equal(zclassOf(obj), "t.zodb.MyObject")
+	assert.Equal(ClassOf(obj), "t.zodb.MyObject")
 
 	// t.zodb.MyOldObject -> *MyObject
 	xobj = newGhost("t.zodb.MyOldObject", 12, nil)
@@ -130,7 +135,11 @@ func TestPersistent(t *testing.T) {
 	}
 
 	checkObj(obj, nil, 12, InvalidTid, GHOST, 0, nil)
-	assert.Equal(zclassOf(obj), "t.zodb.MyObject")
+	assert.Equal(ClassOf(obj), "t.zodb.MyObject")
+
+	// ClassOf(unregistered-obj)
+	obj2 := &Unregistered{}
+	assert.Equal(ClassOf(obj2), `ZODB.Go("lab.nexedi.com/kirr/neo/go/zodb.Unregistered")`)
 
 
 	// TODO activate	- jar has to load, state changes
