@@ -1,8 +1,8 @@
 // Copyright (c) 2001, 2002 Zope Foundation and Contributors.
 // All Rights Reserved.
 //
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This software is subject to the provisions of the Zope Public License,
 // Version 2.1 (ZPL).  A copy of the ZPL should accompany this distribution.
@@ -16,6 +16,8 @@ package zodb
 
 import (
 	"context"
+
+	"lab.nexedi.com/kirr/go123/mem"
 )
 
 // IPersistent is the interface that every in-RAM object representing any database object implements.
@@ -97,6 +99,16 @@ type IPersistent interface {
 
 	// XXX probably don't need this.
 	//PState()  ObjectState	// in-RAM object state.
+
+	// XXX move vvv -> iPersistent?
+
+	// pSerialize returns object in serialized form to be saved in the database.
+	//
+	// pSerialize is non-public method that is exposed and used only by ZODB internally.
+	//
+	// XXX more text.
+	// XXX when called? invariants?
+	pSerialize() *mem.Buf
 }
 
 // ObjectState describes state of in-RAM object.

@@ -28,9 +28,20 @@ import (
 )
 
 // import at runtime few things into zodb, that zodb cannot import itself due to cyclic dependency.
+
 func init() {
-	//zodb.ZPyCommit = xtesting.ZPyCommit
-	zodb.ZPyCommit = func(zurl string, at zodb.Tid, objv ...interface{}) (zodb.Tid, error) {
-		return xtesting.ZPyCommit(zurl, at)	// XXX + objv
+	zodb.ZPyCommit = ZPyCommit
+}
+
+func ZPyCommit(zurl string, at zodb.Tid, objv ...zodb.IPersistent) (zodb.Tid, error) {
+	var zobjv []xtesting.ZObject // raw zodb objects data to commit
+	for _, obj := range objv {
+		zobj := xtesting.ZObject{
+			Oid:  obj.POid(),
+			Data: string(zodb.PSerialize(obj).XData()),
+		}
+		zobjv = append(zobjv, zobj)
 	}
+
+	return xtesting.ZPyCommit(zurl, at, zobjv...)
 }

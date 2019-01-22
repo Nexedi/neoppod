@@ -90,7 +90,7 @@ func NeedPy(t testing.TB, modules ...string) {
 // ZObject represents object state to be committed.
 type ZObject struct {
 	Oid  zodb.Oid
-	Data string
+	Data string // raw serialized zodb data
 }
 
 // ZPyCommit commits new transaction into database @ zurl with data specified by objv.

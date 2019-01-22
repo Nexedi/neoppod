@@ -121,6 +121,24 @@ type Stateful interface {
 	GetState() *mem.Buf
 }
 
+// ---- serialize ----
+
+// pSerialize implements IPersistent.
+func (obj *Persistent) pSerialize() *mem.Buf {
+	// XXX locking
+	// XXX panic on state == GHOST
+
+	switch istate := obj.istate().(type) {
+	case Stateful:
+		return istate.GetState()
+
+	case PyStateful:
+		return pyGetState(istate, ClassOf(obj))
+
+	default:
+		panic(obj.badf("serialize: !stateful instance"))
+	}
+}
 
 // ---- activate/deactivate/invalidate ----
 
