@@ -286,6 +286,8 @@ var typeTab  = make(map[reflect.Type]*zclass) // {} type  -> zclass
 //	- if obj's type was registered (RegisterClass) -- corresponding class.
 //	- for Broken objects -- ZODB.Broken("<broken-class>").
 //	- else -- ZODB.Go("<fully-qualified-type(obj)>")
+//
+// XXX -> IPersistent.ZClass() ?
 func ClassOf(obj IPersistent) string {
 	zb, broken := obj.(*Broken)
 	if broken {
