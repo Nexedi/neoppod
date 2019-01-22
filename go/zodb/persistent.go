@@ -115,7 +115,10 @@ type Stateful interface {
 	SetState(state *mem.Buf) error
 
 	// GetState should return state of the in-RAM object as raw data.
-	//GetState() *mem.Buf	TODO
+	//
+	// XXX called only when state is not dropped.
+	// XXX buf ownership.
+	GetState() *mem.Buf
 }
 
 

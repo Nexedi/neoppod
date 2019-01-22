@@ -17,8 +17,20 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package zodb
-// things imported at runtime via import_x_test due to cyclic dependency
+package zodb_test
 
-var ZPyCommit func(string, Tid, ...interface{}) (Tid, error)	// XXX ZObject
+import (
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 
+	// wks or any other storage cannot be imported from zodb due to cycle
+	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
+)
+
+// import at runtime few things into zodb, that zodb cannot import itself due to cyclic dependency.
+func init() {
+	//zodb.ZPyCommit = xtesting.ZPyCommit
+	zodb.ZPyCommit = func(zurl string, at zodb.Tid, objv ...interface{}) (zodb.Tid, error) {
+		return xtesting.ZPyCommit(zurl, at)	// XXX + objv
+	}
+}

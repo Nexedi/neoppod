@@ -347,6 +347,22 @@ func (b *lobucketState) DropState() {
 	b.values = nil
 }
 
+// PyGetState implements zodb.PyStateful to get bucket data as pystate.
+func (b *lobucketState) PyGetState() interface{} {
+	// XXX assert len(b.keys) == len(b.values) ?
+	t := make(pickle.Tuple, 0, 2*len(b.keys))
+	for i := range b.keys {
+		t = append(t, b.keys[i], b.values[i])
+	}
+	t = pickle.Tuple{t}
+
+	if b.next != nil {
+		t = append(t, b.next)
+	}
+
+	return t
+}
+
 // PySetState implements zodb.PyStateful to set bucket data from pystate.
 func (b *lobucketState) PySetState(pystate interface{}) (err error) {
 	t, ok := pystate.(pickle.Tuple)
@@ -440,6 +456,36 @@ type lobtreeState LOBTree // hide state methods from public API
 func (t *lobtreeState) DropState() {
 	t.firstbucket = nil
 	t.data = nil
+}
+
+// PyGetState implements zodb.PyStateful to get btree data as pystate.
+func (bt *lobtreeState) PyGetState() interface{} {
+	// empty btree
+	if len(bt.data) == 0 {
+		// XXX assert .firstbucket = nil ?
+		return pickle.None{}
+	}
+
+	// btree with 1 child bucket without oid
+	if len(bt.data) == 1 {
+		bucket, ok := bt.data[0].child.(*LOBucket)
+		if ok && bucket.POid() == zodb.InvalidOid { // XXX recheck vs "NULL oid"
+			return pickle.Tuple{pickle.Tuple{((*lobucketState)(bucket)).PyGetState()}}
+		}
+	}
+
+	// regular btree
+	t := make(pickle.Tuple, 0, 2*len(bt.data)-1)
+	for i, entry := range bt.data {
+		// key[0] is unused and not saved
+		if i > 0 {
+			t = append(t, entry.key)
+		}
+		t = append(t, entry.child)
+	}
+	t = pickle.Tuple{t}
+	t = append(t, bt.firstbucket)
+	return t
 }
 
 // PySetState implements zodb.PyStateful to set btree data from pystate.

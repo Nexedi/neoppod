@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -39,7 +39,10 @@ type PyStateful interface {
 
 	// PyGetState should return state of the in-RAM object as Python data.
 	// Analog of __getstate__() in Python.
-	//PyGetState() interface{}	TODO
+	//
+	// XXX called only when state is not dropped.
+	// XXX state ownership?
+	PyGetState() interface{}
 }
 
 // pySetState decodes raw state as zodb/py serialized stream, and sets decoded

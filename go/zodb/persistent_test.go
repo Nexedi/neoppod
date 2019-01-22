@@ -57,6 +57,10 @@ func (o *myObjectState) PySetState(pystate interface{}) error {
 	return nil
 }
 
+func (o *myObjectState) PyGetState() interface{} {
+	return o.value
+}
+
 // Peristent that is not registered to ZODB.
 type Unregistered struct {
 	Persistent
@@ -172,8 +176,6 @@ func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
 	}
 	return true
 }
-
-var ZPyCommit func(string, Tid, ...interface{}) (Tid, error)	// XXX ZObject
 
 // Persistent tests with storage.
 func TestPersistentDB(t *testing.T) {
