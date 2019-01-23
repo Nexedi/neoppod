@@ -264,6 +264,38 @@ func TestPersistentDB(t *testing.T) {
 	checkObj(obj2, conn1, 102, InvalidTid, GHOST,    0, nil)
 
 
+	// commit change to obj2 from external process
+	_obj2.value = "kitty"
+	at2, err := ZPyCommit(zurl, at1, _obj2); X(err)
+
+	// new db connection should see the change
+	txn2, ctx2 := transaction.New(ctx)
+	conn2, err := db.Open(ctx2, &ConnOptions{}); X(err)
+
+	assert.Equal(conn2.At(), at1)
+	xc2obj1, err := conn2.Get(ctx2, 101); X(err)
+	xc2obj2, err := conn2.Get(ctx2, 102); X(err)
+
+	assert.Equal(ClassOf(xc2obj1), "t.zodb.MyObject")
+	assert.Equal(ClassOf(xc2obj2), "t.zodb.MyObject")
+
+	c2obj1 := xc2obj1.(*MyObject)
+	c2obj2 := xc2obj2.(*MyObject)
+	checkObj(c2obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(c2obj2, conn1, 102, InvalidTid, GHOST, 0, nil)
+
+	err = c2obj1.PActivate(ctx1); X(err)
+	err = c2obj2.PActivate(ctx1); X(err)
+	checkObj(c2obj1, conn1, 101, at1, UPTODATE, 1, nil)
+	checkObj(c2obj2, conn1, 102, at2, UPTODATE, 1, nil)
+	assert.Equal(c2obj1.value, "hello")
+	assert.Equal(c2obj2.value, "kitty")
+
+
+	// XXX c1 stays at older view
+
+
 	// XXX
 	txn1.Abort()
+	txn2.Abort()
 }
