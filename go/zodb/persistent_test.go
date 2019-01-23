@@ -206,6 +206,7 @@ func TestPersistentDB(t *testing.T) {
 	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "world"
 	at1, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
 
+	// open connection to it via zodb/go
 	ctx := context.Background()
 	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true}); X(err)
 	db := NewDB(stor)
@@ -217,6 +218,7 @@ func TestPersistentDB(t *testing.T) {
 	zcache1 := conn1.Cache()
 	zcache1.SetControl(&zcacheControl{[]Oid{_obj1.oid}})
 
+	// get objects and assert their type
 	assert.Equal(conn1.At(), at1)
 	xobj1, err := conn1.Get(ctx1, 101); X(err)
 	xobj2, err := conn1.Get(ctx1, 102); X(err)
@@ -234,6 +236,8 @@ func TestPersistentDB(t *testing.T) {
 	err = obj2.PActivate(ctx1); X(err)
 	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
 	checkObj(obj2, conn1, 102, at1, UPTODATE, 1, nil)
+	assert.Equal(obj1.value, "hello")
+	assert.Equal(obj2.value, "world")
 
 	// activate again:	refcnt++
 	err = obj1.PActivate(ctx1); X(err)
