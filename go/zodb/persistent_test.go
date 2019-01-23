@@ -213,7 +213,7 @@ func TestPersistentDB(t *testing.T) {
 
 	// do not evict obj1 from live cache. obj2 is ok to be evicted.
 	zcache1 := conn1.Cache()
-	zcache1.SetControl(&zcacheControl{[]Oid{11}})
+	zcache1.SetControl(&zcacheControl{[]Oid{_obj1.oid}})
 
 	assert.Equal(conn1.At(), at1)
 	xobj1, err := conn1.Get(ctx1, 101); X(err)
