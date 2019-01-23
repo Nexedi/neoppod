@@ -34,14 +34,14 @@ func init() {
 }
 
 func ZPyCommit(zurl string, at zodb.Tid, objv ...zodb.IPersistent) (zodb.Tid, error) {
-	var zobjv []xtesting.ZObject // raw zodb objects data to commit
+	var rawobjv []xtesting.ZRawObject // raw zodb objects data to commit
 	for _, obj := range objv {
-		zobj := xtesting.ZObject{
+		rawobj := xtesting.ZRawObject{
 			Oid:  obj.POid(),
 			Data: string(zodb.PSerialize(obj).XData()),
 		}
-		zobjv = append(zobjv, zobj)
+		rawobjv = append(rawobjv, rawobj)
 	}
 
-	return xtesting.ZPyCommit(zurl, at, zobjv...)
+	return xtesting.ZPyCommitRaw(zurl, at, rawobjv...)
 }

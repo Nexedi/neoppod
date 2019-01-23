@@ -87,17 +87,17 @@ func NeedPy(t testing.TB, modules ...string) {
 	return
 }
 
-// ZObject represents object state to be committed.
-type ZObject struct {
+// ZRawObject represents raw ZODB object state.
+type ZRawObject struct {
 	Oid  zodb.Oid
 	Data string // raw serialized zodb data
 }
 
-// ZPyCommit commits new transaction into database @ zurl with data specified by objv.
+// ZPyCommitRaw commits new transaction into database @ zurl with raw data specified by objv.
 //
 // The commit is performed via zodbtools/py.
-func ZPyCommit(zurl string, at zodb.Tid, objv ...ZObject) (_ zodb.Tid, err error) {
-	defer xerr.Contextf(&err, "%s: zcommit @%s", zurl, at)
+func ZPyCommitRaw(zurl string, at zodb.Tid, objv ...ZRawObject) (_ zodb.Tid, err error) {
+	defer xerr.Contextf(&err, "%s: zpycommit @%s", zurl, at)
 
 	// prepare text input for `zodb commit`
 	zin := &bytes.Buffer{}

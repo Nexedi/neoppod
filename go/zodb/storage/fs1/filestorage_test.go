@@ -358,15 +358,15 @@ func TestWatch(t *testing.T) {
 	workdir := xworkdir(t)
 	tfs := workdir + "/t.fs"
 
-	// xcommit commits new transaction into tfs with data specified by objv.
-	xcommit := func(at zodb.Tid, objv ...xtesting.ZObject) zodb.Tid {
+	// xcommit commits new transaction into tfs with raw data specified by objv.
+	xcommit := func(at zodb.Tid, objv ...xtesting.ZRawObject) zodb.Tid {
 		t.Helper()
-		tid, err := xtesting.ZPyCommit(tfs, at, objv...); X(err)
+		tid, err := xtesting.ZPyCommitRaw(tfs, at, objv...); X(err)
 		return tid
 	}
 
 	// force tfs creation & open tfs at go side
-	at := xcommit(0, xtesting.ZObject{0, "data0"})
+	at := xcommit(0, xtesting.ZRawObject{0, "data0"})
 
 	watchq := make(chan zodb.CommitEvent)
 	fs := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
@@ -407,8 +407,8 @@ func TestWatch(t *testing.T) {
 		data0 := fmt.Sprintf("data0.%d", i)
 		datai := fmt.Sprintf("data%d", i)
 		at = xcommit(at,
-			xtesting.ZObject{0, data0},
-			xtesting.ZObject{i, datai})
+			xtesting.ZRawObject{0, data0},
+			xtesting.ZRawObject{i, datai})
 
 		// TODO also test for watcher errors
 		e := <-watchq
