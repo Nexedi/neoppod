@@ -120,6 +120,7 @@ func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial T
 
 func tCheckObj(t testing.TB) func(IPersistent, *Connection, Oid, Tid, ObjectState, int32, *loadState) {
 	return func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
+		t.Helper()
 		_checkObj(t, obj, jar, oid, serial, state, refcnt, loading)
 	}
 }
@@ -191,6 +192,7 @@ func TestPersistentDB(t *testing.T) {
 
 	work, err := ioutil.TempDir("", "t-persistent"); X(err)
 	defer func() {
+		//return
 		err := os.RemoveAll(work); X(err)
 	}()
 
@@ -201,12 +203,9 @@ func TestPersistentDB(t *testing.T) {
 	_obj1 := NewMyObject(nil); _obj1.oid = 101; _obj1.value = "hello"
 	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "world"
 	at1, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
-	fmt.Printf("AAA %s\n", at1)
 
 	ctx := context.Background()
 	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true}); X(err)
-	aa, err := stor.LastTid(ctx); X(err)
-	fmt.Printf("BBB %s\n", aa)
 	db := NewDB(stor)
 
 	txn1, ctx1 := transaction.New(ctx)

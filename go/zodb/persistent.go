@@ -140,7 +140,7 @@ func (obj *Persistent) pSerialize() *mem.Buf {
 		return istate.GetState()
 
 	case PyStateful:
-		return pyGetState(istate, ClassOf(obj))
+		return pyGetState(istate, ClassOf(obj.instance))
 
 	default:
 		panic(obj.badf("serialize: !stateful instance"))
