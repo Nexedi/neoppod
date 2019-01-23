@@ -447,14 +447,16 @@ type Watcher interface {
 	// Once registered, watchq must be read. Not doing so will stuck whole storage.
 	//
 	// Multiple AddWatch calls with the same watchq register watchq only once.
-	AddWatch(watchq chan CommitEvent)
+	//
+	// XXX watchq closed when stor.watchq closed?
+	AddWatch(watchq chan<- CommitEvent)
 
-	// DelWatch unregisters watchq to be notified of database changes.
+	// DelWatch unregisters watchq from being notified of database changes.
 	//
 	// After DelWatch call completes, no new events will be sent to watchq.
 	//
 	// DelWatch is noop if watchq was not registered.
-	DelWatch(watchq chan CommitEvent)
+	DelWatch(watchq chan<- CommitEvent)
 }
 
 
