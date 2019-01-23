@@ -128,6 +128,9 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 
 		// sync storage for lastTid
 		if !opt.NoSync {
+			// XXX stor.LastTid returns last_tid storage itself
+			// received on server, not last_tid on server.
+			// -> add stor.Sync() ?
 			head, err = db.stor.LastTid(ctx)
 			if err != nil {
 				return nil, err
