@@ -165,6 +165,8 @@ func TestPersistentBasic(t *testing.T) {
 	// ClassOf(unregistered-obj)
 	obj2 := &Unregistered{}
 	assert.Equal(ClassOf(obj2), `ZODB.Go("lab.nexedi.com/kirr/neo/go/zodb.Unregistered")`)
+
+	// XXX deactivate refcnt < 0  - check error message (this verifies badf fix)
 }
 
 // zcacheControl is simple live cache control that prevents specified objects
@@ -252,8 +254,8 @@ func TestPersistentDB(t *testing.T) {
 	checkObj(obj2, conn1, 102, InvalidTid, GHOST,    0, nil)
 
 	// invalidate:		obj1 state dropped
-	obj1.PDeactivate()
-	obj2.PDeactivate()
+	obj1.PInvalidate()
+	obj2.PInvalidate()
 	checkObj(obj1, conn1, 101, InvalidTid, GHOST,    0, nil)
 	checkObj(obj2, conn1, 102, InvalidTid, GHOST,    0, nil)
 

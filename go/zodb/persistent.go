@@ -237,7 +237,7 @@ func (obj *Persistent) PDeactivate() {
 
 	obj.refcnt--
 	if obj.refcnt < 0 {
-		panic(obj.badf("deactivate: refcnt < 0"))
+		panic(obj.badf("deactivate: refcnt < 0  (= %d)", obj.refcnt))
 	}
 	if obj.refcnt > 0 {
 		return // users still left
@@ -291,7 +291,7 @@ func (obj *Persistent) istate() Ghostable {
 // badf returns formatted error prefixed with obj's class and oid.
 func (obj *Persistent) badf(format string, argv ...interface{}) error {
 	return fmt.Errorf("%s(%s): "+format,
-		append([]interface{}{obj.zclass.class, obj.oid}, argv...))
+		append([]interface{}{obj.zclass.class, obj.oid}, argv...)...)
 }
 
 
