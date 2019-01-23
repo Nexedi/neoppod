@@ -61,12 +61,14 @@ func (d PyData) ClassName() string {
 }
 
 // encodePyData encodes Python class and state into raw ZODB python data.
+//
+// XXX -> pySerialize?
 func encodePyData(pyclass pickle.Class, pystate interface{}) PyData {
 	buf := &bytes.Buffer{}
 
 	p := pickle.NewEncoderWithConfig(buf, &pickle.EncoderConfig{
 		// allow pristine python2 to decode the pickle.
-		// TODO 2 -> 3 since ZODB switched to it and uses zodbpickle.
+		// TODO 2 -> 3 since ZODB5 switched to it and uses zodbpickle.
 		Protocol:      2,
 		PersistentRef: persistentRef,
 	})
@@ -89,7 +91,7 @@ func encodePyData(pyclass pickle.Class, pystate interface{}) PyData {
 	return PyData(buf.Bytes())
 }
 
-// TODO PyData.referencesf
+// TODO PyData.References()	(=referencesf in zodb/py)
 
 // decode decodes raw ZODB python data into Python class and state.
 //
@@ -129,9 +131,14 @@ func persistentRef(obj interface{}) *pickle.Ref {
 	}
 
 	// Persistent object - when encoding someone who references it - don't
-	// include obj state and just reference to obj.
+	// include obj state and use just reference to obj.
+
+	// XXX check obj.jar is the same as in referee
+	// XXX if not -> use multidb ref format?
+
 	return &pickle.Ref{
-		Pid: pickle.Tuple{pobj.POid(), zpyclass(ClassOf(pobj))}, // (oid, class)
+		// (oid, class)
+		Pid: pickle.Tuple{pobj.POid(), zpyclass(ClassOf(pobj))},
 	}
 }
 

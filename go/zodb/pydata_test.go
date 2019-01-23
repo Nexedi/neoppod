@@ -46,3 +46,7 @@ func TestPyClassName(t *testing.T) {
 func TestPyDecode(t *testing.T) {
 	// XXX
 }
+
+func TestPyEncode(t *testing.T) {
+	// XXX
+}
