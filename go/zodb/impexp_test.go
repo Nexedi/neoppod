@@ -18,11 +18,16 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zodb
-// things exported for zodb_test package.
 
 import (
 	"lab.nexedi.com/kirr/go123/mem"
 )
+
+// imported at runtime via import_x_test due to cyclic dependency:
+
+var ZPyCommit func(string, Tid, ...IPersistent) (Tid, error)
+
+// exported for zodb_test package:
 
 func PSerialize(obj IPersistent) *mem.Buf {
 	return obj.pSerialize()
