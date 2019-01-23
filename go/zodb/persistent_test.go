@@ -214,9 +214,9 @@ func TestPersistentDB(t *testing.T) {
 	txn1, ctx1 := transaction.New(ctx)
 	conn1, err := db.Open(ctx1, &ConnOptions{}); X(err)
 
-	// do not evict obj1 from live cache. obj2 is ok to be evicted.
+	// do not evict obj2 from live cache. obj1 is ok to be evicted.
 	zcache1 := conn1.Cache()
-	zcache1.SetControl(&zcacheControl{[]Oid{_obj1.oid}})
+	zcache1.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
 
 	// get objects and assert their type
 	assert.Equal(conn1.At(), at1)
@@ -225,6 +225,8 @@ func TestPersistentDB(t *testing.T) {
 
 	assert.Equal(ClassOf(xobj1), "t.zodb.MyObject")
 	assert.Equal(ClassOf(xobj2), "t.zodb.MyObject")
+
+	// XXX objX -> c1objX
 
 	obj1 := xobj1.(*MyObject)
 	obj2 := xobj2.(*MyObject)
@@ -251,13 +253,13 @@ func TestPersistentDB(t *testing.T) {
 	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
 	checkObj(obj2, conn1, 102, at1, UPTODATE, 1, nil)
 
-	// deactivate:		state dropped for obj2, obj1 stays in live cache
+	// deactivate:		state dropped for obj1, obj2 stays in live cache
 	obj1.PDeactivate()
 	obj2.PDeactivate()
-	checkObj(obj1, conn1, 101, at1, UPTODATE, 0, nil)
-	checkObj(obj2, conn1, 102, InvalidTid, GHOST,    0, nil)
+	checkObj(obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(obj2, conn1, 102, at1, UPTODATE,    0, nil)
 
-	// invalidate:		obj1 state dropped
+	// invalidate:		obj2 state dropped
 	obj1.PInvalidate()
 	obj2.PInvalidate()
 	checkObj(obj1, conn1, 101, InvalidTid, GHOST,    0, nil)
@@ -272,7 +274,7 @@ func TestPersistentDB(t *testing.T) {
 	txn2, ctx2 := transaction.New(ctx)
 	conn2, err := db.Open(ctx2, &ConnOptions{}); X(err)
 
-	assert.Equal(conn2.At(), at1)
+	assert.Equal(conn2.At(), at2)
 	xc2obj1, err := conn2.Get(ctx2, 101); X(err)
 	xc2obj2, err := conn2.Get(ctx2, 102); X(err)
 
@@ -281,21 +283,35 @@ func TestPersistentDB(t *testing.T) {
 
 	c2obj1 := xc2obj1.(*MyObject)
 	c2obj2 := xc2obj2.(*MyObject)
-	checkObj(c2obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
-	checkObj(c2obj2, conn1, 102, InvalidTid, GHOST, 0, nil)
+	checkObj(c2obj1, conn2, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(c2obj2, conn2, 102, InvalidTid, GHOST, 0, nil)
 
-	err = c2obj1.PActivate(ctx1); X(err)
-	err = c2obj2.PActivate(ctx1); X(err)
-	checkObj(c2obj1, conn1, 101, at1, UPTODATE, 1, nil)
-	checkObj(c2obj2, conn1, 102, at2, UPTODATE, 1, nil)
+	err = c2obj1.PActivate(ctx2); X(err)
+	err = c2obj2.PActivate(ctx2); X(err)
+	checkObj(c2obj1, conn2, 101, at1, UPTODATE, 1, nil)
+	checkObj(c2obj2, conn2, 102, at2, UPTODATE, 1, nil)
 	assert.Equal(c2obj1.value, "hello")
 	assert.Equal(c2obj2.value, "kitty")
 
 
-	// XXX c1 stays at older view
+	// conn1 stays at older view for now
+	err = obj1.PActivate(ctx1); X(err)
+	err = obj2.PActivate(ctx1); X(err)
+	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
+	checkObj(obj2, conn1, 102, at1, UPTODATE, 1, nil)
+	assert.Equal(obj1.value, "hello")
+	assert.Equal(obj2.value, "world")
+
+	// conn1 deactivate:	obj2 stays in conn1 live cache with old state
+	obj1.PDeactivate()
+	obj2.PDeactivate()
+	checkObj(obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(obj2, conn1, 102, at1, UPTODATE,    0, nil)
+
+	txn1.Abort()
+	// XXX conn1.Resync -> c1obj2 invalidated
 
 
 	// XXX
-	txn1.Abort()
 	txn2.Abort()
 }
