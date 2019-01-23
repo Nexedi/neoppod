@@ -350,6 +350,15 @@ func BenchmarkIterate(b *testing.B) {
 	b.StopTimer()
 }
 
+// b is syntatic sugar for byte literals.
+//
+// e.g.
+//
+//	b("hello")
+func b(data string) []byte {
+	return []byte(data)
+}
+
 // TestWatch verifies that watcher can observe commits done from outside.
 func TestWatch(t *testing.T) {
 	X := exc.Raiseif
@@ -366,7 +375,7 @@ func TestWatch(t *testing.T) {
 	}
 
 	// force tfs creation & open tfs at go side
-	at := xcommit(0, xtesting.ZRawObject{0, "data0"})
+	at := xcommit(0, xtesting.ZRawObject{0, b("data0")})
 
 	watchq := make(chan zodb.CommitEvent)
 	fs := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
@@ -407,8 +416,8 @@ func TestWatch(t *testing.T) {
 		data0 := fmt.Sprintf("data0.%d", i)
 		datai := fmt.Sprintf("data%d", i)
 		at = xcommit(at,
-			xtesting.ZRawObject{0, data0},
-			xtesting.ZRawObject{i, datai})
+			xtesting.ZRawObject{0, b(data0)},
+			xtesting.ZRawObject{i, b(datai)})
 
 		// TODO also test for watcher errors
 		e := <-watchq

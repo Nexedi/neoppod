@@ -41,6 +41,10 @@ type MyObject struct {
 	value string
 }
 
+func NewMyObject(jar *Connection) *MyObject {
+	return NewPersistent(reflect.TypeOf(MyObject{}), jar).(*MyObject)
+}
+
 type myObjectState MyObject
 
 func (o *myObjectState) DropState() {
@@ -178,6 +182,8 @@ func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
 }
 
 // Persistent tests with storage.
+//
+// this test covers everything at application-level: Persistent, DB, Connection, LiveCache.
 func TestPersistentDB(t *testing.T) {
 	X := exc.Raiseif
 	assert := require.New(t)
@@ -190,12 +196,11 @@ func TestPersistentDB(t *testing.T) {
 
 	zurl := work + "/1.fs"
 
-	const oid1 = 1	// XXX
-	const oid2 = 2
-
-	// XXX create test db via py (change both oid1 & oid2)
-	// XXX commit1 to test db
-	at1, err := ZPyCommit(zurl, 0); X(err)	// XXX data
+	// create test db via py with 2 objects
+	// XXX hack as _objX go without jar.
+	_obj1 := NewMyObject(nil); _obj1.oid = 101; _obj1.value = "hello"
+	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "world"
+	at1, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
 	fmt.Printf("AAA %s\n", at1)
 
 	ctx := context.Background()
@@ -207,51 +212,51 @@ func TestPersistentDB(t *testing.T) {
 	txn1, ctx1 := transaction.New(ctx)
 	conn1, err := db.Open(ctx1, &ConnOptions{}); X(err)
 
-	// do not evict oid1 from live cache. oid2 is ok to be evicted.
+	// do not evict obj1 from live cache. obj2 is ok to be evicted.
 	zcache1 := conn1.Cache()
-	zcache1.SetControl(&zcacheControl{[]Oid{oid1}})
+	zcache1.SetControl(&zcacheControl{[]Oid{11}})
 
 	assert.Equal(conn1.At(), at1)
-	xobj1, err := conn1.Get(ctx1, oid1); X(err)
-	xobj2, err := conn1.Get(ctx1, oid2); X(err)
+	xobj1, err := conn1.Get(ctx1, 101); X(err)
+	xobj2, err := conn1.Get(ctx1, 102); X(err)
 
 	assert.Equal(ClassOf(xobj1), "t.zodb.MyObject")
 	assert.Equal(ClassOf(xobj2), "t.zodb.MyObject")
 
 	obj1 := xobj1.(*MyObject)
 	obj2 := xobj2.(*MyObject)
-	checkObj(obj1, conn1, oid1, InvalidTid, GHOST, 0, nil)
-	checkObj(obj2, conn1, oid2, InvalidTid, GHOST, 0, nil)
+	checkObj(obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(obj2, conn1, 102, InvalidTid, GHOST, 0, nil)
 
 	// activate:		jar has to load, state changes -> uptodate
 	err = obj1.PActivate(ctx1); X(err)
 	err = obj2.PActivate(ctx1); X(err)
-	checkObj(obj1, conn1, oid1, at1, UPTODATE, 1, nil)
-	checkObj(obj2, conn1, oid2, at1, UPTODATE, 1, nil)
+	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
+	checkObj(obj2, conn1, 102, at1, UPTODATE, 1, nil)
 
 	// activate again:	refcnt++
 	err = obj1.PActivate(ctx1); X(err)
 	err = obj2.PActivate(ctx1); X(err)
-	checkObj(obj1, conn1, oid1, at1, UPTODATE, 2, nil)
-	checkObj(obj2, conn1, oid2, at1, UPTODATE, 2, nil)
+	checkObj(obj1, conn1, 101, at1, UPTODATE, 2, nil)
+	checkObj(obj2, conn1, 102, at1, UPTODATE, 2, nil)
 
 	// deactivate:		refcnt--
 	obj1.PDeactivate()
 	obj2.PDeactivate()
-	checkObj(obj1, conn1, oid1, at1, UPTODATE, 1, nil)
-	checkObj(obj2, conn1, oid2, at1, UPTODATE, 1, nil)
+	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
+	checkObj(obj2, conn1, 102, at1, UPTODATE, 1, nil)
 
 	// deactivate:		state dropped for obj2, obj1 stays in live cache
 	obj1.PDeactivate()
 	obj2.PDeactivate()
-	checkObj(obj1, conn1, oid1, at1, UPTODATE, 0, nil)
-	checkObj(obj2, conn1, oid2, InvalidTid, GHOST,    0, nil)
+	checkObj(obj1, conn1, 101, at1, UPTODATE, 0, nil)
+	checkObj(obj2, conn1, 102, InvalidTid, GHOST,    0, nil)
 
 	// invalidate:		obj1 state dropped
 	obj1.PDeactivate()
 	obj2.PDeactivate()
-	checkObj(obj1, conn1, oid1, InvalidTid, GHOST,    0, nil)
-	checkObj(obj2, conn1, oid2, InvalidTid, GHOST,    0, nil)
+	checkObj(obj1, conn1, 101, InvalidTid, GHOST,    0, nil)
+	checkObj(obj2, conn1, 102, InvalidTid, GHOST,    0, nil)
 
 
 	// XXX

@@ -35,6 +35,8 @@ type PyStateful interface {
 	//
 	// The error returned does not need to have object/setstate prefix -
 	// persistent machinery is adding such prefix automatically.
+	//
+	// XXX PySetState is called only on ghost.
 	PySetState(pystate interface{}) error
 
 	// PyGetState should return state of the in-RAM object as Python data.

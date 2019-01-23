@@ -112,6 +112,8 @@ type Stateful interface {
 	//
 	// The error returned does not need to have object/setstate prefix -
 	// persistent machinery is adding such prefix automatically.
+	//
+	// XXX SetState is called only on ghost.
 	SetState(state *mem.Buf) error
 
 	// GetState should return state of the in-RAM object as raw data.
