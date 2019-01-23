@@ -187,6 +187,9 @@ func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
 // Persistent tests with storage.
 //
 // this test covers everything at application-level: Persistent, DB, Connection, LiveCache.
+//
+// XXX test for cache=y/n (raw data cache)
+// XXX test both txn.Abort() and conn.Resync()
 func TestPersistentDB(t *testing.T) {
 	X := exc.Raiseif
 	assert := require.New(t)
@@ -213,6 +216,8 @@ func TestPersistentDB(t *testing.T) {
 
 	txn1, ctx1 := transaction.New(ctx)
 	conn1, err := db.Open(ctx1, &ConnOptions{}); X(err)
+	assert.Equal(conn1.db,  db)
+	assert.Equal(conn1.txn, txn1)
 
 	// do not evict obj2 from live cache. obj1 is ok to be evicted.
 	zcache1 := conn1.Cache()
@@ -273,6 +278,8 @@ func TestPersistentDB(t *testing.T) {
 	// new db connection should see the change
 	txn2, ctx2 := transaction.New(ctx)
 	conn2, err := db.Open(ctx2, &ConnOptions{}); X(err)
+	assert.Equal(conn2.db,  db)
+	assert.Equal(conn2.txn, txn2)
 
 	assert.Equal(conn2.At(), at2)
 	xc2obj1, err := conn2.Get(ctx2, 101); X(err)
@@ -308,7 +315,13 @@ func TestPersistentDB(t *testing.T) {
 	checkObj(obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
 	checkObj(obj2, conn1, 102, at1, UPTODATE,    0, nil)
 
+	// txn1 completes - conn1 goes back to db pool
+	assert.Equal(conn1.txn, txn1)
 	txn1.Abort()
+	assert.Equal(conn1.txn, nil)
+
+
+
 	// XXX conn1.Resync -> c1obj2 invalidated
 
 
