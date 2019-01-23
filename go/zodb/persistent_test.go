@@ -197,7 +197,6 @@ func TestPersistentDB(t *testing.T) {
 
 	work, err := ioutil.TempDir("", "t-persistent"); X(err)
 	defer func() {
-		//return
 		err := os.RemoveAll(work); X(err)
 	}()
 
@@ -216,6 +215,8 @@ func TestPersistentDB(t *testing.T) {
 
 	txn1, ctx1 := transaction.New(ctx)
 	conn1, err := db.Open(ctx1, &ConnOptions{}); X(err)
+	assert.Equal(conn1.At(), at1)
+	assert.Equal(db.connv, []*Connection(nil))
 	assert.Equal(conn1.db,  db)
 	assert.Equal(conn1.txn, txn1)
 
@@ -224,7 +225,6 @@ func TestPersistentDB(t *testing.T) {
 	zcache1.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
 
 	// get objects and assert their type
-	assert.Equal(conn1.At(), at1)
 	xobj1, err := conn1.Get(ctx1, 101); X(err)
 	xobj2, err := conn1.Get(ctx1, 102); X(err)
 
@@ -278,10 +278,11 @@ func TestPersistentDB(t *testing.T) {
 	// new db connection should see the change
 	txn2, ctx2 := transaction.New(ctx)
 	conn2, err := db.Open(ctx2, &ConnOptions{}); X(err)
+	assert.Equal(conn2.At(), at2)
+	assert.Equal(db.connv, []*Connection(nil))
 	assert.Equal(conn2.db,  db)
 	assert.Equal(conn2.txn, txn2)
 
-	assert.Equal(conn2.At(), at2)
 	xc2obj1, err := conn2.Get(ctx2, 101); X(err)
 	xc2obj2, err := conn2.Get(ctx2, 102); X(err)
 
@@ -319,12 +320,40 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(conn1.txn, txn1)
 	txn1.Abort()
 	assert.Equal(conn1.txn, nil)
+	assert.Equal(db.connv, []*Connection{conn1})
+
+	// open new connection - it should be conn1 but at updated database view
+	txn3, ctx3 := transaction.New(ctx)
+	assert.NotEqual(txn3, txn1)
+	conn3, err := db.Open(ctx3, &ConnOptions{}); X(err)
+	assert.Equal(conn3, conn1)	// XXX is
+	assert.Equal(conn1.At(), at2)
+	assert.Equal(conn1.db,  db)
+	assert.Equal(conn1.txn, txn3)
+	assert.Equal(db.connv, []*Connection{})
+	// XXX ctx1 = ctx3 (not to use 3 below) ?
+
+	// obj2 should be invalidated
+	assert.Equal(conn1.Cache().Get(101), obj1)	// XXX is
+	assert.Equal(conn1.Cache().Get(101), obj2)	// XXX is
+	checkObj(obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(obj2, conn1, 102, InvalidTid, GHOST, 0, nil)
+
+	// obj2 data should be new
+	xobj1, err = conn1.Get(ctx1, 101); X(err)
+	xobj2, err = conn1.Get(ctx1, 102); X(err)
+	assert.Exactly(obj1, xobj1)
+	assert.Exactly(obj2, xobj2)
+	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
+	checkObj(obj2, conn1, 102, at2, UPTODATE, 1, nil)
+	assert.Equal(obj1.value, "hello")
+	assert.Equal(obj2.value, "kitty")
 
 
-
-	// XXX conn1.Resync -> c1obj2 invalidated
-
-
+	// XXX also Resync
 	// XXX
+	txn3.Abort()
 	txn2.Abort()
+
+	// XXX cache dropping entries after GC
 }

@@ -207,7 +207,7 @@ func (db *DB) get(at Tid) *Connection {
 	}
 
 	if conn.at != at {
-		panic("DB.get: TODO: invalidations")
+		panic("DB.get: TODO: invalidations")	// XXX
 	}
 
 	return conn
