@@ -90,7 +90,7 @@ func NeedPy(t testing.TB, modules ...string) {
 // ZRawObject represents raw ZODB object state.
 type ZRawObject struct {
 	Oid  zodb.Oid
-	Data string // raw serialized zodb data
+	Data []byte // raw serialized zodb data
 }
 
 // ZPyCommitRaw commits new transaction into database @ zurl with raw data specified by objv.
@@ -106,7 +106,7 @@ func ZPyCommitRaw(zurl string, at zodb.Tid, objv ...ZRawObject) (_ zodb.Tid, err
 	fmt.Fprintf(zin, "extension %q\n", "")
 	for _, obj := range objv {
 		fmt.Fprintf(zin, "obj %s %d null:00\n", obj.Oid, len(obj.Data))
-		zin.WriteString(obj.Data)
+		zin.Write(obj.Data)
 		zin.WriteString("\n")
 	}
 	zin.WriteString("\n")

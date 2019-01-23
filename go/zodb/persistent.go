@@ -116,8 +116,10 @@ type Stateful interface {
 
 	// GetState should return state of the in-RAM object as raw data.
 	//
-	// XXX called only when state is not dropped.
-	// XXX buf ownership.
+	// GetState is called only by persistent machinery and only when object
+	// has its state - in other words only on non-ghost objects.
+	//
+	// XXX buf ownership?
 	GetState() *mem.Buf
 }
 
@@ -125,8 +127,11 @@ type Stateful interface {
 
 // pSerialize implements IPersistent.
 func (obj *Persistent) pSerialize() *mem.Buf {
-	// XXX locking
-	// XXX panic on state == GHOST
+	obj.mu.Lock()
+	defer obj.mu.Unlock()
+	if obj.state == GHOST {
+		panic(obj.badf("serialize: ghost object"))
+	}
 
 	switch istate := obj.istate().(type) {
 	case Stateful:

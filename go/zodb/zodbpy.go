@@ -40,7 +40,9 @@ type PyStateful interface {
 	// PyGetState should return state of the in-RAM object as Python data.
 	// Analog of __getstate__() in Python.
 	//
-	// XXX called only when state is not dropped.
+	// PyGetState is called only by persistent machinery and only when
+	// object has its state - in other words only on non-ghost objects.
+	//
 	// XXX state ownership?
 	PyGetState() interface{}
 }

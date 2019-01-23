@@ -469,7 +469,7 @@ func (bt *iobtreeState) PyGetState() interface{} {
 	// btree with 1 child bucket without oid
 	if len(bt.data) == 1 {
 		bucket, ok := bt.data[0].child.(*IOBucket)
-		if ok && bucket.POid() == zodb.InvalidOid { // XXX recheck vs "NULL oid"
+		if ok && bucket.POid() == zodb.InvalidOid {
 			return pickle.Tuple{pickle.Tuple{((*iobucketState)(bucket)).PyGetState()}}
 		}
 	}

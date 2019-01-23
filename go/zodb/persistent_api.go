@@ -100,14 +100,15 @@ type IPersistent interface {
 	// XXX probably don't need this.
 	//PState()  ObjectState	// in-RAM object state.
 
-	// XXX move vvv -> iPersistent?
+	// XXX move vvv -> iPersistent? (-> into persistent.go)
+	// XXX do we need to put vvv into IPersistent at all?
 
 	// pSerialize returns object in serialized form to be saved in the database.
 	//
 	// pSerialize is non-public method that is exposed and used only by ZODB internally.
+	// pSerialize is called only on non-ghost objects.
 	//
 	// XXX more text.
-	// XXX when called? invariants?
 	pSerialize() *mem.Buf
 }
 

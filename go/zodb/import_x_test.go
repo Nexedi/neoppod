@@ -27,18 +27,23 @@ import (
 	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
 )
 
-// import at runtime few things into zodb, that zodb cannot import itself due to cyclic dependency.
+// import at runtime few things into zodb tests, that zodb cannot import itself
+// due to cyclic dependency.
 
 func init() {
 	zodb.ZPyCommit = ZPyCommit
 }
 
+// ZPyCommit commits new transaction with specified objects.
+//
+// The objects need to be alive, but do not need to be marked as changed.
+// The commit is performed via zodb/py.
 func ZPyCommit(zurl string, at zodb.Tid, objv ...zodb.IPersistent) (zodb.Tid, error) {
 	var rawobjv []xtesting.ZRawObject // raw zodb objects data to commit
 	for _, obj := range objv {
 		rawobj := xtesting.ZRawObject{
 			Oid:  obj.POid(),
-			Data: string(zodb.PSerialize(obj).XData()),
+			Data: zodb.PSerialize(obj).XData(), // not releasing buf, but its ok
 		}
 		rawobjv = append(rawobjv, rawobj)
 	}
