@@ -55,7 +55,7 @@ type DB struct {
 	δtail ΔTail // [](rev↑, []oid)
 
 	// openers waiting for δtail.Head to become covering their at.
-	δwait map[δwaiter]struct{} // set(at, ready)
+	δwait map[δwaiter]struct{} // set{(at, ready)}
 }
 
 // δwaiter represents someone waiting for δtail.Head to become ≥ at.

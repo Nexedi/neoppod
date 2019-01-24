@@ -205,6 +205,9 @@ func (s *storage) watcher() {
 				return
 			}
 
+			// XXX verify event.Tid ↑  (else e.g. δtail.Append will panic)
+			//     if !↑ - stop the storage with error.
+
 			// deliver event to all watchers
 			for watchq := range s.watchTab {
 				watchq <- event
