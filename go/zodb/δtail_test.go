@@ -152,6 +152,7 @@ func TestΔTail(t *testing.T) {
 
 	// .tailv underlying storage is not kept after forget
 	δtail.ForgetBefore(16)
+	δCheck(15)
 
 	const N = 1E3
 	for rev, i := Tid(16), 0; i < N; i, rev = i+1, rev+1 {
