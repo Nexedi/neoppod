@@ -48,16 +48,26 @@ type DB struct {
 	stor IStorage
 
 	mu    sync.Mutex
+
+	// connections nearby current db
+	// XXX covered by δtail
+	// live cache is reused through finding conn with nearby at and
+	// invalidating live objects based on δtail info.
 	connv []*Connection // order by ↑= .at
 
-	// XXX -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
+	// // connections that are too far away from current db
+	// // not covered by δtail
+	// historicv []*Connections	// XXX needed? (think again)
 
 	// δtail of database changes for invalidations
 	// min(rev) = min(conn.at) for all conn ∈ db (opened and in the pool)
+	// XXX      + min(conn.at) for all conn ∈ waiting/opening.
 	δtail *ΔTail // [](rev↑, []oid)
 
 	// openers waiting for δtail.Head to become covering their at.
 	δwait map[δwaiter]struct{} // set{(at, ready)}	XXX -> set_δwaiter?
+
+	// XXX δtail/δwait -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
 }
 
 // δwaiter represents someone waiting for δtail.Head to become ≥ at.
@@ -175,12 +185,13 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 		head := Tid(0)
 
 		if opt.NoSync {
-			// XXX locking
-			// XXX prevent retrieved head to be removed from δtail
-			head = db.δtail.Head()	// = 0 if empty
+			db.mu.Lock()
+			// XXX prevent retrieved head to be removed from δtail ?
+			head = db.δtail.Head()	// = 0 if δtail was not yet initialized with first event
+			db.mu.Unlock()
 		}
 
-		// !NoSync or δtail empty
+		// !NoSync or δtail !initialized
 		// sync storage for lastTid
 		if head == 0 {
 			var err error
@@ -197,24 +208,71 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 		at = head
 	}
 
-	// wait till .δtail.head is up to date covering ≥ at
-	var δready chan struct{}
 	db.mu.Lock()
-	δhead := db.δtail.Head()
-	// XXX prevent head from going away?
-	if δhead < at {
-		δready = make(chan struct{})
-		db.δwait[δwaiter{at, δready}] = struct{}{}
-	}
-	db.mu.Unlock()
 
-	if δready != nil {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
+	// check if we already have the exact match
+	conn = db.get(at, at)
 
-		case <-δready:
-			// ok
+	if conn == nil {
+		switch {
+		// too far in the past -> historic connection
+		case at < db.δtail.Tail():
+			//conn = db.get(at, at)
+			conn = newConnection(db, at)
+
+		// δtail !initialized yet
+		case db.δtail.Head() == 0:
+			// XXX δtail could be not yet initialized, but e.g. last_tid changed
+			//     -> we have to wait for δtail not to loose just-released live cache
+			conn = newConnection(db, at)
+
+		// we already have some history coverage
+		default:
+			if at > δhead {
+				// XXX wait
+				// XXX -> retry loop (δtail.tail might go over at)
+			}
+
+			// at ∈ [δtail, δhead]
+			conn = get(δtail.Tail(), at)
+			if conn == nil {
+				conn = newConnection(db, at)
+			} else {
+				// invalidate changed live objects
+				for _, δ := range δtail.Slice(conn.at, at) {
+					for _, oid := range δ.changev {
+						obj := conn.cache.Get(oid)
+						if obj != nil {
+							obj.PInvalidate()
+						}
+					}
+				}
+
+				conn.at = at
+			}
+		}
+
+		db.mu.Unlock()
+
+		// wait till .δtail.head is up to date covering ≥ at
+		var δready chan struct{}
+		db.mu.Lock()
+		δhead := db.δtail.Head()
+		// XXX prevent head from going away?
+		if δhead < at {
+			δready = make(chan struct{})
+			db.δwait[δwaiter{at, δready}] = struct{}{}
+		}
+		db.mu.Unlock()
+
+		if δready != nil {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+
+			case <-δready:
+				// ok
+			}
 		}
 	}
 
@@ -229,10 +287,13 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 
 // get returns connection from db pool most close to at.
 //
-// it creates new one if there is no close-enough connection in the pool.
+// it creates new one if there is no close-enough connection in the pool.	XXX -> no
+// XXX -> must be run with db.mu locked.
 func (db *DB) get(at Tid) *Connection {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+
+	// XXX at < δtail.Tail -> getHistoric; else -> here
 
 	l := len(db.connv)
 

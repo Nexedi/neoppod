@@ -29,7 +29,7 @@
 # The types that are emitted are
 #
 #	ΔTail
-#	δRevEntry
+#	ΔRevEntry
 
 input=$(dirname $0)/δtail.go
 
@@ -37,4 +37,14 @@ cat "$input" |sed	\
 	-e 's/package zodb/package PACKAGE/g'	\
 	-e '/package PACKAGE/a \\nimport "lab.nexedi.com/kirr/neo/go/zodb"'	\
 	-e 's/Tid/zodb.Tid/g'	\
-	-e 's/Oid/ID/g'
+	-e 's/Oid/ID/g'		\
+	-e 's/CommitEvent/ΔRevEntry/g'
+
+cat <<EOF
+
+// ΔRevEntry represents information of what have been changed in one revision.
+type ΔRevEntry struct {
+	Rev     Tid
+	Changev []ID
+}
+EOF

@@ -56,17 +56,11 @@ import (
 //	#blk - file block number, when ΔTail represents changes to a file.
 type ΔTail struct {
 	head  Tid
-	tailv []δRevEntry
+	tailv []CommitEvent
 
 	lastRevOf map[Oid]Tid // index for LastRevOf queries
 	// TODO also add either tailv idx <-> rev index, or lastRevOf -> tailv idx
-	// (if linear back-scan of δRevEntry starts to eat cpu).
-}
-
-// δRevEntry represents information of what have been changed in one revision.
-type δRevEntry struct {
-	rev     Tid
-	changev []Oid
+	// (if linear back-scan of CommitEvent starts to eat cpu).
 }
 
 // NewΔTail creates new ΔTail object.
@@ -82,7 +76,39 @@ func (δtail *ΔTail) Head() Tid {
 	return δtail.head
 }
 
-// XXX + Tail?
+// XXX doc	XXX tests	XXX Tail -> End? Back?
+func (δtail *ΔTail) Tail() Tid {
+	if len(δtail.tailv) > 0 {
+		return δtail.tailv[0].rev
+	}
+	return δtail.head
+}
+
+// XXX -> git tailv subslice in (low, high]
+// XXX tail <= low <= high <= head, else panic
+func (δtail *ΔTail) Slice(low, high Tid) []CommitEvent {
+	tail := δtail.Tail()
+	head := δtail.head
+	if !(tail <= low && low <= high && high <= head) {
+		panic(fmt.Sprintf("δtail.Slice: (%s, %s] invalid; tail..head = %s..%s", low, high, tail, head))
+	}
+
+	// ex (0,0] tail..head = 0..0
+	if len(tailv) == 0 {
+		return tailv
+	}
+
+	// find max j : [j].rev <= high
+	j := len(tailv)-1
+	for ; tailv[j].rev > high; j-- {}
+
+	// find max i : [i].rev > low
+	i := j
+	for ; i >= 0 && tailv[i].rev > low; i-- {}
+	i++
+
+	return tailv[i:j]
+}
 
 // XXX add way to extend coverage without appending changed data? (i.e. if a
 // txn did not change file at all) -> but then it is simply .Append(rev, nil)?
@@ -97,7 +123,7 @@ func (δtail *ΔTail) Append(rev Tid, changev []Oid) {
 	}
 
 	δtail.head = rev
-	δtail.tailv = append(δtail.tailv, δRevEntry{rev, changev})
+	δtail.tailv = append(δtail.tailv, CommitEvent{rev, changev})
 	for _, id := range changev {
 		δtail.lastRevOf[id] = rev
 	}
@@ -125,7 +151,7 @@ func (δtail *ΔTail) ForgetBefore(revCut Tid) {
 	// 1) growing underlying storage array indefinitely
 	// 2) keeping underlying storage after forget
 	l := len(δtail.tailv)-icut
-	tailv := make([]δRevEntry, l)
+	tailv := make([]CommitEvent, l)
 	copy(tailv, δtail.tailv[icut:])
 	δtail.tailv = tailv
 }
