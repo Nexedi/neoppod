@@ -25,8 +25,6 @@ import (
 	"testing"
 )
 
-// XXX test Head
-
 func TestΔTail(t *testing.T) {
 	δtail := NewΔTail()
 
@@ -41,13 +39,17 @@ func TestΔTail(t *testing.T) {
 	}
 
 	// δCheck verifies that δtail state corresponds to provided tailv
-	δCheck := func(tailv ...δRevEntry) {
+	δCheck := func(head Tid, tailv ...δRevEntry) {
 		t.Helper()
 
 		for i := 1; i < len(tailv); i++ {
 			if !(tailv[i-1].rev < tailv[i].rev) {
 				panic("test tailv: rev not ↑")
 			}
+		}
+
+		if h := δtail.Head(); h != head {
+			t.Fatalf("Head() -> %s  ; want %s", h, head)
 		}
 
 		if !tailvEqual(δtail.tailv, tailv) {
@@ -85,56 +87,67 @@ func TestΔTail(t *testing.T) {
 	}
 
 
-	δCheck()
+	δCheck(0)
 	δCheckLastUP(4, 12, 12)	// δtail = ø
 
 	δAppend(R(10, 3,5))
-	δCheck(R(10, 3,5))
+	δCheck(10, R(10, 3,5))
 
 	δCheckLastUP(3,  9,  9)	// at < δtail
 	δCheckLastUP(3, 12, 12)	// at > δtail
 	δCheckLastUP(4, 10, 10)	// id ∉ δtail
 
 	δAppend(R(11, 7))
-	δCheck(R(10, 3,5), R(11, 7))
+	δCheck(11, R(10, 3,5), R(11, 7))
 
 	δAppend(R(12, 7))
-	δCheck(R(10, 3,5), R(11, 7), R(12, 7))
+	δCheck(12, R(10, 3,5), R(11, 7), R(12, 7))
 
 	δAppend(R(14, 3,8))
-	δCheck(R(10, 3,5), R(11, 7), R(12, 7), R(14, 3,8))
+	δCheck(14, R(10, 3,5), R(11, 7), R(12, 7), R(14, 3,8))
 
 	δCheckLastUP(8, 12, 10) // id ∈ δtail, but has no entry with rev ≤ at
 
 	δtail.ForgetBefore(10)
-	δCheck(R(10, 3,5), R(11, 7), R(12, 7), R(14, 3,8))
+	δCheck(14, R(10, 3,5), R(11, 7), R(12, 7), R(14, 3,8))
 
 	δtail.ForgetBefore(11)
-	δCheck(R(11, 7), R(12, 7), R(14, 3,8))
+	δCheck(14, R(11, 7), R(12, 7), R(14, 3,8))
 
 	δtail.ForgetBefore(13)
-	δCheck(R(14, 3,8))
+	δCheck(14, R(14, 3,8))
 
 	δtail.ForgetBefore(15)
-	δCheck()
+	δCheck(14)
 
 	// Append panics on non-↑ rev
-	δAppend(R(15, 1))
-	func() {
+
+	// δAppendPanic verifies that Append(δ.rev = rev) panics.
+	δAppendPanic := func(rev Tid) {
 		defer func() {
 			r := recover()
 			if r == nil {
-				t.Fatal("append non-↑: not panicked")
+				t.Fatalf("append(rev=%s) non-↑: not panicked", rev)
 			}
-			rev := Tid(15)
-			want := fmt.Sprintf("δtail.Append: rev not ↑: %s -> %s", rev, rev)
+			want := fmt.Sprintf("δtail.Append: rev not ↑: %s -> %s", δtail.head, rev)
 			if r != want {
 				t.Fatalf("append non-↑:\nhave: %q\nwant: %q", r, want)
 			}
 		}()
 
-		δAppend(R(15, 1))
-	}()
+		δAppend(R(rev))
+	}
+
+	// on empty δtail
+	δAppendPanic(14)
+	δAppendPanic(13)
+	δAppendPanic(12)
+
+	// on !empty δtail
+	δAppend(R(15, 1))
+	δCheck(15, R(15, 1))
+	δAppendPanic(15)
+	δAppendPanic(14)
 
 
 	// .tailv underlying storage is not kept after forget

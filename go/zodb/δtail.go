@@ -82,6 +82,8 @@ func (δtail *ΔTail) Head() Tid {
 	return δtail.head
 }
 
+// XXX + Tail?
+
 // XXX add way to extend coverage without appending changed data? (i.e. if a
 // txn did not change file at all) -> but then it is simply .Append(rev, nil)?
 
@@ -139,14 +141,14 @@ func (δtail *ΔTail) ForgetBefore(revCut Tid) {
 //	LastRevOf(id, at) = at
 //
 // 2) if δtail has an entry corresponding to id change, it gives exactly the
-//    last revision that changed id:
+// last revision that changed id:
 //
 //	# at ∈ [min(rev ∈ δtail), max(rev ∈ δtail)]
 //	# ∃ rev ∈ δtail: rev changed id && rev ≤ at
 //	LastRevOf(id, at) = max(rev: rev changed id && rev ≤ at)
 //
 // 3) if δtail does not contain appropriate record with id - it returns δtail's
-//    lower bound as the estimate for the upper bound of the last id revision:
+// lower bound as the estimate for the upper bound of the last id revision:
 //
 //	# at ∈ [min(rev ∈ δtail), max(rev ∈ δtail)]
 //	# ∄ rev ∈ δtail: rev changed id && rev ≤ at
