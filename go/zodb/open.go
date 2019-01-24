@@ -117,7 +117,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 
 		drvWatchq: drvWatchq,
 		watchReq:  make(chan watchRequest),
-		watchTab:  make(map[chan CommitEvent]struct{}),
+		watchTab:  make(map[chan<- CommitEvent]struct{}),
 
 	}
 	go stor.watcher()	// XXX stop on close
@@ -136,9 +136,9 @@ type storage struct {
 	l1cache *Cache // can be =nil, if opened with NoCache
 
 	// watcher
-	drvWatchq chan CommitEvent              // watchq passed to driver
-	watchReq  chan watchRequest             // {Add,Del}Watch requests go here
-	watchTab  map[chan CommitEvent]struct{} // registered watchers
+	drvWatchq chan CommitEvent                // watchq passed to driver
+	watchReq  chan watchRequest               // {Add,Del}Watch requests go here
+	watchTab  map[chan<- CommitEvent]struct{} // registered watchers
 }
 
 // loading goes through cache - this way prefetching can work
@@ -168,9 +168,9 @@ func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 
 // watchRequest represents request to add/del a watch.
 type watchRequest struct {
-	op     watchOp          // add or del
-	ack    chan struct{}    // when request processed
-	watchq chan CommitEvent // {Add,Del}Watch argument
+	op     watchOp            // add or del
+	ack    chan struct{}      // when request processed
+	watchq chan<- CommitEvent // {Add,Del}Watch argument
 }
 
 type watchOp int
@@ -217,7 +217,7 @@ func (s *storage) watcher() {
 }
 
 // AddWatch implements Watcher.
-func (s *storage) AddWatch(watchq chan CommitEvent) {
+func (s *storage) AddWatch(watchq chan<- CommitEvent) {
 	// XXX when already Closed?
 	ack := make(chan struct{})
 	s.watchReq <- watchRequest{addWatch, ack, watchq}
@@ -225,7 +225,7 @@ func (s *storage) AddWatch(watchq chan CommitEvent) {
 }
 
 // DelWatch implements Watcher.
-func (s *storage) DelWatch(watchq chan CommitEvent) {
+func (s *storage) DelWatch(watchq chan<- CommitEvent) {
 	// XXX when already Closed?
 	ack := make(chan struct{})
 	s.watchReq <- watchRequest{delWatch, ack, watchq}

@@ -55,7 +55,7 @@ type DB struct {
 	δtail ΔTail // [](rev↑, []oid)
 
 	// openers waiting for δtail.Head to become covering their at.
-	δwait map[δwaiter]struct{} // set{(at, ready)}
+	δwait map[δwaiter]struct{} // set{(at, ready)}	XXX -> set_δwaiter?
 }
 
 // δwaiter represents someone waiting for δtail.Head to become ≥ at.
@@ -160,7 +160,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 
 	at := opt.At
 	if at == 0 {
-		head := zodb.Tid(0)
+		head := Tid(0)
 
 		if opt.NoSync {
 			// XXX locking
@@ -188,18 +188,18 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	// wait till .δtail.head is up to date covering ≥ at
 	var δready chan struct{}
 	db.mu.Lock()
-	δhead := δtail.Head()
+	δhead := db.δtail.Head()
 	// XXX prevent head from going away?
 	if δhead < at {
 		δready = make(chan struct{})
-		db.δwait[δwaiter{at, δready}] = struct{}
+		db.δwait[δwaiter{at, δready}] = struct{}{}
 	}
 	db.mu.Unlock()
 
 	if δready != nil {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil, ctx.Err()
 
 		case <-δready:
 			// ok
