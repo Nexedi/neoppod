@@ -23,6 +23,9 @@ import (
 	"fmt"
 )
 
+// XXX do we really need ΔTail to be exported from zodb?
+// (other users are low level caches + maybe ZEO/NEO -> zplumbing? but then import cycle)
+
 // ΔTail represents tail of revisional changes.
 //
 // It semantically consists of
