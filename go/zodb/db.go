@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"lab.nexedi.com/kirr/neo/go/transaction"
+
+	"fmt"
 )
 
 // DB represents a handle to database at application level and contains pool
@@ -74,10 +76,12 @@ func NewDB(stor IStorage) *DB {
 		δtail: NewΔTail(),
 		δwait: make(map[δwaiter]struct{}),
 	}
+
 	watchq := make(chan CommitEvent)
 	stor.AddWatch(watchq)
 	// XXX DelWatch? in db.Close() ?
 	go db.watcher(watchq)
+
 	return db
 }
 
@@ -115,9 +119,12 @@ func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 	for {
 		event, ok := <-watchq
 		if !ok {
+			fmt.Printf("db: watcher: close")
 			// XXX wake up all waiters?
 			return // closed
 		}
+
+		fmt.Printf("db: watcher <- %v", event)
 
 		var readyv []chan struct{} // waiters that become ready
 
@@ -133,6 +140,7 @@ func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 
 		// wakeup waiters outside of db.mu
 		for _, ready := range readyv {
+			fmt.Printf("db: watcher: wakeup %v", ready)
 			close(ready)
 		}
 	}

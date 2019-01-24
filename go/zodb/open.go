@@ -23,6 +23,7 @@ package zodb
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 
@@ -109,6 +110,11 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		// small cache so that prefetch can work for loading
 		// XXX 512K hardcoded (= ~ 128 · 4K-entries)
 		cache = NewCache(storDriver, 128 * 4*1024)
+
+		// FIXME teach cache for watching and remove vvv
+		log.Printf("zodb: FIXME: open %s: cache is not ready for invalidations" +
+			   " -> NoCache forced", storageURL)
+		cache = nil
 	}
 
 	stor := &storage{
