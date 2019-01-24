@@ -52,7 +52,7 @@ type DB struct {
 
 	// δtail of database changes for invalidations
 	// min(rev) = min(conn.at) for all conn ∈ db (opened and in the pool)
-	δtail ΔTail // [](rev↑, []oid)
+	δtail *ΔTail // [](rev↑, []oid)
 
 	// openers waiting for δtail.Head to become covering their at.
 	δwait map[δwaiter]struct{} // set{(at, ready)}	XXX -> set_δwaiter?
@@ -69,7 +69,11 @@ type δwaiter struct {
 // NewDB creates new database handle.
 func NewDB(stor IStorage) *DB {
 	// XXX db options?
-	db := &DB{stor: stor}
+	db := &DB{
+		stor:  stor,
+		δtail: NewΔTail(),
+		δwait: make(map[δwaiter]struct{}),
+	}
 	watchq := make(chan CommitEvent)
 	stor.AddWatch(watchq)
 	// XXX DelWatch? in db.Close() ?

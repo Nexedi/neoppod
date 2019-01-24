@@ -19,18 +19,18 @@
 
 package zodb
 
+// XXX do we really need ΔTail to be exported from zodb?
+// (other users are low level caches + maybe ZEO/NEO -> zplumbing? but then import cycle)
+
 import (
 	"fmt"
 )
-
-// XXX do we really need ΔTail to be exported from zodb?
-// (other users are low level caches + maybe ZEO/NEO -> zplumbing? but then import cycle)
 
 // ΔTail represents tail of revisional changes.
 //
 // It semantically consists of
 //
-//	[](rev↑, []id)
+//	[](rev↑, []id)				XXX + head?
 //
 // and index
 //
@@ -43,10 +43,10 @@ import (
 //
 // It provides operations to
 //
-//	- XXX Head
 //	- append information to the tail about next revision,
 //	- forget information in the tail past specified revision, and
 //	- query the tail about what is last revision that changed an id.
+//	- query the tail about what head/tail	XXX?
 //
 // ΔTail is safe to access for multiple-readers / single writer.
 //
@@ -55,6 +55,7 @@ import (
 //	oid  - ZODB object identifier, when ΔTail represents changes to ZODB objects,
 //	#blk - file block number, when ΔTail represents changes to a file.
 type ΔTail struct {
+	head  Tid
 	tailv []δRevEntry
 
 	lastRevOf map[Oid]Tid // index for LastRevOf queries
@@ -73,9 +74,12 @@ func NewΔTail() *ΔTail {
 	return &ΔTail{lastRevOf: make(map[Oid]Tid)}
 }
 
-// XXX + .Head() -> max(rev)	XXX or 0 if len(tailv) == 0?
+// Head returns database state starting from which δtail has history coverage.	XXX
+//
+// For newly created ΔTail Head returns 0.
+// Head is ↑, in particular it does not go back to 0 when δtail becomes empty.
 func (δtail *ΔTail) Head() Tid {
-	panic("TODO")
+	return δtail.head
 }
 
 // XXX add way to extend coverage without appending changed data? (i.e. if a
@@ -86,13 +90,11 @@ func (δtail *ΔTail) Head() Tid {
 // rev must be ↑.
 func (δtail *ΔTail) Append(rev Tid, changev []Oid) {
 	// check rev↑
-	// XXX better also check even when δtail is ø (after forget)
-	if l := len(δtail.tailv); l > 0 {
-		if revPrev := δtail.tailv[l-1].rev; revPrev >= rev {
-			panic(fmt.Sprintf("δtail.Append: rev not ↑: %s -> %s", revPrev, rev))
-		}
+	if δtail.head >= rev {
+		panic(fmt.Sprintf("δtail.Append: rev not ↑: %s -> %s", δtail.head, rev))
 	}
 
+	δtail.head = rev
 	δtail.tailv = append(δtail.tailv, δRevEntry{rev, changev})
 	for _, id := range changev {
 		δtail.lastRevOf[id] = rev
