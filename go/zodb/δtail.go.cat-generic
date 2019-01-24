@@ -20,11 +20,21 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+# This program emits δtail.go that is suitable for templating with the
+# following parameters:
+#
+#	PACKAGE
+#	ID
+#
+# The types that are emitted are
+#
+#	ΔTail
+#	δRevEntry
+
 input=$(dirname $0)/δtail.go
 
-TODO
-
-# import "lab.nexedi.com/kirr/neo/go/zodb"
-# package zodb -> package PACKAGE
-# Tid -> zodb.Tid
-# Oid -> ID
+cat "$input" |sed	\
+	-e 's/package zodb/package PACKAGE/g'	\
+	-e '/package PACKAGE/a \\nimport "lab.nexedi.com/kirr/neo/go/zodb"'	\
+	-e 's/Tid/zodb.Tid/g'	\
+	-e 's/Oid/ID/g'
