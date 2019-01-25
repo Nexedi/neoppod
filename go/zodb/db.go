@@ -211,9 +211,12 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	db.mu.Lock()
 
 	// check if we already have the exact match
-	conn = db.get(at, at)
+	conn := db.get(at, at)
 
 	if conn == nil {
+		δtail := db.δtail		// XXX
+		δhead := db.δtail.Head()	// XXX
+
 		switch {
 		// too far in the past -> historic connection
 		case at < db.δtail.Tail():
@@ -234,12 +237,12 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 			}
 
 			// at ∈ [δtail, δhead]
-			conn = get(δtail.Tail(), at)
+			conn = db.get(δtail.Tail(), at)
 			if conn == nil {
 				conn = newConnection(db, at)
 			} else {
 				// invalidate changed live objects
-				for _, δ := range δtail.Slice(conn.at, at) {
+				for _, δ := range δtail.SliceByRev(conn.at, at) {
 					for _, oid := range δ.changev {
 						obj := conn.cache.Get(oid)
 						if obj != nil {
@@ -257,7 +260,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 		// wait till .δtail.head is up to date covering ≥ at
 		var δready chan struct{}
 		db.mu.Lock()
-		δhead := db.δtail.Head()
+		δhead = db.δtail.Head()
 		// XXX prevent head from going away?
 		if δhead < at {
 			δready = make(chan struct{})
@@ -278,7 +281,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 
 	// now we have both at and invalidation data covering it -> proceed to
 	// get connection from the pool.
-	conn := db.get(at)
+	conn = db.get(at)
 	conn.txn = txn
 	txn.RegisterSync((*connTxnSync)(conn))
 
@@ -289,7 +292,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 //
 // it creates new one if there is no close-enough connection in the pool.	XXX -> no
 // XXX -> must be run with db.mu locked.
-func (db *DB) get(at Tid) *Connection {
+func (db *DB) get(at Tid, FIXME ...Tid) *Connection {	// XXX FIXME added only to make it temp. compile
 	db.mu.Lock()
 	defer db.mu.Unlock()
 

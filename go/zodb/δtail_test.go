@@ -48,13 +48,19 @@ func TestΔTail(t *testing.T) {
 			}
 		}
 
+		// XXX Len
+
 		if h := δtail.Head(); h != head {
 			t.Fatalf("Head() -> %s  ; want %s", h, head)
 		}
 
+		// XXX Tail
+
 		if !tailvEqual(δtail.tailv, tailv) {
 			t.Fatalf("tailv:\nhave: %v\nwant: %v", δtail.tailv, tailv)
 		}
+
+		// XXX verify SliceRevBy
 
 		// verify lastRevOf query / index
 		lastRevOf := make(map[Oid]Tid)

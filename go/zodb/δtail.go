@@ -30,7 +30,7 @@ import (
 //
 // It semantically consists of
 //
-//	[](rev↑, []id)				XXX + head?
+//	[](rev↑, []id)		; rev ∈ [tail, head]
 //
 // and index
 //
@@ -38,15 +38,17 @@ import (
 //
 // where
 //
-//	rev - is ZODB revision, and
-//	id  - is an identifier of what has been changed(*)
+//	rev          - is ZODB revision, and
+//	id           - is an identifier of what has been changed(*)
+//	[tail, head] - is covered revision range
 //
 // It provides operations to
 //
 //	- append information to the tail about next revision,
 //	- forget information in the tail past specified revision, and
+//	- query the tail for len, head and tail.
+//	- query the tail for slice with rev ∈ (lo, hi].
 //	- query the tail about what is last revision that changed an id.
-//	- query the tail about what head/tail	XXX?
 //
 // ΔTail is safe to access for multiple-readers / single writer.
 //
@@ -56,11 +58,19 @@ import (
 //	#blk - file block number, when ΔTail represents changes to a file.
 type ΔTail struct {
 	head  Tid
-	tailv []CommitEvent
+	tailv []δRevEntry
 
 	lastRevOf map[Oid]Tid // index for LastRevOf queries
 	// TODO also add either tailv idx <-> rev index, or lastRevOf -> tailv idx
-	// (if linear back-scan of CommitEvent starts to eat cpu).
+	// (if linear back-scan of δRevEntry starts to eat cpu).
+}
+
+// δRevEntry represents information of what have been changed in one revision.
+//
+// XXX -> CommitEvent?
+type δRevEntry struct {
+	rev     Tid
+	changev []Oid
 }
 
 // NewΔTail creates new ΔTail object.
@@ -68,7 +78,12 @@ func NewΔTail() *ΔTail {
 	return &ΔTail{lastRevOf: make(map[Oid]Tid)}
 }
 
-// Head returns database state starting from which δtail has history coverage.	XXX
+// Len returns number of elements.
+func (δtail *ΔTail) Len() int {
+	return len(δtail.tailv)
+}
+
+// Head returns newest database state for which δtail has history coverage.
 //
 // For newly created ΔTail Head returns 0.
 // Head is ↑, in particular it does not go back to 0 when δtail becomes empty.
@@ -76,7 +91,10 @@ func (δtail *ΔTail) Head() Tid {
 	return δtail.head
 }
 
-// XXX doc	XXX tests	XXX Tail -> End? Back?
+// Tail returns oldest database state for which δtail has history coverage.
+//
+// For newly created ΔTail Tail returns 0.
+// Tail is ↑, in particular it does not go back to 0 when δtail becomes empty.
 func (δtail *ΔTail) Tail() Tid {
 	if len(δtail.tailv) > 0 {
 		return δtail.tailv[0].rev
@@ -84,25 +102,34 @@ func (δtail *ΔTail) Tail() Tid {
 	return δtail.head
 }
 
-// XXX -> git tailv subslice in (low, high]
-// XXX tail <= low <= high <= head, else panic
-func (δtail *ΔTail) Slice(low, high Tid) []CommitEvent {
+// SliceByRev returns δtail slice with .rev ∈ (low, high].
+//
+// it must be called with the following condition:
+//
+//	tail ≤ low ≤ high ≤ head
+//
+// the caller must not modify returned slice.
+//
+// Note: contrary to regular go slicing, low is exclisive while high is inclusive.
+func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []δRevEntry {
 	tail := δtail.Tail()
 	head := δtail.head
 	if !(tail <= low && low <= high && high <= head) {
 		panic(fmt.Sprintf("δtail.Slice: (%s, %s] invalid; tail..head = %s..%s", low, high, tail, head))
 	}
 
+	tailv := δtail.tailv
+
 	// ex (0,0] tail..head = 0..0
 	if len(tailv) == 0 {
 		return tailv
 	}
 
-	// find max j : [j].rev <= high
+	// find max j : [j].rev <= high		XXX linear scan
 	j := len(tailv)-1
 	for ; tailv[j].rev > high; j-- {}
 
-	// find max i : [i].rev > low
+	// find max i : [i].rev > low		XXX linear scan
 	i := j
 	for ; i >= 0 && tailv[i].rev > low; i-- {}
 	i++
@@ -123,7 +150,7 @@ func (δtail *ΔTail) Append(rev Tid, changev []Oid) {
 	}
 
 	δtail.head = rev
-	δtail.tailv = append(δtail.tailv, CommitEvent{rev, changev})
+	δtail.tailv = append(δtail.tailv, δRevEntry{rev, changev})
 	for _, id := range changev {
 		δtail.lastRevOf[id] = rev
 	}
@@ -151,7 +178,7 @@ func (δtail *ΔTail) ForgetBefore(revCut Tid) {
 	// 1) growing underlying storage array indefinitely
 	// 2) keeping underlying storage after forget
 	l := len(δtail.tailv)-icut
-	tailv := make([]CommitEvent, l)
+	tailv := make([]δRevEntry, l)
 	copy(tailv, δtail.tailv[icut:])
 	δtail.tailv = tailv
 }
