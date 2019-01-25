@@ -48,19 +48,74 @@ func TestΔTail(t *testing.T) {
 			}
 		}
 
-		// XXX Len
+		// Len/Head/Tail
+		if l := δtail.Len(); l != len(tailv) {
+			t.Fatalf("Len() -> %d  ; want %d", l, len(tailv))
+		}
 
 		if h := δtail.Head(); h != head {
 			t.Fatalf("Head() -> %s  ; want %s", h, head)
 		}
 
-		// XXX Tail
+		tail := head
+		if len(tailv) > 0 {
+			tail = tailv[0].rev-1
+		}
+		if tt := δtail.Tail(); tt != tail {
+			t.Fatalf("Tail() -> %s  ; want %s", tt, tail)
+		}
 
 		if !tailvEqual(δtail.tailv, tailv) {
 			t.Fatalf("tailv:\nhave: %v\nwant: %v", δtail.tailv, tailv)
 		}
 
-		// XXX verify SliceRevBy
+		// SliceByRev
+
+		// check that δtail.SliceByRev(rlo, rhi) == tailv[ilo:ihi].
+		sliceByRev := func(rlo, rhi Tid, ilo, ihi int) {
+			t.Helper()
+			have := δtail.SliceByRev(rlo, rhi)
+			want := tailv[ilo:ihi]
+			if !tailvEqual(have, want) {
+				t.Fatalf("SliceByRev(%s, %s) -> %v  ; want %v", rlo, rhi, have, want)
+			}
+		}
+
+		for ilo := 0; ilo < len(tailv); ilo++ {
+			for ihi := ilo; ihi < len(tailv); ihi++ {
+				// (ilo, ihi) ?
+				if ilo+1 < len(tailv) {
+					sliceByRev(
+						tailv[ilo].rev,
+						tailv[ihi].rev - 1,
+						ilo+1, ihi,
+					)
+				}
+
+				// (ilo, ihi]
+				if ilo+1 < len(tailv) {
+					sliceByRev(
+						tailv[ilo].rev,
+						tailv[ihi].rev,
+						ilo+1, ihi+1,
+					)
+				}
+
+				// [ilo, ihi)
+				sliceByRev(
+					tailv[ilo].rev - 1,
+					tailv[ihi].rev - 1,
+					ilo, ihi,
+				)
+
+				// [ilo, ihi]
+				sliceByRev(
+					tailv[ilo].rev - 1,
+					tailv[ihi].rev,
+					ilo, ihi+1,
+				)
+			}
+		}
 
 		// verify lastRevOf query / index
 		lastRevOf := make(map[Oid]Tid)

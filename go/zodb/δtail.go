@@ -30,7 +30,7 @@ import (
 //
 // It semantically consists of
 //
-//	[](rev↑, []id)		; rev ∈ [tail, head]
+//	[](rev↑, []id)		; rev ∈ (tail, head]
 //
 // and index
 //
@@ -96,10 +96,10 @@ func (δtail *ΔTail) Head() Tid {
 // For newly created ΔTail Tail returns 0.
 // Tail is ↑, in particular it does not go back to 0 when δtail becomes empty.
 func (δtail *ΔTail) Tail() Tid {
-	if len(δtail.tailv) > 0 {
-		return δtail.tailv[0].rev
+	if len(δtail.tailv) == 0 {
+		return δtail.head
 	}
-	return δtail.head
+	return δtail.tailv[0].rev-1
 }
 
 // SliceByRev returns δtail slice with .rev ∈ (low, high].
