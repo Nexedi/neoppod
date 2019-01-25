@@ -61,6 +61,7 @@ type ΔTail struct {
 	tailv []δRevEntry
 
 	lastRevOf map[Oid]Tid // index for LastRevOf queries
+	// XXX -> lastRevOf = {} oid -> []rev↑ if linear scan in LastRevOf starts to eat cpu
 }
 
 // δRevEntry represents information of what have been changed in one revision.
@@ -233,7 +234,7 @@ func (δtail *ΔTail) LastRevOf(id Oid, at Tid) (_ Tid, exact bool) {
 	}
 
 	// what's in index is after at - scan tailv back to find appropriate entry
-	// XXX linear scan - fix it by: .lastRevOf = {} oid -> []rev↑
+	// XXX linear scan - see .lastRevOf comment.
 	for i := l - 1; i >= 0; i-- {
 		δ := δtail.tailv[i]
 		if δ.rev > at {
