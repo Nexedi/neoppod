@@ -72,7 +72,7 @@ func TestΔTail(t *testing.T) {
 		// SliceByRev
 
 		fmt.Printf("\nwhole: (%s, %s]  %v\n", δtail.Tail(), δtail.Head(), tailv)
-		// check that δtail.SliceByRev(rlo, rhi) == tailv[ilo:ihi].
+		// check that δtail.SliceByRev(rlo, rhi) == tailv[ilo:ihi).
 		sliceByRev := func(rlo, rhi Tid, ilo, ihi int) {
 			t.Helper()
 			fmt.Printf("(%s, %s] -> [%d:%d)\n", rlo, rhi, ilo, ihi)
@@ -81,28 +81,31 @@ func TestΔTail(t *testing.T) {
 			if !tailvEqual(have, want) {
 				t.Fatalf("SliceByRev(%s, %s) -> %v  ; want %v", rlo, rhi, have, want)
 			}
+
+			if len(have) == 0 {
+				return
+			}
+
+			// make sure returned region is indeed correct
+			tbefore := Tid(0)
+			if ilo-1 >= 0 {
+				tbefore = tailv[ilo-1].rev-1
+			}
+			tail := tailv[ilo].rev-1
+			head := tailv[ihi-1].rev
+			hafter := TidMax
+			if ihi < len(tailv) {
+				hafter = tailv[ihi].rev
+			}
+
+			if !(tbefore < rlo && rlo <= tail && head <= rhi && rhi < hafter) {
+				t.Fatalf("SliceByRev(%s, %s) -> %v  ; edges do not match query:\n" +
+					"%s (%s, %s] %s", rlo, rhi, have, tbefore, tail, head, hafter)
+			}
 		}
 
 		for ilo := 0; ilo < len(tailv); ilo++ {
 			for ihi := ilo; ihi < len(tailv); ihi++ {
-				// (ilo, ihi) ?
-				if ilo+1 < len(tailv) && ilo+1 <= ihi {
-					sliceByRev(
-						tailv[ilo].rev,
-						tailv[ihi].rev - 1,
-						ilo+1, ihi,
-					)
-				}
-
-				// (ilo, ihi]
-				if ilo+1 < len(tailv) {
-					sliceByRev(
-						tailv[ilo].rev,
-						tailv[ihi].rev,
-						ilo+1, ihi+1,
-					)
-				}
-
 				// [ilo, ihi)
 				sliceByRev(
 					tailv[ilo].rev - 1,
@@ -116,6 +119,24 @@ func TestΔTail(t *testing.T) {
 					tailv[ihi].rev,
 					ilo, ihi+1,
 				)
+
+				// (ilo, ihi]
+				if ilo+1 < len(tailv) {
+					sliceByRev(
+						tailv[ilo].rev,
+						tailv[ihi].rev,
+						ilo+1, ihi+1,
+					)
+				}
+
+				// (ilo, ihi)
+				if ilo+1 < len(tailv) && ilo+1 <= ihi {
+					sliceByRev(
+						tailv[ilo].rev,
+						tailv[ihi].rev - 1,
+						ilo+1, ihi,
+					)
+				}
 			}
 		}
 

@@ -132,12 +132,9 @@ func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []δRevEntry {
 		return nil // ø
 	}
 
-	//fmt.Printf("j: %d\n", j)
-
 	// find max i : [i].rev > low		XXX linear scan
 	i := j
 	for ; i >= 0 && tailv[i].rev > low; i-- {}
-	// XXX i < 0
 	i++
 
 	return tailv[i:j+1]
