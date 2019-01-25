@@ -71,9 +71,11 @@ func TestΔTail(t *testing.T) {
 
 		// SliceByRev
 
+		fmt.Printf("\nwhole: (%s, %s]  %v\n", δtail.Tail(), δtail.Head(), tailv)
 		// check that δtail.SliceByRev(rlo, rhi) == tailv[ilo:ihi].
 		sliceByRev := func(rlo, rhi Tid, ilo, ihi int) {
 			t.Helper()
+			fmt.Printf("(%s, %s] -> [%d:%d)\n", rlo, rhi, ilo, ihi)
 			have := δtail.SliceByRev(rlo, rhi)
 			want := tailv[ilo:ihi]
 			if !tailvEqual(have, want) {
@@ -84,7 +86,7 @@ func TestΔTail(t *testing.T) {
 		for ilo := 0; ilo < len(tailv); ilo++ {
 			for ihi := ilo; ihi < len(tailv); ihi++ {
 				// (ilo, ihi) ?
-				if ilo+1 < len(tailv) {
+				if ilo+1 < len(tailv) && ilo+1 <= ihi {
 					sliceByRev(
 						tailv[ilo].rev,
 						tailv[ihi].rev - 1,

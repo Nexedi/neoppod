@@ -115,7 +115,7 @@ func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []δRevEntry {
 	tail := δtail.Tail()
 	head := δtail.head
 	if !(tail <= low && low <= high && high <= head) {
-		panic(fmt.Sprintf("δtail.Slice: (%s, %s] invalid; tail..head = %s..%s", low, high, tail, head))
+		panic(fmt.Sprintf("δtail.Slice: invalid query: (%s, %s];  (tail, head] = (%s, %s]", low, high, tail, head))
 	}
 
 	tailv := δtail.tailv
@@ -125,16 +125,22 @@ func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []δRevEntry {
 		return tailv
 	}
 
-	// find max j : [j].rev <= high		XXX linear scan
+	// find max j : [j].rev ≤ high		XXX linear scan
 	j := len(tailv)-1
-	for ; tailv[j].rev > high; j-- {}
+	for ; j >= 0 && tailv[j].rev > high; j-- {}
+	if j < 0 {
+		return nil // ø
+	}
+
+	//fmt.Printf("j: %d\n", j)
 
 	// find max i : [i].rev > low		XXX linear scan
 	i := j
 	for ; i >= 0 && tailv[i].rev > low; i-- {}
+	// XXX i < 0
 	i++
 
-	return tailv[i:j]
+	return tailv[i:j+1]
 }
 
 // XXX add way to extend coverage without appending changed data? (i.e. if a
