@@ -229,6 +229,8 @@ func TestPersistentDB(t *testing.T) {
 	// do not evict obj2 from live cache. obj1 is ok to be evicted.
 	zcache1 := conn1.Cache()
 	zcache1.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
+	// FIXME test that live cache keeps objects live even if we drop all
+	// regular pointers to it and do GC.
 
 	// get objects and assert their type
 	xobj1, err := conn1.Get(ctx1, 101); X(err)

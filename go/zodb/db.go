@@ -49,23 +49,20 @@ type DB struct {
 
 	mu    sync.Mutex
 
-	// connections nearby current db
-	// XXX covered by δtail
+	// pool of unused connections.
 	// live cache is reused through finding conn with nearby at and
 	// invalidating live objects based on δtail info.
+	//
+	// XXX vs δtail coverage?
 	connv []*Connection // order by ↑= .at
 
-	// // connections that are too far away from current db
-	// // not covered by δtail
-	// historicv []*Connections	// XXX needed? (think again)
-
 	// δtail of database changes for invalidations
-	// min(rev) = min(conn.at) for all conn ∈ db (opened and in the pool)
+	// min(rev) = min(conn.at) for all conn ∈ db (opened and in the pool)	XXX no
 	// XXX      + min(conn.at) for all conn ∈ waiting/opening.
 	δtail *ΔTail // [](rev↑, []oid)
 
 	// openers waiting for δtail.Head to become covering their at.
-	δwait map[δwaiter]struct{} // set{(at, ready)}	XXX -> set_δwaiter?
+	δwait map[δwaiter]struct{} // set{(at, ready)}
 
 	// XXX δtail/δwait -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
 }
@@ -89,8 +86,8 @@ func NewDB(stor IStorage) *DB {
 
 	watchq := make(chan CommitEvent)
 	stor.AddWatch(watchq)
-	// XXX DelWatch? in db.Close() ?
 	go db.watcher(watchq)
+	// XXX DelWatch? in db.Close() ?
 
 	return db
 }
