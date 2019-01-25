@@ -38,17 +38,17 @@ import (
 //
 // where
 //
-//	rev          - is ZODB revision, and
-//	id           - is an identifier of what has been changed(*)
-//	[tail, head] - is covered revision range
+//	rev          - is ZODB revision,
+//	id           - is an identifier of what has been changed(*), and
+//	(tail, head] - is covered revision range
 //
 // It provides operations to
 //
 //	- append information to the tail about next revision,
-//	- forget information in the tail past specified revision, and
-//	- query the tail for len, head and tail.
-//	- query the tail for slice with rev ∈ (lo, hi].
-//	- query the tail about what is last revision that changed an id.
+//	- forget information in the tail past specified revision,
+//	- query the tail for slice with rev ∈ (lo, hi],
+//	- query the tail about what is last revision that changed an id,
+//	- query the tail for len and (tail, head].
 //
 // ΔTail is safe to access for multiple-readers / single writer.
 //
@@ -61,13 +61,11 @@ type ΔTail struct {
 	tailv []δRevEntry
 
 	lastRevOf map[Oid]Tid // index for LastRevOf queries
-	// TODO also add either tailv idx <-> rev index, or lastRevOf -> tailv idx
-	// (if linear back-scan of δRevEntry starts to eat cpu).
 }
 
 // δRevEntry represents information of what have been changed in one revision.
 //
-// XXX -> CommitEvent?
+// XXX -> CommitEvent? -> ΔRevEntry?
 type δRevEntry struct {
 	rev     Tid
 	changev []Oid
@@ -78,7 +76,7 @@ func NewΔTail() *ΔTail {
 	return &ΔTail{lastRevOf: make(map[Oid]Tid)}
 }
 
-// Len returns number of elements.
+// Len returns number of revisions.
 func (δtail *ΔTail) Len() int {
 	return len(δtail.tailv)
 }
@@ -102,7 +100,7 @@ func (δtail *ΔTail) Tail() Tid {
 	return δtail.tailv[0].rev-1
 }
 
-// SliceByRev returns δtail slice with .rev ∈ (low, high].
+// SliceByRev returns δtail slice of elements with .rev ∈ (low, high].
 //
 // it must be called with the following condition:
 //
@@ -110,7 +108,7 @@ func (δtail *ΔTail) Tail() Tid {
 //
 // the caller must not modify returned slice.
 //
-// Note: contrary to regular go slicing, low is exclisive while high is inclusive.
+// Note: contrary to regular go slicing, low is exclusive while high is inclusive.
 func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []δRevEntry {
 	tail := δtail.Tail()
 	head := δtail.head
@@ -125,14 +123,14 @@ func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []δRevEntry {
 		return tailv
 	}
 
-	// find max j : [j].rev ≤ high		XXX linear scan
+	// find max j : [j].rev ≤ high		XXX linear scan -> binary search
 	j := len(tailv)-1
 	for ; j >= 0 && tailv[j].rev > high; j-- {}
 	if j < 0 {
 		return nil // ø
 	}
 
-	// find max i : [i].rev > low		XXX linear scan
+	// find max i : [i].rev > low		XXX linear scan -> binary search
 	i := j
 	for ; i >= 0 && tailv[i].rev > low; i-- {}
 	i++
@@ -235,7 +233,7 @@ func (δtail *ΔTail) LastRevOf(id Oid, at Tid) (_ Tid, exact bool) {
 	}
 
 	// what's in index is after at - scan tailv back to find appropriate entry
-	// XXX linear scan
+	// XXX linear scan - fix it by: .lastRevOf = {} oid -> []rev↑
 	for i := l - 1; i >= 0; i-- {
 		δ := δtail.tailv[i]
 		if δ.rev > at {
