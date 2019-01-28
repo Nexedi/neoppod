@@ -349,20 +349,33 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	return conn, nil
 }
 
-// Resync resyncs the connection onto different database view.
+// Resync resyncs the connection onto different database view and transaction.
 //
-// XXX previous conn's txn must be already complete.
-// XXX must be run under transaction.
-// XXX objects are guaranteed to stay in live cache, even if in ghost state.
-// XXX Resync allowed only for connections opened with NoPool flag.
-// XXX contrary to DB.Open at cannot be 0.
-// XXX new at can be both higher and lower than previous at.
-func (conn *Connection) Resync(ctx context.Context, at Tid) {
-	// XXX assert conn.noPool == true
-	// XXX assert conn.txn == nil
-	// XXX assert at != 0
+// Connection objects pinned in live cache are guaranteed to stay in live
+// cache, even if maybe in ghost state (e.g. if they have to be invalidated due
+// to database changes).
+//
+// Resync can be used several times.
+//
+// Resync must be used only under the following conditions:
+//
+//	- the connection was initially opened with NoPool flag.
+//	- previous transaction, under which connection was previously
+//	  opened/resynced, must be already complete.
+//	- contrary to DB.Open, at cannot be 0.
+//
+// Note: new at can be both higher and lower than previous connection at.
+func (conn *Connection) Resync(txn transaction.Transaction, at Tid) {
+	if !conn.noPool {
+		panic("Conn.Resync: connection was opened without NoPool flag")
+	}
+	if conn.txn != nil {
+		panic("Conn.Resync: previous transaction is not yet complete")
+	}
+	if at == 0 {
+		panic("Conn.Resync: resync to at=0 (auto-mode is valid only for DB.Open)")
+	}
 	// XXX conn.cache.Lock ? - yes (e.g. if user also checks it from outside, right?)
-	txn := transaction.Current(ctx)
 
 	db := conn.db
 	db.mu.Lock()
