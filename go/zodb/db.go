@@ -279,7 +279,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 // must be called with db.mu locked.
 // db.mu is unlocked on error.
 func (db *DB) openOrDBUnlock(ctx context.Context, at Tid, noPool bool) (*Connection, error) {
-	// NoPool connection - create anew
+	// NoPool connection - create one anew
 	if noPool {
 		conn := newConnection(db, at)
 		conn.noPool = true
@@ -313,7 +313,7 @@ retry:
 
 		// we have some δtail coverage, but at is ahead of that.
 		if at > δhead {
-			// wait till .δtail.head is up to date covering ≥ at
+			// wait till δtail.head is up to date covering ≥ at,
 			// and retry the loop (δtail.tail might go over at while we are waiting)
 			δready := make(chan struct{})
 			db.δwait[δwaiter{at, δready}] = struct{}{}
