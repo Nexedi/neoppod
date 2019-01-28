@@ -335,7 +335,7 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(conn1.txn, nil)
 	assert.Equal(db.pool, []*Connection{conn1})
 
-	println("BBB")
+	println("\n\nBBB")
 
 	// open new connection - it should be conn1 but at updated database view
 	txn3, ctx3 := transaction.New(ctx)

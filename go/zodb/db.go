@@ -284,6 +284,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 // must be called with db.mu locked.
 // db.mu is unlocked on error.
 func (db *DB) openOrDBUnlock(ctx context.Context, at Tid, noPool bool) (*Connection, error) {
+	fmt.Printf("db.openx %s %v\t; δtail (%s, %s]\n", at, noPool, db.δtail.Tail(), db.δtail.Head())
 	// NoPool connection - create one anew
 	if noPool {
 		conn := newConnection(db, at)
@@ -335,6 +336,8 @@ retry:
 				continue retry
 			}
 		}
+
+		// XXX note: vvv at start δtail.Tail is not covering first committed txn
 
 		// at ∈ (δtail, δhead]	; try to get nearby idle connection or make a new one
 		conn = db.get(δtail.Tail(), at)
@@ -469,6 +472,12 @@ func (db *DB) get(atMin, at Tid) *Connection {
 	i := sort.Search(l, func(i int) bool {
 		return at < db.pool[i].at
 	})
+
+	fmt.Printf("pool:\n")
+	for i := 0; i < l; i++ {
+		fmt.Printf("\t[%d]:  .at = %s\n", i, db.pool[i].at)
+	}
+	fmt.Printf("get  [%s, %s] -> %d\n", atMin, at, i)
 
 	// search through window of X previous connections and find out the one
 	// with minimal distance to get to state @at that fits into requested range.
