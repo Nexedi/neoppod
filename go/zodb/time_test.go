@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -19,7 +19,10 @@
 
 package zodb
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestTidTime(t *testing.T) {
 	var testv = []struct {tid Tid; timeStr string; timeFloat float64} {
@@ -41,6 +44,14 @@ func TestTidTime(t *testing.T) {
 		timeFloat := float64(tidtime.UnixNano()) * 1E-9
 		if timeFloat != tt.timeFloat {
 			t.Errorf("%v: timeFloat = %.9f  ; want %.9f", tt.tid, timeFloat, tt.timeFloat)
+		}
+
+		locv := []*time.Location{time.UTC, time.FixedZone("UTC+4", +4*60*60)}
+		for _, loc := range locv {
+			tid := TidFromTime(tidtime.In(loc))
+			if tid != tt.tid {
+				t.Errorf("%v: ->time(%s)->tid != identity  (= %v;  δ: %s)", tt.tid, loc, tid, tt.tid - tid)
+			}
 		}
 	}
 }

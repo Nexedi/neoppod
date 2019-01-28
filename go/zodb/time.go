@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -53,7 +53,7 @@ func (t TimeStamp) XFmtString(b []byte) []byte {
 // Time converts tid to time.
 func (tid Tid) Time() TimeStamp {
 	// the same as _parseRaw in TimeStamp/py
-	// https://github.com/zopefoundation/persistent/blob/aba23595/persistent/timestamp.py#L75
+	// https://github.com/zopefoundation/persistent/blob/8c645429/persistent/timestamp.py#L72
 	a := uint64(tid) >> 32
 	b := uint64(tid) & (1 << 32 - 1)
 	min   := a % 60
@@ -77,11 +77,40 @@ func (tid Tid) Time() TimeStamp {
 	return TimeStamp{t}
 }
 
+// TidFromTime converts time to tid.
+func TidFromTime(t time.Time) Tid {
+	t = t.UTC()
 
-// TODO TidFromTime()
-// TODO TidFromTimeStamp()
-// TODO TidForNow() ?
+	// the same as _makeRaw in TimeStamp/py
+	// https://github.com/zopefoundation/persistent/blob/8c645429/persistent/timestamp.py#L66
+	year  := uint64(t.Year())
+	month := uint64(t.Month())
+	day   := uint64(t.Day())
+	hour  := uint64(t.Hour())
+	min   := uint64(t.Minute())
+	sec   := uint64(t.Second())
+	nsec  := uint64(t.Nanosecond())
 
+	a := ((year - 1900)*12 + month - 1) * 31 + day - 1
+	a  = (a * 24 + hour) * 60 + min
+
+	// for seconds/nseconds: use 2 extra bits of precision to be able to
+	// round after / 1E9 and / 60 divisions. We are safe to use 2 bits,
+	// since 10^9 ≤ 2^30 and it all fits into uint32. However for b for
+	// intermediate values we are free to use whole uint64, so x can be >
+	// than 2 too.
+	const x = 2
+	b := sec << (32+x)
+	b += (nsec << (32+x)) / 1E9
+	b /= 60
+	roundup := (b & ((1<<x)-1)) >= (1<<(x-1))
+	b /= (1<<x)
+	if roundup {
+		b += 1
+	}
+
+	return Tid((a << 32) | b)
+}
 
 // δtid returns distance from tid1 to tid2 in term of time.
 //
