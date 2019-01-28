@@ -46,10 +46,11 @@ import (
 // Use DB.Open to open a connection.
 type Connection struct {
 	db   *DB                     // Connection is part of this DB
-	txn  transaction.Transaction // opened under this txn; nil if idle in DB pool.
+	txn  transaction.Transaction // opened under this txn; nil after transaction ends.
 	at   Tid                     // current view of database; stable inside a transaction.
 
-	cache LiveCache // cache of connection's in-RAM objects
+	cache  LiveCache // cache of connection's in-RAM objects
+	noPool bool      // connection is not returned to db.pool
 }
 
 // LiveCache keeps registry of live in-RAM objects for a Connection.

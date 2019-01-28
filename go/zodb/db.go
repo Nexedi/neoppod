@@ -216,7 +216,7 @@ func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 // Opened connection must be used only under the same transaction and only
 // until that transaction is complete(*).
 //
-// (*) XXX unless NoPool option is used.
+// (*) unless NoPool option is used.
 func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err error) {
 	defer func() {
 		if err == nil {
@@ -261,10 +261,17 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 		at = head
 	}
 
+	// XXX
+	var conn *Connection
+	if opt.NoPool {
+		conn = newConnection(db, at)
+		conn.noPool = true
+	}
+
 	db.mu.Lock()
 
 	// check if we already have the exact match
-	conn := db.get(at, at)
+	conn = db.get(at, at)
 
 	if conn == nil {
 		δtail := db.δtail		// XXX
@@ -446,7 +453,7 @@ func (csync *connTxnSync) AfterCompletion(txn transaction.Transaction) {
 	// mark the connection as no longer being live
 	conn.txn = nil
 
-	if !conn.flags & noPool {
+	if !conn.noPool {
 		conn.db.put(conn)
 	}
 }
