@@ -55,7 +55,7 @@ type DB struct {
 	// .at and invalidating live objects based on δtail info.
 	//
 	// not all connections here have δtail coverage.
-	connv []*Connection // order by ↑= .at
+	pool []*Connection // order by ↑= .at
 
 	// δtail of database changes.
 	//
@@ -79,35 +79,31 @@ type DB struct {
 	//                ΔTnext		δhead(when_open) - δtail.Head when connection was opened
 	//					Twork(conn)	 - time the connection is used
 	//         Twork(conn)
-	// work  = ───────────
+	// lwork = ───────────
 	//           ΔTnext
 	//
 	// if heady >> 1 - it is case "1" and δtail coverage is not needed.
-	// if heady  ~ 1 - it is case "2" and δtail coverage might be needed depending on work.
-	// if work  >> 1 - the number of objects that will need to be invalidated
+	// if heady  ~ 1 - it is case "2" and δtail coverage might be needed depending on lwork.
+	// if lwork >> 1 - the number of objects that will need to be invalidated
 	//		   when updating conn to current head grows to ~ 100% of
 	//		   connection's live cache. It thus does not make
 	//		   sense to keep δtail past some reasonable time.
 	//
-	// A good system would monitor both ΔTnext, and work for connections
+	// A good system would monitor both ΔTnext, and lwork for connections
 	// with small heady, and adjust δtail cut time as e.g.
 	//
-	//	timelen(δtail) = 3·work·ΔTnext
+	//	timelen(δtail) = 3·lwork·ΔTnext
 	//
 	//
 	// FIXME for now we just fix
 	//
-	//	Theady = 1min
 	//	Tδkeep = 10min
-	//
-	// and assume that a connection is heady if
-	//
-	//	|at - δhead(when_open)| ≤ Theady
 	//
 	// and keep δtail coverage for Tδkeep time
 	//
 	//	timelen(δtail) = Tδkeep
-	δtail *ΔTail // [](rev↑, []oid)
+	δtail  *ΔTail // [](rev↑, []oid)
+	tδkeep time.Duration
 
 	// openers waiting for δtail.Head to become covering their at.
 	δwait map[δwaiter]struct{} // set{(at, ready)}
@@ -130,6 +126,8 @@ func NewDB(stor IStorage) *DB {
 		stor:  stor,
 		δtail: NewΔTail(),
 		δwait: make(map[δwaiter]struct{}),
+
+		tδkeep: 10*time.Minute, // see δtail discussion
 	}
 
 	watchq := make(chan CommitEvent)
@@ -144,6 +142,14 @@ func NewDB(stor IStorage) *DB {
 type ConnOptions struct {
 	At     Tid  // if !0, open Connection bound to `at` view of database; not latest.
 	NoSync bool // don't sync with storage to get its last tid.
+
+	// don't put connection back into DB pool after transaction ends.
+	//
+	// This is low-level option that allows to inspect/use connection's
+	// LiveCache after transaction finishes, and to manually resync the
+	// connection onto another database view. See Connection.Resync for
+	// details.
+	NoPool bool
 }
 
 // String represents connection options in human-readable form.
@@ -208,7 +214,9 @@ func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 //
 // Open must be called under transaction.
 // Opened connection must be used only under the same transaction and only
-// until that transaction is complete.
+// until that transaction is complete(*).
+//
+// (*) XXX unless NoPool option is used.
 func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err error) {
 	defer func() {
 		if err == nil {
@@ -287,6 +295,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 				conn = newConnection(db, at)
 			} else {
 				// invalidate changed live objects
+				// XXX -> Connection.resync(at)
 				for _, δ := range δtail.SliceByRev(conn.at, at) {
 					for _, oid := range δ.changev {
 						obj := conn.cache.Get(oid)
@@ -333,6 +342,8 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	return conn, nil
 }
 
+//func (conn *Connection) resync(at Tid
+
 // get returns connection from db pool most close to at.
 //
 // it creates new one if there is no close-enough connection in the pool.	XXX -> no
@@ -343,12 +354,12 @@ func (db *DB) get(at Tid, FIXME ...Tid) *Connection {	// XXX FIXME added only to
 
 	// XXX at < δtail.Tail -> getHistoric; else -> here
 
-	l := len(db.connv)
+	l := len(db.pool)
 
-	// find connv index corresponding to at:
+	// find pool index corresponding to at:
 	// [i-1].at ≤ at < [i].at
 	i := sort.Search(l, func(i int) bool {
-		return at < db.connv[i].at
+		return at < db.pool[i].at
 	})
 
 	// search through window of X previous connections and find out the one
@@ -370,15 +381,15 @@ func (db *DB) get(at Tid, FIXME ...Tid) *Connection {	// XXX FIXME added only to
 
 	// nothing found or too distant
 	const Tnear = 10*time.Minute // XXX hardcoded
-	if jδmin < 0 || tabs(δtid(at, db.connv[jδmin].at)) > Tnear {
+	if jδmin < 0 || tabs(δtid(at, db.pool[jδmin].at)) > Tnear {
 		return newConnection(db, at)
 	}
 
 	// reuse the connection
-	conn := db.connv[jδmin]
-	copy(db.connv[jδmin:], db.connv[jδmin+1:])
-	db.connv[l-1] = nil
-	db.connv = db.connv[:l-1]
+	conn := db.pool[jδmin]
+	copy(db.pool[jδmin:], db.pool[jδmin+1:])
+	db.pool[l-1] = nil
+	db.pool = db.pool[:l-1]
 
 	if conn.db != db {
 		panic("DB.get: foreign connection in the pool")
@@ -400,21 +411,19 @@ func (db *DB) put(conn *Connection) {
 		panic("DB.put: conn.db != db")
 	}
 
-	conn.txn = nil
-
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	// XXX check if len(connv) > X, and drop conn if yes
+	// XXX check if len(pool) > X, and drop conn if yes
 	// [i-1].at ≤ at < [i].at
-	i := sort.Search(len(db.connv), func(i int) bool {
-		return conn.at < db.connv[i].at
+	i := sort.Search(len(db.pool), func(i int) bool {
+		return conn.at < db.pool[i].at
 	})
 
-	//db.connv = append(db.connv[:i], conn, db.connv[i:]...)
-	db.connv = append(db.connv, nil)
-	copy(db.connv[i+1:], db.connv[i:])
-	db.connv[i] = conn
+	//db.pool = append(db.pool[:i], conn, db.pool[i:]...)
+	db.pool = append(db.pool, nil)
+	copy(db.pool[i+1:], db.pool[i:])
+	db.pool[i] = conn
 
 	// XXX GC too idle connections here?
 }
@@ -434,7 +443,10 @@ func (csync *connTxnSync) AfterCompletion(txn transaction.Transaction) {
 	conn := (*Connection)(csync)
 	conn.checkTxn(txn, "AfterCompletion")
 
-	// XXX check that conn was explicitly closed by user?
+	// mark the connection as no longer being live
+	conn.txn = nil
 
-	conn.db.put(conn)
+	if !conn.flags & noPool {
+		conn.db.put(conn)
+	}
 }

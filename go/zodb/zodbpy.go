@@ -86,7 +86,7 @@ func pyGetState(obj PyStateful, objClass string) *mem.Buf {
 // It only returns decoded database data.
 func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pystate interface{}, serial Tid, _ error) {
 	xid := Xid{Oid: oid, At: conn.at}
-	buf, serial, err := conn.stor.Load(ctx, xid)
+	buf, serial, err := conn.db.stor.Load(ctx, xid)
 	if err != nil {
 		return "", nil, 0, err
 	}
@@ -96,7 +96,7 @@ func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pyst
 	pyclass, pystate, err := PyData(buf.Data).decode(conn)
 	if err != nil {
 		err = &OpError{
-			URL:  conn.stor.URL(),
+			URL:  conn.db.stor.URL(),
 			Op:   "loadpy",
 			Args: xid,
 			Err:  err,

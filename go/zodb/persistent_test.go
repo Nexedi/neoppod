@@ -222,7 +222,7 @@ func TestPersistentDB(t *testing.T) {
 	conn1, err := db.Open(ctx1, &ConnOptions{}); X(err)
 	println("555")
 	assert.Equal(conn1.At(), at1)
-	assert.Equal(db.connv, []*Connection(nil))
+	assert.Equal(db.pool, []*Connection(nil))
 	assert.Equal(conn1.db,  db)
 	assert.Equal(conn1.txn, txn1)
 
@@ -290,7 +290,7 @@ func TestPersistentDB(t *testing.T) {
 	txn2, ctx2 := transaction.New(ctx)
 	conn2, err := db.Open(ctx2, &ConnOptions{}); X(err)
 	assert.Equal(conn2.At(), at2)
-	assert.Equal(db.connv, []*Connection(nil))
+	assert.Equal(db.pool, []*Connection(nil))
 	assert.Equal(conn2.db,  db)
 	assert.Equal(conn2.txn, txn2)
 
@@ -333,7 +333,7 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(conn1.txn, txn1)
 	txn1.Abort()
 	assert.Equal(conn1.txn, nil)
-	assert.Equal(db.connv, []*Connection{conn1})
+	assert.Equal(db.pool, []*Connection{conn1})
 
 	println("BBB")
 
@@ -345,7 +345,7 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(conn1.At(), at2)
 	assert.Equal(conn1.db,  db)
 	assert.Equal(conn1.txn, txn3)
-	assert.Equal(db.connv, []*Connection{})
+	assert.Equal(db.pool, []*Connection{})
 	// XXX ctx1 = ctx3 (not to use 3 below) ?
 
 	println("CCC")
