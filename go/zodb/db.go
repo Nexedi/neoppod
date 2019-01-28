@@ -455,7 +455,9 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 	return
 }
 
-// get returns connection from db pool most close to at with conn.at ∈ (atMin, at].
+// get returns connection from db pool most close to at with conn.at ∈ [atMin, at].
+//
+// XXX recheck [atMin    or   (atMin
 //
 // if there is no such connection in the pool - nil is returned.
 // must be called with db.mu locked.
@@ -469,16 +471,18 @@ func (db *DB) get(atMin, at Tid) *Connection {
 	})
 
 	// search through window of X previous connections and find out the one
-	// with minimal distance to get to state @at. If all connections are too
-	// distant - create connection anew.	// XXX no -> nil
+	// with minimal distance to get to state @at that fits into requested range.
 	//
 	// XXX search not only previous, but future too? (we can get back to
 	// past by invalidating what was later changed) (but likely it will
-	// hurt by destroying cache of more recent connection)
-	const X = 10 // XXX hardcoded
+	// hurt by destroying cache of more recent connection).
+	const X = 10 // XXX search window size: hardcoded
 	jδmin := -1
 	for j := i - X; j < i; j++ {
 		if j < 0 {
+			continue
+		}
+		if db.pool[j].at < atMin {
 			continue
 		}
 
@@ -486,13 +490,12 @@ func (db *DB) get(atMin, at Tid) *Connection {
 		jδmin = j // XXX stub (using rightmost j)
 	}
 
-	// nothing found or too distant
-	const Tnear = 10*time.Minute // XXX hardcoded
-	if jδmin < 0 || tabs(δtid(at, db.pool[jδmin].at)) > Tnear {
-		return newConnection(db, at)	// XXX no -> nil
+	// nothing found
+	if jδmin < 0 {
+		return nil
 	}
 
-	// reuse the connection
+	// found - reuse the connection
 	conn := db.pool[jδmin]
 	copy(db.pool[jδmin:], db.pool[jδmin+1:])
 	db.pool[l-1] = nil
@@ -503,10 +506,6 @@ func (db *DB) get(atMin, at Tid) *Connection {
 	}
 	if conn.txn != nil {
 		panic("DB.get: live connection in the pool")
-	}
-
-	if conn.at != at {
-		panic("DB.get: TODO: invalidations")	// XXX
 	}
 
 	return conn
