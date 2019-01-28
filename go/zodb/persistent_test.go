@@ -367,10 +367,15 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(obj2.value, "kitty")
 
 
-	// XXX also Resync
 	// XXX
 	txn3.Abort()
 	txn2.Abort()
+
+	// XXX DB.Open with at on and +-1 δtail edges
+
+	// TODO Resync ↑ (with δtail coverage)
+	// TODO Resync ↓ (with δtail coverage)
+	// TODO Resync   (without δtail coverage)
 
 	// XXX cache dropping entries after GC
 }

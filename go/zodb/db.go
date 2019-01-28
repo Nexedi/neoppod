@@ -239,7 +239,6 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 
 		if opt.NoSync {
 			db.mu.Lock()
-			// XXX prevent retrieved head to be removed from δtail ?
 			head = db.δtail.Head()	// = 0 if δtail was not yet initialized with first event
 			db.mu.Unlock()
 		}
@@ -261,92 +260,80 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 		at = head
 	}
 
-	// XXX
-	var conn *Connection
-	if opt.NoPool {
-		conn = newConnection(db, at)
+	conn, err := db.open(ctx, at, opt.NoPool)
+	if err != nil {
+		return nil, err
+	}
+	conn.resync(txn, at)
+	return conn, nil
+}
+
+// open is internal worker for Open.
+//
+// it returns either new connection, or connection from the pool.
+// returned connection does not neccessarily have .at=at, and have to go through .resync().
+func (db *DB) open(ctx context.Context, at Tid, noPool bool) (*Connection, error) {
+	// NoPool connection - create anew
+	if noPool {
+		conn := newConnection(db, at)
 		conn.noPool = true
+		return conn, nil
 	}
 
 	db.mu.Lock()
+	defer db.mu.Unlock()
 
-	// check if we already have the exact match
-	conn = db.get(at, at)
+retry:	// each loop iteration starts with db.mu locked
+	for {
+		// check if we already have the exact match
+		conn := db.get(at, at)
+		if conn != nil {
+			return conn, nil
+		}
 
-	if conn == nil {
-		δtail := db.δtail		// XXX
-		δhead := db.δtail.Head()	// XXX
+		// no exact match - let's try to find nearest
+		δtail := db.δtail
+		δhead := db.δtail.Head()
 
-		switch {
-		// too far in the past -> historic connection
-		case at < db.δtail.Tail():
-			//conn = db.get(at, at)
-			conn = newConnection(db, at)
+		// too far in the past, and we know there is no exact match
+		// -> new historic connection.
+		if at <= db.δtail.Tail() {
+			return newConnection(db, at), nil
+		}
 
 		// δtail !initialized yet
-		case db.δtail.Head() == 0:
+		if db.δtail.Head() == 0 {
 			// XXX δtail could be not yet initialized, but e.g. last_tid changed
 			//     -> we have to wait for δtail not to loose just-released live cache
-			conn = newConnection(db, at)
-
-		// we already have some history coverage
-		default:
-			if at > δhead {
-				// XXX wait
-				// XXX -> retry loop (δtail.tail might go over at)
-			}
-
-			// at ∈ [δtail, δhead]
-			conn = db.get(δtail.Tail(), at)
-			if conn == nil {
-				conn = newConnection(db, at)
-			} else {
-				// invalidate changed live objects
-				// XXX -> Connection.resync(at)
-				for _, δ := range δtail.SliceByRev(conn.at, at) {
-					for _, oid := range δ.changev {
-						obj := conn.cache.Get(oid)
-						if obj != nil {
-							obj.PInvalidate()
-						}
-					}
-				}
-
-				conn.at = at
-			}
+			return newConnection(db, at), nil
 		}
 
-		db.mu.Unlock()
-
-		// wait till .δtail.head is up to date covering ≥ at
-		var δready chan struct{}
-		db.mu.Lock()
-		δhead = db.δtail.Head()
-		// XXX prevent head from going away?
-		if δhead < at {
-			δready = make(chan struct{})
+		// we have some δtail coverage, but at is ahead of that.
+		if at > δhead {
+			// wait till .δtail.head is up to date covering ≥ at
+			// and retry the loop (δtail.tail might go over at while we are waiting)
+			δready := make(chan struct{})
 			db.δwait[δwaiter{at, δready}] = struct{}{}
-		}
-		db.mu.Unlock()
+			db.mu.Unlock()
 
-		if δready != nil {
 			select {
 			case <-ctx.Done():
+				// XXX db.mu unlocked twice
 				return nil, ctx.Err()
 
 			case <-δready:
-				// ok
+				// ok - δtail.head went over at
+				continue retry
 			}
 		}
+
+		// at ∈ (δtail, δhead]	; try to get nearby idle connection or make a new one
+		conn = db.get(δtail.Tail(), at)
+		if conn == nil {
+			conn = newConnection(db, at)
+		}
+		return conn, nil
 	}
-
-	// now we have both at and invalidation data covering it -> proceed to
-	// get connection from the pool.
-	conn = db.get(at)
-	conn.txn = txn
-	txn.RegisterSync((*connTxnSync)(conn))
-
-	return conn, nil
 }
 
 // Resync resyncs the connection onto different database view and transaction.
@@ -359,9 +346,9 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 //
 // Resync must be used only under the following conditions:
 //
-//	- the connection was initially opened with NoPool flag.
+//	- the connection was initially opened with NoPool flag;
 //	- previous transaction, under which connection was previously
-//	  opened/resynced, must be already complete.
+//	  opened/resynced, must be already complete;
 //	- contrary to DB.Open, at cannot be 0.
 //
 // Note: new at can be both higher and lower than previous connection at.
@@ -375,13 +362,24 @@ func (conn *Connection) Resync(txn transaction.Transaction, at Tid) {
 	if at == 0 {
 		panic("Conn.Resync: resync to at=0 (auto-mode is valid only for DB.Open)")
 	}
+
+	conn.resync(txn, at)
+}
+
+// resync serves Connection.resync and DB.Open .
+func (conn *Connection) resync(txn transaction.Transaction, at Tid) {
 	// XXX conn.cache.Lock ? - yes (e.g. if user also checks it from outside, right?)
 
+	// XXX assert conn.txn == nil
+
+	// XXX lock in caller?
 	db := conn.db
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	δtail := db.δtail
+
+	// XXX conn.at == at - do nothing (even if out of δtail coverave)
 
 	// both conn.at and at are covered by δtail - we can invalidate selectively
 	if (δtail.Tail() < conn.at && conn.at <= δtail.Head()) &&
@@ -417,6 +415,8 @@ func (conn *Connection) Resync(txn transaction.Transaction, at Tid) {
 			}
 		}
 	}
+
+	// XXX unlock db before txn.RegisterSync (it locks txn.mu)
 
 	conn.at = at
 	conn.txn = txn
