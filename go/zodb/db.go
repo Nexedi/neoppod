@@ -50,15 +50,63 @@ type DB struct {
 	mu    sync.Mutex
 
 	// pool of unused connections.
-	// live cache is reused through finding conn with nearby at and
-	// invalidating live objects based on δtail info.
 	//
-	// XXX vs δtail coverage?
+	// On open(at) live cache is reused through finding conn with nearby
+	// .at and invalidating live objects based on δtail info.
+	//
+	// not all connections here have δtail coverage.
 	connv []*Connection // order by ↑= .at
 
-	// δtail of database changes for invalidations
-	// min(rev) = min(conn.at) for all conn ∈ db (opened and in the pool)	XXX no
-	// XXX      + min(conn.at) for all conn ∈ waiting/opening.
+	// δtail of database changes.
+	//
+	// Used for live cache invalidations on open with at close to current
+	// storage head. δtail coverage is maintained based on the following:
+	//
+	// 1) if open(at) is _far_away_ from head - it is _unlikely_ for
+	//    opened connection to be later propagated towards head.
+	//
+	// 2) if open(at) is _close_      to head - it is _possible_ for
+	//    opened connection to be later propagated towards head.
+	//
+	// For "1" we don't need δtail coverage; for "2" probability that
+	// it would make sense for connection to be advanced decreases the
+	// longer the connection stays opened. Thus the following 2 factors
+	// affect whether it makes sense to keep δtail coverage for a
+	// connection:
+	//
+	//         |at - δhead(when_open)|	ΔTnext		 - avg. time between transactions
+	// heady = ──────────────────────	at     		 - connection opened for this state
+	//                ΔTnext		δhead(when_open) - δtail.Head when connection was opened
+	//					Twork(conn)	 - time the connection is used
+	//         Twork(conn)
+	// work  = ───────────
+	//           ΔTnext
+	//
+	// if heady >> 1 - it is case "1" and δtail coverage is not needed.
+	// if heady  ~ 1 - it is case "2" and δtail coverage might be needed depending on work.
+	// if work  >> 1 - the number of objects that will need to be invalidated
+	//		   when updating conn to current head grows to ~ 100% of
+	//		   connection's live cache. It thus does not make
+	//		   sense to keep δtail past some reasonable time.
+	//
+	// A good system would monitor both ΔTnext, and work for connections
+	// with small heady, and adjust δtail cut time as e.g.
+	//
+	//	timelen(δtail) = 3·work·ΔTnext
+	//
+	//
+	// FIXME for now we just fix
+	//
+	//	Theady = 1min
+	//	Tδkeep = 10min
+	//
+	// and assume that a connection is heady if
+	//
+	//	|at - δhead(when_open)| ≤ Theady
+	//
+	// and keep δtail coverage for Tδkeep time
+	//
+	//	timelen(δtail) = Tδkeep
 	δtail *ΔTail // [](rev↑, []oid)
 
 	// openers waiting for δtail.Head to become covering their at.
