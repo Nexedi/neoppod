@@ -260,6 +260,9 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 		at = head
 	}
 
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	conn, err := db.open(ctx, at, opt.NoPool)
 	if err != nil {
 		return nil, err
@@ -272,6 +275,8 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 //
 // it returns either new connection, or connection from the pool.
 // returned connection does not neccessarily have .at=at, and have to go through .resync().
+//
+// must be called with db.mu locked.
 func (db *DB) open(ctx context.Context, at Tid, noPool bool) (*Connection, error) {
 	// NoPool connection - create anew
 	if noPool {
@@ -280,10 +285,7 @@ func (db *DB) open(ctx context.Context, at Tid, noPool bool) (*Connection, error
 		return conn, nil
 	}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-retry:	// each loop iteration starts with db.mu locked
+retry:
 	for {
 		// check if we already have the exact match
 		conn := db.get(at, at)
@@ -318,11 +320,11 @@ retry:	// each loop iteration starts with db.mu locked
 
 			select {
 			case <-ctx.Done():
-				// XXX db.mu unlocked twice
 				return nil, ctx.Err()
 
 			case <-δready:
-				// ok - δtail.head went over at
+				// ok - δtail.head went over at; relock db and retry
+				db.mu.Lock()
 				continue retry
 			}
 		}
@@ -363,19 +365,18 @@ func (conn *Connection) Resync(txn transaction.Transaction, at Tid) {
 		panic("Conn.Resync: resync to at=0 (auto-mode is valid only for DB.Open)")
 	}
 
+	conn.db.mu.Lock()
+	defer conn.db.mu.Unlock()
+
 	conn.resync(txn, at)
 }
 
 // resync serves Connection.resync and DB.Open .
+//
+// must be called with conn.db.mu locked.
 func (conn *Connection) resync(txn transaction.Transaction, at Tid) {
 	// XXX conn.cache.Lock ? - yes (e.g. if user also checks it from outside, right?)
-
 	// XXX assert conn.txn == nil
-
-	// XXX lock in caller?
-	db := conn.db
-	db.mu.Lock()
-	defer db.mu.Unlock()
 
 	δtail := db.δtail
 
