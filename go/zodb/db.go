@@ -349,7 +349,66 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	return conn, nil
 }
 
-//func (conn *Connection) resync(at Tid
+// Resync resyncs the connection onto different database view.
+//
+// XXX previous conn's txn must be already complete.
+// XXX must be run under transaction.
+// XXX objects are guaranteed to stay in live cache, even if in ghost state.
+// XXX Resync allowed only for connections opened with NoPool flag.
+// XXX contrary to DB.Open at cannot be 0.
+// XXX new at can be both higher and lower than previous at.
+func (conn *Connection) Resync(ctx context.Context, at Tid) {
+	// XXX assert conn.noPool == true
+	// XXX assert conn.txn == nil
+	// XXX assert at != 0
+	// XXX conn.cache.Lock ? - yes (e.g. if user also checks it from outside, right?)
+	txn := transaction.Current(ctx)
+
+	db := conn.db
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	δtail := db.δtail
+
+	// both conn.at and at are covered by δtail - we can invalidate selectively
+	if (δtail.Tail() < conn.at && conn.at <= δtail.Head()) &&
+	   (δtail.Tail() <      at &&      at <= δtail.Head()) {
+		var δv []δRevEntry
+		if conn.at <= at {
+			δv = δtail.SliceByRev(conn.at, at)
+		} else {
+			// at < conn.at
+			δv = δtail.SliceByRev(at-1, conn.at-1)
+		}
+
+		for _, δ := range δv {
+			for _, oid := range δ.changev {
+				obj := conn.cache.Get(oid)
+				if obj != nil {
+					obj.PInvalidate()
+				}
+			}
+		}
+
+	// some of conn.at or at is outside δtail coverage - invalidate all
+	// objects, but keep the objects present in live cache.
+	} else {
+		// XXX keep synced with LiveCache details
+		// XXX -> conn.cache.forEach?
+		// XXX should we wait for db.stor.head to cover at?
+		//     or leave this wait till load time?
+		for _, wobj := range conn.cache.objtab {
+			obj, _ := wobj.Get().(IPersistent)
+			if obj != nil {
+				obj.PInvalidate()
+			}
+		}
+	}
+
+	conn.at = at
+	conn.txn = txn
+	txn.RegisterSync((*connTxnSync)(conn))
+}
 
 // get returns connection from db pool most close to at.
 //
