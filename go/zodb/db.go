@@ -47,8 +47,10 @@ import (
 type DB struct {
 	stor IStorage
 
-	mu    sync.Mutex
-	connv []*Connection // order by ↑= .at
+	mu sync.Mutex
+
+	// pool of unused connections.
+	pool []*Connection // order by ↑= .at
 
 	// information about invalidations
 	// XXX -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
@@ -161,12 +163,12 @@ func (db *DB) get(at Tid) *Connection {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	l := len(db.connv)
+	l := len(db.pool)
 
-	// find connv index corresponding to at:
+	// find pool index corresponding to at:
 	// [i-1].at ≤ at < [i].at
 	i := sort.Search(l, func(i int) bool {
-		return at < db.connv[i].at
+		return at < db.pool[i].at
 	})
 
 	// search through window of X previous connections and find out the one
@@ -188,15 +190,15 @@ func (db *DB) get(at Tid) *Connection {
 
 	// nothing found or too distant
 	const Tnear = 10*time.Minute // XXX hardcoded
-	if jδmin < 0 || tabs(δtid(at, db.connv[jδmin].at)) > Tnear {
+	if jδmin < 0 || tabs(δtid(at, db.pool[jδmin].at)) > Tnear {
 		return newConnection(db, at)
 	}
 
 	// reuse the connection
-	conn := db.connv[jδmin]
-	copy(db.connv[jδmin:], db.connv[jδmin+1:])
-	db.connv[l-1] = nil
-	db.connv = db.connv[:l-1]
+	conn := db.pool[jδmin]
+	copy(db.pool[jδmin:], db.pool[jδmin+1:])
+	db.pool[l-1] = nil
+	db.pool = db.pool[:l-1]
 
 	if conn.db != db {
 		panic("DB.get: foreign connection in the pool")
@@ -223,16 +225,16 @@ func (db *DB) put(conn *Connection) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	// XXX check if len(connv) > X, and drop conn if yes
+	// XXX check if len(pool) > X, and drop conn if yes
 	// [i-1].at ≤ at < [i].at
-	i := sort.Search(len(db.connv), func(i int) bool {
-		return conn.at < db.connv[i].at
+	i := sort.Search(len(db.pool), func(i int) bool {
+		return conn.at < db.pool[i].at
 	})
 
-	//db.connv = append(db.connv[:i], conn, db.connv[i:]...)
-	db.connv = append(db.connv, nil)
-	copy(db.connv[i+1:], db.connv[i:])
-	db.connv[i] = conn
+	//db.pool = append(db.pool[:i], conn, db.pool[i:]...)
+	db.pool = append(db.pool, nil)
+	copy(db.pool[i+1:], db.pool[i:])
+	db.pool[i] = conn
 
 	// XXX GC too idle connections here?
 }
