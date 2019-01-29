@@ -47,7 +47,7 @@ import (
 type DB struct {
 	stor IStorage
 
-	mu    sync.Mutex
+	mu sync.Mutex
 
 	// pool of unused connections.
 	//
