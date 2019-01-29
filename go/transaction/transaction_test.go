@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -98,7 +98,17 @@ func TestAbort(t *testing.T) {
 	dm.Modify()
 
 	// XXX +sync
+/* XXX test Abort not waiting for AfterCompletion via tracetest (with injected δt shakes):
+	txn.RegisterSync(AfterCompletion: {eAfterCompletion})
 
+	go func() {
+		eAbortPre
+		txn.Abort()
+		eAbortPost
+	}()
+
+	expect(eAbortPre, eAfterCompletion, eAbortPost)
+*/
 	txn.Abort()
 	if !(dm.nabort == 1 && txn.Status() == Aborted) {
 		t.Fatalf("abort: nabort=%d; txn.Status=%v", dm.nabort, txn.Status())
