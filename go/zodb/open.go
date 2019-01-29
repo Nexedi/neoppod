@@ -47,12 +47,18 @@ type DriverOptions struct {
 	//
 	// The storage driver closes !nil Watchq when the driver is closed.
 	//
+	// The storage driver will send only and all events in (at₀, +∞] range,
+	// where at₀ is at returned by driver open.
+	//
 	// TODO extend watchq to also receive errors from watcher.
 	Watchq chan<- CommitEvent
 }
 
 // DriverOpener is a function to open a storage driver.
-type DriverOpener func (ctx context.Context, u *url.URL, opt *DriverOptions) (IStorageDriver, error)
+//
+// at₀ gives database state at open time. The driver will send to Watchq (see
+// DriverOptions) only and all events in (at₀, +∞] range.
+type DriverOpener func (ctx context.Context, u *url.URL, opt *DriverOptions) (_ IStorageDriver, at0 Tid, _ error)
 
 // {} scheme -> DriverOpener
 var driverRegistry = map[string]DriverOpener{}
@@ -98,7 +104,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		Watchq:   nil,          // TODO use watchq to implement high-level watching
 	}
 
-	storDriver, err := opener(ctx, u, drvOpt)
+	storDriver, _, err := opener(ctx, u, drvOpt) // TODO use at0 to initialize watcher δtail
 	if err != nil {
 		return nil, err
 	}
