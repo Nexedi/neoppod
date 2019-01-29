@@ -23,8 +23,9 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 
-	// wks or any other storage cannot be imported from zodb due to cycle
-	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
+	// we need file:// support in ZODB tests.
+	// wks or any other storage cannot be imported from zodb due to cycle.
+	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 )
 
 // import at runtime few things into zodb tests, that zodb cannot import itself
