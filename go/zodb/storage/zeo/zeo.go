@@ -283,7 +283,7 @@ func (r rpc) ereplyf(format string, argv ...interface{}) *errorUnexpectedReply {
 
 // ---- open ----
 
-func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb.IStorageDriver, err error) {
+func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb.IStorageDriver, at0 zodb.Tid, err error) {
 	url := u.String()
 	defer xerr.Contextf(&err, "open %s:", url)
 
@@ -307,11 +307,12 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	}
 
 	if !opt.ReadOnly {
-		return nil, fmt.Errorf("TODO write mode not implemented")
+		return nil, zodb.InvalidTid, fmt.Errorf("TODO write mode not implemented")
 	}
 
 	// FIXME handle opt.Watchq
 	// for now we pretend as if the database is not changing.
+	// TODO watcher(when implementing): filter-out first < at0 messages.
 	if opt.Watchq != nil {
 		log.Print("zeo: FIXME: watchq support not implemented - there" +
 			  "won't be notifications about database changes")
@@ -319,7 +320,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 
 	zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable {invalidateTransaction tid, oidv} -> ...
 	if err != nil {
-		return nil, err
+		return nil, zodb.InvalidTid, err
 	}
 
 	defer func() {
@@ -334,7 +335,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	rpc := z.rpc("register")
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
 	if err != nil {
-		return nil, err
+		return nil, zodb.InvalidTid, err
 	}
 
 	// register returns last_tid in ZEO5 but nothing earlier.
@@ -343,16 +344,23 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		rpc = z.rpc("lastTransaction")
 		xlastTid, err = rpc.call(ctx)
 		if err != nil {
-			return nil, err
+			return nil, zodb.InvalidTid, err
 		}
 	}
 
 	lastTid, ok := tidUnpack(xlastTid) // XXX -> xlastTid -> scan
 	if !ok {
-		return nil, rpc.ereplyf("got %v; expect tid", xlastTid)
+		return nil, zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xlastTid)
 	}
 
 	z.lastTid = lastTid
+
+	// XXX since we read lastTid, at least with ZEO < 5, in separate RPC
+	// call, there is a chance, that by the time when lastTid was read some
+	// new transactions were committed. This way lastTid will be > than
+	// some first transactions received by watcher via
+	// "invalidateTransaction" server notification.
+	at0 = lastTid
 
 
 	//call('get_info') -> {}str->str, ex	// XXX can be omitted
@@ -371,7 +379,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
   'supports_record_iternext': True})
 */
 
-	return z, nil
+	return z, at0, nil
 }
 
 func (z *zeo) Close() error {

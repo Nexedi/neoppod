@@ -500,21 +500,22 @@ func (c *Client) Watch(ctx context.Context) (zodb.Tid, []zodb.Oid, error) {
 // ---- ZODB open/url support ----
 
 
-func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (zodb.IStorageDriver, error) {
+func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (zodb.IStorageDriver, zodb.Tid, error) {
 	// neo://name@master1,master2,...,masterN?options
 
 	if u.User == nil {
-		return nil, fmt.Errorf("neo: open %q: cluster name not specified", u)
+		return nil, zodb.InvalidTid, fmt.Errorf("neo: open %q: cluster name not specified", u)
 	}
 
 	// XXX readonly stub
 	// XXX place = ?
 	if !opt.ReadOnly {
-		return nil, fmt.Errorf("neo: %s: TODO write mode not implemented", u)
+		return nil, zodb.InvalidTid, fmt.Errorf("neo: %s: TODO write mode not implemented", u)
 	}
 
 	// FIXME handle opt.Watchq
 	// for now we pretend as if the database is not changing.
+	// TODO watcher(when implementing): filter-out first < at0 messages.
 	if opt.Watchq != nil {
 		log.Error(ctx, "neo: FIXME: watchq support not implemented - there" +
 			       "won't be notifications about database changes")
@@ -528,7 +529,23 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (
 	//     whole storage working lifetime.
 	c := NewClient(u.User.Username(), u.Host, net)
 	c.watchq = opt.Watchq
-	return c, nil
+
+	// XXX since we read lastTid, in separate protocol exchange there is a
+	// chance, that by the time when lastTid was read some new transactions
+	// were committed. This way lastTid will be > than some first
+	// transactions received by watcher via "invalidateObjects" server
+	// notification.
+	//
+	// TODO change NEO protocol so that when C connects to M, M sends it
+	// current head and guarantees to send only followup invalidation
+	// updates.
+	at0, err := c.LastTid(ctx)
+	if err != nil {
+		c.Close() // XXX lclose
+		return nil, zodb.InvalidTid, fmt.Errorf("neo: open %q: %s", u, err)
+	}
+
+	return c, at0, nil
 }
 
 func (c *Client) URL() string {

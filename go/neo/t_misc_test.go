@@ -41,7 +41,7 @@ func gox(wg interface { Go(func() error) }, xf func()) {
 }
 
 func xfs1stor(path string) *zfs1.FileStorage {
-	stor, err := zfs1.Open(bg, path, &zodb.DriverOptions{ReadOnly: true})	// XXX opts = ?
+	stor, _, err := zfs1.Open(bg, path, &zodb.DriverOptions{ReadOnly: true})	// XXX opts = ?
 	exc.Raiseif(err)
 	return stor
 }

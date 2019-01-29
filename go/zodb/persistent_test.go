@@ -287,6 +287,7 @@ func TestPersistentDB(t *testing.T) {
 	println("000")
 
 	// new db connection should see the change
+	// XXX currently there is a race because db.Open does not do proper Sync
 	txn2, ctx2 := transaction.New(ctx)
 	conn2, err := db.Open(ctx2, &ConnOptions{}); X(err)
 	assert.Equal(conn2.At(), at2)

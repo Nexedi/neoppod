@@ -110,22 +110,22 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect objState) {
 	}
 }
 
-func xfsopen(t testing.TB, path string) *FileStorage {
+func xfsopen(t testing.TB, path string) (*FileStorage, zodb.Tid) {
 	t.Helper()
 	return xfsopenopt(t, path, &zodb.DriverOptions{ReadOnly: true})
 }
 
-func xfsopenopt(t testing.TB, path string, opt *zodb.DriverOptions) *FileStorage {
+func xfsopenopt(t testing.TB, path string, opt *zodb.DriverOptions) (*FileStorage, zodb.Tid) {
 	t.Helper()
-	fs, err := Open(context.Background(), path, opt)
+	fs, at0, err := Open(context.Background(), path, opt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fs
+	return fs, at0
 }
 
 func TestLoad(t *testing.T) {
-	fs := xfsopen(t, "testdata/1.fs")
+	fs, _ := xfsopen(t, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
 	// current knowledge of what was "before" for an oid as we scan over
@@ -155,7 +155,7 @@ func TestLoad(t *testing.T) {
 	}
 
 	// load at ∞ with TidMax
-	// XXX should we get "no such transaction" with at > head?
+	// XXX should we get "no such transaction" with at > head? - yes
 	for oid, expect := range before {
 		xid := zodb.Xid{zodb.TidMax, oid}
 		checkLoad(t, fs, xid, expect)
@@ -274,7 +274,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 }
 
 func TestIterate(t *testing.T) {
-	fs := xfsopen(t, "testdata/1.fs")
+	fs, _ := xfsopen(t, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
 	// all []tids in test database
@@ -310,7 +310,7 @@ func TestIterate(t *testing.T) {
 }
 
 func BenchmarkIterate(b *testing.B) {
-	fs := xfsopen(b, "testdata/1.fs")
+	fs, _ := xfsopen(b, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
 	ctx := context.Background()
@@ -378,7 +378,10 @@ func TestWatch(t *testing.T) {
 	at := xcommit(0, xtesting.ZRawObject{0, b("data0")})
 
 	watchq := make(chan zodb.CommitEvent)
-	fs := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
+	fs, at0 := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
+	if at0 != at {
+		t.Fatalf("opened @ %s  ; want %s", at0, at)
+	}
 	ctx := context.Background()
 
 	checkLastTid := func(lastOk zodb.Tid) {
@@ -476,10 +479,13 @@ func TestOpenRecovery(t *testing.T) {
 	}
 	for _, l := range lok {
 		checkL(t, l, func(t *testing.T, tfs string) {
-			fs := xfsopen(t, tfs)
+			fs, at0 := xfsopen(t, tfs)
 			defer func() {
 				err = fs.Close(); X(err)
 			}()
+			if at0 != lastTidOk {
+				t.Fatalf("at0: %s  ; expected: %s", at0, lastTidOk)
+			}
 			head, err := fs.LastTid(ctx); X(err)
 			if head != lastTidOk {
 				t.Fatalf("last_tid: %s  ; expected: %s", head, lastTidOk)
@@ -491,7 +497,7 @@ func TestOpenRecovery(t *testing.T) {
 	// XXX better check 0..sizeof(txnh)-1 but in this range each check is slow.
 	for _, l := range []int{TxnHeaderFixSize-1,1} {
 		checkL(t, l, func(t *testing.T, tfs string) {
-			_, err := Open(ctx, tfs, &zodb.DriverOptions{ReadOnly: true})
+			_, _, err := Open(ctx, tfs, &zodb.DriverOptions{ReadOnly: true})
 			estr := ""
 			if err != nil {
 				estr = err.Error()

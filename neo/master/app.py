@@ -522,7 +522,6 @@ class Application(BaseApplication):
                 client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
                                  msg_id=txn.getMessageId())
             else:
-                # NOTE notifies all clients irregardless of whether who was subscribed
                 client_node.send(invalidate_objects)
 
         # Unlock Information to relevant storage nodes.

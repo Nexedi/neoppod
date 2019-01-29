@@ -730,10 +730,10 @@ func (fs *FileStorage) Close() error {
 }
 
 // Open opens FileStorage @path.
-func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileStorage, err error) {
+func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileStorage, at0 zodb.Tid, err error) {
 	// TODO read-write support
 	if !opt.ReadOnly {
-		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
+		return nil, zodb.InvalidTid, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
 	}
 
 	fs := &FileStorage{
@@ -743,7 +743,7 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, zodb.InvalidTid, err
 	}
 	fs.file = f
 	defer func() {
@@ -758,7 +758,7 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 	fh := FileHeader{}
 	err = fh.Load(f)
 	if err != nil {
-		return nil, err
+		return nil, zodb.InvalidTid, err
 	}
 
 	// load index
@@ -791,7 +791,7 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 		checkTailGarbage = true
 	}
 	if err != nil {
-		return nil, err
+		return nil, zodb.InvalidTid, err
 	}
 
 	fs.index = index
@@ -802,7 +802,7 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 		err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)
 		err = noEOF(err)
 		if err != nil {
-			return nil, err
+			return nil, zodb.InvalidTid, err
 		}
 
 		_ = fs.txnhMax.Load(f, index.TopPos, LoadAll)
@@ -811,18 +811,20 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 		// that we read .LenPrev ok.
 		switch fs.txnhMax.LenPrev {
 		case -1:
-			return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
+			return nil, zodb.InvalidTid, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
 		case 0:
-			return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction): unexpected EOF backward", f.Name(), fs.txnhMax.Pos)
+			return nil, zodb.InvalidTid, fmt.Errorf("%s: could not read LenPrev @%d (last transaction): unexpected EOF backward", f.Name(), fs.txnhMax.Pos)
 
 		default:
 			// .LenPrev is ok - read last previous record
 			err = fs.txnhMax.LoadPrev(f, LoadAll)
 			if err != nil {
-				return nil, err
+				return nil, zodb.InvalidTid, err
 			}
 		}
 	}
+
+	at0 = fs.txnhMax.Tid
 
 	// there might be simultaneous updates to the data file from outside.
 	// launch the watcher who will observe them.
@@ -831,12 +833,12 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 	// race of missing early file writes.
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return nil, zodb.InvalidTid, err
 	}
 	err = w.Add(f.Name())
 	if err != nil {
 		w.Close()	// XXX lclose
-		return nil, err
+		return nil, zodb.InvalidTid, err
 	}
 
 	var errFirstRead chan error
@@ -851,14 +853,14 @@ func Open(ctx context.Context, path string, opt *zodb.DriverOptions) (_ *FileSto
 	if checkTailGarbage {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, zodb.InvalidTid, ctx.Err()
 
 		case err = <-errFirstRead:
 			if err != nil {
-				return nil, err // it was garbage
+				return nil, zodb.InvalidTid, err // it was garbage
 			}
 		}
 	}
 
-	return fs, nil
+	return fs, at0, nil
 }

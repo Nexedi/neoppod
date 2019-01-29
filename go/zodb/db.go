@@ -102,7 +102,7 @@ type DB struct {
 	// and keep δtail coverage for Tδkeep time
 	//
 	//	timelen(δtail) = Tδkeep
-	δtail  *ΔTail // [](rev↑, []oid)
+	δtail  *ΔTail        // [](rev↑, []oid)
 	tδkeep time.Duration
 
 	// openers waiting for δtail.Head to become covering their at.
@@ -174,21 +174,22 @@ type δwaiter struct {
 
 // watcher receives events about new committed transactions and updates δtail.
 //
-// it also wakes up δtail waiters.
+// it also notifies δtail waiters.
 func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 	for {
 		event, ok := <-watchq
 		if !ok {
-			fmt.Printf("db: watcher: close")
+			fmt.Printf("db: watcher: close\n")
 			// XXX wake up all waiters?
 			return // closed
 		}
 
-		fmt.Printf("db: watcher <- %v", event)
+		fmt.Printf("db: watcher <- %v\n", event)
 
 		var readyv []chan struct{} // waiters that become ready
 
 		db.mu.Lock()
+
 		db.δtail.Append(event.Tid, event.Changev)
 		for w := range db.δwait {
 			if w.at <= event.Tid {
@@ -206,7 +207,7 @@ func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 
 		// wakeup waiters outside of db.mu
 		for _, ready := range readyv {
-			fmt.Printf("db: watcher: wakeup %v", ready)
+			fmt.Printf("db: watcher: wakeup %v\n", ready)
 			close(ready)
 		}
 	}
@@ -238,6 +239,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 
 	txn := transaction.Current(ctx)
 
+	// find out db state we should open at
 	at := opt.At
 	if at == 0 {
 		head := Tid(0)
@@ -265,8 +267,15 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 		at = head
 	}
 
-	db.mu.Lock()
-	// unlock is either in resyncAndDBUnlock, or in db.openOrDBUnlock -> err
+	// proceed to open(at)
+	db.mu.Lock() // unlocked in *DBUnlock
+
+/*
+	err := db.needHeadOrDBUnlock(ctx, at) // XXX what if δtail !init yet?
+	if err != nil {
+		return nil, err
+	}
+*/
 
 	conn, err := db.openOrDBUnlock(ctx, at, opt.NoPool)
 	if err != nil {
@@ -287,6 +296,7 @@ func (db *DB) openOrDBUnlock(ctx context.Context, at Tid, noPool bool) (*Connect
 	fmt.Printf("db.openx %s %v\t; δtail (%s, %s]\n", at, noPool, db.δtail.Tail(), db.δtail.Head())
 	// NoPool connection - create one anew
 	if noPool {
+		// XXX wait for at to be covered
 		conn := newConnection(db, at)
 		conn.noPool = true
 		return conn, nil
@@ -354,7 +364,7 @@ retry:
 // cache, even if maybe in ghost state (e.g. if they have to be invalidated due
 // to database changes).
 //
-// Resync can be used several times.
+// Resync can be used many times.
 //
 // Resync must be used only under the following conditions:
 //
@@ -406,7 +416,7 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 	δall  := false                  // if we have to invalidate all objects
 
 	// both conn.at and at are covered by δtail - we can invalidate selectively
-	if (δtail.Tail() < conn.at && conn.at <= δtail.Head()) &&
+	if (δtail.Tail() < conn.at && conn.at <= δtail.Head()) &&	// XXX conn.at can = δtail.Tail
 	   (δtail.Tail() <      at &&      at <= δtail.Head()) {
 		var δv []δRevEntry
 		if conn.at <= at {
@@ -431,13 +441,14 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 	// unlock db before locking cache and txn
 	db.mu.Unlock()
 
+	// XXX -> separate func? (then we can drop "AndDBUnlock")
 	conn.cache.Lock()
 	defer conn.cache.Unlock()
 
 	if δall {
 		// XXX keep synced with LiveCache details
 		// XXX -> conn.cache.forEach?
-		// XXX should we wait for db.stor.head to cover at?
+		// XXX should we wait for db.stor.head to cover at?	FIXME openOrDBUnlock does this
 		//     or leave this wait till .Load() time?
 		for _, wobj := range conn.cache.objtab {
 			obj, _ := wobj.Get().(IPersistent)
@@ -460,7 +471,7 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 
 // get returns connection from db pool most close to at with conn.at ∈ [atMin, at].
 //
-// XXX recheck [atMin    or   (atMin
+// XXX recheck [atMin    or   (atMin	-- see "= δtail.Tail" in resyncAndDBUnlock.
 //
 // if there is no such connection in the pool - nil is returned.
 // must be called with db.mu locked.
