@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -74,7 +74,7 @@ func pySetState(obj PyStateful, objClass string, state *mem.Buf, jar *Connection
 // It only returns decoded database data.
 func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pystate interface{}, serial Tid, _ error) {
 	xid := Xid{Oid: oid, At: conn.at}
-	buf, serial, err := conn.stor.Load(ctx, xid)
+	buf, serial, err := conn.db.stor.Load(ctx, xid)
 	if err != nil {
 		return "", nil, 0, err
 	}
@@ -84,7 +84,7 @@ func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pyst
 	pyclass, pystate, err := PyData(buf.Data).decode(conn)
 	if err != nil {
 		err = &OpError{
-			URL:  conn.stor.URL(),
+			URL:  conn.db.stor.URL(),
 			Op:   "loadpy",
 			Args: xid,
 			Err:  err,

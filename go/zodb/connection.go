@@ -45,7 +45,6 @@ import (
 //
 // Use DB.Open to open a connection.
 type Connection struct {
-	stor IStorage                // underlying storage
 	db   *DB                     // Connection is part of this DB
 	txn  transaction.Transaction // opened under this txn; nil if idle in DB pool.
 	at   Tid                     // current view of database; stable inside a transaction.
@@ -137,7 +136,6 @@ type LiveCacheControl interface {
 // newConnection creates new Connection associated with db.
 func newConnection(db *DB, at Tid) *Connection {
 	return &Connection{
-		stor:  db.stor,
 		db:    db,
 		at:    at,
 		cache: LiveCache{
@@ -262,7 +260,7 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (_ IPersistent, err er
 // load loads object specified by oid.
 func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial Tid, _ error) {
 	conn.checkTxnCtx(ctx, "load")
-	return conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
+	return conn.db.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
 }
 
 // ----------------------------------------
