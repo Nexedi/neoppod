@@ -20,13 +20,10 @@
 package fs1
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
-	"os/exec"
 	"reflect"
 	"testing"
 
@@ -34,7 +31,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/exc"
-	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // one database transaction record
@@ -354,6 +350,15 @@ func BenchmarkIterate(b *testing.B) {
 	b.StopTimer()
 }
 
+// b is syntatic sugar for byte literals.
+//
+// e.g.
+//
+//	b("hello")
+func b(data string) []byte {
+	return []byte(data)
+}
+
 // TestWatch verifies that watcher can observe commits done from outside.
 func TestWatch(t *testing.T) {
 	X := exc.Raiseif
@@ -362,54 +367,15 @@ func TestWatch(t *testing.T) {
 	workdir := xworkdir(t)
 	tfs := workdir + "/t.fs"
 
-	// Object represents object state to be committed.
-	type Object struct {
-		oid  zodb.Oid
-		data string
-	}
-
-	// zcommit commits new transaction into tfs with data specified by objv.
-	zcommit := func(at zodb.Tid, objv ...Object) (_ zodb.Tid, err error) {
-		defer xerr.Contextf(&err, "zcommit @%s", at)
-
-		// prepare text input for `zodb commit`
-		zin := &bytes.Buffer{}
-		fmt.Fprintf(zin, "user %q\n", "author")
-		fmt.Fprintf(zin, "description %q\n", fmt.Sprintf("test commit; at=%s", at))
-		fmt.Fprintf(zin, "extension %q\n", "")
-		for _, obj := range objv {
-			fmt.Fprintf(zin, "obj %s %d null:00\n", obj.oid, len(obj.data))
-			zin.WriteString(obj.data)
-			zin.WriteString("\n")
-		}
-		zin.WriteString("\n")
-
-		// run py `zodb commit`
-		cmd:= exec.Command("python2", "-m", "zodbtools.zodb", "commit", tfs, at.String())
-		cmd.Stdin  = zin
-		cmd.Stderr = os.Stderr
-		out, err := cmd.Output()
-		if err != nil {
-			return zodb.InvalidTid, err
-		}
-
-		out = bytes.TrimSuffix(out, []byte("\n"))
-		tid, err := zodb.ParseTid(string(out))
-		if err != nil {
-			return zodb.InvalidTid, fmt.Errorf("committed, but invalid output: %s", err)
-		}
-
-		return tid, nil
-	}
-
-	xcommit := func(at zodb.Tid, objv ...Object) zodb.Tid {
+	// xcommit commits new transaction into tfs with raw data specified by objv.
+	xcommit := func(at zodb.Tid, objv ...xtesting.ZRawObject) zodb.Tid {
 		t.Helper()
-		tid, err := zcommit(at, objv...); X(err)
+		tid, err := xtesting.ZPyCommitRaw(tfs, at, objv...); X(err)
 		return tid
 	}
 
 	// force tfs creation & open tfs at go side
-	at := xcommit(0, Object{0, "data0"})
+	at := xcommit(0, xtesting.ZRawObject{0, b("data0")})
 
 	watchq := make(chan zodb.CommitEvent)
 	fs, at0 := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
@@ -453,8 +419,8 @@ func TestWatch(t *testing.T) {
 		data0 := fmt.Sprintf("data0.%d", i)
 		datai := fmt.Sprintf("data%d", i)
 		at = xcommit(at,
-			Object{0, data0},
-			Object{i, datai})
+			xtesting.ZRawObject{0, b(data0)},
+			xtesting.ZRawObject{i, b(datai)})
 
 		// TODO also test for watcher errors
 		e := <-watchq

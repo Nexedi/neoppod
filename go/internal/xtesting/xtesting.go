@@ -21,9 +21,15 @@
 package xtesting
 
 import (
+	"bytes"
+	"fmt"
+	"os"
 	"os/exec"
 	"sync"
 	"testing"
+
+	"lab.nexedi.com/kirr/go123/xerr"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
 var (
@@ -79,4 +85,46 @@ func NeedPy(t testing.TB, modules ...string) {
 
 	// we verified everything - now it is ok not to skip.
 	return
+}
+
+// ZRawObject represents raw ZODB object state.
+type ZRawObject struct {
+	Oid  zodb.Oid
+	Data []byte // raw serialized zodb data
+}
+
+// ZPyCommitRaw commits new transaction into database @ zurl with raw data specified by objv.
+//
+// The commit is performed via zodbtools/py.
+func ZPyCommitRaw(zurl string, at zodb.Tid, objv ...ZRawObject) (_ zodb.Tid, err error) {
+	defer xerr.Contextf(&err, "%s: zpycommit @%s", zurl, at)
+
+	// prepare text input for `zodb commit`
+	zin := &bytes.Buffer{}
+	fmt.Fprintf(zin, "user %q\n", "author")
+	fmt.Fprintf(zin, "description %q\n", fmt.Sprintf("test commit; at=%s", at))
+	fmt.Fprintf(zin, "extension %q\n", "")
+	for _, obj := range objv {
+		fmt.Fprintf(zin, "obj %s %d null:00\n", obj.Oid, len(obj.Data))
+		zin.Write(obj.Data)
+		zin.WriteString("\n")
+	}
+	zin.WriteString("\n")
+
+	// run py `zodb commit`
+	cmd:= exec.Command("python2", "-m", "zodbtools.zodb", "commit", zurl, at.String())
+	cmd.Stdin  = zin
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return zodb.InvalidTid, err
+	}
+
+	out = bytes.TrimSuffix(out, []byte("\n"))
+	tid, err := zodb.ParseTid(string(out))
+	if err != nil {
+		return zodb.InvalidTid, fmt.Errorf("committed, but invalid output: %s", err)
+	}
+
+	return tid, nil
 }
