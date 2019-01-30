@@ -44,6 +44,7 @@ import (
 //	type myObjectState MyObject
 //
 //	func (o *myObjectState) DropState() { ... }
+//	func (o *myObjectState) GetState() *mem.Buf { ... }
 //	func (o *myObjectState) SetState(state *mem.Buf) error { ... }
 //
 //	func init() {
@@ -105,6 +106,14 @@ type Ghostable interface {
 // Stateful is the interface describing in-RAM object whose data state can be
 // exchanged as raw bytes.
 type Stateful interface {
+	// GetState should return state of the in-RAM object as raw data.
+	//
+	// GetState is called only by persistent machinery and only when object
+	// has its state - in other words only on non-ghost objects.
+	//
+	// XXX buf ownership?
+	GetState() *mem.Buf
+
 	// SetState should set state of the in-RAM object from raw data.
 	//
 	// state ownership is not passed to SetState, so if state needs to be
@@ -115,14 +124,6 @@ type Stateful interface {
 	//
 	// XXX SetState is called only on ghost.
 	SetState(state *mem.Buf) error
-
-	// GetState should return state of the in-RAM object as raw data.
-	//
-	// GetState is called only by persistent machinery and only when object
-	// has its state - in other words only on non-ghost objects.
-	//
-	// XXX buf ownership?
-	GetState() *mem.Buf
 }
 
 // ---- serialize ----
@@ -521,6 +522,12 @@ func (b *brokenState) DropState() {
 	b.state = nil
 }
 
+func (b *brokenState) GetState() *mem.Buf {
+	// XXX ok?
+	b.state.Incref()
+	return b.state
+}
+
 func (b *brokenState) SetState(state *mem.Buf) error {
 	b.state.XRelease()
 	state.Incref()
@@ -533,4 +540,116 @@ var brokenZClass = &zclass{
 	class:     "",
 	typ:       reflect.TypeOf(Broken{}),
 	stateType: reflect.TypeOf(brokenState{}),
+}
+
+
+// ---- basic persistent objects provided by zodb ----
+
+// XXX -> zodbpy ?
+
+// XXX Map is like persistent.mapping.PersistentMapping
+// XXX tests.
+type Map struct {
+	Persistent
+
+	// XXX it is not possible to embed map. And even if we embed a map via
+	// another type = map, then it is not possible to use indexing and
+	// range over Map. -> just provide access to the map as .Data .
+	Data map[interface{}]interface{}
+}
+
+type mapState Map // hide state methods from public API
+
+func (m *mapState) DropState() {
+	m.Data = nil
+}
+
+func (m *mapState) PyGetState() interface{} {
+	return map[interface{}]interface{}{
+		"data": m.Data,
+	}
+}
+
+func (m *mapState) PySetState(pystate interface{}) error {
+	// before 2009 PersistentMapping could keep data in ._container, not .data
+	// https://github.com/zopefoundation/ZODB/commit/aa1f2622e1
+	xdata, err := pystateDict1(pystate, "data", "_container")
+	if err != nil {
+		return err
+	}
+
+	data, ok := xdata.(map[interface{}]interface{})
+	if !ok {
+		return fmt.Errorf("state data must be dict, not %T", xdata)
+	}
+
+	m.Data = data
+	return nil
+}
+
+// XXX List is like persistent.list.PersistentList
+// XXX tests.
+type List struct {
+	Persistent
+
+	// XXX it is not possible to embed slice - see Map for similar issue and more details.
+	Data []interface{}
+}
+
+type listState List // hide state methods from public API
+
+func (l *listState) DropState() {
+	l.Data = nil
+}
+
+func (l *listState) PyGetState() interface{} {
+	return map[interface{}]interface{}{
+		"data": l.Data,
+	}
+}
+
+func (l *listState) PySetState(pystate interface{}) error {
+	xdata, err := pystateDict1(pystate, "data")
+	if err != nil {
+		return err
+	}
+
+	data, ok := xdata.([]interface{})
+	if !ok {
+		return fmt.Errorf("state data must be list, not %T", xdata)
+	}
+
+	l.Data = data
+	return nil
+}
+
+// pystateDict1 decodes pystate that is expected to be {} with single key and
+// returns data for that key.
+func pystateDict1(pystate interface{}, acceptKeys ...string) (data interface{}, _ error) {
+	d, ok := pystate.(map[interface{}]interface{})
+	if !ok {
+		return nil, fmt.Errorf("state must be dict, not %T", pystate)
+	}
+
+	if l := len(d); l != 1 {
+		return nil, fmt.Errorf("state dict has %d keys, must be only 1", l)
+	}
+
+	for _, key := range acceptKeys {
+		data, ok := d[key]
+		if ok {
+			return data, nil
+		}
+	}
+
+	return nil, fmt.Errorf("noone of %q is present in state dict", acceptKeys)
+}
+
+func init() {
+	t := reflect.TypeOf
+	RegisterClass("persistent.mapping.PersistentMapping", t(Map{}),  t(mapState{}))
+	RegisterClass("persistent.list.PersistentList",       t(List{}), t(listState{}))
+
+	// PersistentMapping was also available as PersistentDict for some time
+	RegisterClassAlias("persistent.dict.PersistentDict", "persistent.mapping.PersistentMapping")
 }

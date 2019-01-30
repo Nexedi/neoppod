@@ -36,3 +36,49 @@ package btree
 
 //go:generate ./gen-btree IO int32 ziobtree.go
 //go:generate ./gen-btree LO int64 zlobtree.go
+
+import (
+	"fmt"
+	"reflect"
+
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
+)
+
+// XXX Length is like BTrees.Length.Length.
+// XXX tests.
+type Length struct {
+	zodb.Persistent
+
+	value int
+}
+
+type lengthState Length // hide state methods from public API
+
+// DropState implements zodb.Stateful.
+func (l *lengthState) DropState() {
+	l.value = 0
+}
+
+// PyGetState implements zodb.PyStateful.
+func (l *lengthState) PyGetState() interface{} {
+	return l.value
+}
+
+// PySetState implements zodb.PyStateful.
+func (l *lengthState) PySetState(pystate interface{}) (err error) {
+	v, ok := pickletools.Xint64(pystate)
+	if !ok {
+		return fmt.Errorf("state must be int; got %T", pystate)
+	}
+
+	l.value = int(v)	// XXX casting ok?
+	return nil
+}
+
+// ---- register classes to ZODB ----
+
+func init() {
+	t := reflect.TypeOf
+	zodb.RegisterClass("BTrees.Length.Length", t(Length{}),  t(lengthState{}))
+}
