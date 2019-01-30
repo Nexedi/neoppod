@@ -30,22 +30,22 @@ import (
 // exchanged as Python data.
 type PyStateful interface {
 	// PyGetState should return state of the in-RAM object as Python data.
-	// Analog of __getstate__() in Python.
 	//
-	// PyGetState is called only by persistent machinery and only when
-	// object has its state - in other words only on non-ghost objects.
+	// It is analog of __getstate__() in Python.
 	//
-	// XXX state ownership?
+	// It is called by persistency machinery only on non-ghost objects,
+	// i.e. when the object has its in-RAM state.
 	PyGetState() interface{}
 
 	// PySetState should set state of the in-RAM object from Python data.
 	//
 	// It is analog of __setstate__() in Python.
 	//
-	// The error returned does not need to have object/setstate prefix -
-	// persistent machinery is adding such prefix automatically.
+	// It is called by persistency machinery only on ghost objects, i.e.
+	// when the objects does not yet have its in-RAM state.
 	//
-	// XXX PySetState is called only on ghost.
+	// The error returned does not need to have object/setstate prefix -
+	// persistency machinery is adding such prefix automatically.
 	PySetState(pystate interface{}) error
 }
 

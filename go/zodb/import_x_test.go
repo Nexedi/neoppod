@@ -20,6 +20,7 @@
 package zodb_test
 
 import (
+	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 
@@ -41,12 +42,21 @@ func init() {
 // The commit is performed via zodb/py.
 func ZPyCommit(zurl string, at zodb.Tid, objv ...zodb.IPersistent) (zodb.Tid, error) {
 	var rawobjv []xtesting.ZRawObject // raw zodb objects data to commit
+	var bufv []*mem.Buf               // buffers to release
+	defer func() {
+		for _, buf := range bufv {
+			buf.Release()
+		}
+	}()
+
 	for _, obj := range objv {
+		buf := zodb.PSerialize(obj)
 		rawobj := xtesting.ZRawObject{
 			Oid:  obj.POid(),
-			Data: zodb.PSerialize(obj).XData(), // not releasing buf, but its ok
+			Data: buf.Data,
 		}
 		rawobjv = append(rawobjv, rawobj)
+		bufv = append(bufv, buf)
 	}
 
 	return xtesting.ZPyCommitRaw(zurl, at, rawobjv...)

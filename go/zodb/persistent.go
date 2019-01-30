@@ -108,21 +108,22 @@ type Ghostable interface {
 type Stateful interface {
 	// GetState should return state of the in-RAM object as raw data.
 	//
-	// GetState is called only by persistent machinery and only when object
-	// has its state - in other words only on non-ghost objects.
+	// It is called by persistency machinery only on non-ghost objects,
+	// i.e. when the object has its in-RAM state.
 	//
 	// XXX buf ownership?
 	GetState() *mem.Buf
 
 	// SetState should set state of the in-RAM object from raw data.
 	//
+	// It is called by persistency machinery only on ghost objects, i.e.
+	// when the objects does not yet have its in-RAM state.
+	//
 	// state ownership is not passed to SetState, so if state needs to be
 	// retained after SetState returns it needs to be incref'ed.
 	//
 	// The error returned does not need to have object/setstate prefix -
 	// persistent machinery is adding such prefix automatically.
-	//
-	// XXX SetState is called only on ghost.
 	SetState(state *mem.Buf) error
 }
 
