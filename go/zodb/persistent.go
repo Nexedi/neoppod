@@ -100,6 +100,9 @@ type loadState struct {
 // Ghostable is the interface describing in-RAM object who can release its in-RAM state.
 type Ghostable interface {
 	// DropState should discard in-RAM object state.
+	//
+	// It is called by persistency machinery only on non-ghost objects,
+	// i.e. when the objects has its in-RAM state.
 	DropState()
 }
 
@@ -111,7 +114,7 @@ type Stateful interface {
 	// It is called by persistency machinery only on non-ghost objects,
 	// i.e. when the object has its in-RAM state.
 	//
-	// XXX buf ownership?
+	// GetState should return a new buffer reference.
 	GetState() *mem.Buf
 
 	// SetState should set state of the in-RAM object from raw data.
