@@ -518,16 +518,16 @@ type Broken struct {
 }
 
 // XXX register (Broken, brokenState) ?
+var _ interface { Ghostable; Stateful} = (*brokenState)(nil)
 
 type brokenState Broken // hide state methods from public API
 
 func (b *brokenState) DropState() {
-	b.state.XRelease()
+	b.state.Release()
 	b.state = nil
 }
 
 func (b *brokenState) GetState() *mem.Buf {
-	// XXX ok?
 	b.state.Incref()
 	return b.state
 }
