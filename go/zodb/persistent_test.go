@@ -310,6 +310,8 @@ func TestPersistentDB(t *testing.T) {
 	checkObj(c2obj2, conn2, 102, at2, UPTODATE, 1, nil)
 	assert.Equal(c2obj1.value, "hello")
 	assert.Equal(c2obj2.value, "kitty")
+	c2obj1.PDeactivate()
+	c2obj2.PDeactivate()
 
 
 	// conn1 stays at older view for now
@@ -364,6 +366,7 @@ func TestPersistentDB(t *testing.T) {
 	checkObj(obj2, conn1, 102, at2, UPTODATE, 1, nil)
 	assert.Equal(obj1.value, "hello")
 	assert.Equal(obj2.value, "kitty")
+	// XXX deactivate
 
 	// finish tnx3 and txn2 - conn1 and conn2 go back to db pool
 	txn3.Abort()
@@ -372,10 +375,98 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(conn2.txn, nil)
 	assert.Equal(db.pool, []*Connection{conn1, conn2})
 
+
+	// open new connection in nopool mode to verify resync
+	txn4, ctx4 := transaction.New(ctx)
+	rconn, err := db.Open(ctx4, &ConnOptions{NoPool: true}); X(err)
+	assert.Equal(rconn.At(), at2)
+	assert.Equal(db.pool, []*Connection{conn1, conn2})
+	assert.Equal(rconn.db,  db)
+	assert.Equal(rconn.txn, txn4)
+
+	// pin obj2 into live cache, similarly to conn1
+	rzcache := rconn.Cache()
+	rzcache.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
+
+	// it should see latest data
+	xrobj1, err := rconn.Get(ctx4, 101); X(err)
+	xrobj2, err := rconn.Get(ctx4, 102); X(err)
+
+	assert.Equal(ClassOf(xrobj1), "t.zodb.MyObject")
+	assert.Equal(ClassOf(xrobj2), "t.zodb.MyObject")
+
+	robj1 := xrobj1.(*MyObject)
+	robj2 := xrobj2.(*MyObject)
+	checkObj(robj1, rconn, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(robj2, rconn, 102, InvalidTid, GHOST, 0, nil)
+
+	err = robj1.PActivate(ctx4); X(err)
+	err = robj2.PActivate(ctx4); X(err)
+	checkObj(robj1, rconn, 101, at1, UPTODATE, 1, nil)
+	checkObj(robj2, rconn, 102, at2, UPTODATE, 1, nil)
+	assert.Equal(robj1.value, "hello")
+	assert.Equal(robj2.value, "kitty")
+
+	// obj2 stays in live cache
+	robj1.PDeactivate()
+	robj2.PDeactivate()
+	checkObj(robj1, rconn, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(robj2, rconn, 102, at2, UPTODATE,    0, nil)
+
+	// txn4 completes, but rconn stays out of db pool
+	assert.Equal(rconn.txn, txn4)
+	txn4.Abort()
+	assert.Equal(rconn.txn, nil)
+	assert.Equal(db.pool, []*Connection{conn1, conn2})
+
+	// Resync ↓ (at2 -> at1; within δtail coverage)
+	txn5, ctx5 := transaction.New(ctx)
+	rconn.Resync(txn5, at1)
+
+type zzz {
+	conn *Connection
+	txn  transaction.Transaction
+	ctx  context.Context
+}
+
+	tt = checker(rconn, at1, txn5, ctx5)
+	tt.obj1 = ...	// XXX set explcitly, or tt.loadObj1
+	tt.obj2 = ...
+
+	// use only value and "GHOST" for state?
+	tt.checkObj(at1, at2, state1, state2, refcnt, refcnt)
+
+	assert.Equal(rconn.At(), at1)	// XXX -> tt
+	assert.Equal(db.pool, []*Connection{conn1, conn2})
+	assert.Equal(rconn.db,  db)	// XXX -> tt
+	assert.Equal(rconn.txn, txn5)	// XXX -> tt
+
+	// obj2 should be invalidated
+	assert.Equal(rconn.Cache().Get(101), robj1)	// XXX is
+	assert.Equal(rconn.Cache().Get(102), robj2)	// XXX is
+	checkObj(robj1, rconn, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(robj2, rconn, 102, InvalidTid, GHOST, 0, nil)
+
+	// obj2 data should be old
+	tt.checkData(at1, at2, "hello", "world")
+
+
+	xrobj1, err = conn1.Get(ctx1, 101); X(err)
+	xrobj2, err = conn1.Get(ctx1, 102); X(err)
+	assert.Exactly(robj1, xrobj1)	// XXX is
+	assert.Exactly(robj2, xrobj2)	// XXX is
+	err = obj1.PActivate(ctx1); X(err)
+	err = obj2.PActivate(ctx1); X(err)
+	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
+	checkObj(obj2, conn1, 102, at2, UPTODATE, 1, nil)
+	assert.Equal(obj1.value, "hello")
+	assert.Equal(obj2.value, "kitty")
+
+
+
 	// XXX DB.Open with at on and +-1 δtail edges
 
 	// TODO Resync ↑ (with δtail coverage)
-	// TODO Resync ↓ (with δtail coverage)
 	// TODO Resync   (without δtail coverage)
 
 	// XXX cache dropping entries after GC
