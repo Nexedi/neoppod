@@ -16,8 +16,6 @@ package zodb
 
 import (
 	"context"
-
-	"lab.nexedi.com/kirr/go123/mem"
 )
 
 // IPersistent is the interface that every in-RAM object representing any database object implements.
@@ -100,16 +98,9 @@ type IPersistent interface {
 	// XXX probably don't need this.
 	//PState()  ObjectState	// in-RAM object state.
 
-	// XXX move vvv -> iPersistent? (-> into persistent.go)
-	// XXX do we need to put vvv into IPersistent at all?
 
-	// pSerialize returns object in serialized form to be saved in the database.
-	//
-	// pSerialize is non-public method that is exposed and used only by ZODB internally.
-	// pSerialize is called only on non-ghost objects.
-	//
-	// XXX more text.
-	pSerialize() *mem.Buf
+	// IPersistent can be implemented only by objects that embed Persistent.
+	persistent() *Persistent
 }
 
 // ObjectState describes state of in-RAM object.

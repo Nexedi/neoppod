@@ -30,5 +30,5 @@ var ZPyCommit func(string, Tid, ...IPersistent) (Tid, error)
 // exported for zodb_test package:
 
 func PSerialize(obj IPersistent) *mem.Buf {
-	return obj.pSerialize()
+	return obj.persistent().pSerialize()
 }

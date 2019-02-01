@@ -61,9 +61,8 @@ func (d PyData) ClassName() string {
 }
 
 // encodePyData encodes Python class and state into raw ZODB python data.
-//
-// XXX -> pySerialize?
 func encodePyData(pyclass pickle.Class, pystate interface{}) PyData {
+	// XXX better return mem.Buf instead of PyData?
 	buf := &bytes.Buffer{}
 
 	p := pickle.NewEncoderWithConfig(buf, &pickle.EncoderConfig{

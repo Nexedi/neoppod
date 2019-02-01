@@ -76,6 +76,8 @@ type Persistent struct {
 	loading  *loadState
 }
 
+func (obj *Persistent) persistent() *Persistent { return obj }
+
 func (obj *Persistent) PJar() *Connection { return obj.jar }
 func (obj *Persistent) POid() Oid         { return obj.oid }
 
@@ -130,9 +132,12 @@ type Stateful interface {
 	SetState(state *mem.Buf) error
 }
 
-// ---- serialize ----
+// ---- RAM -> DB: serialize ----
 
-// pSerialize implements IPersistent.
+// pSerialize returns object in serialized form to be saved in the database.
+//
+// pSerialize is non-public method that is exposed and used only by ZODB internally.
+// pSerialize is called only on non-ghost objects.
 func (obj *Persistent) pSerialize() *mem.Buf {
 	obj.mu.Lock()
 	defer obj.mu.Unlock()
@@ -152,7 +157,7 @@ func (obj *Persistent) pSerialize() *mem.Buf {
 	}
 }
 
-// ---- activate/deactivate/invalidate ----
+// ---- RAM <- DB: activate/deactivate/invalidate ----
 
 // PActivate implements IPersistent.
 func (obj *Persistent) PActivate(ctx context.Context) (err error) {
