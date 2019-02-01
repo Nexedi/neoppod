@@ -132,7 +132,7 @@ type Stateful interface {
 	SetState(state *mem.Buf) error
 }
 
-// ---- RAM -> DB: serialize ----
+// ---- RAM → DB: serialize ----
 
 // pSerialize returns object in serialized form to be saved in the database.
 //
@@ -157,7 +157,7 @@ func (obj *Persistent) pSerialize() *mem.Buf {
 	}
 }
 
-// ---- RAM <- DB: activate/deactivate/invalidate ----
+// ---- RAM ← DB: activate/deactivate/invalidate ----
 
 // PActivate implements IPersistent.
 func (obj *Persistent) PActivate(ctx context.Context) (err error) {
