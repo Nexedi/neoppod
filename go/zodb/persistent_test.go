@@ -380,3 +380,13 @@ func TestPersistentDB(t *testing.T) {
 
 	// XXX cache dropping entries after GC
 }
+
+
+
+// TODO PyGetState vs PySetState tests (general - for any type):
+//
+// db1: produced by zodb/py
+// go: load db1
+// go: commit -> db2 (resave)
+// go: load db2
+// go: check (loaded from db2) == (loaded from db1)
