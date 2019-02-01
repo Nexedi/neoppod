@@ -268,6 +268,11 @@ func (obj *Persistent) PDeactivate() {
 		}
 	}
 
+	// already ghost
+	if obj.state == GHOST {
+		return
+	}
+
 	obj.serial = InvalidTid
 	obj.istate().DropState()
 	obj.state = GHOST
@@ -282,6 +287,11 @@ func (obj *Persistent) PInvalidate() {
 	if obj.refcnt != 0 {
 		// object is currently in use
 		panic(obj.badf("invalidate: refcnt != 0  (= %d)", obj.refcnt))
+	}
+
+	// already ghost
+	if obj.state == GHOST {
+		return
 	}
 
 	obj.serial = InvalidTid

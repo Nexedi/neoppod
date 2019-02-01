@@ -84,10 +84,9 @@ func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial T
 	xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
 	pbase := xbase.Addr().Interface().(*Persistent)
 
+	var badv []string
 	badf := func(format string, argv ...interface{}) {
-		t.Helper()
-		msg := fmt.Sprintf(format, argv...)
-		t.Fatalf("%#v: %s", obj, msg)
+		badv = append(badv, fmt.Sprintf(format, argv...))
 	}
 
 	zc := pbase.zclass
@@ -116,6 +115,14 @@ func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial T
 		badf("base.instance != obj")
 	}
 	// XXX loading too?
+
+	if len(badv) != 0 {
+		msg := fmt.Sprintf("%#v:\n", obj)
+		for _, bad := range badv {
+			msg += fmt.Sprintf("\t- %s\n", bad)
+		}
+		t.Fatal(msg)
+	}
 }
 
 func tCheckObj(t testing.TB) func(IPersistent, *Connection, Oid, Tid, ObjectState, int32, *loadState) {
@@ -233,7 +240,7 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(ClassOf(xobj1), "t.zodb.MyObject")
 	assert.Equal(ClassOf(xobj2), "t.zodb.MyObject")
 
-	// XXX objX -> c1objX
+	// XXX objX -> c1objX ?
 
 	obj1 := xobj1.(*MyObject)
 	obj2 := xobj2.(*MyObject)
@@ -325,7 +332,6 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(conn1.txn, nil)
 	assert.Equal(db.pool, []*Connection{conn1})
 
-	println("\n\nCONN3")
 
 	// open new connection - it should be conn1 but at updated database view
 	txn3, ctx3 := transaction.New(ctx)

@@ -471,11 +471,11 @@ func (db *DB) get(atMin, at Tid) *Connection {
 		return at < db.pool[i].at
 	})
 
-	fmt.Printf("pool:\n")
-	for i := 0; i < l; i++ {
-		fmt.Printf("\t[%d]:  .at = %s\n", i, db.pool[i].at)
-	}
-	fmt.Printf("get  [%s, %s] -> %d\n", atMin, at, i)
+	//fmt.Printf("pool:\n")
+	//for i := 0; i < l; i++ {
+	//	fmt.Printf("\t[%d]:  .at = %s\n", i, db.pool[i].at)
+	//}
+	//fmt.Printf("get  [%s, %s] -> %d\n", atMin, at, i)
 
 	// search through window of X previous connections and find out the one
 	// with minimal distance to get to state @at that fits into requested range.
