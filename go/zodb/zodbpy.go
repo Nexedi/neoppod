@@ -29,17 +29,24 @@ import (
 // PyStateful is the interface describing in-RAM object whose data state can be
 // exchanged as Python data.
 type PyStateful interface {
+	// PyGetState should return state of the in-RAM object as Python data.
+	//
+	// It is analog of __getstate__() in Python.
+	//
+	// It is called by persistency machinery only on non-ghost objects,
+	// i.e. when the object has its in-RAM state.
+	PyGetState() interface{}
+
 	// PySetState should set state of the in-RAM object from Python data.
 	//
 	// It is analog of __setstate__() in Python.
 	//
+	// It is called by persistency machinery only on ghost objects, i.e.
+	// when the objects does not yet have its in-RAM state.
+	//
 	// The error returned does not need to have object/setstate prefix -
-	// persistent machinery is adding such prefix automatically.
+	// persistency machinery is adding such prefix automatically.
 	PySetState(pystate interface{}) error
-
-	// PyGetState should return state of the in-RAM object as Python data.
-	// Analog of __getstate__() in Python.
-	//PyGetState() interface{}	TODO
 }
 
 // pySetState decodes raw state as zodb/py serialized stream, and sets decoded

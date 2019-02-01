@@ -44,6 +44,7 @@ import (
 //	type myObjectState MyObject
 //
 //	func (o *myObjectState) DropState() { ... }
+//	func (o *myObjectState) GetState() *mem.Buf { ... }
 //	func (o *myObjectState) SetState(state *mem.Buf) error { ... }
 //
 //	func init() {
@@ -98,13 +99,27 @@ type loadState struct {
 // Ghostable is the interface describing in-RAM object who can release its in-RAM state.
 type Ghostable interface {
 	// DropState should discard in-RAM object state.
+	//
+	// It is called by persistency machinery only on non-ghost objects,
+	// i.e. when the objects has its in-RAM state.
 	DropState()
 }
 
 // Stateful is the interface describing in-RAM object whose data state can be
 // exchanged as raw bytes.
 type Stateful interface {
+	// GetState should return state of the in-RAM object as raw data.
+	//
+	// It is called by persistency machinery only on non-ghost objects,
+	// i.e. when the object has its in-RAM state.
+	//
+	// GetState should return a new buffer reference.
+	GetState() *mem.Buf
+
 	// SetState should set state of the in-RAM object from raw data.
+	//
+	// It is called by persistency machinery only on ghost objects, i.e.
+	// when the objects does not yet have its in-RAM state.
 	//
 	// state ownership is not passed to SetState, so if state needs to be
 	// retained after SetState returns it needs to be incref'ed.
@@ -112,9 +127,6 @@ type Stateful interface {
 	// The error returned does not need to have object/setstate prefix -
 	// persistent machinery is adding such prefix automatically.
 	SetState(state *mem.Buf) error
-
-	// GetState should return state of the in-RAM object as raw data.
-	//GetState() *mem.Buf	TODO
 }
 
 
@@ -229,6 +241,11 @@ func (obj *Persistent) PDeactivate() {
 		}
 	}
 
+	// already ghost
+	if obj.state == GHOST {
+		return
+	}
+
 	obj.serial = InvalidTid
 	obj.istate().DropState()
 	obj.state = GHOST
@@ -243,6 +260,11 @@ func (obj *Persistent) PInvalidate() {
 	if obj.refcnt != 0 {
 		// object is currently in use
 		panic(obj.badf("invalidate: refcnt != 0  (= %d)", obj.refcnt))
+	}
+
+	// already ghost
+	if obj.state == GHOST {
+		return
 	}
 
 	obj.serial = InvalidTid
@@ -482,12 +504,18 @@ type Broken struct {
 }
 
 // XXX register (Broken, brokenState) ?
+var _ interface { Ghostable; Stateful} = (*brokenState)(nil)
 
 type brokenState Broken // hide state methods from public API
 
 func (b *brokenState) DropState() {
 	b.state.XRelease()
 	b.state = nil
+}
+
+func (b *brokenState) GetState() *mem.Buf {
+	b.state.Incref()
+	return b.state
 }
 
 func (b *brokenState) SetState(state *mem.Buf) error {

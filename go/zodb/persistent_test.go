@@ -51,6 +51,10 @@ func (o *myObjectState) PySetState(pystate interface{}) error {
 	return nil
 }
 
+func (o *myObjectState) PyGetState() interface{} {
+	return o.value
+}
+
 // Peristent that is not registered to ZODB.
 type Unregistered struct {
 	Persistent

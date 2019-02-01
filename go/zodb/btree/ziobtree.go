@@ -347,6 +347,11 @@ func (b *iobucketState) DropState() {
 	b.values = nil
 }
 
+// PyGetState implements zodb.PyStateful to get bucket data as pystate.
+func (b *iobucketState) PyGetState() interface{} {
+	panic("TODO")
+}
+
 // PySetState implements zodb.PyStateful to set bucket data from pystate.
 func (b *iobucketState) PySetState(pystate interface{}) (err error) {
 	t, ok := pystate.(pickle.Tuple)
@@ -440,6 +445,11 @@ type iobtreeState IOBTree // hide state methods from public API
 func (t *iobtreeState) DropState() {
 	t.firstbucket = nil
 	t.data = nil
+}
+
+// PyGetState implements zodb.PyStateful to get btree data as pystate.
+func (bt *iobtreeState) PyGetState() interface{} {
+	panic("TODO")
 }
 
 // PySetState implements zodb.PyStateful to set btree data from pystate.
