@@ -71,8 +71,13 @@ func pySetState(obj PyStateful, objClass string, state *mem.Buf, jar *Connection
 	return obj.PySetState(pystate)
 }
 
-// TODO pyGetState
-
+// pyGetState encodes obj as zodb/py serialized stream.
+func pyGetState(obj PyStateful, objClass string) *mem.Buf {
+	pyclass := zpyclass(objClass)
+	pystate := obj.PyGetState()
+	data := encodePyData(pyclass, pystate)
+	return &mem.Buf{Data: data} // XXX -> better bufalloc (and in encodePyData)
+}
 
 
 // loadpy loads object specified by oid and decodes it as a ZODB Python object.

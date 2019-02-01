@@ -1,8 +1,8 @@
 // Copyright (c) 2001, 2002 Zope Foundation and Contributors.
 // All Rights Reserved.
 //
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This software is subject to the provisions of the Zope Public License,
 // Version 2.1 (ZPL).  A copy of the ZPL should accompany this distribution.
@@ -97,6 +97,10 @@ type IPersistent interface {
 
 	// XXX probably don't need this.
 	//PState()  ObjectState	// in-RAM object state.
+
+
+	// IPersistent can be implemented only by objects that embed Persistent.
+	persistent() *Persistent
 }
 
 // ObjectState describes state of in-RAM object.

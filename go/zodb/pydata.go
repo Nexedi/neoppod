@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"strings"
 
 	pickle "github.com/kisielk/og-rek"
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -59,7 +60,37 @@ func (d PyData) ClassName() string {
 	return pyclassPath(klass)
 }
 
-// TODO PyData.referencesf
+// encodePyData encodes Python class and state into raw ZODB python data.
+func encodePyData(pyclass pickle.Class, pystate interface{}) PyData {
+	// XXX better return mem.Buf instead of PyData?
+	buf := &bytes.Buffer{}
+
+	p := pickle.NewEncoderWithConfig(buf, &pickle.EncoderConfig{
+		// allow pristine python2 to decode the pickle.
+		// TODO 2 -> 3 since ZODB5 switched to it and uses zodbpickle.
+		Protocol:      2,
+		PersistentRef: persistentRef,
+	})
+
+	// emit: object type
+	err := p.Encode(pyclass)
+	if err != nil {
+		// buf.Write never errors, as well as pickle encoder on supported types.
+		// -> the error here is a bug.
+		panic(fmt.Errorf("pydata: encode: class: %s", err))
+	}
+
+	// emit: object state
+	err = p.Encode(pystate)
+	if err != nil {
+		// see ^^^
+		panic(fmt.Errorf("pydata: encode: state: %s", err))
+	}
+
+	return PyData(buf.Bytes())
+}
+
+// TODO PyData.References()	(=referencesf in zodb/py)
 
 // decode decodes raw ZODB python data into Python class and state.
 //
@@ -88,6 +119,26 @@ func (d PyData) decode(jar *Connection) (pyclass pickle.Class, pystate interface
 	}
 
 	return klass, state, nil
+}
+
+// persistentRef decides whether to encode obj as persistent reference, and if yes - how.
+func persistentRef(obj interface{}) *pickle.Ref {
+	pobj, ok := obj.(IPersistent)
+	if !ok {
+		// regular object - include its state when encoding referee
+		return nil
+	}
+
+	// Persistent object - when encoding someone who references it - don't
+	// include obj state and use just reference to obj.
+
+	// XXX check obj.jar is the same as in referee
+	// XXX if not -> use multidb ref format?
+
+	return &pickle.Ref{
+		// (oid, class)
+		Pid: pickle.Tuple{pobj.POid(), zpyclass(ClassOf(pobj))},
+	}
 }
 
 // loadref loads persistent references resolving them through jar.
@@ -120,6 +171,22 @@ func (jar *Connection) loadref(ref pickle.Ref) (_ interface{}, err error) {
 	class := pyclassPath(pyclass)
 
 	return jar.get(class, oid)
+}
+
+// zpyclass converts ZODB class into Python class.
+func zpyclass(zclass string) pickle.Class {
+	// BTrees.LOBTree.LOBucket -> BTrees.LOBTree, LOBucket
+	var zmod, zname string
+	dot := strings.LastIndexByte(zclass, '.')
+	if dot == -1 {
+		// zmod remains ""
+		zname = zclass
+	} else {
+		zmod  = zclass[:dot]
+		zname = zclass[dot+1:]
+	}
+
+	return pickle.Class{Module: zmod, Name: zname}
 }
 
 // xpyclass verifies and extracts py class from unpickled value.
