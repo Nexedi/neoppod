@@ -26,7 +26,7 @@ import (
 )
 
 func TestΔTail(t *testing.T) {
-	δtail := NewΔTail()
+	δtail := NewΔTail(1)
 
 	// R is syntactic sugar to create 1 δRevEntry
 	R := func(rev Tid, changev ...Oid) δRevEntry {
@@ -171,7 +171,7 @@ func TestΔTail(t *testing.T) {
 	}
 
 
-	δCheck(0)
+	δCheck(1)
 	δCheckLastUP(4, 12, 12)	// δtail = ø
 
 	δAppend(R(10, 3,5))

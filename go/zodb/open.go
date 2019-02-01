@@ -80,13 +80,13 @@ func RegisterDriver(scheme string, opener DriverOpener) {
 // get support for well-known storages.
 //
 // Storage authors should register their storages with RegisterStorage.
-func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (IStorage, error) {
+func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) {
 	// no scheme -> file://
-	if !strings.Contains(storageURL, "://") {
-		storageURL = "file://" + storageURL
+	if !strings.Contains(zurl, "://") {
+		zurl = "file://" + zurl
 	}
 
-	u, err := url.Parse(storageURL)
+	u, err := url.Parse(zurl)
 	if err != nil {
 		return nil, err
 	}
@@ -119,17 +119,17 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 
 		// FIXME teach cache for watching and remove vvv
 		log.Printf("zodb: FIXME: open %s: cache is not ready for invalidations" +
-			   " -> NoCache forced", storageURL)
+			   " -> NoCache forced", zurl)
 		cache = nil
 	}
 
-	_ = at0
 	// XXX stor.δtail - init with (at0, at]
 	stor := &storage{
 		IStorageDriver: storDriver,
 		l1cache:        cache,
 
 		drvWatchq: drvWatchq,
+		drvHead:   at0,
 		watchReq:  make(chan watchRequest),
 		watchTab:  make(map[chan<- CommitEvent]struct{}),
 
@@ -151,6 +151,7 @@ type storage struct {
 
 	// watcher
 	drvWatchq chan CommitEvent                // watchq passed to driver
+	drvHead   Tid                             // last tid received from drvWatchq
 	watchReq  chan watchRequest               // {Add,Del}Watch requests go here
 	watchTab  map[chan<- CommitEvent]struct{} // registered watchers
 }
@@ -183,7 +184,7 @@ func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 // watchRequest represents request to add/del a watch.
 type watchRequest struct {
 	op     watchOp            // add or del
-	ack    chan struct{}      // when request processed
+	ack    chan Tid           // when request processed: at0 for add, ø for del.
 	watchq chan<- CommitEvent // {Add,Del}Watch argument
 }
 
@@ -209,7 +210,7 @@ func (s *storage) watcher() {
 				panic("bad watch request op")
 			}
 
-			close(req.ack)
+			req.ack <- s.drvHead
 
 		case event, ok := <-s.drvWatchq:
 			if !ok {
@@ -221,6 +222,7 @@ func (s *storage) watcher() {
 
 			// XXX verify event.Tid ↑  (else e.g. δtail.Append will panic)
 			//     if !↑ - stop the storage with error.
+			s.drvHead = event.Tid
 
 			// deliver event to all watchers
 			for watchq := range s.watchTab {
@@ -231,17 +233,17 @@ func (s *storage) watcher() {
 }
 
 // AddWatch implements Watcher.
-func (s *storage) AddWatch(watchq chan<- CommitEvent) {
+func (s *storage) AddWatch(watchq chan<- CommitEvent) (at0 Tid) {
 	// XXX when already Closed?
-	ack := make(chan struct{})
+	ack := make(chan Tid)
 	s.watchReq <- watchRequest{addWatch, ack, watchq}
-	<-ack
+	return <-ack
 }
 
 // DelWatch implements Watcher.
 func (s *storage) DelWatch(watchq chan<- CommitEvent) {
 	// XXX when already Closed?
-	ack := make(chan struct{})
+	ack := make(chan Tid)
 	s.watchReq <- watchRequest{delWatch, ack, watchq}
 	<-ack
 }

@@ -117,14 +117,15 @@ func NewDB(stor IStorage) *DB {
 	// XXX db options?
 	db := &DB{
 		stor:  stor,
-		δtail: NewΔTail(),
 		δwait: make(map[δwaiter]struct{}),
 
 		tδkeep: 10*time.Minute, // see δtail discussion
 	}
 
 	watchq := make(chan CommitEvent)
-	stor.AddWatch(watchq)
+	at0 := stor.AddWatch(watchq)
+	db.δtail = NewΔTail(at0) // init δtail to (at0, at0]
+
 	go db.watcher(watchq)
 	// XXX DelWatch? in db.Close() ?
 

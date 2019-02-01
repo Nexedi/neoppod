@@ -444,18 +444,23 @@ type Watcher interface {
 	// Whenever a new transaction is committed into the database,
 	// corresponding event will be sent to watchq.
 	//
+	// It will be only and all events in (at₀, +∞] range, that will be
+	// sent, where at₀ is database head that was current when AddWatch call was made. XXX
+	//
 	// Once registered, watchq must be read. Not doing so will stuck whole storage.
 	//
-	// Multiple AddWatch calls with the same watchq register watchq only once.
+	// Multiple AddWatch calls with the same watchq register watchq only once.	XXX
 	//
 	// XXX watchq closed when stor.watchq closed?
-	AddWatch(watchq chan<- CommitEvent)
+	AddWatch(watchq chan<- CommitEvent) (at0 Tid)
 
 	// DelWatch unregisters watchq from being notified of database changes.
 	//
 	// After DelWatch call completes, no new events will be sent to watchq.
 	//
 	// DelWatch is noop if watchq was not registered.
+	//
+	// XXX also return curent head?
 	DelWatch(watchq chan<- CommitEvent)
 }
 

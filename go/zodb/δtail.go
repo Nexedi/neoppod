@@ -73,8 +73,13 @@ type δRevEntry struct {
 }
 
 // NewΔTail creates new ΔTail object.
-func NewΔTail() *ΔTail {
-	return &ΔTail{lastRevOf: make(map[Oid]Tid)}
+//
+// Initial coverage of created ΔTail is (at₀, at₀].
+func NewΔTail(at0 Tid) *ΔTail {
+	return &ΔTail{
+		head:      at0,
+		lastRevOf: make(map[Oid]Tid),
+	}
 }
 
 // Len returns number of revisions.
@@ -84,16 +89,14 @@ func (δtail *ΔTail) Len() int {
 
 // Head returns newest database state for which δtail has history coverage.
 //
-// For newly created ΔTail Head returns 0.
-// Head is ↑, in particular it does not go back to 0 when δtail becomes empty.
+// Head is ↑ on Append, in particular it does not ↓ on Forget even if δtail becomes empty.
 func (δtail *ΔTail) Head() Tid {
 	return δtail.head
 }
 
 // Tail returns oldest database state for which δtail has history coverage.
 //
-// For newly created ΔTail Tail returns 0.
-// Tail is ↑, in particular it does not go back to 0 when δtail becomes empty.
+// Tail is ↑= on Forget, even if δtail becomes empty.
 func (δtail *ΔTail) Tail() Tid {
 	if len(δtail.tailv) == 0 {
 		return δtail.head
