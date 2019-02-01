@@ -200,9 +200,9 @@ func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 		}
 
 		// forget older δtail entries
-		fmt.Println()
-		fmt.Printf("%s\n", db.δtail.Head().Time().Time)
-		fmt.Printf("%s\n", db.δtail.Head().Time().Add(-db.tδkeep))
+		//fmt.Println()
+		//fmt.Printf("%s\n", db.δtail.Head().Time().Time)
+		//fmt.Printf("%s\n", db.δtail.Head().Time().Add(-db.tδkeep))
 
 		tcut := db.δtail.Head().Time().Add(-db.tδkeep)
 		δcut := TidFromTime(tcut)
@@ -294,7 +294,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 // must be called with db.mu locked.
 // db.mu is unlocked on error.
 func (db *DB) openOrDBUnlock(ctx context.Context, at Tid, noPool bool) (*Connection, error) {
-	fmt.Printf("db.openx %s %v\t; δtail (%s, %s]\n", at, noPool, db.δtail.Tail(), db.δtail.Head())
+	fmt.Printf("db.openx %s nopool=%v\t; δtail (%s, %s]\n", at, noPool, db.δtail.Tail(), db.δtail.Head())
 	// NoPool connection - create one anew
 	if noPool {
 		// XXX wait for at to be covered

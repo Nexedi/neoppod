@@ -191,7 +191,6 @@ func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
 // XXX test for cache=y/n (raw data cache)
 // XXX test both txn.Abort() and conn.Resync()
 func TestPersistentDB(t *testing.T) {
-	println("111")
 	X := exc.Raiseif
 	assert := require.New(t)
 	checkObj := tCheckObj(t)
@@ -208,19 +207,14 @@ func TestPersistentDB(t *testing.T) {
 	_obj1 := NewMyObject(nil); _obj1.oid = 101; _obj1.value = "hello"
 	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "world"
 	at1, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
-	println("222")
 
 	// open connection to it via zodb/go
 	ctx := context.Background()
 	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true}); X(err)
-	println("333")
 	db := NewDB(stor)
-	println("444")
 
 	txn1, ctx1 := transaction.New(ctx)
-	println("444b")
 	conn1, err := db.Open(ctx1, &ConnOptions{}); X(err)
-	println("555")
 	assert.Equal(conn1.At(), at1)
 	assert.Equal(db.pool, []*Connection(nil))
 	assert.Equal(conn1.db,  db)
@@ -240,7 +234,6 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(ClassOf(xobj2), "t.zodb.MyObject")
 
 	// XXX objX -> c1objX
-	println("ZZZ")
 
 	obj1 := xobj1.(*MyObject)
 	obj2 := xobj2.(*MyObject)
@@ -284,8 +277,6 @@ func TestPersistentDB(t *testing.T) {
 	_obj2.value = "kitty"
 	at2, err := ZPyCommit(zurl, at1, _obj2); X(err)
 
-	println("000")
-
 	// new db connection should see the change
 	// XXX currently there is a race because db.Open does not do proper Sync
 	txn2, ctx2 := transaction.New(ctx)
@@ -328,15 +319,13 @@ func TestPersistentDB(t *testing.T) {
 	checkObj(obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
 	checkObj(obj2, conn1, 102, at1, UPTODATE,    0, nil)
 
-	println("AAA")
-
 	// txn1 completes - conn1 goes back to db pool
 	assert.Equal(conn1.txn, txn1)
 	txn1.Abort()
 	assert.Equal(conn1.txn, nil)
 	assert.Equal(db.pool, []*Connection{conn1})
 
-	println("\n\nBBB")
+	println("\n\nCONN3")
 
 	// open new connection - it should be conn1 but at updated database view
 	txn3, ctx3 := transaction.New(ctx)
@@ -347,13 +336,12 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(conn1.db,  db)
 	assert.Equal(conn1.txn, txn3)
 	assert.Equal(db.pool, []*Connection{})
-	// XXX ctx1 = ctx3 (not to use 3 below) ?
-
-	println("CCC")
+	ctx1 = ctx3 // not to use ctx3 below
+	ctx3 = nil
 
 	// obj2 should be invalidated
 	assert.Equal(conn1.Cache().Get(101), obj1)	// XXX is
-	assert.Equal(conn1.Cache().Get(101), obj2)	// XXX is
+	assert.Equal(conn1.Cache().Get(102), obj2)	// XXX is
 	checkObj(obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
 	checkObj(obj2, conn1, 102, InvalidTid, GHOST, 0, nil)
 
@@ -379,6 +367,8 @@ func TestPersistentDB(t *testing.T) {
 	// TODO Resync   (without δtail coverage)
 
 	// XXX cache dropping entries after GC
+
+	// XXX Get(txn = different) -> panic
 }
 
 
