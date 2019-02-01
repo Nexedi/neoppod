@@ -528,7 +528,7 @@ var _ interface { Ghostable; Stateful} = (*brokenState)(nil)
 type brokenState Broken // hide state methods from public API
 
 func (b *brokenState) DropState() {
-	b.state.Release()
+	b.state.XRelease()
 	b.state = nil
 }
 
