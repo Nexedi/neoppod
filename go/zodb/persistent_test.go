@@ -522,12 +522,53 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(robj1.value, "hello")
 	assert.Equal(robj2.value, "world")
 
+	robj1.PDeactivate()
+	robj2.PDeactivate()
+	checkObj(robj1, rconn, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(robj2, rconn, 102, at1, UPTODATE, 0, nil)
 
+	// Resync ↑ (at1 -> at2; within δtail coverage)
+	assert.Equal(rconn.txn, txn5)
+	txn5.Abort()
+	assert.Equal(rconn.txn, nil)
+	assert.Equal(db.pool, []*Connection{conn1, conn2})
+
+	txn6, ctx6 := transaction.New(ctx)
+	rconn.Resync(txn6, at2)
+
+	assert.Equal(rconn.At(), at2)	// XXX -> tt
+	assert.Equal(db.pool, []*Connection{conn1, conn2})
+	assert.Equal(rconn.db,  db)	// XXX -> tt
+	assert.Equal(rconn.txn, txn6)	// XXX -> tt
+
+	// obj2 should be invalidated
+	assert.Equal(rconn.Cache().Get(101), robj1)	// XXX is
+	assert.Equal(rconn.Cache().Get(102), robj2)	// XXX is
+	checkObj(robj1, rconn, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(robj2, rconn, 102, InvalidTid, GHOST, 0, nil)
+
+	xrobj1, err = rconn.Get(ctx6, 101); X(err)
+	xrobj2, err = rconn.Get(ctx6, 102); X(err)
+	assert.Exactly(robj1, xrobj1)	// XXX is
+	assert.Exactly(robj2, xrobj2)	// XXX is
+	err = robj1.PActivate(ctx6); X(err)
+	err = robj2.PActivate(ctx6); X(err)
+	checkObj(robj1, rconn, 101, at1, UPTODATE, 1, nil)
+	checkObj(robj2, rconn, 102, at2, UPTODATE, 1, nil)
+	assert.Equal(robj1.value, "hello")
+	assert.Equal(robj2.value, "kitty")
+
+	robj1.PDeactivate()
+	robj2.PDeactivate()
+	checkObj(robj1, rconn, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(robj2, rconn, 102, at2, UPTODATE, 0, nil)
+
+	txn6.Abort()
+
+
+	// TODO Resync   (without δtail coverage)
 
 	// XXX DB.Open with at on and +-1 δtail edges
-
-	// TODO Resync ↑ (with δtail coverage)
-	// TODO Resync   (without δtail coverage)
 
 	// XXX cache dropping entries after GC
 
