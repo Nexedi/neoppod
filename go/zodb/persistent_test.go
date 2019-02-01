@@ -191,6 +191,34 @@ func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
 	return true
 }
 
+/*
+type testenv struct {
+	*testing.T
+
+	ctx
+	txn
+
+	obj1
+	obj2
+
+	// XXX + at here?
+}
+
+testopen := func(opt *ConnOptions) *testenv {
+	t0.Helper()
+	// XXX create txn,ctx
+	// XXX db.Open with opt
+	// assert conn.At == ?
+	// conn.db == db
+	// conn.txn == txn
+	return &testenv{
+		T: t0,
+		...
+	}
+}
+*/
+
+
 // Persistent tests with storage.
 //
 // this test covers everything at application-level: Persistent, DB, Connection, LiveCache.
@@ -219,6 +247,52 @@ func TestPersistentDB(t *testing.T) {
 	ctx := context.Background()
 	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true}); X(err)
 	db := NewDB(stor)
+
+/*
+	t := testopen(&ConnOptions)
+	t.conn.Cache().SetControl(...)
+	t.get() // .conn.Get() + assert type + assign .objX
+	t.check("ghost", "ghost") // ?
+	t.checkObj(1, InvalidTid, GHOST, 0, nil)
+	t.checkObj(2, InvalidTid, GHOST, 0, nil)
+
+	t.pactivate()
+	t.check(at1, at1, "hello:1", "world:1")
+
+	t.pactivate()
+	t.check(at1, at1, "hello:2", "world:2")
+
+	t.pdeactivate()
+	t.check(at1, at1, "hello:1", "world:1")
+
+	// deactivate:		state dropped for obj1, obj2 stays in live cache
+	t.pdeactivate()
+	t.check(ø, at1, "GHOST:0", "world:0")
+
+	t2 := testopen(&ConnOptions{})
+	assert.Equal(db.pool, []*Connection(nil))
+	t2.get()
+	t2.check(ø, ø, "ghost:0", "ghost:0")
+
+	t2.pactivate()
+	t2.check(at1, at2, "hello", "kitty")
+	t2.pdeactivate()
+
+	// conn1 stays at older view for now
+	t.check(ø, ø, "ghost:0", "ghost:0")
+	t.pactivate()
+	t.check(at1, at1, "hello:1", "world:1")
+
+	// conn1 deactivate:	obj2 stays in conn1 live cache with old state
+	t.pdeactivate()
+	t.check(ø, at1, "ghost:0", "world:0")
+
+	t.abort() // t.conn.txn == t.txn; t.txn.Abort(); t.conn.txn == nil
+	assert.Equal(db.pool, []*Connection{t.conn})
+
+	checkObj(obj1, conn1, 101, InvalidTid, GHOST, 0, nil)
+	checkObj(obj2, conn1, 102, at1, UPTODATE,    0, nil)
+*/
 
 	txn1, ctx1 := transaction.New(ctx)
 	conn1, err := db.Open(ctx1, &ConnOptions{}); X(err)
@@ -423,19 +497,6 @@ func TestPersistentDB(t *testing.T) {
 	txn5, ctx5 := transaction.New(ctx)
 	rconn.Resync(txn5, at1)
 
-type zzz {
-	conn *Connection
-	txn  transaction.Transaction
-	ctx  context.Context
-}
-
-	tt = checker(rconn, at1, txn5, ctx5)
-	tt.obj1 = ...	// XXX set explcitly, or tt.loadObj1
-	tt.obj2 = ...
-
-	// use only value and "GHOST" for state?
-	tt.checkObj(at1, at2, state1, state2, refcnt, refcnt)
-
 	assert.Equal(rconn.At(), at1)	// XXX -> tt
 	assert.Equal(db.pool, []*Connection{conn1, conn2})
 	assert.Equal(rconn.db,  db)	// XXX -> tt
@@ -448,19 +509,18 @@ type zzz {
 	checkObj(robj2, rconn, 102, InvalidTid, GHOST, 0, nil)
 
 	// obj2 data should be old
-	tt.checkData(at1, at2, "hello", "world")
+	//tt.checkData(at1, at2, "hello", "world")
 
-
-	xrobj1, err = conn1.Get(ctx1, 101); X(err)
-	xrobj2, err = conn1.Get(ctx1, 102); X(err)
+	xrobj1, err = rconn.Get(ctx5, 101); X(err)
+	xrobj2, err = rconn.Get(ctx5, 102); X(err)
 	assert.Exactly(robj1, xrobj1)	// XXX is
 	assert.Exactly(robj2, xrobj2)	// XXX is
-	err = obj1.PActivate(ctx1); X(err)
-	err = obj2.PActivate(ctx1); X(err)
-	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
-	checkObj(obj2, conn1, 102, at2, UPTODATE, 1, nil)
-	assert.Equal(obj1.value, "hello")
-	assert.Equal(obj2.value, "kitty")
+	err = robj1.PActivate(ctx5); X(err)
+	err = robj2.PActivate(ctx5); X(err)
+	checkObj(robj1, rconn, 101, at1, UPTODATE, 1, nil)
+	checkObj(robj2, rconn, 102, at1, UPTODATE, 1, nil)
+	assert.Equal(robj1.value, "hello")
+	assert.Equal(robj2.value, "world")
 
 
 
