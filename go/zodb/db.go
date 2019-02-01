@@ -200,9 +200,16 @@ func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 		}
 
 		// forget older δtail entries
+		fmt.Println()
+		fmt.Printf("%s\n", db.δtail.Head().Time().Time)
+		fmt.Printf("%s\n", db.δtail.Head().Time().Add(-db.tδkeep))
+
 		tcut := db.δtail.Head().Time().Add(-db.tδkeep)
 		δcut := TidFromTime(tcut)
-		db.δtail.ForgetBefore(δcut)
+		fmt.Printf("db: watcher: δtail: =  (%s, %s]\n", db.δtail.Tail(), db.δtail.Head())
+		fmt.Printf("db: watcher: forget <=  %s\n", δcut)
+		db.δtail.ForgetPast(δcut)
+		fmt.Printf("db: watcher: δtail: -> (%s, %s]\n", db.δtail.Tail(), db.δtail.Head())
 
 		db.mu.Unlock()
 

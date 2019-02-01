@@ -58,7 +58,8 @@ import (
 //	#blk - file block number, when ΔTail represents changes to a file.
 type ΔTail struct {
 	head  Tid
-	tailv []δRevEntry
+	tail  Tid
+	tailv []δRevEntry	// XXX -> revv ?
 
 	lastRevOf map[Oid]Tid // index for LastRevOf queries
 	// XXX -> lastRevOf = {} oid -> []rev↑ if linear scan in LastRevOf starts to eat cpu
@@ -78,6 +79,7 @@ type δRevEntry struct {
 func NewΔTail(at0 Tid) *ΔTail {
 	return &ΔTail{
 		head:      at0,
+		tail:      at0,
 		lastRevOf: make(map[Oid]Tid),
 	}
 }
@@ -98,10 +100,7 @@ func (δtail *ΔTail) Head() Tid {
 //
 // Tail is ↑= on Forget, even if δtail becomes empty.
 func (δtail *ΔTail) Tail() Tid {
-	if len(δtail.tailv) == 0 {
-		return δtail.head
-	}
-	return δtail.tailv[0].rev-1
+	return δtail.tail
 }
 
 // SliceByRev returns δtail slice of elements with .rev ∈ (low, high].
@@ -161,12 +160,17 @@ func (δtail *ΔTail) Append(rev Tid, changev []Oid) {
 	}
 }
 
-// ForgetBefore discards all δtail entries with rev < revCut.
-func (δtail *ΔTail) ForgetBefore(revCut Tid) {
+// ForgetPast discards all δtail entries with rev ≤ revCut.
+func (δtail *ΔTail) ForgetPast(revCut Tid) {
+	// revCut ≤ tail: nothing to do; don't let .tail go ↓
+	if revCut <= δtail.tail {
+		return
+	}
+
 	icut := 0
 	for i, δ := range δtail.tailv {
 		rev := δ.rev
-		if rev >= revCut {
+		if rev > revCut {
 			break
 		}
 		icut = i+1
@@ -186,6 +190,8 @@ func (δtail *ΔTail) ForgetBefore(revCut Tid) {
 	tailv := make([]δRevEntry, l)
 	copy(tailv, δtail.tailv[icut:])
 	δtail.tailv = tailv
+
+	δtail.tail = revCut
 }
 
 // LastRevOf tries to return what was the last revision that changed id as of at database state.

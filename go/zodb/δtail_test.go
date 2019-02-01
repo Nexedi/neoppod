@@ -26,7 +26,7 @@ import (
 )
 
 func TestΔTail(t *testing.T) {
-	δtail := NewΔTail(1)
+	var δtail *ΔTail
 
 	// R is syntactic sugar to create 1 δRevEntry
 	R := func(rev Tid, changev ...Oid) δRevEntry {
@@ -39,7 +39,7 @@ func TestΔTail(t *testing.T) {
 	}
 
 	// δCheck verifies that δtail state corresponds to provided tailv
-	δCheck := func(head Tid, tailv ...δRevEntry) {
+	δCheck := func(tail, head Tid, tailv ...δRevEntry) {
 		t.Helper()
 
 		for i := 1; i < len(tailv); i++ {
@@ -48,19 +48,11 @@ func TestΔTail(t *testing.T) {
 			}
 		}
 
-		// Len/Head/Tail
-		if l := δtail.Len(); l != len(tailv) {
-			t.Fatalf("Len() -> %d  ; want %d", l, len(tailv))
-		}
-
+		// Head/Tail/Data
 		if h := δtail.Head(); h != head {
 			t.Fatalf("Head() -> %s  ; want %s", h, head)
 		}
 
-		tail := head
-		if len(tailv) > 0 {
-			tail = tailv[0].rev-1
-		}
 		if tt := δtail.Tail(); tt != tail {
 			t.Fatalf("Tail() -> %s  ; want %s", tt, tail)
 		}
@@ -68,6 +60,11 @@ func TestΔTail(t *testing.T) {
 		if !tailvEqual(δtail.tailv, tailv) {
 			t.Fatalf("tailv:\nhave: %v\nwant: %v", δtail.tailv, tailv)
 		}
+
+		if l := δtail.Len(); l != len(tailv) {
+			t.Fatalf("Len() -> %d  ; want %d", l, len(tailv))
+		}
+
 
 		// SliceByRev
 
@@ -170,39 +167,43 @@ func TestΔTail(t *testing.T) {
 		}
 	}
 
+	δtail = NewΔTail(3)
 
-	δCheck(1)
+	δCheck(3,3)
 	δCheckLastUP(4, 12, 12)	// δtail = ø
 
 	δAppend(R(10, 3,5))
-	δCheck(10, R(10, 3,5))
+	δCheck(3,10, R(10, 3,5))
 
-	δCheckLastUP(3,  9,  9)	// at < δtail
+	δCheckLastUP(3,  2,  2)	// at < δtail
 	δCheckLastUP(3, 12, 12)	// at > δtail
 	δCheckLastUP(4, 10, 10)	// id ∉ δtail
 
 	δAppend(R(11, 7))
-	δCheck(11, R(10, 3,5), R(11, 7))
+	δCheck(3,11, R(10, 3,5), R(11, 7))
 
 	δAppend(R(12, 7))
-	δCheck(12, R(10, 3,5), R(11, 7), R(12, 7))
+	δCheck(3,12, R(10, 3,5), R(11, 7), R(12, 7))
 
 	δAppend(R(14, 3,8))
-	δCheck(14, R(10, 3,5), R(11, 7), R(12, 7), R(14, 3,8))
+	δCheck(3,14, R(10, 3,5), R(11, 7), R(12, 7), R(14, 3,8))
 
 	δCheckLastUP(8, 12, 10) // id ∈ δtail, but has no entry with rev ≤ at
 
-	δtail.ForgetBefore(10)
-	δCheck(14, R(10, 3,5), R(11, 7), R(12, 7), R(14, 3,8))
+	δtail.ForgetPast(9)
+	δCheck(9,14, R(10, 3,5), R(11, 7), R(12, 7), R(14, 3,8))
 
-	δtail.ForgetBefore(11)
-	δCheck(14, R(11, 7), R(12, 7), R(14, 3,8))
+	δtail.ForgetPast(10)
+	δCheck(10,14, R(11, 7), R(12, 7), R(14, 3,8))
 
-	δtail.ForgetBefore(13)
-	δCheck(14, R(14, 3,8))
+	δtail.ForgetPast(12)
+	δCheck(12,14, R(14, 3,8))
 
-	δtail.ForgetBefore(15)
-	δCheck(14)
+	δtail.ForgetPast(14)
+	δCheck(14,14)
+
+	δtail.ForgetPast(12)
+	δCheck(14,14) // .tail should not go ↓
 
 	// Append panics on non-↑ rev
 
@@ -229,14 +230,14 @@ func TestΔTail(t *testing.T) {
 
 	// on !empty δtail
 	δAppend(R(15, 1))
-	δCheck(15, R(15, 1))
+	δCheck(14,15, R(15, 1))
 	δAppendPanic(15)
 	δAppendPanic(14)
 
 
 	// .tailv underlying storage is not kept after forget
-	δtail.ForgetBefore(16)
-	δCheck(15)
+	δtail.ForgetPast(15)
+	δCheck(15,15)
 
 	const N = 1E3
 	for rev, i := Tid(16), 0; i < N; i, rev = i+1, rev+1 {
@@ -244,7 +245,7 @@ func TestΔTail(t *testing.T) {
 	}
 
 	capN := cap(δtail.tailv)
-	δtail.ForgetBefore(N)
+	δtail.ForgetPast(N)
 	if c := cap(δtail.tailv); !(c < capN/10) {
 		t.Fatalf("forget: tailv storage did not shrink: cap%v: %d -> cap: %d", N, capN, c)
 	}
