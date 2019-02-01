@@ -348,8 +348,13 @@ func TestPersistentDB(t *testing.T) {
 	// obj2 data should be new
 	xobj1, err = conn1.Get(ctx1, 101); X(err)
 	xobj2, err = conn1.Get(ctx1, 102); X(err)
-	assert.Exactly(obj1, xobj1)
-	assert.Exactly(obj2, xobj2)
+	println("\nAAA")
+	println(obj1)
+	println(xobj1.(*MyObject))
+	assert.Exactly(obj1, xobj1)	// XXX is
+	assert.Exactly(obj2, xobj2)	// XXX is
+	err = obj1.PActivate(ctx1); X(err)
+	err = obj2.PActivate(ctx1); X(err)
 	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
 	checkObj(obj2, conn1, 102, at2, UPTODATE, 1, nil)
 	assert.Equal(obj1.value, "hello")
