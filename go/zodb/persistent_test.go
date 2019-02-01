@@ -313,6 +313,8 @@ func TestPersistentDB(t *testing.T) {
 
 
 	// conn1 stays at older view for now
+	checkObj(obj1, conn1, 101, InvalidTid, GHOST,    0, nil)
+	checkObj(obj2, conn1, 102, InvalidTid, GHOST,    0, nil)
 	err = obj1.PActivate(ctx1); X(err)
 	err = obj2.PActivate(ctx1); X(err)
 	checkObj(obj1, conn1, 101, at1, UPTODATE, 1, nil)
@@ -363,10 +365,12 @@ func TestPersistentDB(t *testing.T) {
 	assert.Equal(obj1.value, "hello")
 	assert.Equal(obj2.value, "kitty")
 
-
-	// XXX
+	// finish tnx3 and txn2 - conn1 and conn2 go back to db pool
 	txn3.Abort()
 	txn2.Abort()
+	assert.Equal(conn1.txn, nil)
+	assert.Equal(conn2.txn, nil)
+	assert.Equal(db.pool, []*Connection{conn1, conn2})
 
 	// XXX DB.Open with at on and +-1 δtail edges
 

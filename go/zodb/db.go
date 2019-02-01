@@ -268,7 +268,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	db.mu.Lock() // unlocked in *DBUnlock
 
 /*
-	err := db.needHeadOrDBUnlock(ctx, at)
+	err := db.needHeadOrDBUnlock(ctx, at)	XXX wait for δtail.head >= at
 	if err != nil {
 		return nil, err
 	}
@@ -528,6 +528,7 @@ func (db *DB) put(conn *Connection) {
 	defer db.mu.Unlock()
 
 	// XXX check if len(pool) > X, and drop conn if yes
+
 	// [i-1].at ≤ at < [i].at
 	i := sort.Search(len(db.pool), func(i int) bool {
 		return conn.at < db.pool[i].at
