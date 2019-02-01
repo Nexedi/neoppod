@@ -451,6 +451,7 @@ type Watcher interface {
 	//
 	// Multiple AddWatch calls with the same watchq register watchq only once.	XXX
 	//
+	// XXX ↑ guaranteed
 	// XXX watchq closed when stor.watchq closed?
 	AddWatch(watchq chan<- CommitEvent) (at0 Tid)
 
