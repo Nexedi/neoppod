@@ -155,19 +155,30 @@ func (b *IOBucket) Next() *IOBucket {
 //
 // t need not be activated beforehand for Get to work.
 func (t *IOBTree) Get(ctx context.Context, key int32) (_ interface{}, _ bool, err error) {
+	v, ok, _, _, err := t.GetTo(ctx, key)
+	return v, ok, err
+}
+
+// GetTo searches IOBTree by key and returns value and path.
+//
+// It is similar to Get, but additionally provides information via which
+// intermediate tree nodes and leaf bucket the key was found.
+func (t *IOBTree) GetTo(ctx context.Context, key int32) (_ interface{}, _ bool, path []*IOBTree, leaf *IOBucket, err error) {
 	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)
 	err = t.PActivate(ctx)
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil, nil, err
 	}
 
 	if len(t.data) == 0 {
 		// empty btree
 		t.PDeactivate()
-		return nil, false, nil
+		return nil, false, nil, nil, nil
 	}
 
 	for {
+		path = append(path, t)
+
 		// search i: K(i) ≤ k < K(i+1)	; K(0) = -∞, K(len) = +∞
 		i := sort.Search(len(t.data), func(i int) bool {
 			j := i + 1
@@ -183,12 +194,17 @@ func (t *IOBTree) Get(ctx context.Context, key int32) (_ interface{}, _ bool, er
 			t = child
 			err = t.PActivate(ctx)
 			if err != nil {
-				return nil, false, err
+				return nil, false, nil, nil, err
 			}
 
 		case *IOBucket:
 			t.PDeactivate()
-			return child.Get(ctx, key)
+			v, ok, err := child.Get(ctx, key)
+			if err != nil {
+				path = nil
+				child = nil
+			}
+			return v, ok, path, child, err
 		}
 	}
 }
