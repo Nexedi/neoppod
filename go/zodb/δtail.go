@@ -59,18 +59,18 @@ import (
 type ΔTail struct {
 	head  Tid
 	tail  Tid
-	tailv []δRevEntry	// XXX -> revv ?
+	tailv []ΔRevEntry	// XXX -> revv ?
 
 	lastRevOf map[Oid]Tid // index for LastRevOf queries
 	// XXX -> lastRevOf = {} oid -> []rev↑ if linear scan in LastRevOf starts to eat cpu
 }
 
-// δRevEntry represents information of what have been changed in one revision.
+// ΔRevEntry represents information of what have been changed in one revision.
 //
-// XXX -> CommitEvent? -> ΔRevEntry?
-type δRevEntry struct {
-	rev     Tid
-	changev []Oid
+// XXX -> CommitEvent?
+type ΔRevEntry struct {
+	Rev     Tid
+	Changev []Oid
 }
 
 // NewΔTail creates new ΔTail object.
@@ -112,7 +112,7 @@ func (δtail *ΔTail) Tail() Tid {
 // the caller must not modify returned slice.
 //
 // Note: contrary to regular go slicing, low is exclusive while high is inclusive.
-func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []δRevEntry {
+func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []ΔRevEntry {
 	tail := δtail.Tail()
 	head := δtail.head
 	if !(tail <= low && low <= high && high <= head) {
@@ -128,14 +128,14 @@ func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []δRevEntry {
 
 	// find max j : [j].rev ≤ high		XXX linear scan -> binary search
 	j := len(tailv)-1
-	for ; j >= 0 && tailv[j].rev > high; j-- {}
+	for ; j >= 0 && tailv[j].Rev > high; j-- {}
 	if j < 0 {
 		return nil // ø
 	}
 
 	// find max i : [i].rev > low		XXX linear scan -> binary search
 	i := j
-	for ; i >= 0 && tailv[i].rev > low; i-- {}
+	for ; i >= 0 && tailv[i].Rev > low; i-- {}
 	i++
 
 	return tailv[i:j+1]
@@ -154,7 +154,7 @@ func (δtail *ΔTail) Append(rev Tid, changev []Oid) {
 	}
 
 	δtail.head = rev
-	δtail.tailv = append(δtail.tailv, δRevEntry{rev, changev})
+	δtail.tailv = append(δtail.tailv, ΔRevEntry{rev, changev})
 	for _, id := range changev {
 		δtail.lastRevOf[id] = rev
 	}
@@ -169,14 +169,14 @@ func (δtail *ΔTail) ForgetPast(revCut Tid) {
 
 	icut := 0
 	for i, δ := range δtail.tailv {
-		rev := δ.rev
+		rev := δ.Rev
 		if rev > revCut {
 			break
 		}
 		icut = i+1
 
 		// if forgotten revision was last for id, we have to update lastRevOf index
-		for _, id := range δ.changev {
+		for _, id := range δ.Changev {
 			if δtail.lastRevOf[id] == rev {
 				delete(δtail.lastRevOf, id)
 			}
@@ -187,7 +187,7 @@ func (δtail *ΔTail) ForgetPast(revCut Tid) {
 	// 1) growing underlying storage array indefinitely
 	// 2) keeping underlying storage after forget
 	l := len(δtail.tailv)-icut
-	tailv := make([]δRevEntry, l)
+	tailv := make([]ΔRevEntry, l)
 	copy(tailv, δtail.tailv[icut:])
 	δtail.tailv = tailv
 
@@ -226,8 +226,8 @@ func (δtail *ΔTail) LastRevOf(id Oid, at Tid) (_ Tid, exact bool) {
 	if l == 0 {
 		return at, false
 	}
-	revMin := δtail.tailv[0].rev
-	revMax := δtail.tailv[l-1].rev
+	revMin := δtail.tailv[0].Rev
+	revMax := δtail.tailv[l-1].Rev
 	if !(revMin <= at && at <= revMax) {
 		return at, false
 	}
@@ -235,7 +235,7 @@ func (δtail *ΔTail) LastRevOf(id Oid, at Tid) (_ Tid, exact bool) {
 	// we have the coverage
 	rev, ok := δtail.lastRevOf[id]
 	if !ok {
-		return δtail.tailv[0].rev, false
+		return δtail.tailv[0].Rev, false
 	}
 
 	if rev <= at {
@@ -246,17 +246,17 @@ func (δtail *ΔTail) LastRevOf(id Oid, at Tid) (_ Tid, exact bool) {
 	// XXX linear scan - see .lastRevOf comment.
 	for i := l - 1; i >= 0; i-- {
 		δ := δtail.tailv[i]
-		if δ.rev > at {
+		if δ.Rev > at {
 			continue
 		}
 
-		for _, δid := range δ.changev {
+		for _, δid := range δ.Changev {
 			if id == δid {
-				return δ.rev, true
+				return δ.Rev, true
 			}
 		}
 	}
 
 	// nothing found
-	return δtail.tailv[0].rev, false
+	return δtail.tailv[0].Rev, false
 }

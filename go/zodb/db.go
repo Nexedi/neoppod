@@ -405,7 +405,7 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 	// both conn.at and at are covered by δtail - we can invalidate selectively
 	if (δtail.Tail() < conn.at && conn.at <= δtail.Head()) &&	// XXX conn.at can = δtail.Tail
 	   (δtail.Tail() <      at &&      at <= δtail.Head()) {
-		var δv []δRevEntry
+		var δv []ΔRevEntry
 		if conn.at <= at {
 			δv = δtail.SliceByRev(conn.at, at)
 		} else {
@@ -414,7 +414,7 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 		}
 
 		for _, δ := range δv {
-			for _, oid := range δ.changev {
+			for _, oid := range δ.Changev {
 				δobj[oid] = struct{}{}
 			}
 		}

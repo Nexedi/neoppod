@@ -28,22 +28,22 @@ import (
 func TestΔTail(t *testing.T) {
 	var δtail *ΔTail
 
-	// R is syntactic sugar to create 1 δRevEntry
-	R := func(rev Tid, changev ...Oid) δRevEntry {
-		return δRevEntry{rev, changev}
+	// R is syntactic sugar to create 1 ΔRevEntry
+	R := func(rev Tid, changev ...Oid) ΔRevEntry {
+		return ΔRevEntry{rev, changev}
 	}
 
 	// δAppend is syntactic sugar for δtail.Append
-	δAppend := func(δ δRevEntry) {
-		δtail.Append(δ.rev, δ.changev)
+	δAppend := func(δ ΔRevEntry) {
+		δtail.Append(δ.Rev, δ.Changev)
 	}
 
 	// δCheck verifies that δtail state corresponds to provided tailv
-	δCheck := func(tail, head Tid, tailv ...δRevEntry) {
+	δCheck := func(tail, head Tid, tailv ...ΔRevEntry) {
 		t.Helper()
 
 		for i := 1; i < len(tailv); i++ {
-			if !(tailv[i-1].rev < tailv[i].rev) {
+			if !(tailv[i-1].Rev < tailv[i].Rev) {
 				panic("test tailv: rev not ↑")
 			}
 		}
@@ -86,13 +86,13 @@ func TestΔTail(t *testing.T) {
 			// make sure returned region is indeed correct
 			tbefore := Tid(0)
 			if ilo-1 >= 0 {
-				tbefore = tailv[ilo-1].rev-1
+				tbefore = tailv[ilo-1].Rev-1
 			}
-			tail := tailv[ilo].rev-1
-			head := tailv[ihi-1].rev
+			tail := tailv[ilo].Rev-1
+			head := tailv[ihi-1].Rev
 			hafter := TidMax
 			if ihi < len(tailv) {
-				hafter = tailv[ihi].rev
+				hafter = tailv[ihi].Rev
 			}
 
 			if !(tbefore < rlo && rlo <= tail && head <= rhi && rhi < hafter) {
@@ -105,23 +105,23 @@ func TestΔTail(t *testing.T) {
 			for ihi := ilo; ihi < len(tailv); ihi++ {
 				// [ilo, ihi)
 				sliceByRev(
-					tailv[ilo].rev - 1,
-					tailv[ihi].rev - 1,
+					tailv[ilo].Rev - 1,
+					tailv[ihi].Rev - 1,
 					ilo, ihi,
 				)
 
 				// [ilo, ihi]
 				sliceByRev(
-					tailv[ilo].rev - 1,
-					tailv[ihi].rev,
+					tailv[ilo].Rev - 1,
+					tailv[ihi].Rev,
 					ilo, ihi+1,
 				)
 
 				// (ilo, ihi]
 				if ilo+1 < len(tailv) {
 					sliceByRev(
-						tailv[ilo].rev,
-						tailv[ihi].rev,
+						tailv[ilo].Rev,
+						tailv[ihi].Rev,
 						ilo+1, ihi+1,
 					)
 				}
@@ -129,8 +129,8 @@ func TestΔTail(t *testing.T) {
 				// (ilo, ihi)
 				if ilo+1 < len(tailv) && ilo+1 <= ihi {
 					sliceByRev(
-						tailv[ilo].rev,
-						tailv[ihi].rev - 1,
+						tailv[ilo].Rev,
+						tailv[ihi].Rev - 1,
 						ilo+1, ihi,
 					)
 				}
@@ -140,13 +140,13 @@ func TestΔTail(t *testing.T) {
 		// verify lastRevOf query / index
 		lastRevOf := make(map[Oid]Tid)
 		for _, δ := range tailv {
-			for _, id := range δ.changev {
-				idRev, exact := δtail.LastRevOf(id, δ.rev)
-				if !(idRev == δ.rev && exact) {
-					t.Fatalf("LastRevOf(%v, at=%s) -> %s, %v  ; want %s, %v", id, δ.rev, idRev, exact, δ.rev, true)
+			for _, id := range δ.Changev {
+				idRev, exact := δtail.LastRevOf(id, δ.Rev)
+				if !(idRev == δ.Rev && exact) {
+					t.Fatalf("LastRevOf(%v, at=%s) -> %s, %v  ; want %s, %v", id, δ.Rev, idRev, exact, δ.Rev, true)
 				}
 
-				lastRevOf[id] = δ.rev
+				lastRevOf[id] = δ.Rev
 			}
 		}
 
@@ -255,7 +255,7 @@ func TestΔTail(t *testing.T) {
 	// access to whole underlying array from a slice.
 }
 
-func tailvEqual(a, b []δRevEntry) bool {
+func tailvEqual(a, b []ΔRevEntry) bool {
 	// for empty one can be nil and another !nil [] = reflect.DeepEqual
 	// does not think those are equal.
 	return (len(a) == 0 && len(b) == 0) ||
