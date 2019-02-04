@@ -252,6 +252,7 @@ func (t *tPersistentDB) Resync(at Tid) {
 
 	assert.Equal(t, t.conn.db,  db)
 	assert.Equal(t, t.conn.txn, t.txn)
+	assert.Equal(t, t.conn.At(), at)
 }
 
 // Abort aborts t's connection and verifies it becomes !live.
@@ -280,9 +281,13 @@ func TestPersistentDB(t0 *testing.T) {
 
 	// create test db via py with 2 objects
 	// XXX hack as _objX go without jar.
-	_obj1 := NewMyObject(nil); _obj1.oid = 101; _obj1.value = "hello"
-	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "world"
-	at1, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
+	_obj1 := NewMyObject(nil); _obj1.oid = 101; _obj1.value = "init"
+	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "db"
+	at0, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
+
+	_obj1.value = "hello"
+	_obj2.value = "world"
+	at1, err := ZPyCommit(zurl, at0, _obj1, _obj2); X(err)
 
 	// open connection to it via zodb/go
 	ctx := context.Background()
@@ -310,6 +315,10 @@ func TestPersistentDB(t0 *testing.T) {
 	t := t1
 	assert.Equal(t.conn.At(), at1)
 	assert.Equal(db.pool, []*Connection(nil))
+
+	// δtail coverage is (at1, at1]  (at0 not included)
+	assert.Equal(db.δtail.Tail(), at1)
+	assert.Equal(db.δtail.Head(), at1)
 
 	// do not evict obj2 from live cache. obj1 is ok to be evicted.
 	zcache1 := t.conn.Cache()
@@ -364,6 +373,10 @@ func TestPersistentDB(t0 *testing.T) {
 	t2 := testopen(&ConnOptions{})
 	assert.Equal(t2.conn.At(), at2)
 	assert.Equal(db.pool, []*Connection(nil))
+
+	// δtail coverage is (at1, at2]
+	assert.Equal(db.δtail.Tail(), at1)
+	assert.Equal(db.δtail.Head(), at2)
 
 	c2obj1 := t2.Get(101)
 	c2obj2 := t2.Get(102)
@@ -470,7 +483,6 @@ func TestPersistentDB(t0 *testing.T) {
 
 	// Resync ↓ (at2 -> at1; within δtail coverage)
 	t.Resync(at1)
-	assert.Equal(t.conn.At(), at1)
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
@@ -480,8 +492,6 @@ func TestPersistentDB(t0 *testing.T) {
 	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
 
 	// obj2 data should be old
-	//tt.checkData(at1, at2, "hello", "world")
-
 	assert.Exactly(robj1, t.Get(101))	// XXX is
 	assert.Exactly(robj2, t.Get(102))	// XXX is
 	t.PActivate(robj1)
@@ -499,9 +509,7 @@ func TestPersistentDB(t0 *testing.T) {
 	// Resync ↑ (at1 -> at2; within δtail coverage)
 	t.Abort()
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
-
 	t.Resync(at2)
-	assert.Equal(t.conn.At(), at2)
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
@@ -524,10 +532,32 @@ func TestPersistentDB(t0 *testing.T) {
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
 	t.checkObj(robj2, 102, at2, UPTODATE, 0, nil)
 
+	// Resync ↓	(at1 -> at0; to outside δtail coverage)
 	t.Abort()
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+	t.Resync(at0)
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
+	// obj2 should be invalidated
+	assert.Equal(t.conn.Cache().Get(101), robj1)	// XXX is
+	assert.Equal(t.conn.Cache().Get(102), robj2)	// XXX is
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
 
-	// TODO Resync   (without δtail coverage)
+	assert.Exactly(robj1, t.Get(101))	// XXX is
+	assert.Exactly(robj2, t.Get(102))	// XXX is
+	t.PActivate(robj1)
+	t.PActivate(robj2)
+	t.checkObj(robj1, 101, at0, UPTODATE, 1, nil)
+	t.checkObj(robj2, 102, at0, UPTODATE, 1, nil)
+	assert.Equal(robj1.value, "init")
+	assert.Equal(robj2.value, "db")
+
+	robj1.PDeactivate()
+	robj2.PDeactivate()
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
+	t.checkObj(robj2, 102, at0, UPTODATE, 0, nil)
+
 
 	// XXX DB.Open with at on and +-1 δtail edges
 
