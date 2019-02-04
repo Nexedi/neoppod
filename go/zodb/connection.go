@@ -179,6 +179,11 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 	return obj
 }
 
+// set sets objects corre ... XXX
+func (cache *LiveCache) set(oid Oid, obj IPersistent) {
+	cache.objtab[oid] = weak.NewRef(obj)
+}
+
 // SetControl installs c to handle cache decisions.
 //
 // Any previously installed cache control is uninstalled.
@@ -199,7 +204,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	obj := conn.cache.Get(oid)
 	if obj == nil {
 		obj = newGhost(class, oid, conn)
-		conn.cache.objtab[oid] = weak.NewRef(obj)
+		conn.cache.objtab[oid] = weak.NewRef(obj) // XXX -> conn.cache.set(oid, obj)
 		checkClass = false
 	}
 	conn.cache.Unlock()

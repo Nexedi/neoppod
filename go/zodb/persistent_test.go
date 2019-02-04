@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+//	"runtime"
 	"testing"
 
 	"lab.nexedi.com/kirr/neo/go/transaction"
@@ -201,11 +202,6 @@ type tPersistentDB struct {
 	txn   transaction.Transaction
 	ctx   context.Context
 	conn  *Connection
-
-	//obj1
-	//obj2
-
-	// XXX + at here?
 }
 
 // Get gets oid from t.conn and asserts it type.
@@ -237,7 +233,7 @@ func (t *tPersistentDB) PActivate(obj IPersistent) {
 // checkObj checks state of obj and that obj ∈ t.conn.
 //
 // if object is !GHOST - it also verifies its value.
-func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state ObjectState, refcnt int32, valuev ...string) {
+func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state ObjectState, refcnt int32, valueOk ...string) {
 	t.Helper()
 
 	// any object with live pointer to it must be also in conn's cache.
@@ -258,16 +254,16 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 	_checkObj(t.T, obj, t.conn, oid, serial, state, refcnt, /*loading*/nil)
 
 	if state == GHOST {
-		if len(valuev) != 0 {
+		if len(valueOk) != 0 {
 			panic("t.checkObj(GHOST) must come without value")
 		}
 		return
 	}
 
-	if len(valuev) != 1 {
+	if len(valueOk) != 1 {
 		panic("t.checkObj(!GHOST) must come with one value")
 	}
-	value := valuev[0]
+	value := valueOk[0]
 	if obj.value != value {
 		t.Fatalf("obj.value mismatch: have %q;  want %q", obj.value, value)
 	}
@@ -275,6 +271,7 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 
 // Resync resyncs t to new transaction @at.
 func (t *tPersistentDB) Resync(at Tid) {
+	t.Helper()
 	db := t.conn.db // XXX -> t.db ?
 
 	txn, ctx := transaction.New(context.Background())
@@ -290,6 +287,7 @@ func (t *tPersistentDB) Resync(at Tid) {
 
 // Abort aborts t's connection and verifies it becomes !live.
 func (t *tPersistentDB) Abort() {
+	t.Helper()
 	assert.Equal(t, t.conn.txn, t.txn)
 	t.txn.Abort()
 	assert.Equal(t, t.conn.txn, nil)
@@ -463,11 +461,27 @@ func TestPersistentDB(t0 *testing.T) {
 	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(obj2, 102, at2, UPTODATE,    0, "kitty")
 
+	// TODO live cache must not drop pinned entries after GC
+/*
+	obj1 = nil
+	obj2 = nil
+	for i := 0; i < 10; i++ {
+		runtime.GC() // need only 2 runs since cache uses finalizers
+	}
+
+	xobj1 := t.conn.Cache().Get(101)
+	xobj2 := t.conn.Cache().Get(102)
+	assert.Equal(xobj1, nil)
+	assert.NotEqual(xobj2, nil)
+	obj2 = xobj2.(*MyObject)
+	t.checkObj(obj2, 102, at2, UPTODATE,    0, "kitty")
+*/
+
+
 	// finish tnx3 and txn2 - conn1 and conn2 go back to db pool
 	t.Abort()
 	t2.Abort()
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
-
 
 	// open new connection in nopool mode to verify resync
 	t4 := testopen(&ConnOptions{NoPool: true})
@@ -573,7 +587,6 @@ func TestPersistentDB(t0 *testing.T) {
 
 	// XXX DB.Open with at on and +-1 δtail edges
 
-	// XXX cache dropping entries after GC
 
 	// XXX Get(txn = different) -> panic
 }
