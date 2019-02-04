@@ -267,7 +267,6 @@ func (t *tPersistentDB) Abort() {
 // this test covers everything at application-level: Persistent, DB, Connection, LiveCache.
 //
 // XXX test for cache=y/n (raw data cache)
-// XXX test both txn.Abort() and conn.Resync()
 func TestPersistentDB(t0 *testing.T) {
 	X := exc.Raiseif
 	assert := assert.New(t0)
@@ -318,11 +317,9 @@ func TestPersistentDB(t0 *testing.T) {
 	// FIXME test that live cache keeps objects live even if we drop all
 	// regular pointers to it and do GC.
 
-	// get objects and assert their type
-	// XXX objX -> c1objX ?
+	// get objects
 	obj1 := t.Get(101)
 	obj2 := t.Get(102)
-
 	t.checkObj(obj1, 101, InvalidTid, GHOST, 0, nil)
 	t.checkObj(obj2, 102, InvalidTid, GHOST, 0, nil)
 
@@ -426,7 +423,11 @@ func TestPersistentDB(t0 *testing.T) {
 	t.checkObj(obj2, 102, at2, UPTODATE, 1, nil)
 	assert.Equal(obj1.value, "hello")
 	assert.Equal(obj2.value, "kitty")
-	// XXX deactivate
+
+	obj1.PDeactivate()
+	obj2.PDeactivate()
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0, nil)
+	t.checkObj(obj2, 102, at2, UPTODATE,    0, nil)
 
 	// finish tnx3 and txn2 - conn1 and conn2 go back to db pool
 	t.Abort()
