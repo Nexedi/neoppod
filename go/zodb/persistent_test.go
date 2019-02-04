@@ -234,9 +234,25 @@ func (t *tPersistentDB) PActivate(obj IPersistent) {
 	}
 }
 
-// XXX
+// checkObj state of obj and that it belongs to t.conn.
 func (t *tPersistentDB) checkObj(obj IPersistent, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
 	t.Helper()
+
+	// any object with live pointer to it must be also in conn's cache.
+	connObj := t.conn.Cache().Get(oid)
+	if obj != connObj {
+		t.Fatalf("cache.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
+	}
+
+	// and conn.Get must return it
+	connObj, err := t.conn.Get(t.ctx, oid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obj != connObj {
+		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
+	}
+
 	_checkObj(t.T, obj, t.conn, oid, serial, state, refcnt, loading)
 }
 
@@ -422,14 +438,10 @@ func TestPersistentDB(t0 *testing.T) {
 	assert.Equal(db.pool, []*Connection{})
 
 	// obj2 should be invalidated
-	assert.Equal(t.conn.Cache().Get(101), obj1)	// XXX is
-	assert.Equal(t.conn.Cache().Get(102), obj2)	// XXX is
 	t.checkObj(obj1, 101, InvalidTid, GHOST, 0, nil)
 	t.checkObj(obj2, 102, InvalidTid, GHOST, 0, nil)
 
 	// obj2 data should be new
-	assert.Exactly(obj1, t.Get(101))	// XXX is
-	assert.Exactly(obj2, t.Get(102))	// XXX is
 	t.PActivate(obj1);
 	t.PActivate(obj2);
 	t.checkObj(obj1, 101, at1, UPTODATE, 1, nil)
@@ -486,14 +498,10 @@ func TestPersistentDB(t0 *testing.T) {
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
-	assert.Equal(t.conn.Cache().Get(101), robj1)	// XXX is
-	assert.Equal(t.conn.Cache().Get(102), robj2)	// XXX is
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
 	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
 
 	// obj2 data should be old
-	assert.Exactly(robj1, t.Get(101))	// XXX is
-	assert.Exactly(robj2, t.Get(102))	// XXX is
 	t.PActivate(robj1)
 	t.PActivate(robj2)
 	t.checkObj(robj1, 101, at1, UPTODATE, 1, nil)
@@ -513,13 +521,9 @@ func TestPersistentDB(t0 *testing.T) {
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
-	assert.Equal(t.conn.Cache().Get(101), robj1)	// XXX is
-	assert.Equal(t.conn.Cache().Get(102), robj2)	// XXX is
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
 	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
 
-	assert.Exactly(robj1, t.Get(101))	// XXX is
-	assert.Exactly(robj2, t.Get(102))	// XXX is
 	t.PActivate(robj1)
 	t.PActivate(robj2)
 	t.checkObj(robj1, 101, at1, UPTODATE, 1, nil)
@@ -532,20 +536,16 @@ func TestPersistentDB(t0 *testing.T) {
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
 	t.checkObj(robj2, 102, at2, UPTODATE, 0, nil)
 
-	// Resync ↓	(at1 -> at0; to outside δtail coverage)
+	// Resync ↓ (at1 -> at0; to outside δtail coverage)
 	t.Abort()
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 	t.Resync(at0)
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
-	assert.Equal(t.conn.Cache().Get(101), robj1)	// XXX is
-	assert.Equal(t.conn.Cache().Get(102), robj2)	// XXX is
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
 	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
 
-	assert.Exactly(robj1, t.Get(101))	// XXX is
-	assert.Exactly(robj2, t.Get(102))	// XXX is
 	t.PActivate(robj1)
 	t.PActivate(robj2)
 	t.checkObj(robj1, 101, at0, UPTODATE, 1, nil)
@@ -557,6 +557,19 @@ func TestPersistentDB(t0 *testing.T) {
 	robj2.PDeactivate()
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
 	t.checkObj(robj2, 102, at0, UPTODATE, 0, nil)
+
+	// Resync ↑ (at0 -> at2; from outside δtail coverage)
+	t.Abort()
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+	t.Resync(at2)
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+	// obj2 should be invalidated
+	assert.Equal(t.conn.Cache().Get(101), robj1)	// XXX is
+	assert.Equal(t.conn.Cache().Get(102), robj2)	// XXX is
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
+
 
 
 	// XXX DB.Open with at on and +-1 δtail edges
