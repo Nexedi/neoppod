@@ -234,8 +234,10 @@ func (t *tPersistentDB) PActivate(obj IPersistent) {
 	}
 }
 
-// checkObj state of obj and that it belongs to t.conn.
-func (t *tPersistentDB) checkObj(obj IPersistent, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
+// checkObj checks state of obj and that obj ∈ t.conn.
+//
+// if object is !GHOST - it also verifies its value.
+func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state ObjectState, refcnt int32, valuev ...string) {
 	t.Helper()
 
 	// any object with live pointer to it must be also in conn's cache.
@@ -244,7 +246,7 @@ func (t *tPersistentDB) checkObj(obj IPersistent, oid Oid, serial Tid, state Obj
 		t.Fatalf("cache.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
 	}
 
-	// and conn.Get must return it
+	// and conn.Get must return exactly obj.
 	connObj, err := t.conn.Get(t.ctx, oid)
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +255,22 @@ func (t *tPersistentDB) checkObj(obj IPersistent, oid Oid, serial Tid, state Obj
 		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
 	}
 
-	_checkObj(t.T, obj, t.conn, oid, serial, state, refcnt, loading)
+	_checkObj(t.T, obj, t.conn, oid, serial, state, refcnt, /*loading*/nil)
+
+	if state == GHOST {
+		if len(valuev) != 0 {
+			panic("t.checkObj(GHOST) must come without value")
+		}
+		return
+	}
+
+	if len(valuev) != 1 {
+		panic("t.checkObj(!GHOST) must come with one value")
+	}
+	value := valuev[0]
+	if obj.value != value {
+		t.Fatalf("obj.value mismatch: have %q;  want %q", obj.value, value)
+	}
 }
 
 // Resync resyncs t to new transaction @at.
@@ -345,40 +362,38 @@ func TestPersistentDB(t0 *testing.T) {
 	// get objects
 	obj1 := t.Get(101)
 	obj2 := t.Get(102)
-	t.checkObj(obj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(obj2, 102, InvalidTid, GHOST, 0, nil)
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, InvalidTid, GHOST, 0)
 
 	// activate:		jar has to load, state changes -> uptodate
 	t.PActivate(obj1)
 	t.PActivate(obj2)
-	t.checkObj(obj1, 101, at1, UPTODATE, 1, nil)
-	t.checkObj(obj2, 102, at1, UPTODATE, 1, nil)
-	assert.Equal(obj1.value, "hello")
-	assert.Equal(obj2.value, "world")
+	t.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(obj2, 102, at1, UPTODATE, 1, "world")
 
 	// activate again:	refcnt++
 	t.PActivate(obj1)
 	t.PActivate(obj2)
-	t.checkObj(obj1, 101, at1, UPTODATE, 2, nil)
-	t.checkObj(obj2, 102, at1, UPTODATE, 2, nil)
+	t.checkObj(obj1, 101, at1, UPTODATE, 2, "hello")
+	t.checkObj(obj2, 102, at1, UPTODATE, 2, "world")
 
 	// deactivate:		refcnt--
 	obj1.PDeactivate()
 	obj2.PDeactivate()
-	t.checkObj(obj1, 101, at1, UPTODATE, 1, nil)
-	t.checkObj(obj2, 102, at1, UPTODATE, 1, nil)
+	t.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(obj2, 102, at1, UPTODATE, 1, "world")
 
 	// deactivate:		state dropped for obj1, obj2 stays in live cache
 	obj1.PDeactivate()
 	obj2.PDeactivate()
-	t.checkObj(obj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(obj2, 102, at1, UPTODATE,    0, nil)
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, at1, UPTODATE,    0, "world")
 
 	// invalidate:		obj2 state dropped
 	obj1.PInvalidate()
 	obj2.PInvalidate()
-	t.checkObj(obj1, 101, InvalidTid, GHOST,    0, nil)
-	t.checkObj(obj2, 102, InvalidTid, GHOST,    0, nil)
+	t.checkObj(obj1, 101, InvalidTid, GHOST,    0)
+	t.checkObj(obj2, 102, InvalidTid, GHOST,    0)
 
 	// commit change to obj2 from external process
 	_obj2.value = "kitty"
@@ -396,34 +411,30 @@ func TestPersistentDB(t0 *testing.T) {
 
 	c2obj1 := t2.Get(101)
 	c2obj2 := t2.Get(102)
-	t2.checkObj(c2obj1, 101, InvalidTid, GHOST, 0, nil)
-	t2.checkObj(c2obj2, 102, InvalidTid, GHOST, 0, nil)
+	t2.checkObj(c2obj1, 101, InvalidTid, GHOST, 0)
+	t2.checkObj(c2obj2, 102, InvalidTid, GHOST, 0)
 
 	t2.PActivate(c2obj1)
 	t2.PActivate(c2obj2)
-	t2.checkObj(c2obj1, 101, at1, UPTODATE, 1, nil)
-	t2.checkObj(c2obj2, 102, at2, UPTODATE, 1, nil)
-	assert.Equal(c2obj1.value, "hello")
-	assert.Equal(c2obj2.value, "kitty")
+	t2.checkObj(c2obj1, 101, at1, UPTODATE, 1, "hello")
+	t2.checkObj(c2obj2, 102, at2, UPTODATE, 1, "kitty")
 	c2obj1.PDeactivate()
 	c2obj2.PDeactivate()
 
 
 	// conn1 stays at older view for now
-	t1.checkObj(obj1, 101, InvalidTid, GHOST,    0, nil)
-	t1.checkObj(obj2, 102, InvalidTid, GHOST,    0, nil)
+	t1.checkObj(obj1, 101, InvalidTid, GHOST,    0)
+	t1.checkObj(obj2, 102, InvalidTid, GHOST,    0)
 	t1.PActivate(obj1)
 	t1.PActivate(obj2)
-	t1.checkObj(obj1, 101, at1, UPTODATE, 1, nil)
-	t1.checkObj(obj2, 102, at1, UPTODATE, 1, nil)
-	assert.Equal(obj1.value, "hello")
-	assert.Equal(obj2.value, "world")
+	t1.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
+	t1.checkObj(obj2, 102, at1, UPTODATE, 1, "world")
 
 	// conn1 deactivate:	obj2 stays in conn1 live cache with old state
 	obj1.PDeactivate()
 	obj2.PDeactivate()
-	t1.checkObj(obj1, 101, InvalidTid, GHOST, 0, nil)
-	t1.checkObj(obj2, 102, at1, UPTODATE,    0, nil)
+	t1.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t1.checkObj(obj2, 102, at1, UPTODATE,    0, "world")
 
 	// txn1 completes - conn1 goes back to db pool
 	t1.Abort()
@@ -438,21 +449,19 @@ func TestPersistentDB(t0 *testing.T) {
 	assert.Equal(db.pool, []*Connection{})
 
 	// obj2 should be invalidated
-	t.checkObj(obj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(obj2, 102, InvalidTid, GHOST, 0, nil)
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, InvalidTid, GHOST, 0)
 
 	// obj2 data should be new
 	t.PActivate(obj1);
 	t.PActivate(obj2);
-	t.checkObj(obj1, 101, at1, UPTODATE, 1, nil)
-	t.checkObj(obj2, 102, at2, UPTODATE, 1, nil)
-	assert.Equal(obj1.value, "hello")
-	assert.Equal(obj2.value, "kitty")
+	t.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(obj2, 102, at2, UPTODATE, 1, "kitty")
 
 	obj1.PDeactivate()
 	obj2.PDeactivate()
-	t.checkObj(obj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(obj2, 102, at2, UPTODATE,    0, nil)
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, at2, UPTODATE,    0, "kitty")
 
 	// finish tnx3 and txn2 - conn1 and conn2 go back to db pool
 	t.Abort()
@@ -473,21 +482,19 @@ func TestPersistentDB(t0 *testing.T) {
 	// it should see latest data
 	robj1 := t.Get(101)
 	robj2 := t.Get(102)
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
 
 	t.PActivate(robj1)
 	t.PActivate(robj2)
-	t.checkObj(robj1, 101, at1, UPTODATE, 1, nil)
-	t.checkObj(robj2, 102, at2, UPTODATE, 1, nil)
-	assert.Equal(robj1.value, "hello")
-	assert.Equal(robj2.value, "kitty")
+	t.checkObj(robj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(robj2, 102, at2, UPTODATE, 1, "kitty")
 
 	// obj2 stays in live cache
 	robj1.PDeactivate()
 	robj2.PDeactivate()
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, at2, UPTODATE,    0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, at2, UPTODATE,    0, "kitty")
 
 	// txn4 completes, but its conn stays out of db pool
 	t.Abort()
@@ -498,21 +505,19 @@ func TestPersistentDB(t0 *testing.T) {
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
 
 	// obj2 data should be old
 	t.PActivate(robj1)
 	t.PActivate(robj2)
-	t.checkObj(robj1, 101, at1, UPTODATE, 1, nil)
-	t.checkObj(robj2, 102, at1, UPTODATE, 1, nil)
-	assert.Equal(robj1.value, "hello")
-	assert.Equal(robj2.value, "world")
+	t.checkObj(robj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(robj2, 102, at1, UPTODATE, 1, "world")
 
 	robj1.PDeactivate()
 	robj2.PDeactivate()
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, at1, UPTODATE, 0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, at1, UPTODATE, 0, "world")
 
 	// Resync ↑ (at1 -> at2; within δtail coverage)
 	t.Abort()
@@ -521,20 +526,18 @@ func TestPersistentDB(t0 *testing.T) {
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
 
 	t.PActivate(robj1)
 	t.PActivate(robj2)
-	t.checkObj(robj1, 101, at1, UPTODATE, 1, nil)
-	t.checkObj(robj2, 102, at2, UPTODATE, 1, nil)
-	assert.Equal(robj1.value, "hello")
-	assert.Equal(robj2.value, "kitty")
+	t.checkObj(robj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(robj2, 102, at2, UPTODATE, 1, "kitty")
 
 	robj1.PDeactivate()
 	robj2.PDeactivate()
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, at2, UPTODATE, 0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, at2, UPTODATE, 0, "kitty")
 
 	// Resync ↓ (at1 -> at0; to outside δtail coverage)
 	t.Abort()
@@ -543,20 +546,18 @@ func TestPersistentDB(t0 *testing.T) {
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
 
 	t.PActivate(robj1)
 	t.PActivate(robj2)
-	t.checkObj(robj1, 101, at0, UPTODATE, 1, nil)
-	t.checkObj(robj2, 102, at0, UPTODATE, 1, nil)
-	assert.Equal(robj1.value, "init")
-	assert.Equal(robj2.value, "db")
+	t.checkObj(robj1, 101, at0, UPTODATE, 1, "init")
+	t.checkObj(robj2, 102, at0, UPTODATE, 1, "db")
 
 	robj1.PDeactivate()
 	robj2.PDeactivate()
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, at0, UPTODATE, 0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, at0, UPTODATE, 0, "db")
 
 	// Resync ↑ (at0 -> at2; from outside δtail coverage)
 	t.Abort()
@@ -565,10 +566,8 @@ func TestPersistentDB(t0 *testing.T) {
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// obj2 should be invalidated
-	assert.Equal(t.conn.Cache().Get(101), robj1)	// XXX is
-	assert.Equal(t.conn.Cache().Get(102), robj2)	// XXX is
-	t.checkObj(robj1, 101, InvalidTid, GHOST, 0, nil)
-	t.checkObj(robj2, 102, InvalidTid, GHOST, 0, nil)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
 
 
 
