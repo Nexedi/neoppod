@@ -35,6 +35,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
 type zeo struct {
@@ -404,15 +405,17 @@ func init() {
 
 // xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
 func xuint64Unpack(xv interface{}) (uint64, bool) {
-	s, ok := xv.(string)
-	if !ok || len(s) != 8 {
+	v, err := pickletools.Xstrbytes8(xv)
+	if err != nil {
 		return 0, false
 	}
 
-	return binary.BigEndian.Uint64(mem.Bytes(s)), true
+	return v, true
 }
 
 // xuint64Pack packs v into big-endian 8-byte string
+//
+// XXX do we need to emit bytes instead of str?
 func xuint64Pack(v uint64) string {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], v)
