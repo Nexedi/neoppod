@@ -100,7 +100,11 @@ func (d PyData) decode(jar *Connection) (pyclass pickle.Class, pystate interface
 
 	p := pickle.NewDecoderWithConfig(
 		bytes.NewReader([]byte(d)),
-		&pickle.DecoderConfig{PersistentLoad: jar.loadref},
+		&pickle.DecoderConfig{
+			PersistentLoad: jar.loadref,
+			// TODO KeepUnicode: true to prevent [8]unicode to be decoded as oid
+			// XXX  !KeepUnicode for data part?
+		},
 	)
 
 	xklass, err := p.Decode()
@@ -232,20 +236,50 @@ func xpyclass(xklass interface{}) (_ pickle.Class, err error) {
 }
 
 // xoid verifies and extracts oid from unpickled value.
-//
-// TODO +zobdpickle.binary support
 func xoid(x interface{}) (_ Oid, err error) {
 	defer xerr.Context(&err, "oid")
 
-	s, ok := x.(string)
-	if !ok {
-		return InvalidOid, fmt.Errorf("expect str; got %T", x)
-	}
-	if len(s) != 8 {
-		return InvalidOid, fmt.Errorf("expect [8]str; got [%d]str", len(s))
+	// ZODB >= 5.4 encodes oid as bytes; before - as str:
+	// https://github.com/zopefoundation/ZODB/commit/12ee41c473
+	v, err := xstrbytes8(x)
+	if err != nil {
+		return InvalidOid, err
 	}
 
-	return Oid(binary.BigEndian.Uint64([]byte(s))), nil
+	return Oid(v), nil
+}
+
+// -> pickletools
+
+// xstrbytes verifies and extacts str|bytes from unpickled value.
+func xstrbytes(x interface{}) (string, error) {
+	var s string
+	switch x := x.(type) {
+	default:
+		return "", fmt.Errorf("expect str|bytes; got %T", x)
+
+	case string:
+		s = x
+
+	case pickle.Bytes:
+		s = string(x)
+	}
+
+	return s, nil
+}
+
+// xstrbytes8 verifies and extracts [8](str|bytes) from unpickled value as big-endian u64.
+func xstrbytes8(x interface{}) (uint64, error) {
+	s, err := xstrbytes(x)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(s) != 8 {
+		return 0, fmt.Errorf("expect [8]bytes; got [%d]bytes", len(s))
+	}
+
+	return binary.BigEndian.Uint64([]byte(s)), nil
 }
 
 // pyclassPath returns full path for a python class.
