@@ -88,9 +88,11 @@ type IPersistent interface {
 
 	// PModify marks in-RAM object state as modified.
 	//
-	// It informs persistency layer that object's data was changed and so
-	// its state needs to be either saved back into database on transaction
-	// commit, or discarded on transaction abort.
+	// It informs persistency layer that object's data is going to be
+	// changed and so its state will need to be either saved back into
+	// database on transaction commit, or discarded on transaction abort.
+	//
+	// PModify must be called before object data is modified.
 	//
 	// The object must be already activated.
 	//PModify()	TODO

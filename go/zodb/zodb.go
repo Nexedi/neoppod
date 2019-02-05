@@ -82,8 +82,8 @@
 //
 //	obj.xxx // use object.
 //	if ... {
-//		obj.xxx++     // change object.
-//		obj.PModify() // let persistency layer know we modified the object.
+//		obj.PModify() // let persistency layer know we are going to modifiy the object.
+//		obj.xxx++     // change the object.
 //	}
 //
 //	// tell persistency layer we no longer need obj's in-RAM data to be present.
