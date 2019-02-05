@@ -63,7 +63,7 @@ type IOBTree struct {
 // Key limits child's keys - see IOBTree.Entryv for details.
 type IOEntry struct {
 	key   int32
-	child interface{} // IOBTree or IOBucket
+	child zodb.IPersistent // IOBTree or IOBucket
 }
 
 // IOBucket is a leaf node of a B⁺ tree.
@@ -101,7 +101,7 @@ type IOBucketEntry struct {
 func (e *IOEntry) Key() int32 { return e.key }
 
 // Child returns IOBTree entry child.
-func (e *IOEntry) Child() interface{} { return e.child }
+func (e *IOEntry) Child() zodb.IPersistent { return e.child }
 
 // Entryv returns entries of a IOBTree node.
 //
@@ -155,30 +155,33 @@ func (b *IOBucket) Next() *IOBucket {
 //
 // t need not be activated beforehand for Get to work.
 func (t *IOBTree) Get(ctx context.Context, key int32) (_ interface{}, _ bool, err error) {
-	v, ok, _, _, err := t.GetTo(ctx, key)
-	return v, ok, err
+	return t.GetTo(ctx, key, nil)
 }
 
-// GetTo searches IOBTree by key and returns value and path.
+// GetTo searches IOBTree by key and visits btree-path nodes.
 //
-// It is similar to Get, but additionally provides information via which
-// intermediate tree nodes and leaf bucket the key was found.
-func (t *IOBTree) GetTo(ctx context.Context, key int32) (_ interface{}, _ bool, path []*IOBTree, leaf *IOBucket, err error) {
+// It is similar to Get, but additionally calls visit on every IOBTree node
+// (IOBTree or IOBucket) it traverses from root to leaf to find the key.
+//
+// Visit is called with node being activated.
+func (t *IOBTree) GetTo(ctx context.Context, key int32, visit func(node zodb.IPersistent)) (_ interface{}, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)
 	err = t.PActivate(ctx)
 	if err != nil {
-		return nil, false, nil, nil, err
+		return nil, false, err
+	}
+
+	if visit != nil {
+		visit(t)
 	}
 
 	if len(t.data) == 0 {
 		// empty btree
 		t.PDeactivate()
-		return nil, false, nil, nil, nil
+		return nil, false, nil
 	}
 
 	for {
-		path = append(path, t)
-
 		// search i: K(i) ≤ k < K(i+1)	; K(0) = -∞, K(len) = +∞
 		i := sort.Search(len(t.data), func(i int) bool {
 			j := i + 1
@@ -188,47 +191,33 @@ func (t *IOBTree) GetTo(ctx context.Context, key int32) (_ interface{}, _ bool, 
 			return key < t.data[j].key
 		})
 
-		switch child := t.data[i].child.(type) {
+		child := t.data[i].child
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+
+		if visit != nil {
+			visit(child)
+		}
+
+		switch child := child.(type) {
 		case *IOBTree:
-			t.PDeactivate()
 			t = child
-			err = t.PActivate(ctx)
-			if err != nil {
-				return nil, false, nil, nil, err
-			}
 
 		case *IOBucket:
-			t.PDeactivate()
-			v, ok, err := child.Get(ctx, key)
-			if err != nil {
-				path = nil
-				child = nil
-			}
-			return v, ok, path, child, err
+			v, ok := child.Get(key)
+			child.PDeactivate()
+			return v, ok, nil
 		}
 	}
 }
 
 // Get searches IOBucket by key.
 //
-// TODO IOBucket.Get should not get ctx argument and just require that the bucket
-// must be already activated. Correspondingly there should be no error returned.
-func (b *IOBucket) Get(ctx context.Context, key int32) (_ interface{}, _ bool, err error) {
-	defer xerr.Contextf(&err, "bucket(%s): get %v", b.POid(), key)
-	err = b.PActivate(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
-	v, ok := b.get(key)
-	b.PDeactivate()
-	return v, ok, nil
-}
-
-// get searches IOBucket by key.
-//
 // no loading from database is done. The bucket must be already activated.
-func (b *IOBucket) get(key int32) (interface{}, bool) {
+func (b *IOBucket) Get(key int32) (interface{}, bool) {
 	// search i: K(i-1) < k ≤ K(i)		; K(-1) = -∞, K(len) = +∞
 	i := sort.Search(len(b.keys), func(i int) bool {
 		return key <= b.keys[i]
@@ -601,7 +590,7 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, IOEntry{key: kkey, child: child})
+		bt.data = append(bt.data, IOEntry{key: kkey, child: child.(zodb.IPersistent)})
 	}
 
 	return nil
