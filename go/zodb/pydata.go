@@ -22,11 +22,12 @@ package zodb
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"strings"
 
 	pickle "github.com/kisielk/og-rek"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
+
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
@@ -241,45 +242,12 @@ func xoid(x interface{}) (_ Oid, err error) {
 
 	// ZODB >= 5.4 encodes oid as bytes; before - as str:
 	// https://github.com/zopefoundation/ZODB/commit/12ee41c473
-	v, err := xstrbytes8(x)
+	v, err := pickletools.Xstrbytes8(x)
 	if err != nil {
 		return InvalidOid, err
 	}
 
 	return Oid(v), nil
-}
-
-// -> pickletools
-
-// xstrbytes verifies and extacts str|bytes from unpickled value.
-func xstrbytes(x interface{}) (string, error) {
-	var s string
-	switch x := x.(type) {
-	default:
-		return "", fmt.Errorf("expect str|bytes; got %T", x)
-
-	case string:
-		s = x
-
-	case pickle.Bytes:
-		s = string(x)
-	}
-
-	return s, nil
-}
-
-// xstrbytes8 verifies and extracts [8](str|bytes) from unpickled value as big-endian u64.
-func xstrbytes8(x interface{}) (uint64, error) {
-	s, err := xstrbytes(x)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(s) != 8 {
-		return 0, fmt.Errorf("expect [8]bytes; got [%d]bytes", len(s))
-	}
-
-	return binary.BigEndian.Uint64([]byte(s)), nil
 }
 
 // pyclassPath returns full path for a python class.
