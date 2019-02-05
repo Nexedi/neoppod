@@ -22,11 +22,12 @@ package zodb
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"strings"
 
 	pickle "github.com/kisielk/og-rek"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
+
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
@@ -232,20 +233,17 @@ func xpyclass(xklass interface{}) (_ pickle.Class, err error) {
 }
 
 // xoid verifies and extracts oid from unpickled value.
-//
-// TODO +zobdpickle.binary support
 func xoid(x interface{}) (_ Oid, err error) {
 	defer xerr.Context(&err, "oid")
 
-	s, ok := x.(string)
-	if !ok {
-		return InvalidOid, fmt.Errorf("expect str; got %T", x)
-	}
-	if len(s) != 8 {
-		return InvalidOid, fmt.Errorf("expect [8]str; got [%d]str", len(s))
+	// ZODB >= 5.4 encodes oid as bytes; before - as str:
+	// https://github.com/zopefoundation/ZODB/commit/12ee41c473
+	v, err := pickletools.Xstrbytes8(x)
+	if err != nil {
+		return InvalidOid, err
 	}
 
-	return Oid(binary.BigEndian.Uint64([]byte(s))), nil
+	return Oid(v), nil
 }
 
 // pyclassPath returns full path for a python class.
