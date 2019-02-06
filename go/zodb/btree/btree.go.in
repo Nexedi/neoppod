@@ -153,16 +153,13 @@ func (b *Bucket) Next() *Bucket {
 //
 // t need not be activated beforehand for Get to work.
 func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
-	return t.GetTo(ctx, key, nil)
+	return t.VGet(ctx, key, nil)
 }
 
-// GetTo searches BTree by key and visits btree-path nodes.
-//
-// It is similar to Get, but additionally calls visit on every BTree node
-// (BTree or Bucket) it traverses from root to leaf to find the key.
+// VGet is like Get but also calls visit while traversing the tree.
 //
 // Visit is called with node being activated.
-func (t *BTree) GetTo(ctx context.Context, key KEY, visit func(node zodb.IPersistent)) (_ interface{}, _ bool, err error) {
+func (t *BTree) VGet(ctx context.Context, key KEY, visit func(node zodb.IPersistent)) (_ interface{}, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)
 	err = t.PActivate(ctx)
 	if err != nil {
@@ -234,10 +231,21 @@ func (b *Bucket) Get(key KEY) (interface{}, bool) {
 // If the tree is empty, ok=false is returned.
 // The tree does not need to be activated beforehand.
 func (t *BTree) MinKey(ctx context.Context) (_ KEY, ok bool, err error) {
+	return t.VMinKey(ctx, nil)
+}
+
+// VMinKey is like MinKey but also calls visit while traversing the tree.
+//
+// Visit is called with node being activated.
+func (t *BTree) VMinKey(ctx context.Context, visit func(node zodb.IPersistent)) (_ KEY, ok bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
 	err = t.PActivate(ctx)
 	if err != nil {
 		return 0, false, err
+	}
+
+	if visit != nil {
+		visit(t)
 	}
 
 	if len(t.data) == 0 {
@@ -253,6 +261,10 @@ func (t *BTree) MinKey(ctx context.Context) (_ KEY, ok bool, err error) {
 		err = child.PActivate(ctx)
 		if err != nil {
 			return 0, false, err
+		}
+
+		if visit != nil {
+			visit(child)
 		}
 
 		switch child := child.(type) {
@@ -272,10 +284,21 @@ func (t *BTree) MinKey(ctx context.Context) (_ KEY, ok bool, err error) {
 // If the tree is empty, ok=false is returned.
 // The tree does not need to be activated beforehand.
 func (t *BTree) MaxKey(ctx context.Context) (_ KEY, _ bool, err error) {
+	return t.VMaxKey(ctx, nil)
+}
+
+// VMaxKey is like MaxKey but also calls visit while traversing the tree.
+//
+// Visit is called with node being activated.
+func (t *BTree) VMaxKey(ctx context.Context, visit func(node zodb.IPersistent)) (_ KEY, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
 	err = t.PActivate(ctx)
 	if err != nil {
 		return 0, false, err
+	}
+
+	if visit != nil {
+		visit(t)
 	}
 
 	l := len(t.data)
@@ -291,6 +314,10 @@ func (t *BTree) MaxKey(ctx context.Context) (_ KEY, _ bool, err error) {
 		err = child.PActivate(ctx)
 		if err != nil {
 			return 0, false, err
+		}
+
+		if visit != nil {
+			visit(child)
 		}
 
 		switch child := child.(type) {

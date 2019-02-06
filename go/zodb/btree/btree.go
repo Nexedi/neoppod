@@ -27,6 +27,8 @@
 //
 // BTree.FirstBucket() and Bucket.Next() allow to iterate through leaf B⁺ tree nodes.
 //
+// BTree.V<op>(..., visit) performs <op> with calling visit on every accessed tree node.
+//
 // --------
 //
 // (*) https://github.com/zopefoundation/ZODB/blob/3.10.7-4-gb8d7a8567/src/BTrees/Development.txt#L211
