@@ -187,33 +187,17 @@ func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err er
 			t = child
 
 		case *Bucket:
-			v, ok, err := child.Get(ctx, key)
+			v, ok := child.Get(key)
 			child.PDeactivate()
-			return v, ok, err
+			return v, ok, nil
 		}
 	}
 }
 
 // Get searches Bucket by key.
 //
-// TODO Bucket.Get should not get ctx argument and just require that the bucket
-// must be already activated. Correspondingly there should be no error returned.
-func (b *Bucket) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
-	defer xerr.Contextf(&err, "bucket(%s): get %v", b.POid(), key)
-	err = b.PActivate(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
-	v, ok := b.get(key)
-	b.PDeactivate()
-	return v, ok, nil
-}
-
-// get searches Bucket by key.
-//
 // no loading from database is done. The bucket must be already activated.
-func (b *Bucket) get(key KEY) (interface{}, bool) {
+func (b *Bucket) Get(key KEY) (interface{}, bool) {
 	// search i: K(i-1) < k ≤ K(i)		; K(-1) = -∞, K(len) = +∞
 	i := sort.Search(len(b.keys), func(i int) bool {
 		return key <= b.keys[i]

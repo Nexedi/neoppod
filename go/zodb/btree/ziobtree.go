@@ -189,33 +189,17 @@ func (t *IOBTree) Get(ctx context.Context, key int32) (_ interface{}, _ bool, er
 			t = child
 
 		case *IOBucket:
-			v, ok, err := child.Get(ctx, key)
+			v, ok := child.Get(key)
 			child.PDeactivate()
-			return v, ok, err
+			return v, ok, nil
 		}
 	}
 }
 
 // Get searches IOBucket by key.
 //
-// TODO IOBucket.Get should not get ctx argument and just require that the bucket
-// must be already activated. Correspondingly there should be no error returned.
-func (b *IOBucket) Get(ctx context.Context, key int32) (_ interface{}, _ bool, err error) {
-	defer xerr.Contextf(&err, "bucket(%s): get %v", b.POid(), key)
-	err = b.PActivate(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
-	v, ok := b.get(key)
-	b.PDeactivate()
-	return v, ok, nil
-}
-
-// get searches IOBucket by key.
-//
 // no loading from database is done. The bucket must be already activated.
-func (b *IOBucket) get(key int32) (interface{}, bool) {
+func (b *IOBucket) Get(key int32) (interface{}, bool) {
 	// search i: K(i-1) < k ≤ K(i)		; K(-1) = -∞, K(len) = +∞
 	i := sort.Search(len(b.keys), func(i int) bool {
 		return key <= b.keys[i]
