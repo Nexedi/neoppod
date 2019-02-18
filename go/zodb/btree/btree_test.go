@@ -252,6 +252,8 @@ func TestBTree(t *testing.T) {
 		return firstbucket
 	}
 
+	// XXX verify PyGetState <-> PySetState is the same.
+
 	// XXX verify Entryv ?
 	// XXX verify FirstBucket / Next ?
 
