@@ -63,7 +63,7 @@ type LOBTree struct {
 // Key limits child's keys - see LOBTree.Entryv for details.
 type LOEntry struct {
 	key   int64
-	child interface{} // LOBTree or LOBucket
+	child zodb.IPersistent // LOBTree or LOBucket
 }
 
 // LOBucket is a leaf node of a B⁺ tree.
@@ -101,7 +101,7 @@ type LOBucketEntry struct {
 func (e *LOEntry) Key() int64 { return e.key }
 
 // Child returns LOBTree entry child.
-func (e *LOEntry) Child() interface{} { return e.child }
+func (e *LOEntry) Child() zodb.IPersistent { return e.child }
 
 // Entryv returns entries of a LOBTree node.
 //
@@ -177,18 +177,21 @@ func (t *LOBTree) Get(ctx context.Context, key int64) (_ interface{}, _ bool, er
 			return key < t.data[j].key
 		})
 
-		switch child := t.data[i].child.(type) {
+		child := t.data[i].child
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+
+		switch child := child.(type) {
 		case *LOBTree:
-			t.PDeactivate()
 			t = child
-			err = t.PActivate(ctx)
-			if err != nil {
-				return nil, false, err
-			}
 
 		case *LOBucket:
-			t.PDeactivate()
-			return child.Get(ctx, key)
+			v, ok, err := child.Get(ctx, key)
+			child.PDeactivate()
+			return v, ok, err
 		}
 	}
 }
@@ -549,7 +552,7 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, LOEntry{key: kkey, child: child})
+		bt.data = append(bt.data, LOEntry{key: kkey, child: child.(zodb.IPersistent)})
 	}
 
 	return nil

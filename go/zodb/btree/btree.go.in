@@ -61,7 +61,7 @@ type BTree struct {
 // Key limits child's keys - see BTree.Entryv for details.
 type Entry struct {
 	key   KEY
-	child interface{} // BTree or Bucket
+	child zodb.IPersistent // BTree or Bucket
 }
 
 // Bucket is a leaf node of a B⁺ tree.
@@ -99,7 +99,7 @@ type BucketEntry struct {
 func (e *Entry) Key() KEY { return e.key }
 
 // Child returns BTree entry child.
-func (e *Entry) Child() interface{} { return e.child }
+func (e *Entry) Child() zodb.IPersistent { return e.child }
 
 // Entryv returns entries of a BTree node.
 //
@@ -175,18 +175,21 @@ func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err er
 			return key < t.data[j].key
 		})
 
-		switch child := t.data[i].child.(type) {
+		child := t.data[i].child
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+
+		switch child := child.(type) {
 		case *BTree:
-			t.PDeactivate()
 			t = child
-			err = t.PActivate(ctx)
-			if err != nil {
-				return nil, false, err
-			}
 
 		case *Bucket:
-			t.PDeactivate()
-			return child.Get(ctx, key)
+			v, ok, err := child.Get(ctx, key)
+			child.PDeactivate()
+			return v, ok, err
 		}
 	}
 }
@@ -547,7 +550,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, Entry{key: kkey, child: child})
+		bt.data = append(bt.data, Entry{key: kkey, child: child.(zodb.IPersistent)})
 	}
 
 	return nil

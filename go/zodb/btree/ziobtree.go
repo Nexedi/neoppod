@@ -63,7 +63,7 @@ type IOBTree struct {
 // Key limits child's keys - see IOBTree.Entryv for details.
 type IOEntry struct {
 	key   int32
-	child interface{} // IOBTree or IOBucket
+	child zodb.IPersistent // IOBTree or IOBucket
 }
 
 // IOBucket is a leaf node of a B⁺ tree.
@@ -101,7 +101,7 @@ type IOBucketEntry struct {
 func (e *IOEntry) Key() int32 { return e.key }
 
 // Child returns IOBTree entry child.
-func (e *IOEntry) Child() interface{} { return e.child }
+func (e *IOEntry) Child() zodb.IPersistent { return e.child }
 
 // Entryv returns entries of a IOBTree node.
 //
@@ -177,18 +177,21 @@ func (t *IOBTree) Get(ctx context.Context, key int32) (_ interface{}, _ bool, er
 			return key < t.data[j].key
 		})
 
-		switch child := t.data[i].child.(type) {
+		child := t.data[i].child
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+
+		switch child := child.(type) {
 		case *IOBTree:
-			t.PDeactivate()
 			t = child
-			err = t.PActivate(ctx)
-			if err != nil {
-				return nil, false, err
-			}
 
 		case *IOBucket:
-			t.PDeactivate()
-			return child.Get(ctx, key)
+			v, ok, err := child.Get(ctx, key)
+			child.PDeactivate()
+			return v, ok, err
 		}
 	}
 }
@@ -549,7 +552,7 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, IOEntry{key: kkey, child: child})
+		bt.data = append(bt.data, IOEntry{key: kkey, child: child.(zodb.IPersistent)})
 	}
 
 	return nil
