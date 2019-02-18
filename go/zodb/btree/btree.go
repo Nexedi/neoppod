@@ -47,8 +47,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
-// XXX Length is like BTrees.Length.Length.
-// XXX tests.
+// Length is equivalent of BTrees.Length.Length in BTree/py.
 type Length struct {
 	zodb.Persistent
 
@@ -74,7 +73,7 @@ func (l *lengthState) PySetState(pystate interface{}) (err error) {
 		return fmt.Errorf("state must be int; got %T", pystate)
 	}
 
-	l.value = int(v)	// XXX casting ok?
+	l.value = int(v)
 	return nil
 }
 
