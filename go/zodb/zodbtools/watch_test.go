@@ -61,10 +61,11 @@ func TestWatch(t *testing.T) {
 	xcommit(obj(0, "data0"))
 
 	// open tfs at go side
-	stor, err := zodb.OpenStorage(context.Background(), tfs, &zodb.OpenOptions{ReadOnly: true}); X(err)
+	bg := context.Background()
+	stor, err := zodb.OpenStorage(bg, tfs, &zodb.OpenOptions{ReadOnly: true}); X(err)
 
 	// spawn plain and verbose watchers
-	ctx0, cancel := context.WithCancel(context.Background())
+	ctx0, cancel := context.WithCancel(bg)
 	wg, ctx := errgroup.WithContext(ctx0)
 
 	// gowatch spawns Watch(verbose) and returns expectf() func that is
