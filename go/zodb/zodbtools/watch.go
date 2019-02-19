@@ -17,9 +17,9 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Zodbwatch - watch database for changes
+// Zodbwatch - watch ZODB database for changes
 //
-// Zodbwatch watches deatbase for changes and prints information about
+// Zodbwatch watches database for changes and prints information about
 // committed transactions. Output formats:
 //
 // Plain:
@@ -67,7 +67,7 @@ func Watch(ctx context.Context, stor zodb.IStorage, w io.Writer, verbose bool) (
 		return err
 	}
 
-	watchq := make(chan zodb.CommitEvent)
+	watchq := make(chan zodb.Event)
 	at0 := stor.AddWatch(watchq)
 	defer stor.DelWatch(watchq)
 
@@ -81,11 +81,22 @@ func Watch(ctx context.Context, stor zodb.IStorage, w io.Writer, verbose bool) (
 		case <-ctx.Done():
 			return ctx.Err()
 
-		case δ, ok := <-watchq:
+		case event, ok := <-watchq:
 			if !ok {
-				// XXX correct?
 				err = emitf("# storage closed")
 				return err
+			}
+
+			var δ *zodb.EventCommit
+			switch event := event.(type) {
+			default:
+				panic(fmt.Sprintf("unexpected event: %T", event))
+
+			case *zodb.EventError:
+				return event.Err
+
+			case *zodb.EventCommit:
+				δ = event
 			}
 
 			err = emitf("txn %s\n", δ.Tid)

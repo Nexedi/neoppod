@@ -69,8 +69,8 @@ type Client struct {
 	operational bool // XXX <- somehow move to NodeApp?
 	opReady	    chan struct{} // reinitialized each time state becomes non-operational
 
-	// driver client <- watcher: database commits.
-	watchq chan<- zodb.CommitEvent // FIXME stub
+	// driver client <- watcher: database commits | errors.
+	watchq chan<- zodb.Event // FIXME stub
 }
 
 var _ zodb.IStorageDriver = (*Client)(nil)

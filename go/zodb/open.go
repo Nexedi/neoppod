@@ -50,9 +50,7 @@ type DriverOptions struct {
 	//
 	// The storage driver will send only and all events in (at₀, +∞] range,
 	// where at₀ is at returned by driver open.
-	//
-	// TODO extend watchq to also receive errors from watcher.
-	Watchq chan<- CommitEvent
+	Watchq chan<- Event
 }
 
 // DriverOpener is a function to open a storage driver.
@@ -100,7 +98,7 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
 	}
 
-	drvWatchq := make(chan CommitEvent)
+	drvWatchq := make(chan Event)
 	drvOpt := &DriverOptions{
 		ReadOnly: opt.ReadOnly,
 		Watchq:   drvWatchq,
@@ -131,7 +129,7 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 		drvWatchq: drvWatchq,
 		drvHead:   at0,
 		watchReq:  make(chan watchRequest),
-		watchTab:  make(map[chan<- CommitEvent]struct{}),
+		watchTab:  make(map[chan<- Event]struct{}),
 
 	}
 	go stor.watcher()	// XXX stop on close
@@ -150,10 +148,10 @@ type storage struct {
 	l1cache *Cache // can be =nil, if opened with NoCache
 
 	// watcher
-	drvWatchq chan CommitEvent                // watchq passed to driver
-	drvHead   Tid                             // last tid received from drvWatchq
-	watchReq  chan watchRequest               // {Add,Del}Watch requests go here
-	watchTab  map[chan<- CommitEvent]struct{} // registered watchers
+	drvWatchq chan Event                // watchq passed to driver
+	drvHead   Tid                       // last tid received from drvWatchq
+	watchReq  chan watchRequest         // {Add,Del}Watch requests go here
+	watchTab  map[chan<- Event]struct{} // registered watchers
 }
 
 // loading goes through cache - this way prefetching can work
@@ -183,9 +181,9 @@ func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 
 // watchRequest represents request to add/del a watch.
 type watchRequest struct {
-	op     watchOp            // add or del
-	ack    chan Tid           // when request processed: at0 for add, ø for del.
-	watchq chan<- CommitEvent // {Add,Del}Watch argument
+	op     watchOp      // add or del
+	ack    chan Tid     // when request processed: at0 for add, ø for del.
+	watchq chan<- Event // {Add,Del}Watch argument
 }
 
 type watchOp int
@@ -222,9 +220,18 @@ func (s *storage) watcher() {
 				return
 			}
 
-			// XXX verify event.Tid ↑  (else e.g. δtail.Append will panic)
-			//     if !↑ - stop the storage with error.
-			s.drvHead = event.Tid
+			switch event := event.(type) {
+			default:
+				panic(fmt.Sprintf("unexpected event: %T", event))
+
+			case *EventError:
+				// ok
+
+			case *EventCommit:
+				// XXX verify event.Tid ↑  (else e.g. δtail.Append will panic)
+				//     if !↑ - stop the storage with error.
+				s.drvHead = event.Tid
+			}
 
 			// deliver event to all watchers
 			for watchq := range s.watchTab {
@@ -236,7 +243,7 @@ func (s *storage) watcher() {
 }
 
 // AddWatch implements Watcher.
-func (s *storage) AddWatch(watchq chan<- CommitEvent) (at0 Tid) {
+func (s *storage) AddWatch(watchq chan<- Event) (at0 Tid) {
 	// XXX when already Closed?
 	ack := make(chan Tid)
 	s.watchReq <- watchRequest{addWatch, ack, watchq}
@@ -244,7 +251,7 @@ func (s *storage) AddWatch(watchq chan<- CommitEvent) (at0 Tid) {
 }
 
 // DelWatch implements Watcher.
-func (s *storage) DelWatch(watchq chan<- CommitEvent) {
+func (s *storage) DelWatch(watchq chan<- Event) {
 	// XXX when already Closed?
 	ack := make(chan Tid)
 	s.watchReq <- watchRequest{delWatch, ack, watchq}

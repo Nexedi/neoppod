@@ -428,9 +428,26 @@ type Committer interface {
 	// TpcAbort(txn)
 }
 
+// Event represents one database event.
+//
+// Possible events are:
+//
+//	- EventError	an error happened
+//	- EventCommit	a transaction was committed
+type Event interface {
+	event()
+}
 
-// CommitEvent is event describing one observed database commit.
-type CommitEvent struct {
+func (_ *EventError)  event() {}
+func (_ *EventCommit) event() {}
+
+// EventError is event descrbing an error observed by watcher.
+type EventError struct {
+	Err error
+}
+
+// EventCommit is event describing one observed database commit.
+type EventCommit struct {
 	Tid     Tid   // ID of committed transaction
 	Changev []Oid // ID of objects changed by committed transaction
 }
@@ -453,10 +470,10 @@ type Watcher interface {
 	// Once registered, watchq must be read until DelWatch call.
 	// Not doing so will stuck whole storage.
 	//
-	// Multiple AddWatch calls with the same watchq register watchq only once.	XXX
+	// Registered watchq are closed when the database storage is closed.
 	//
-	// XXX watchq closed when stor.watchq closed?
-	AddWatch(watchq chan<- CommitEvent) (at0 Tid)
+	// Multiple AddWatch calls with the same watchq register watchq only once.	XXX
+	AddWatch(watchq chan<- Event) (at0 Tid)
 
 	// DelWatch unregisters watchq from being notified of database changes.
 	//
@@ -480,7 +497,7 @@ type Watcher interface {
 	// DelWatch is noop if watchq was not registered.
 	//
 	// XXX also return curent head?
-	DelWatch(watchq chan<- CommitEvent)
+	DelWatch(watchq chan<- Event)
 }
 
 

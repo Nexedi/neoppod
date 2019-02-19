@@ -122,7 +122,7 @@ func NewDB(stor IStorage) *DB {
 		tδkeep: 10*time.Minute, // see δtail discussion
 	}
 
-	watchq := make(chan CommitEvent)
+	watchq := make(chan Event)
 	at0 := stor.AddWatch(watchq)
 	db.δtail = NewΔTail(at0) // init to (at0, at0]
 
@@ -176,7 +176,7 @@ type δwaiter struct {
 // watcher receives events about new committed transactions and updates δtail.
 //
 // it also notifies δtail waiters.
-func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
+func (db *DB) watcher(watchq <-chan Event) { // XXX err ?
 	for {
 		event, ok := <-watchq
 		if !ok {
@@ -187,13 +187,26 @@ func (db *DB) watcher(watchq <-chan CommitEvent) { // XXX err ?
 
 		fmt.Printf("db: watcher <- %v\n", event)
 
+		var δ *EventCommit
+		switch event := event.(type) {
+		default:
+			panic(fmt.Sprintf("unexepected event: %T", event))
+
+		case *EventError:
+			fmt.Printf("db: watcher: error: %s\n", event.Err)
+			continue // XXX shutdown instead?
+
+		case *EventCommit:
+			δ = event
+		}
+
 		var readyv []chan struct{} // waiters that become ready
 
 		db.mu.Lock()
 
-		db.δtail.Append(event.Tid, event.Changev)
+		db.δtail.Append(δ.Tid, δ.Changev)
 		for w := range db.δwait {
-			if w.at <= event.Tid {
+			if w.at <= δ.Tid {
 				readyv = append(readyv, w.ready)
 				delete(db.δwait, w)
 			}

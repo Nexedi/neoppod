@@ -45,8 +45,8 @@ type zeo struct {
 	mu      sync.Mutex
 	lastTid zodb.Tid
 
-	// driver client <- watcher: database commits.
-	watchq chan<- zodb.CommitEvent // FIXME stub
+	// driver client <- watcher: database commits | errors.
+	watchq chan<- zodb.Event // FIXME stub
 
 	url string // we were opened via this
 }

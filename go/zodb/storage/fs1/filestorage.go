@@ -98,8 +98,8 @@ type FileStorage struct {
 	txnhMax TxnHeader // (both with .Len=0 & .Tid=0 if database is empty)
 	downErr error     // !nil when the storage is no longer operational
 
-	// driver client <- watcher: database commits.
-	watchq chan<- zodb.CommitEvent
+	// driver client <- watcher: database commits | errors.
+	watchq chan<- zodb.Event
 
 	down     chan struct{}  // ready when storage is no longer operational
 	downOnce sync.Once      // shutdown may be due to both Close and IO error in watcher
@@ -496,6 +496,9 @@ func (fs *FileStorage) watcher(w *fsnotify.Watcher, errFirstRead chan<- error) {
 	fs.shutdown(err)
 
 	if fs.watchq != nil {
+		if err != nil {
+			fs.watchq <- &zodb.EventError{err}
+		}
 		close(fs.watchq)
 	}
 }
@@ -692,7 +695,7 @@ mainloop:
 				case <-fs.down:
 					return nil
 
-				case fs.watchq <- zodb.CommitEvent{it.Txnh.Tid, δoid}:
+				case fs.watchq <- &zodb.EventCommit{it.Txnh.Tid, δoid}:
 					// ok
 				}
 			}
