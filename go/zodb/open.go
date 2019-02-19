@@ -268,7 +268,7 @@ func (s *storage) watcher() {
 				// if !↑ - stop the storage with error.
 				if !(e.Tid > s.drvHead) {
 					errDown = fmt.Errorf(
-						"%s: driver error: notified with δ.tid not ↑ (%s -> %s)",
+						"%s: storage error: notified with δ.tid not ↑ (%s -> %s)",
 						s.URL(), s.drvHead, e.Tid)
 					event = &EventError{errDown}
 				} else {
