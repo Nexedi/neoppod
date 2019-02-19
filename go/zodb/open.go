@@ -79,13 +79,13 @@ func RegisterDriver(scheme string, opener DriverOpener) {
 // get support for well-known storages.
 //
 // Storage authors should register their storages with RegisterStorage.
-func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (IStorage, error) {
+func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) {
 	// no scheme -> file://
-	if !strings.Contains(storageURL, "://") {
-		storageURL = "file://" + storageURL
+	if !strings.Contains(zurl, "://") {
+		zurl = "file://" + zurl
 	}
 
-	u, err := url.Parse(storageURL)
+	u, err := url.Parse(zurl)
 	if err != nil {
 		return nil, err
 	}
