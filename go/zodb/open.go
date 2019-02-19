@@ -236,7 +236,14 @@ func (s *storage) watcher() {
 		}
 	}()
 
+	var errDown error
 	for {
+		if errDown != nil {
+			// XXX stop storage with errDown
+			//return errDown
+			return
+		}
+
 		addqFlush() // register staged AddWatch(s)
 
 		select {
@@ -260,10 +267,10 @@ func (s *storage) watcher() {
 				// verify event.Tid ↑  (else e.g. δtail.Append will panic)
 				// if !↑ - stop the storage with error.
 				if !(e.Tid > s.drvHead) {
-					event = &EventError{fmt.Errorf(
+					errDown = fmt.Errorf(
 						"%s: driver notified with δ.tid not ↑ (%s -> %s)",
-						s.URL(), s.drvHead, e.Tid)}
-					// XXX also shutdown storage
+						s.URL(), s.drvHead, e.Tid)
+					event = &EventError{errDown}
 				} else {
 					s.drvHead = e.Tid
 				}
