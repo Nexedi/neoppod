@@ -1,4 +1,4 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
+// Copyright (C) 2019  Nexedi SA and Contributors.
 //                     Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -17,26 +17,13 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package zodbtools provides tools for managing ZODB databases.
 package zodbtools
 
-import "lab.nexedi.com/kirr/go123/prog"
+import (
+	"testing"
+)
 
-// registry of all zodbtools commands
-var commands = prog.CommandRegistry{
-	// NOTE the order commands are listed here is the order how they will appear in help
-	// TODO analyze ?
-	// TODO cmp
-	{"info", infoSummary, infoUsage, infoMain},
-	{"dump", dumpSummary, dumpUsage, dumpMain},
-	{"catobj", catobjSummary, catobjUsage, catobjMain},
-	{"watch", watchSummary, watchUsage, watchMain},
-}
 
-// main zodbtools driver
-var Prog = prog.MainProg{
-	Name:       "zodb",
-	Summary:    "Zodb is a tool for managing ZODB databases",
-	Commands:   commands,
-	HelpTopics: helpTopics,
+func TestWatch(t *testing.T) {
+	// XXX
 }

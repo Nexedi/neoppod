@@ -226,6 +226,7 @@ func (s *storage) watcher() {
 
 			// deliver event to all watchers
 			for watchq := range s.watchTab {
+				// XXX + select and handle DelWatch
 				watchq <- event
 			}
 		}
