@@ -104,7 +104,7 @@ func catobjMain(argv []string) {
 		flags.Usage()
 		prog.Exit(2)
 	}
-	storUrl := argv[0]
+	zurl := argv[0]
 
 	if hashOnly && raw {
 		prog.Fatal("-hashonly & -raw are incompatible")
@@ -126,7 +126,7 @@ func catobjMain(argv []string) {
 
 	ctx := context.Background()
 
-	stor, err := zodb.OpenStorage(ctx, storUrl, &zodb.OpenOptions{ReadOnly: true})
+	stor, err := zodb.OpenStorage(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		prog.Fatal(err)
 	}

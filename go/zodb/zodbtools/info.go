@@ -118,11 +118,11 @@ func infoMain(argv []string) {
 		flags.Usage()
 		prog.Exit(2)
 	}
-	storUrl := argv[0]
+	zurl := argv[0]
 
 	ctx := context.Background()
 
-	stor, err := zodb.OpenStorage(ctx, storUrl, &zodb.OpenOptions{ReadOnly: true})
+	stor, err := zodb.OpenStorage(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		prog.Fatal(err)
 	}
