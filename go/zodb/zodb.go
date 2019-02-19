@@ -467,12 +467,12 @@ type Watcher interface {
 	// sent, where at₀ is database head that was current when AddWatch call
 	// was made.
 	//
-	// Once registered, watchq must be read until DelWatch call.
-	// Not doing so will stuck whole storage.
+	// Once registered, watchq must be read untill it is closed or until
+	// DelWatch call. Not doing so will stuck whole storage.
 	//
 	// Registered watchq are closed when the database storage is closed.
 	//
-	// Multiple AddWatch calls with the same watchq register watchq only once.	XXX
+	// Multiple AddWatch calls with the same watchq register watchq only once.
 	AddWatch(watchq chan<- Event) (at0 Tid)
 
 	// DelWatch unregisters watchq from being notified of database changes.
@@ -495,8 +495,6 @@ type Watcher interface {
 	//	}
 	//
 	// DelWatch is noop if watchq was not registered.
-	//
-	// XXX also return curent head?
 	DelWatch(watchq chan<- Event)
 }
 
