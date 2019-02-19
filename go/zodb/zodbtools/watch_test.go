@@ -54,22 +54,24 @@ func TestWatch(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	obj := func(oid zodb.Oid, data string) xtesting.ZRawObject {
+		return xtesting.ZRawObject{oid, []byte(data)}
+	}
 
-	xcommit(xtesting.ZRawObject{0, []byte("data0")})
+	xcommit(obj(0, "data0"))
+
+	// open tfs at go side
+	stor, err := zodb.OpenStorage(context.Background(), tfs, &zodb.OpenOptions{ReadOnly: true}); X(err)
 
 	// spawn plain and verbose watchers
 	ctx0, cancel := context.WithCancel(context.Background())
 	wg, ctx := errgroup.WithContext(ctx0)
 
-	// gowatch spawns Watch(verbose) and returns expect(line) func that is
-	// connected to Watch output.
+	// gowatch spawns Watch(verbose) and returns expectf() func that is
+	// connected to verify Watch output.
 	gowatch := func(verbose bool) /*expectf*/func(format string, argv ...interface{}) {
 		pr, pw := io.Pipe()
 		wg.Go(func() error {
-			stor, err := zodb.OpenStorage(ctx, tfs, &zodb.OpenOptions{ReadOnly: true})
-			if err != nil {
-				return err
-			}
 			return Watch(ctx, stor, pw, verbose)
 		})
 
@@ -92,17 +94,20 @@ func TestWatch(t *testing.T) {
 	pexpect := gowatch(false)
 	vexpect := gowatch(true)
 
+	// initial header
 	pexpect("# at %s", at)
 	vexpect("# at %s", at)
 
-	xcommit(xtesting.ZRawObject{0, []byte("data01")})
+	// commit -> output
+	xcommit(obj(0, "data01"))
 
 	pexpect("txn %s", at)
 	vexpect("txn %s", at)
 	vexpect("obj 0000000000000000")
 	vexpect("")
 
-	xcommit(xtesting.ZRawObject{1, []byte("data1")}, xtesting.ZRawObject{2, []byte("data2")})
+	// commit -> output
+	xcommit(obj(1, "data1"), obj(2, "data2"))
 
 	pexpect("txn %s", at)
 	vexpect("txn %s", at)
@@ -117,4 +122,12 @@ func TestWatch(t *testing.T) {
 	if ecause != context.Canceled {
 		t.Fatalf("finished: err: expected 'canceled' cause; got %q", err)
 	}
+
+	// commit after watchers canceled - storage must be alive
+	// (this verifies DelWatch)
+	// XXX move -> zodb tests
+	xcommit(obj(3, "data3"))
+	println("AAA")
+	stor.DelWatch(nil)
+	println("BBB")
 }

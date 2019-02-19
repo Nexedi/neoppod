@@ -195,6 +195,8 @@ const (
 	delWatch watchOp = 1
 )
 
+// watcher dispatches events from driver to subscribers and serves
+// {Add,Del}Watch requests.
 func (s *storage) watcher() {
 	for {
 		select {
