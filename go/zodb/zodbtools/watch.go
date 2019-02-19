@@ -63,7 +63,7 @@ func Watch(ctx context.Context, stor zodb.IStorage, w io.Writer, verbose bool) (
 	defer xerr.Contextf(&err, "%s: watch", stor.URL())
 
 	emitf := func(format string, argv ...interface{}) error {
-		_, err := fmt.Fprintf(w, format, argv)
+		_, err := fmt.Fprintf(w, format, argv...)
 		return err
 	}
 
@@ -150,7 +150,7 @@ func watchMain(argv []string) {
 	// TODO defer stor.Close()
 
 	err = Watch(ctx, stor, os.Stdout, verbose)
-	if err != nil { // XXX & not canceled
+	if err != nil {
 		prog.Fatal(err)
 	}
 }
