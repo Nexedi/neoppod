@@ -151,3 +151,5 @@ func TestPersistent(t *testing.T) {
 	// TODO deactivate	- refcnt--
 	// TODO deactivate	- state dropped
 }
+
+// TODO Map & List tests.

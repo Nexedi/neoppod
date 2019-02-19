@@ -557,3 +557,111 @@ var brokenZClass = &zclass{
 	typ:       reflect.TypeOf(Broken{}),
 	stateType: reflect.TypeOf(brokenState{}),
 }
+
+
+// ---- basic persistent objects provided by zodb ----
+
+// Map is equivalent of persistent.mapping.PersistentMapping in ZODB/py.
+type Map struct {
+	Persistent
+
+	// XXX it is not possible to embed map. And even if we embed a map via
+	// another type = map, then it is not possible to use indexing and
+	// range over Map. -> just provide access to the map as .Data .
+	Data map[interface{}]interface{}
+}
+
+type mapState Map // hide state methods from public API
+
+func (m *mapState) DropState() {
+	m.Data = nil
+}
+
+func (m *mapState) PyGetState() interface{} {
+	return map[interface{}]interface{}{
+		"data": m.Data,
+	}
+}
+
+func (m *mapState) PySetState(pystate interface{}) error {
+	// before 2009 PersistentMapping could keep data in ._container, not .data
+	// https://github.com/zopefoundation/ZODB/commit/aa1f2622e1
+	xdata, err := pystateDict1(pystate, "data", "_container")
+	if err != nil {
+		return err
+	}
+
+	data, ok := xdata.(map[interface{}]interface{})
+	if !ok {
+		return fmt.Errorf("state data must be dict, not %T", xdata)
+	}
+
+	m.Data = data
+	return nil
+}
+
+// List is equivalent of persistent.list.PersistentList in ZODB/py.
+type List struct {
+	Persistent
+
+	// XXX it is not possible to embed slice - see Map for similar issue and more details.
+	Data []interface{}
+}
+
+type listState List // hide state methods from public API
+
+func (l *listState) DropState() {
+	l.Data = nil
+}
+
+func (l *listState) PyGetState() interface{} {
+	return map[interface{}]interface{}{
+		"data": l.Data,
+	}
+}
+
+func (l *listState) PySetState(pystate interface{}) error {
+	xdata, err := pystateDict1(pystate, "data")
+	if err != nil {
+		return err
+	}
+
+	data, ok := xdata.([]interface{})
+	if !ok {
+		return fmt.Errorf("state data must be list, not %T", xdata)
+	}
+
+	l.Data = data
+	return nil
+}
+
+// pystateDict1 decodes pystate that is expected to be {} with single key and
+// returns data for that key.
+func pystateDict1(pystate interface{}, acceptKeys ...string) (data interface{}, _ error) {
+	d, ok := pystate.(map[interface{}]interface{})
+	if !ok {
+		return nil, fmt.Errorf("state must be dict, not %T", pystate)
+	}
+
+	if l := len(d); l != 1 {
+		return nil, fmt.Errorf("state dict has %d keys, must be only 1", l)
+	}
+
+	for _, key := range acceptKeys {
+		data, ok := d[key]
+		if ok {
+			return data, nil
+		}
+	}
+
+	return nil, fmt.Errorf("noone of %q is present in state dict", acceptKeys)
+}
+
+func init() {
+	t := reflect.TypeOf
+	RegisterClass("persistent.mapping.PersistentMapping", t(Map{}),  t(mapState{}))
+	RegisterClass("persistent.list.PersistentList",       t(List{}), t(listState{}))
+
+	// PersistentMapping was also available as PersistentDict for some time
+	RegisterClassAlias("persistent.dict.PersistentDict", "persistent.mapping.PersistentMapping")
+}
