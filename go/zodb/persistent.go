@@ -564,10 +564,7 @@ var brokenZClass = &zclass{
 
 // ---- basic persistent objects provided by zodb ----
 
-// XXX -> zodbpy ?
-
-// XXX Map is like persistent.mapping.PersistentMapping
-// XXX tests.
+// Map is equivalent of persistent.mapping.PersistentMapping in ZODB/py.
 type Map struct {
 	Persistent
 
@@ -606,8 +603,7 @@ func (m *mapState) PySetState(pystate interface{}) error {
 	return nil
 }
 
-// XXX List is like persistent.list.PersistentList
-// XXX tests.
+// List is equivalent of persistent.list.PersistentList in ZODB/py.
 type List struct {
 	Persistent
 

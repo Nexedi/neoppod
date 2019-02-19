@@ -591,6 +591,7 @@ func TestPersistentDB(t0 *testing.T) {
 	// XXX Get(txn = different) -> panic
 }
 
+// TODO Map & List tests.
 
 
 // TODO PyGetState vs PySetState tests (general - for any type):
