@@ -426,9 +426,26 @@ type Committer interface {
 	// TpcAbort(txn)
 }
 
+// Event represents one database event.
+//
+// Possible events are:
+//
+//	- EventError	an error happened
+//	- EventCommit	a transaction was committed
+type Event interface {
+	event()
+}
 
-// CommitEvent is event describing one observed database commit.
-type CommitEvent struct {
+func (_ *EventError)  event() {}
+func (_ *EventCommit) event() {}
+
+// EventError is event descrbing an error observed by watcher.
+type EventError struct {
+	Err error
+}
+
+// EventCommit is event describing one observed database commit.
+type EventCommit struct {
 	Tid     Tid   // ID of committed transaction
 	Changev []Oid // ID of objects changed by committed transaction
 }

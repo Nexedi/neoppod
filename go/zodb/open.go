@@ -49,9 +49,7 @@ type DriverOptions struct {
 	//
 	// The storage driver will send only and all events in (at₀, +∞] range,
 	// where at₀ is at returned by driver open.
-	//
-	// TODO extend watchq to also receive errors from watcher.
-	Watchq chan<- CommitEvent
+	Watchq chan<- Event
 }
 
 // DriverOpener is a function to open a storage driver.

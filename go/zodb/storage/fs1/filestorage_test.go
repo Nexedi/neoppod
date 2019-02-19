@@ -377,7 +377,7 @@ func TestWatch(t *testing.T) {
 	// force tfs creation & open tfs at go side
 	at := xcommit(0, xtesting.ZRawObject{0, b("data0")})
 
-	watchq := make(chan zodb.CommitEvent)
+	watchq := make(chan zodb.Event)
 	fs, at0 := xfsopenopt(t, tfs, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
 	if at0 != at {
 		t.Fatalf("opened @ %s  ; want %s", at0, at)
@@ -423,10 +423,22 @@ func TestWatch(t *testing.T) {
 			xtesting.ZRawObject{i, b(datai)})
 
 		// TODO also test for watcher errors
-		e := <-watchq
+		event := <-watchq
 
-		if objvWant := []zodb.Oid{0, i}; !(e.Tid == at && reflect.DeepEqual(e.Changev, objvWant)) {
-			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", e.Tid, e.Changev, at, objvWant)
+		var δ *zodb.EventCommit
+		switch event := event.(type) {
+		default:
+			panic(fmt.Sprintf("unexpected event: %T", event))
+
+		case *zodb.EventError:
+			t.Fatal(event.Err)
+
+		case *zodb.EventCommit:
+			δ = event
+		}
+
+		if objvWant := []zodb.Oid{0, i}; !(δ.Tid == at && reflect.DeepEqual(δ.Changev, objvWant)) {
+			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", δ.Tid, δ.Changev, at, objvWant)
 		}
 
 		checkLastTid(at)
