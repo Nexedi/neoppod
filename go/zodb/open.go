@@ -249,17 +249,24 @@ func (s *storage) watcher() {
 				return
 			}
 
-			switch event := event.(type) {
+			switch e := event.(type) {
 			default:
-				panic(fmt.Sprintf("unexpected event: %T", event))
+				panic(fmt.Sprintf("unexpected event: %T", e))
 
 			case *EventError:
 				// ok
 
 			case *EventCommit:
-				// XXX verify event.Tid ↑  (else e.g. δtail.Append will panic)
-				//     if !↑ - stop the storage with error.
-				s.drvHead = event.Tid
+				// verify event.Tid ↑  (else e.g. δtail.Append will panic)
+				// if !↑ - stop the storage with error.
+				if !(e.Tid > s.drvHead) {
+					event = &EventError{fmt.Errorf(
+						"%s: driver notified with δ.tid not ↑ (%s -> %s)",
+						s.URL(), s.drvHead, e.Tid)}
+					// XXX also shutdown storage
+				} else {
+					s.drvHead = e.Tid
+				}
 			}
 
 			// deliver event to all watchers
