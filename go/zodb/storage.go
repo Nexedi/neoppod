@@ -128,13 +128,15 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 		driver:   storDriver,
 		l1cache:  cache,
 
-		drvWatchq: drvWatchq,
-		drvHead:   at0,
-		watchReq:  make(chan watchRequest),
-		watchTab:  make(map[chan<- Event]struct{}),
+		down:        make(chan struct{}),
+		drvWatchq:   drvWatchq,
+		drvHead:     at0,
+		watchReq:    make(chan watchRequest),
+		watchTab:    make(map[chan<- Event]struct{}),
+		watchCancel: make(map[chan<- Event]chan struct{}),
 
 	}
-	go stor.watcher()	// XXX stop on close
+	go stor.watcher() // stoped on close
 
 	return stor, nil
 }
