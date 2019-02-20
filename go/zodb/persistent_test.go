@@ -70,7 +70,7 @@ func TestPersistent(t *testing.T) {
 	assert := require.New(t)
 
 	// checkObj verifies current state of persistent object.
-	checkObj := func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
+	checkObj := func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
 		t.Helper()
 		xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
 		pbase := xbase.Addr().Interface().(*Persistent)
@@ -106,7 +106,6 @@ func TestPersistent(t *testing.T) {
 		if pbase.instance != obj {
 			badf("base.instance != obj")
 		}
-		// XXX loading too?
 	}
 
 	// unknown type -> Broken
@@ -116,7 +115,7 @@ func TestPersistent(t *testing.T) {
 		t.Fatalf("unknown -> %T;  want Broken", xobj)
 	}
 
-	checkObj(b, nil, 10, InvalidTid, GHOST, 0, nil)
+	checkObj(b, nil, 10, InvalidTid, GHOST, 0)
 	assert.Equal(b.class, "t.unknown")
 	assert.Equal(b.state, (*mem.Buf)(nil))
 
@@ -128,7 +127,7 @@ func TestPersistent(t *testing.T) {
 		t.Fatalf("t.zodb.MyObject -> %T;  want MyObject", xobj)
 	}
 
-	checkObj(obj, nil, 11, InvalidTid, GHOST, 0, nil)
+	checkObj(obj, nil, 11, InvalidTid, GHOST, 0)
 	assert.Equal(ClassOf(obj), "t.zodb.MyObject")
 
 	// t.zodb.MyOldObject -> *MyObject
@@ -138,7 +137,7 @@ func TestPersistent(t *testing.T) {
 		t.Fatalf("t.zodb.MyOldObject -> %T;  want MyObject", xobj)
 	}
 
-	checkObj(obj, nil, 12, InvalidTid, GHOST, 0, nil)
+	checkObj(obj, nil, 12, InvalidTid, GHOST, 0)
 	assert.Equal(ClassOf(obj), "t.zodb.MyObject")
 
 	// ClassOf(unregistered-obj)
