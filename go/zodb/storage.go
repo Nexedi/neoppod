@@ -228,7 +228,6 @@ func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 }
 
 // ---- watcher ----
-// FIXME tests
 
 // watchRequest represents request to add/del a watch.
 type watchRequest struct {
