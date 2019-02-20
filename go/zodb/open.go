@@ -168,16 +168,23 @@ type storage struct {
 // this go directly to driver
 func (s *storage) URL() string { return s.driver.URL() }
 func (s *storage) Iterate(ctx context.Context, tidMin, tidMax Tid) ITxnIterator {
+	// XXX downErr
 	return s.driver.Iterate(ctx, tidMin, tidMax)
 }
 
 func (s *storage) Close() error {
 	// XXX Close   - stop watching? (driver will close watchq in its own Close)
-	return s.driver.Shutdown(fmt.Errorf("closed"))
+	//return s.driver.Shutdown(fmt.Errorf("closed"))
+	// XXX downErr
+	return s.driver.Close()
 }
 
-// XXX LastTid - report only LastTid for which cache is ready?
-//		 or driver.LastTid(), then wait cache is ready?
+func (s *storage) LastTid(ctx context.Context) (Tid, error) {
+	// XXX LastTid - report only LastTid for which cache is ready?
+	//		 or driver.LastTid(), then wait cache is ready?
+	// XXX downErr
+	return s.driver.LastTid(ctx)
+}
 
 // Load implements Loader.
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
