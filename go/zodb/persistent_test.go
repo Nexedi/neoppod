@@ -77,10 +77,10 @@ func init() {
 	RegisterClassAlias("t.zodb.MyOldObject", "t.zodb.MyObject")
 }
 
-// _checkObj verifies current state of persistent object.
+// checkObj verifies current state of persistent object.
 //
-// one can bind _checkObj to t via tCheckObj.
-func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
+// one can bind checkObj to t via tCheckObj.
+func checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
 	t.Helper()
 	xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
 	pbase := xbase.Addr().Interface().(*Persistent)
@@ -115,7 +115,6 @@ func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial T
 	if pbase.instance != obj {
 		badf("base.instance != obj")
 	}
-	// XXX loading too?
 
 	if len(badv) != 0 {
 		msg := fmt.Sprintf("%#v:\n", obj)
@@ -129,7 +128,7 @@ func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial T
 func tCheckObj(t testing.TB) func(IPersistent, *Connection, Oid, Tid, ObjectState, int32) {
 	return func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
 		t.Helper()
-		_checkObj(t, obj, jar, oid, serial, state, refcnt)
+		checkObj(t, obj, jar, oid, serial, state, refcnt)
 	}
 }
 
@@ -251,7 +250,7 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
 	}
 
-	_checkObj(t.T, obj, t.conn, oid, serial, state, refcnt)
+	checkObj(t.T, obj, t.conn, oid, serial, state, refcnt)
 
 	if state == GHOST {
 		if len(valueOk) != 0 {
