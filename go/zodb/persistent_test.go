@@ -125,6 +125,7 @@ func checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Ti
 	}
 }
 
+// tCheckObj binds checkObj to t.
 func tCheckObj(t testing.TB) func(IPersistent, *Connection, Oid, Tid, ObjectState, int32) {
 	return func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
 		t.Helper()
