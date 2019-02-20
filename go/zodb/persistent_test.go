@@ -80,7 +80,7 @@ func init() {
 // _checkObj verifies current state of persistent object.
 //
 // one can bind _checkObj to t via tCheckObj.
-func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
+func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
 	t.Helper()
 	xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
 	pbase := xbase.Addr().Interface().(*Persistent)
@@ -126,10 +126,10 @@ func _checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial T
 	}
 }
 
-func tCheckObj(t testing.TB) func(IPersistent, *Connection, Oid, Tid, ObjectState, int32, *loadState) {
-	return func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
+func tCheckObj(t testing.TB) func(IPersistent, *Connection, Oid, Tid, ObjectState, int32) {
+	return func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
 		t.Helper()
-		_checkObj(t, obj, jar, oid, serial, state, refcnt, loading)
+		_checkObj(t, obj, jar, oid, serial, state, refcnt)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestPersistentBasic(t *testing.T) {
 		t.Fatalf("unknown -> %T;  want Broken", xobj)
 	}
 
-	checkObj(b, nil, 10, InvalidTid, GHOST, 0, nil)
+	checkObj(b, nil, 10, InvalidTid, GHOST, 0)
 	assert.Equal(b.class, "t.unknown")
 	assert.Equal(b.state, (*mem.Buf)(nil))
 
@@ -157,7 +157,7 @@ func TestPersistentBasic(t *testing.T) {
 		t.Fatalf("t.zodb.MyObject -> %T;  want MyObject", xobj)
 	}
 
-	checkObj(obj, nil, 11, InvalidTid, GHOST, 0, nil)
+	checkObj(obj, nil, 11, InvalidTid, GHOST, 0)
 	assert.Equal(ClassOf(obj), "t.zodb.MyObject")
 
 	// t.zodb.MyOldObject -> *MyObject
@@ -167,7 +167,7 @@ func TestPersistentBasic(t *testing.T) {
 		t.Fatalf("t.zodb.MyOldObject -> %T;  want MyObject", xobj)
 	}
 
-	checkObj(obj, nil, 12, InvalidTid, GHOST, 0, nil)
+	checkObj(obj, nil, 12, InvalidTid, GHOST, 0)
 	assert.Equal(ClassOf(obj), "t.zodb.MyObject")
 
 	// ClassOf(unregistered-obj)
@@ -251,7 +251,7 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
 	}
 
-	_checkObj(t.T, obj, t.conn, oid, serial, state, refcnt, /*loading*/nil)
+	_checkObj(t.T, obj, t.conn, oid, serial, state, refcnt)
 
 	if state == GHOST {
 		if len(valueOk) != 0 {

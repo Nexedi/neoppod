@@ -106,6 +106,7 @@ type DB struct {
 	tδkeep time.Duration
 
 	// openers waiting for δtail.Head to become covering their at.
+	// XXX -> headWait?
 	δwait map[δwaiter]struct{} // set{(at, ready)}
 
 	// XXX δtail/δwait -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
@@ -185,7 +186,7 @@ func (db *DB) watcher(watchq <-chan Event) { // XXX err ?
 			return // closed
 		}
 
-		fmt.Printf("db: watcher <- %v\n", event)
+		//fmt.Printf("db: watcher <- %v\n", event)
 
 		var δ *EventCommit
 		switch event := event.(type) {
@@ -194,7 +195,7 @@ func (db *DB) watcher(watchq <-chan Event) { // XXX err ?
 
 		case *EventError:
 			fmt.Printf("db: watcher: error: %s\n", event.Err)
-			continue // XXX shutdown instead?
+			continue // XXX shutdown instead
 
 		case *EventCommit:
 			δ = event
@@ -224,7 +225,7 @@ func (db *DB) watcher(watchq <-chan Event) { // XXX err ?
 
 		// wakeup waiters outside of db.mu
 		for _, ready := range readyv {
-			fmt.Printf("db: watcher: wakeup %v\n", ready)
+			//fmt.Printf("db: watcher: wakeup %v\n", ready)
 			close(ready)
 		}
 	}
