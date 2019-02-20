@@ -192,6 +192,8 @@ func TestPersistentBasic(t *testing.T) {
 	}()
 }
 
+// ---- TestPersistentDB ----
+
 // zcacheControl is simple live cache control that prevents specified objects
 // to be evicted from live cache.
 type zcacheControl struct {
@@ -206,8 +208,6 @@ func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
 	}
 	return true
 }
-
-// ---- TestPersistentDB ----
 
 // tPersistentDB represents one testing environment inside TestPersistentDB.
 type tPersistentDB struct {
@@ -340,6 +340,7 @@ func TestPersistentDB(t0 *testing.T) {
 	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true}); X(err)
 	db := NewDB(stor)
 
+	// testopen opens new db transaction/connection and wraps it with tPersistentDB.
 	testopen := func(opt *ConnOptions) *tPersistentDB {
 		t0.Helper()
 
@@ -369,8 +370,6 @@ func TestPersistentDB(t0 *testing.T) {
 	// do not evict obj2 from live cache. obj1 is ok to be evicted.
 	zcache1 := t.conn.Cache()
 	zcache1.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
-	// FIXME test that live cache keeps objects live even if we drop all
-	// regular pointers to it and do GC.
 
 	// get objects
 	obj1 := t.Get(101)
@@ -476,7 +475,8 @@ func TestPersistentDB(t0 *testing.T) {
 	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(obj2, 102, at2, UPTODATE,    0, "kitty")
 
-	// TODO live cache must not drop pinned entries after GC
+	// FIXME test that live cache keeps pinned object live even if we drop
+	// all regular pointers to it and do GC.
 /*
 	obj1 = nil
 	obj2 = nil
