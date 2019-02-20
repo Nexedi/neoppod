@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zodb
-// open storages by URL
+// IStorage wrapper + open storage by URL
 
 import (
 	"context"
