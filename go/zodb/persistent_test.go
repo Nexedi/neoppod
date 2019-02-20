@@ -74,10 +74,9 @@ func checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Ti
 	xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
 	pbase := xbase.Addr().Interface().(*Persistent)
 
+	var badv []string
 	badf := func(format string, argv ...interface{}) {
-		t.Helper()
-		msg := fmt.Sprintf(format, argv...)
-		t.Fatalf("%#v: %s", obj, msg)
+		badv = append(badv, fmt.Sprintf(format, argv...))
 	}
 
 	zc := pbase.zclass
@@ -104,6 +103,14 @@ func checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Ti
 	}
 	if pbase.instance != obj {
 		badf("base.instance != obj")
+	}
+
+	if len(badv) != 0 {
+		msg := fmt.Sprintf("%#v:\n", obj)
+		for _, bad := range badv {
+			msg += fmt.Sprintf("\t- %s\n", bad)
+		}
+		t.Fatal(msg)
 	}
 }
 
