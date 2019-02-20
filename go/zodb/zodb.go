@@ -472,7 +472,9 @@ type Watcher interface {
 	//
 	// Registered watchq are closed when the database storage is closed.
 	//
-	// Multiple AddWatch calls with the same watchq register watchq only once.
+	// It is safe to add watch to a closed database storage.
+	//
+	// AddWatch must be used only once for a particular watchq channel.
 	AddWatch(watchq chan<- Event) (at0 Tid)
 
 	// DelWatch unregisters watchq from being notified of database changes.

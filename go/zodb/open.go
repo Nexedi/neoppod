@@ -26,6 +26,7 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
 )
@@ -147,7 +148,7 @@ type storage struct {
 	driver  IStorageDriver
 	l1cache *Cache // can be =nil, if opened with NoCache
 
-	down    chan struct	// ready when no longer operational
+	down    chan struct{}	// ready when no longer operational
 	downErr error           // reason for shutdown
 
 	// watcher
@@ -158,8 +159,8 @@ type storage struct {
 
 	// when watcher is closed (.down is ready) {Add,Del}Watch operate directly
 	// on .watchTab and interact with each other directly. In that mode:
-	watchMu     sync.Mutex                // for watchTab and * below
-	watchCancel map[chan<- Event]struct{} // DelWatch can cancel AddWatch via here
+	watchMu     sync.Mutex                     // for watchTab and * below
+	watchCancel map[chan<- Event]chan struct{} // DelWatch can cancel AddWatch via here
 }
 
 // loading goes through cache - this way prefetching can work
@@ -235,6 +236,15 @@ func (s *storage) watcher() {
 	serveReq := func(req watchRequest) {
 		switch req.op {
 		case addWatch:
+			_, already := s.watchTab[req.watchq]
+			if !already {
+				_, already = addq[req.watchq]
+			}
+			if already {
+				req.ack <- InvalidTid
+				return
+			}
+
 			addq[req.watchq] = struct{}{}
 
 		case delWatch:
@@ -300,7 +310,7 @@ func (s *storage) watcher() {
 
 			// deliver event to all watchers.
 			// handle add/del watchq in the process.
-		deliver:
+		next:
 			for watchq := range s.watchTab {
 				for {
 					select {
@@ -310,12 +320,12 @@ func (s *storage) watcher() {
 						// else try sending to current watchq once again.
 						_, present := s.watchTab[watchq]
 						if !present {
-							continue deliver
+							continue next
 						}
 
 					case watchq <- event:
 						// ok
-						continue deliver
+						continue next
 					}
 				}
 			}
@@ -330,11 +340,13 @@ func (s *storage) AddWatch(watchq chan<- Event) (at0 Tid) {
 	// no longer operational: behave if watchq was registered before that
 	// and then seen down/close events. Interact with DelWatch directly.
 	case <-s.down:
+		at0 = s.drvHead
+
 		s.watchMu.Lock()
 		_, already := s.watchTab[watchq]
 		if already {
 			s.watchMu.Unlock()
-			return // multiple AddWatch
+			panic("multiple AddWatch with the same channel")
 		}
 		s.watchTab[watchq] = struct{}{}
 		cancel := make(chan struct{})
@@ -353,11 +365,16 @@ func (s *storage) AddWatch(watchq chan<- Event) (at0 Tid) {
 			}
 			close(watchq)
 		}()
-		return s.drvHead
+
+		return at0
 
 	// operational - interact with watcher
 	case s.watchReq <- watchRequest{addWatch, ack, watchq}:
-		return <-ack
+		at0 = <-ack
+		if at0 == InvalidTid {
+			panic("multiple AddWatch with the same channel")
+		}
+		return at0
 	}
 }
 
