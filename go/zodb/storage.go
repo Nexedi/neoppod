@@ -123,7 +123,6 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 		cache = nil
 	}
 
-	// XXX stor.δtail - init with (at0, at]
 	stor := &storage{
 		driver:   storDriver,
 		l1cache:  cache,
