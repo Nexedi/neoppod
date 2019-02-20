@@ -331,6 +331,7 @@ type IStorage interface {
 
 	// additional to IStorageDriver
 	Prefetcher
+	Watcher
 }
 
 // Prefetcher provides functionality to prefetch objects.
@@ -450,9 +451,52 @@ type EventCommit struct {
 	Changev []Oid // ID of objects changed by committed transaction
 }
 
-// Notifier allows to be notified of database changes made by other clients.
-type Notifier interface {
-	// TODO: invalidation channel (notify about changes made to DB not by us from outside)
+// Watcher allows to be notified of changes to database.
+//
+// Watcher is safe to use from multiple goroutines simultaneously.
+type Watcher interface {
+	// AddWatch registers watchq to be notified of database changes.
+	//
+	// Whenever a new transaction is committed into the database,
+	// corresponding event will be sent to watchq.
+	//
+	// It is guaranteed that events are coming with ↑ .Tid .
+	//
+	// It will be only and all events in (at₀, +∞] range, that will be
+	// sent, where at₀ is database head that was current when AddWatch call
+	// was made.
+	//
+	// Once registered, watchq must be read until it is closed or until
+	// DelWatch call. Not doing so will stuck whole storage.
+	//
+	// Registered watchq are closed when the database storage is closed.
+	//
+	// It is safe to add watch to a closed database storage.
+	//
+	// AddWatch must be used only once for a particular watchq channel.
+	AddWatch(watchq chan<- Event) (at0 Tid)
+
+	// DelWatch unregisters watchq from being notified of database changes.
+	//
+	// After DelWatch call completes, no new events will be sent to watchq.
+	// It is safe to call DelWatch without simultaneously reading watchq.
+	// In particular the following example is valid:
+	//
+	//	at0 := stor.AddWatch(watchq)
+	//	defer stor.DelWatch(watchq)
+	//
+	//	for {
+	//		select {
+	//		case <-ctx.Done():
+	//			return ctx.Err()
+	//
+	//		case <-watchq:
+	//			...
+	//		}
+	//	}
+	//
+	// DelWatch is noop if watchq was not registered.
+	DelWatch(watchq chan<- Event)
 }
 
 
