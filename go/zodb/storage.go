@@ -115,8 +115,8 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 	}
 
 	return &storage{
-		IStorageDriver: storDriver,
-		l1cache:        cache,
+		driver:  storDriver,
+		l1cache: cache,
 	}, nil
 }
 
@@ -127,12 +127,26 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 // it provides a small cache on top of raw storage driver to implement prefetch
 // and other storage-independed higher-level functionality.
 type storage struct {
-	IStorageDriver
+	driver  IStorageDriver
 	l1cache *Cache // can be =nil, if opened with NoCache
 }
 
+func (s *storage) URL() string { return s.driver.URL() }
+
+
+func (s *storage) Iterate(ctx context.Context, tidMin, tidMax Tid) ITxnIterator {
+	return s.driver.Iterate(ctx, tidMin, tidMax)
+}
+
+func (s *storage) Close() error {
+	return s.driver.Close()
+}
 
 // loading goes through cache - this way prefetching can work
+
+func (s *storage) LastTid(ctx context.Context) (Tid, error) {
+	return s.driver.LastTid(ctx)
+}
 
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	// XXX here: offload xid validation from cache and driver ?
@@ -140,7 +154,7 @@ func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	if s.l1cache != nil {
 		return s.l1cache.Load(ctx, xid)
 	} else {
-		return s.IStorageDriver.Load(ctx, xid)
+		return s.driver.Load(ctx, xid)
 	}
 }
 
