@@ -441,7 +441,7 @@ type Event interface {
 func (_ *EventError)  event() {}
 func (_ *EventCommit) event() {}
 
-// EventError is event descrbing an error observed by watcher.
+// EventError is event describing an error observed by watcher.
 type EventError struct {
 	Err error
 }
@@ -467,7 +467,7 @@ type Watcher interface {
 	// sent, where at₀ is database head that was current when AddWatch call
 	// was made.
 	//
-	// Once registered, watchq must be read untill it is closed or until
+	// Once registered, watchq must be read until it is closed or until
 	// DelWatch call. Not doing so will stuck whole storage.
 	//
 	// Registered watchq are closed when the database storage is closed.
@@ -478,7 +478,7 @@ type Watcher interface {
 	// DelWatch unregisters watchq from being notified of database changes.
 	//
 	// After DelWatch call completes, no new events will be sent to watchq.
-	// It is safe to call DelWatch without sumultaneously reading watchq.
+	// It is safe to call DelWatch without simultaneously reading watchq.
 	// In particular the following example is valid:
 	//
 	//	at0 := stor.AddWatch(watchq)

@@ -160,6 +160,7 @@ type storage struct {
 // XXX LastTid - report only LastTid for which cache is ready?
 //		 or driver.LastTid(), then wait cache is ready?
 
+// Load implements Loader.
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	// XXX here: offload xid validation from cache and driver ?
 	// XXX here: offload wrapping err -> OpError{"load", err} ?
@@ -170,6 +171,7 @@ func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	}
 }
 
+// Prefetch implements Prefetcher.
 func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 	if s.l1cache != nil {
 		s.l1cache.Prefetch(ctx, xid)
@@ -202,8 +204,8 @@ func (s *storage) watcher() {
 	// also served - not to get stuck and support clients who do DelWatch
 	// and no longer receive from their watchq. However we cannot register
 	// added watchq immediately, because it is undefined whether or not
-	// we'll see it while iterating watchTab. So we queue what was added
-	// and flush it on the beginning of each cycle.
+	// we'll see it while iterating watchTab map. So we queue what was
+	// added and flush it to watchTab on the beginning of each cycle.
 	var addq map[chan<- Event]struct{}
 	addqFlush := func() {
 		for watchq := range addq {
@@ -211,7 +213,7 @@ func (s *storage) watcher() {
 		}
 		addq = make(map[chan<- Event]struct{})
 	}
-	handleReq := func(req watchRequest) {
+	serveReq := func(req watchRequest) {
 		switch req.op {
 		case addWatch:
 			addq[req.watchq] = struct{}{}
@@ -248,7 +250,7 @@ func (s *storage) watcher() {
 
 		select {
 		case req := <-s.watchReq:
-			handleReq(req)
+			serveReq(req)
 
 		case event, ok := <-s.drvWatchq:
 			if !ok {
@@ -280,7 +282,7 @@ func (s *storage) watcher() {
 			for watchq := range s.watchTab {
 				select {
 				case req := <-s.watchReq:
-					handleReq(req)
+					serveReq(req)
 
 				case watchq <- event:
 					// ok
@@ -292,7 +294,7 @@ func (s *storage) watcher() {
 
 // AddWatch implements Watcher.
 func (s *storage) AddWatch(watchq chan<- Event) (at0 Tid) {
-	// XXX when already Closed?
+	// XXX when already Closed? -> `go watchq <- .downErr + close(watchq)`
 	ack := make(chan Tid)
 	s.watchReq <- watchRequest{addWatch, ack, watchq}
 	return <-ack
@@ -300,7 +302,7 @@ func (s *storage) AddWatch(watchq chan<- Event) (at0 Tid) {
 
 // DelWatch implements Watcher.
 func (s *storage) DelWatch(watchq chan<- Event) {
-	// XXX when already Closed?
+	// XXX when already Closed? -> noop
 	ack := make(chan Tid)
 	s.watchReq <- watchRequest{delWatch, ack, watchq}
 	<-ack
