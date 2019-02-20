@@ -30,6 +30,7 @@ var commands = prog.CommandRegistry{
 	{"info", infoSummary, infoUsage, infoMain},
 	{"dump", dumpSummary, dumpUsage, dumpMain},
 	{"catobj", catobjSummary, catobjUsage, catobjMain},
+	{"watch", watchSummary, watchUsage, watchMain},
 }
 
 // main zodbtools driver
