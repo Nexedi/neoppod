@@ -123,12 +123,4 @@ func TestWatch(t *testing.T) {
 	if ecause != context.Canceled {
 		t.Fatalf("finished: err: expected 'canceled' cause; got %q", err)
 	}
-
-	// commit after watchers canceled - storage must be alive
-	// (this verifies DelWatch)
-	// XXX move -> zodb tests
-	xcommit(obj(3, "data3"))
-	println("AAA")
-	stor.DelWatch(nil)
-	println("BBB")
 }
