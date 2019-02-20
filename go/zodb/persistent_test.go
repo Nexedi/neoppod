@@ -173,7 +173,22 @@ func TestPersistentBasic(t *testing.T) {
 	obj2 := &Unregistered{}
 	assert.Equal(ClassOf(obj2), `ZODB.Go("lab.nexedi.com/kirr/neo/go/zodb.Unregistered")`)
 
-	// XXX deactivate refcnt < 0  - check error message (this verifies badf fix)
+	// deactivate refcnt < 0  -> panic
+	func() {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("deactivate refcnt < 0: not panicked")
+			}
+			ehave := fmt.Sprintf("%s", r)
+			ewant := fmt.Sprintf("t.zodb.MyObject(%s): deactivate: refcnt < 0  (= -1)", Oid(12))
+			if ehave != ewant {
+				t.Fatalf("deactivate refcnt < 0: panic error unexpected:\nhave: %q\nwant: %q", ehave, ewant)
+			}
+		}()
+
+		obj.PDeactivate()
+	}()
 }
 
 // zcacheControl is simple live cache control that prevents specified objects
