@@ -66,47 +66,59 @@ func init() {
 	RegisterClassAlias("t.zodb.MyOldObject", "t.zodb.MyObject")
 }
 
+// checkObj verifies current state of persistent object.
+//
+// one can bind checkObj to t via tCheckObj.
+func checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
+	t.Helper()
+	xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
+	pbase := xbase.Addr().Interface().(*Persistent)
+
+	badf := func(format string, argv ...interface{}) {
+		t.Helper()
+		msg := fmt.Sprintf(format, argv...)
+		t.Fatalf("%#v: %s", obj, msg)
+	}
+
+	zc := pbase.zclass
+	//zc.class
+	if typ := reflect.TypeOf(obj).Elem(); typ != zc.typ {
+		badf("invalid zclass: .typ = %s  ; want %s", zc.typ, typ)
+	}
+	//zc.stateType
+
+	if pbase.jar != jar {
+		badf("invalid jar")
+	}
+	if pbase.oid != oid {
+		badf("invalid oid: %s  ; want %s", pbase.oid, oid)
+	}
+	if pbase.serial != serial {
+		badf("invalid serial: %s  ; want %s", pbase.serial, serial)
+	}
+	if pbase.state != state {
+		badf("invalid state: %s  ; want %s", pbase.state, state)
+	}
+	if pbase.refcnt != refcnt {
+		badf("invalid refcnt: %s  ; want %s", pbase.refcnt, refcnt)
+	}
+	if pbase.instance != obj {
+		badf("base.instance != obj")
+	}
+}
+
+// tCheckObj binds checkObj to t.
+func tCheckObj(t testing.TB) func(IPersistent, *Connection, Oid, Tid, ObjectState, int32) {
+	return func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
+		t.Helper()
+		checkObj(t, obj, jar, oid, serial, state, refcnt)
+	}
+}
+
+
 func TestPersistent(t *testing.T) {
 	assert := require.New(t)
-
-	// checkObj verifies current state of persistent object.
-	checkObj := func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32) {
-		t.Helper()
-		xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
-		pbase := xbase.Addr().Interface().(*Persistent)
-
-		badf := func(format string, argv ...interface{}) {
-			t.Helper()
-			msg := fmt.Sprintf(format, argv...)
-			t.Fatalf("%#v: %s", obj, msg)
-		}
-
-		zc := pbase.zclass
-		//zc.class
-		if typ := reflect.TypeOf(obj).Elem(); typ != zc.typ {
-			badf("invalid zclass: .typ = %s  ; want %s", zc.typ, typ)
-		}
-		//zc.stateType
-
-		if pbase.jar != jar {
-			badf("invalid jar")
-		}
-		if pbase.oid != oid {
-			badf("invalid oid: %s  ; want %s", pbase.oid, oid)
-		}
-		if pbase.serial != serial {
-			badf("invalid serial: %s  ; want %s", pbase.serial, serial)
-		}
-		if pbase.state != state {
-			badf("invalid state: %s  ; want %s", pbase.state, state)
-		}
-		if pbase.refcnt != refcnt {
-			badf("invalid refcnt: %s  ; want %s", pbase.refcnt, refcnt)
-		}
-		if pbase.instance != obj {
-			badf("base.instance != obj")
-		}
-	}
+	checkObj := tCheckObj(t)
 
 	// unknown type -> Broken
 	xobj := newGhost("t.unknown", 10, nil)
