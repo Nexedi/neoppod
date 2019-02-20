@@ -100,7 +100,7 @@ func checkObj(t testing.TB, obj IPersistent, jar *Connection, oid Oid, serial Ti
 		badf("invalid state: %s  ; want %s", pbase.state, state)
 	}
 	if pbase.refcnt != refcnt {
-		badf("invalid refcnt: %s  ; want %s", pbase.refcnt, refcnt)
+		badf("invalid refcnt: %d  ; want %d", pbase.refcnt, refcnt)
 	}
 	if pbase.instance != obj {
 		badf("base.instance != obj")
