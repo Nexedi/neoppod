@@ -123,8 +123,8 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 
 	// XXX stor.δtail - init with (at0, at]
 	stor := &storage{
-		IStorageDriver: storDriver,
-		l1cache:        cache,
+		driver:   storDriver,
+		l1cache:  cache,
 
 		drvWatchq: drvWatchq,
 		drvHead:   at0,
@@ -144,19 +144,37 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 // it provides a small cache on top of raw storage driver to implement prefetch
 // and other storage-independed higher-level functionality.
 type storage struct {
-	IStorageDriver
+	driver  IStorageDriver
 	l1cache *Cache // can be =nil, if opened with NoCache
+
+	down    chan struct	// ready when no longer operational
+	downErr error           // reason for shutdown
 
 	// watcher
 	drvWatchq chan Event                // watchq passed to driver
 	drvHead   Tid                       // last tid received from drvWatchq
 	watchReq  chan watchRequest         // {Add,Del}Watch requests go here
 	watchTab  map[chan<- Event]struct{} // registered watchers
+
+	// when watcher is closed (.down is ready) {Add,Del}Watch operate directly
+	// on .watchTab and interact with each other directly. In that mode:
+	watchMu     sync.Mutex                // for watchTab and * below
+	watchCancel map[chan<- Event]struct{} // DelWatch can cancel AddWatch via here
 }
 
 // loading goes through cache - this way prefetching can work
 
-// XXX Close   - stop watching? (driver will close watchq in its own Close)
+// this go directly to driver
+func (s *storage) URL() string { return s.driver.URL() }
+func (s *storage) Iterate(ctx context.Context, tidMin, tidMax Tid) ITxnIterator {
+	return s.driver.Iterate(ctx, tidMin, tidMax)
+}
+
+func (s *storage) Close() error {
+	// XXX Close   - stop watching? (driver will close watchq in its own Close)
+	return s.driver.Shutdown(fmt.Errorf("closed"))
+}
+
 // XXX LastTid - report only LastTid for which cache is ready?
 //		 or driver.LastTid(), then wait cache is ready?
 
@@ -164,10 +182,11 @@ type storage struct {
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	// XXX here: offload xid validation from cache and driver ?
 	// XXX here: offload wrapping err -> OpError{"load", err} ?
+	// XXX wait xid.At <= .Head ?
 	if s.l1cache != nil {
 		return s.l1cache.Load(ctx, xid)
 	} else {
-		return s.IStorageDriver.Load(ctx, xid)
+		return s.driver.Load(ctx, xid)
 	}
 }
 
