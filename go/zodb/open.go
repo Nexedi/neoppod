@@ -278,14 +278,25 @@ func (s *storage) watcher() {
 				}
 			}
 
-			// deliver event to all watchers
+			// deliver event to all watchers.
+			// handle add/del watchq in the process.
+		deliver:
 			for watchq := range s.watchTab {
-				select {
-				case req := <-s.watchReq:
-					serveReq(req)
+				for {
+					select {
+					case req := <-s.watchReq:
+						serveReq(req)
+						// if watchq was removed - we have to skip sending to it
+						// else try sending to current watchq once again.
+						_, present := s.watchTab[watchq]
+						if !present {
+							continue deliver
+						}
 
-				case watchq <- event:
-					// ok
+					case watchq <- event:
+						// ok
+						continue deliver
+					}
 				}
 			}
 		}
