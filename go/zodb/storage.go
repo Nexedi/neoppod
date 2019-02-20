@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zodb
-// open storages by URL
+// IStorage wrapper + open storage by URL
 
 import (
 	"context"
@@ -29,6 +29,7 @@ import (
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/go123/xcontext"
 )
 
 // OpenOptions describes options for OpenStorage.
@@ -148,8 +149,9 @@ type storage struct {
 	driver  IStorageDriver
 	l1cache *Cache // can be =nil, if opened with NoCache
 
-	down    chan struct{}	// ready when no longer operational
-	downErr error           // reason for shutdown
+	down     chan struct{} // ready when no longer operational
+	downOnce sync.Once     // shutdown may be due to both Close and IO error in watcher
+	downErr  error         // reason for shutdown
 
 	// watcher
 	drvWatchq chan Event                // watchq passed to driver
@@ -163,31 +165,49 @@ type storage struct {
 	watchCancel map[chan<- Event]chan struct{} // DelWatch can cancel AddWatch via here
 }
 
-// loading goes through cache - this way prefetching can work
-
-// this go directly to driver
 func (s *storage) URL() string { return s.driver.URL() }
+
+func (s *storage) shutdown(reason error) {
+	s.downOnce.Do(func() {
+		close(s.down)
+		s.downErr = fmt.Errorf("not operational due: %s", reason)
+	})
+}
+
 func (s *storage) Iterate(ctx context.Context, tidMin, tidMax Tid) ITxnIterator {
-	// XXX downErr
+	// XXX better -> xcontext.Merge(ctx, s.opCtx)
+	ctx, cancel := xcontext.MergeChan(ctx, s.down)
+	defer cancel()
+
 	return s.driver.Iterate(ctx, tidMin, tidMax)
 }
 
 func (s *storage) Close() error {
-	// XXX Close   - stop watching? (driver will close watchq in its own Close)
-	//return s.driver.Shutdown(fmt.Errorf("closed"))
-	// XXX downErr
-	return s.driver.Close()
+	s.shutdown(fmt.Errorf("closed"))
+	return s.driver.Close() // this will close drvWatchq and cause watcher stop
 }
+
+// loading goes through cache - this way prefetching can work
 
 func (s *storage) LastTid(ctx context.Context) (Tid, error) {
 	// XXX LastTid - report only LastTid for which cache is ready?
 	//		 or driver.LastTid(), then wait cache is ready?
-	// XXX downErr
+
+	// XXX better -> xcontext.Merge(ctx, s.opCtx) but currently it costs 1+ goroutine
+	if ready(s.down) {
+		return InvalidTid, s.zerr("last_tid", nil, s.downErr)
+	}
+
 	return s.driver.LastTid(ctx)
 }
 
 // Load implements Loader.
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
+	// XXX better -> xcontext.Merge(ctx, s.opCtx) but currently it costs 1+ goroutine
+	if ready(s.down) {
+		return nil, InvalidTid, s.zerr("load", xid, s.downErr)
+	}
+
 	// XXX here: offload xid validation from cache and driver ?
 	// XXX here: offload wrapping err -> OpError{"load", err} ?
 	// XXX wait xid.At <= .Head ?
@@ -205,7 +225,7 @@ func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 	}
 }
 
-// watcher
+// ---- watcher ----
 // FIXME tests
 
 // watchRequest represents request to add/del a watch.
@@ -225,6 +245,11 @@ const (
 // watcher dispatches events from driver to subscribers and serves
 // {Add,Del}Watch requests.
 func (s *storage) watcher() {
+	err := s._watcher()
+	s.shutdown(err)
+}
+
+func (s *storage) _watcher() error {
 	// staging place for AddWatch requests.
 	//
 	// during event delivery to registered watchqs, add/del requests are
@@ -265,8 +290,7 @@ func (s *storage) watcher() {
 		req.ack <- s.drvHead
 	}
 
-	// close all subscribers's watchq on close
-	// XXX AddWatch/DelWatch after watcher exits?
+	// close all subscribers's watchq on watcher shutdow
 	defer func() {
 		addqFlush()
 		for watchq := range s.watchTab {
@@ -277,9 +301,7 @@ func (s *storage) watcher() {
 	var errDown error
 	for {
 		if errDown != nil {
-			// XXX stop storage with errDown
-			//return errDown
-			return
+			return errDown
 		}
 
 		addqFlush() // register staged AddWatch(s)
@@ -291,7 +313,7 @@ func (s *storage) watcher() {
 		case event, ok := <-s.drvWatchq:
 			if !ok {
 				// storage closed
-				return
+				return nil
 			}
 
 			switch e := event.(type) {
@@ -403,5 +425,25 @@ func (s *storage) DelWatch(watchq chan<- Event) {
 	// operational - interact with watcher
 	case s.watchReq <- watchRequest{delWatch, ack, watchq}:
 		<-ack
+	}
+}
+
+
+// ---- misc ----
+
+// zerr turns err into OpError about s.op(args)
+func (s *storage) zerr(op string, args interface{}, err error) *OpError {
+	return &OpError{URL: s.URL(), Op: op, Args: args, Err: err}
+}
+
+// ready returns whether channel is ready.
+//
+// it should be used only on channels that are intended to be closed.
+func ready(ch chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
 	}
 }
