@@ -127,6 +127,7 @@ class SocketConnector(object):
             self._bind(self.addr)
             self.socket.listen(self.SOMAXCONN)
         except socket.error, e:
+            self.is_closed = True
             self.socket.close()
             self._error('listen', e)
 
@@ -220,12 +221,13 @@ class SocketConnector(object):
 
     def __repr__(self):
         if self.is_closed is None:
-            state = 'never opened'
+            state = ', never opened'
         else:
             if self.is_closed:
-                state = 'closed '
+                state = ', closed '
             else:
-                state = 'opened '
+                state = ' fileno %s %s, opened ' % (
+                    self.socket_fd, self.getAddress())
             if self.is_server is None:
                 state += 'listening'
             else:
@@ -234,9 +236,7 @@ class SocketConnector(object):
                 else:
                     state += 'to '
                 state += str(self.addr)
-        return '<%s at 0x%x fileno %s %s, %s>' % (self.__class__.__name__,
-            id(self), '?' if self.is_closed else self.socket_fd,
-            self.getAddress(), state)
+        return '<%s at 0x%x%s>' % (self.__class__.__name__, id(self), state)
 
 class SocketConnectorIPv4(SocketConnector):
     " Wrapper for IPv4 sockets"
