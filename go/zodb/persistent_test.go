@@ -347,6 +347,9 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	ctx := context.Background()
 	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true, NoCache: !rawcache}); X(err)
 	db := NewDB(stor)
+	defer func() {
+		err := db.Close(); X(err)
+	}()
 
 	// testopen opens new db transaction/connection and wraps it with tPersistentDB.
 	testopen := func(opt *ConnOptions) *tPersistentDB {

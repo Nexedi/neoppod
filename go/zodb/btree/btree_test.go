@@ -106,6 +106,9 @@ func TestBTree(t *testing.T) {
 		t.Fatal(err)
 	}
 	db := zodb.NewDB(stor)
+	defer func() {
+		err := db.Close(); X(err)
+	}()
 
 	txn, ctx := transaction.New(ctx)
 	defer txn.Abort()

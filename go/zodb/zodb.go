@@ -359,6 +359,8 @@ type IStorageDriver interface {
 	// LastTid returns the id of the last committed transaction.
 	//
 	// If no transactions have been committed yet, LastTid returns 0.
+	//
+	// XXX clarify semantic		XXX -> Sync + Head ?
 	LastTid(ctx context.Context) (Tid, error)
 
 	Loader

@@ -45,7 +45,8 @@ import (
 //
 // DB is safe to access from multiple goroutines simultaneously.
 type DB struct {
-	stor IStorage
+	stor   IStorage
+	watchq chan Event // we are watching .stor via here
 
 	mu sync.Mutex
 
@@ -114,24 +115,41 @@ type DB struct {
 
 
 // NewDB creates new database handle.
+//
+// Created database handle must be closed when no longer needed.
 func NewDB(stor IStorage) *DB {
 	// XXX db options?
 	db := &DB{
-		stor:  stor,
-		δwait: make(map[δwaiter]struct{}),
+		stor:   stor,
+		watchq: make(chan Event),
+		δwait:  make(map[δwaiter]struct{}),
 
 		tδkeep: 10*time.Minute, // see δtail discussion
 	}
 
-	watchq := make(chan Event)
-	at0 := stor.AddWatch(watchq)
+	at0 := stor.AddWatch(db.watchq)
 	db.δtail = NewΔTail(at0) // init to (at0, at0]
 
-	go db.watcher(watchq)
-	// XXX DelWatch? in db.Close() ?
-
+	go db.watcher()
 	return db
 }
+
+// XXX DB.shutdown(reason error) ?
+
+// Close closes database handle.
+//
+// After Close DB.Open calls will return error. However it is ok to continue
+// working with connections opened prior Close.
+func (db *DB) Close() error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	stor.DelWatch(db.watchq)
+
+	// XXX stub
+	return nil
+}
+
 
 // ConnOptions describes options to DB.Open .
 type ConnOptions struct {
@@ -177,9 +195,10 @@ type δwaiter struct {
 // watcher receives events about new committed transactions and updates δtail.
 //
 // it also notifies δtail waiters.
-func (db *DB) watcher(watchq <-chan Event) { // XXX err ?
+func (db *DB) watcher() { // XXX err ?
 	for {
-		event, ok := <-watchq
+		// XXX check for db.down
+		event, ok := <-db.watchq
 		if !ok {
 			fmt.Printf("db: watcher: close\n")
 			// XXX wake up all waiters?
@@ -254,6 +273,8 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 			Err:  err,
 		}
 	}()
+
+	// XXX check db is aready down/closed
 
 	txn := transaction.Current(ctx)
 
