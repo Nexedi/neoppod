@@ -66,7 +66,7 @@ func (o *myObjectState) PyGetState() interface{} {
 	return o.value
 }
 
-// Peristent that is not registered to ZODB.
+// Persistent that is not registered to ZODB.
 type Unregistered struct {
 	Persistent
 }
@@ -219,7 +219,7 @@ type tPersistentDB struct {
 	conn  *Connection
 }
 
-// Get gets oid from t.conn and asserts it type.
+// Get gets oid from t.conn and asserts its type.
 func (t *tPersistentDB) Get(oid Oid) *MyObject {
 	t.Helper()
 	xobj, err := t.conn.Get(t.ctx, oid)
@@ -252,7 +252,10 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 	t.Helper()
 
 	// any object with live pointer to it must be also in conn's cache.
-	connObj := t.conn.Cache().Get(oid)
+	cache := t.conn.Cache()
+	cache.Lock()
+	connObj := cache.Get(oid)
+	cache.Unlock()
 	if obj != connObj {
 		t.Fatalf("cache.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
 	}
@@ -295,15 +298,15 @@ func (t *tPersistentDB) Resync(at Tid) {
 	t.txn = txn
 	t.ctx = ctx
 
-	assert.Equal(t, t.conn.db,  db)
-	assert.Equal(t, t.conn.txn, t.txn)
+	assert.Same(t, t.conn.db,  db)
+	assert.Same(t, t.conn.txn, t.txn)
 	assert.Equal(t, t.conn.At(), at)
 }
 
 // Abort aborts t's connection and verifies it becomes !live.
 func (t *tPersistentDB) Abort() {
 	t.Helper()
-	assert.Equal(t, t.conn.txn, t.txn)
+	assert.Same(t, t.conn.txn, t.txn)
 	t.txn.Abort()
 	assert.Equal(t, t.conn.txn, nil)
 }
@@ -312,9 +315,14 @@ func (t *tPersistentDB) Abort() {
 // Persistent tests with storage.
 //
 // this test covers everything at application-level: Persistent, DB, Connection, LiveCache.
-//
-// XXX test for cache=y/n (raw data cache)
-func TestPersistentDB(t0 *testing.T) {
+func TestPersistentDB(t *testing.T) {
+	// perform tests without and with raw data cache.
+	// (rawcache=y verifies how raw cache handles invalidations)
+	t.Run("rawcache=n", func(t *testing.T) { testPersistentDB(t, false) })
+	t.Run("rawcache=y", func(t *testing.T) { testPersistentDB(t, true) })
+}
+
+func testPersistentDB(t0 *testing.T, rawcache bool) {
 	X := exc.Raiseif
 	assert := assert.New(t0)
 
@@ -337,7 +345,7 @@ func TestPersistentDB(t0 *testing.T) {
 
 	// open connection to it via zodb/go
 	ctx := context.Background()
-	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true}); X(err)
+	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true, NoCache: !rawcache}); X(err)
 	db := NewDB(stor)
 
 	// testopen opens new db transaction/connection and wraps it with tPersistentDB.
@@ -347,8 +355,8 @@ func TestPersistentDB(t0 *testing.T) {
 		txn, ctx := transaction.New(context.Background())
 		conn, err := db.Open(ctx, opt); X(err)
 
-		assert.Equal(conn.db, db)
-		assert.Equal(conn.txn, txn)
+		assert.Same(conn.db, db)
+		assert.Same(conn.txn, txn)
 
 		return &tPersistentDB{
 			T:    t0,
@@ -369,7 +377,9 @@ func TestPersistentDB(t0 *testing.T) {
 
 	// do not evict obj2 from live cache. obj1 is ok to be evicted.
 	zcache1 := t.conn.Cache()
+	zcache1.Lock()
 	zcache1.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
+	zcache1.Unlock()
 
 	// get objects
 	obj1 := t.Get(101)
@@ -455,7 +465,7 @@ func TestPersistentDB(t0 *testing.T) {
 
 	// open new connection - it should be conn1 but at updated database view
 	t3 := testopen(&ConnOptions{})
-	assert.Equal(t3.conn, t1.conn)	// XXX is
+	assert.Same(t3.conn, t1.conn)
 	t = t3
 	assert.Equal(t.conn.At(), at2)
 	assert.Equal(db.pool, []*Connection{})
@@ -484,8 +494,8 @@ func TestPersistentDB(t0 *testing.T) {
 		runtime.GC() // need only 2 runs since cache uses finalizers
 	}
 
-	xobj1 := t.conn.Cache().Get(101)
-	xobj2 := t.conn.Cache().Get(102)
+	xobj1 := t.conn.Cache().Get(101)	// XXX locking
+	xobj2 := t.conn.Cache().Get(102)	// XXX locking
 	assert.Equal(xobj1, nil)
 	assert.NotEqual(xobj2, nil)
 	obj2 = xobj2.(*MyObject)
@@ -506,7 +516,9 @@ func TestPersistentDB(t0 *testing.T) {
 
 	// pin obj2 into live cache, similarly to conn1
 	rzcache := t.conn.Cache()
+	rzcache.Lock()
 	rzcache.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
+	rzcache.Unlock()
 
 	// it should see latest data
 	robj1 := t.Get(101)
