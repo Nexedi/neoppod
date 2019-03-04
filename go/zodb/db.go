@@ -22,13 +22,13 @@ package zodb
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
 
+	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/neo/go/transaction"
-
-	"fmt"
 )
 
 // DB represents a handle to database at application level and contains pool
@@ -47,6 +47,10 @@ import (
 type DB struct {
 	stor   IStorage
 	watchq chan Event // we are watching .stor via here
+
+	down     chan struct{} // ready when DB is no longer operational
+	downOnce sync.Once     // shutdown may be due to both Close and IO error in watcher
+	downErr  error         // reason for shutdown
 
 	mu sync.Mutex
 
@@ -122,6 +126,7 @@ func NewDB(stor IStorage) *DB {
 	db := &DB{
 		stor:   stor,
 		watchq: make(chan Event),
+		down:   make(chan struct{}),
 		δwait:  make(map[δwaiter]struct{}),
 
 		tδkeep: 10*time.Minute, // see δtail discussion
@@ -134,19 +139,25 @@ func NewDB(stor IStorage) *DB {
 	return db
 }
 
-// XXX DB.shutdown(reason error) ?
+// shutdown mark db no longer operational due to reason.
+//
+// It serves both explicit Close, or shutdown triggered due to error received
+// by watcher.
+func (db *DB) shutdown(reason error) {
+	db.downOnce.Do(func() {
+		db.downErr = reason	// XXX err ctx
+		close(db.down)
+
+		db.stor.DelWatch(db.watchq)
+	})
+}
 
 // Close closes database handle.
 //
 // After Close DB.Open calls will return error. However it is ok to continue
 // working with connections opened prior Close.
 func (db *DB) Close() error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	stor.DelWatch(db.watchq)
-
-	// XXX stub
+	db.shutdown(fmt.Errorf("db is closed"))
 	return nil
 }
 
@@ -195,14 +206,23 @@ type δwaiter struct {
 // watcher receives events about new committed transactions and updates δtail.
 //
 // it also notifies δtail waiters.
-func (db *DB) watcher() { // XXX err ?
+func (db *DB) watcher() (err error) {
+	defer db.shutdown(err)
+	defer xerr.Contextf(&err, "db: watcher")
+
+	var event Event
+	var ok bool
+
 	for {
-		// XXX check for db.down
-		event, ok := <-db.watchq
-		if !ok {
-			fmt.Printf("db: watcher: close\n")
-			// XXX wake up all waiters?
-			return // closed
+		select {
+		case <-db.down:
+			// should be already shut down with concrete reason
+			return fmt.Errorf("db is down")
+
+		case event, ok = <-db.watchq:
+			if !ok {
+				return fmt.Errorf("storage closed")
+			}
 		}
 
 		//fmt.Printf("db: watcher <- %v\n", event)
@@ -213,8 +233,7 @@ func (db *DB) watcher() { // XXX err ?
 			panic(fmt.Sprintf("unexepected event: %T", event))
 
 		case *EventError:
-			fmt.Printf("db: watcher: error: %s\n", event.Err)
-			continue // XXX shutdown instead
+			return fmt.Errorf("error: %s", event.Err)
 
 		case *EventCommit:
 			δ = event
@@ -360,14 +379,17 @@ retry:
 			db.mu.Unlock()
 
 			select {
-			case <-ctx.Done():
-				// leave db.mu unlocked
-				return nil, ctx.Err()
-
 			case <-δready:
 				// ok - δtail.head went over at; relock db and retry
 				db.mu.Lock()
 				continue retry
+
+			// on error leave db.mu unlocked
+			case <-ctx.Done():
+				return nil, ctx.Err()
+
+			case <-db.down:
+				return nil, db.downErr
 			}
 		}
 
