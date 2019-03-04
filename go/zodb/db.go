@@ -210,8 +210,11 @@ type δwaiter struct {
 // The watcher stops when it sees either the storage being closed or an error.
 // The DB is shutdown on exit.
 func (db *DB) watcher() (err error) {
-	defer db.shutdown(err)
-	defer xerr.Contextf(&err, "db: watcher")
+	defer func() {
+		//fmt.Printf("db: watcher: exit: %s\n", err)
+		xerr.Contextf(&err, "db: watcher")
+		db.shutdown(err)
+	}()
 
 	var event Event
 	var ok bool
