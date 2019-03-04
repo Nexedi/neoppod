@@ -494,8 +494,8 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 		runtime.GC() // need only 2 runs since cache uses finalizers
 	}
 
-	xobj1 := t.conn.Cache().Get(101)	// XXX locking
-	xobj2 := t.conn.Cache().Get(102)	// XXX locking
+	xobj1 := t.conn.Cache().Get(101)
+	xobj2 := t.conn.Cache().Get(102)
 	assert.Equal(xobj1, nil)
 	assert.NotEqual(xobj2, nil)
 	obj2 = xobj2.(*MyObject)
