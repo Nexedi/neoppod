@@ -139,13 +139,13 @@ func NewDB(stor IStorage) *DB {
 	return db
 }
 
-// shutdown mark db no longer operational due to reason.
+// shutdown marks db no longer operational due to reason.
 //
 // It serves both explicit Close, or shutdown triggered due to error received
-// by watcher.
+// by watcher. Only the first shutdown call has the effect.
 func (db *DB) shutdown(reason error) {
 	db.downOnce.Do(func() {
-		db.downErr = reason	// XXX err ctx ?
+		db.downErr = reason
 		close(db.down)
 
 		db.stor.DelWatch(db.watchq)
