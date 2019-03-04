@@ -145,7 +145,7 @@ func NewDB(stor IStorage) *DB {
 // by watcher.
 func (db *DB) shutdown(reason error) {
 	db.downOnce.Do(func() {
-		db.downErr = reason	// XXX err ctx
+		db.downErr = reason	// XXX err ctx ?
 		close(db.down)
 
 		db.stor.DelWatch(db.watchq)
@@ -205,7 +205,10 @@ type δwaiter struct {
 
 // watcher receives events about new committed transactions and updates δtail.
 //
-// it also notifies δtail waiters.
+// It also notifies δtail waiters.
+//
+// The watcher stops when it sees either the storage being closed or an error.
+// The DB is shutdown on exit.
 func (db *DB) watcher() (err error) {
 	defer db.shutdown(err)
 	defer xerr.Contextf(&err, "db: watcher")
