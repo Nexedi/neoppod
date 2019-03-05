@@ -359,7 +359,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	db.mu.Lock() // unlocked in *DBUnlock
 
 	// wait for δtail.head ≥ at
-	err := db.waitHeadOrDBUnlock(ctx, at)
+	err = db.headWait(ctx, at)	// XXX -> waitHeadOrDBUnlock ?
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +405,7 @@ func (db *DB) open(at Tid, noPool bool) *Connection {
 
 	// at should be ≤ head (we waited for it before calling here)
 	if head := δtail.Head(); at > head {
-		panic("open: head (%s) < at (%s)", head, at)
+		panic(fmt.Sprintf("open: at (%s) > head (%s)", at, head))
 	}
 
 	// at ∈ (δtail, δhead]	; try to get nearby idle connection or make a new one
