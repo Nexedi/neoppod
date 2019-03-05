@@ -141,8 +141,8 @@ func NewDB(stor IStorage) *DB {
 
 // shutdown marks db no longer operational due to reason.
 //
-// It serves both explicit Close, or shutdown triggered due to error received
-// by watcher. Only the first shutdown call has the effect.
+// It serves both either explicit Close, or shutdown triggered due to error
+// received by watcher. Only the first shutdown call has the effect.
 func (db *DB) shutdown(reason error) {
 	db.downOnce.Do(func() {
 		db.downErr = reason
@@ -155,7 +155,7 @@ func (db *DB) shutdown(reason error) {
 // Close closes database handle.
 //
 // After Close DB.Open calls will return error. However it is ok to continue
-// working with connections opened prior Close.
+// to use connections opened prior to Close.
 func (db *DB) Close() error {
 	db.shutdown(fmt.Errorf("db is closed"))
 	return nil
@@ -222,7 +222,7 @@ func (db *DB) watcher() (err error) {
 	for {
 		select {
 		case <-db.down:
-			// should be already shut down with concrete reason
+			// db is already shut down with concrete reason
 			return fmt.Errorf("db is down")
 
 		case event, ok = <-db.watchq:
