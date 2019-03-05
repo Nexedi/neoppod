@@ -460,6 +460,8 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 		return
 	}
 
+	// XXX -> DB.deltaObj(at1, at2)
+
 	// conn.at != at - have to invalidate objects in live cache.
 	δtail := db.δtail
 	δobj  := make(map[Oid]struct{}) // set(oid) - what to invalidate
