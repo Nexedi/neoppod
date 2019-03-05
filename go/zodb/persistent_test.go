@@ -615,7 +615,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 
 
 
-	// XXX DB.Open with at on and +-1 δtail edges
+	// XXX DB.Open with at on and +-1 δtail edges	XXX don't be lazy and do this
 
 
 	// XXX Get(txn = different) -> panic

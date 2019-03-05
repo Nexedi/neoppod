@@ -410,7 +410,7 @@ retry:
 
 // Resync resyncs the connection onto different database view and transaction.
 //
-// Connection objects pinned in live cache are guaranteed to stay in live
+// Connection's objects pinned in live cache are guaranteed to stay in live
 // cache, even if maybe in ghost state (e.g. if they have to be invalidated due
 // to database changes).
 //
