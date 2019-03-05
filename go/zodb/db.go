@@ -301,8 +301,6 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 
 	// XXX check db is aready down/closed
 
-	txn := transaction.Current(ctx)
-
 	// find out db state we should open at
 	at := opt.At
 	if at == 0 {
@@ -338,7 +336,11 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	if err != nil {
 		return nil, err
 	}
-	conn.resyncAndDBUnlock(txn, at)
+	err = conn.resyncAndDBUnlock(ctx, at)
+	if err != nil {
+		// XXX release conn?
+		return nil, err
+	}
 	return conn, nil
 }
 
@@ -424,7 +426,11 @@ retry:
 //	- contrary to DB.Open, at cannot be 0.
 //
 // Note: new at can be both higher and lower than previous connection at.
-func (conn *Connection) Resync(txn transaction.Transaction, at Tid) {
+//
+// Note: if new at is already covered by DB.Head Resync will be non-blocking
+// operation. However if at is > current DB.Head Resync, similarly to DB.Open,
+// will block waiting for DB.Head to become ≥ at.
+func (conn *Connection) Resync(ctx context.Context, at Tid) error {
 	if !conn.noPool {
 		panic("Conn.Resync: connection was opened without NoPool flag")
 	}
@@ -433,14 +439,15 @@ func (conn *Connection) Resync(txn transaction.Transaction, at Tid) {
 	}
 
 	conn.db.mu.Lock()
-	conn.resyncAndDBUnlock(txn, at)
+	return conn.resyncAndDBUnlock(ctx, at)
 }
 
 // resyncAndDBUnlock serves Connection.Resync and DB.Open .
 //
 // must be called with conn.db locked and unlocks it at the end.
-func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
+func (conn *Connection) resyncAndDBUnlock(ctx context.Context, at Tid) error {
 	db := conn.db
+	txn := transaction.Current(ctx)
 
 	if conn.txn != nil {
 		db.mu.Unlock()
@@ -457,10 +464,13 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 	// conn.at == at - nothing to do (even if out of δtail coverage)
 	if conn.at == at {
 		db.mu.Unlock()
-		return
+		return nil
 	}
 
-	// XXX -> DB.deltaObj(at1, at2)
+	// XXX -> DB.δobj(at1, at2)
+
+	// XXX first wait for db.stor.head to cover at (else if at is slightly
+	// not covered yet -> we'll hit δall case()
 
 	// conn.at != at - have to invalidate objects in live cache.
 	δtail := db.δtail
@@ -500,7 +510,6 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 	if δall {
 		// XXX keep synced with LiveCache details
 		// XXX -> conn.cache.forEach?
-		// XXX should we wait for db.stor.head to cover at?	FIXME openOrDBUnlock does this
 		//     or leave this wait till .Load() time?
 		for _, wobj := range conn.cache.objtab {
 			obj, _ := wobj.Get().(IPersistent)
@@ -518,7 +527,7 @@ func (conn *Connection) resyncAndDBUnlock(txn transaction.Transaction, at Tid) {
 	}
 
 	// all done
-	return
+	return nil
 }
 
 // get returns connection from db pool most close to at with conn.at ∈ [atMin, at].

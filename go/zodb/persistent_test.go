@@ -293,7 +293,10 @@ func (t *tPersistentDB) Resync(at Tid) {
 	db := t.conn.db // XXX -> t.db ?
 
 	txn, ctx := transaction.New(context.Background())
-	t.conn.Resync(txn, at)
+	err := t.conn.Resync(ctx, at)
+	if err != nil {
+		t.Fatalf("resync %s -> %s", at, err)
+	}
 
 	t.txn = txn
 	t.ctx = ctx
