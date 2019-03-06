@@ -385,7 +385,15 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 // Must be called with at ≤ db.Head .
 // Must be called with db.mu locked.
 func (db *DB) open(at Tid, noPool bool) *Connection {
-	fmt.Printf("db.open @%s nopool=%v\t; δtail (%s, %s]\n", at, noPool, db.δtail.Tail(), db.δtail.Head())
+	δtail := db.δtail.
+
+	fmt.Printf("db.open @%s nopool=%v\t; δtail (%s, %s]\n", at, noPool, δtail.Tail(), δtail.Head())
+
+	// at should be ≤ head (caller waited for it before invoking us)
+	if head := δtail.Head(); at > head {
+		panic(fmt.Sprintf("open: at (%s) > head (%s)", at, head))
+	}
+
 	// NoPool connection - create one anew
 	if noPool {
 		conn := newConnection(db, at)
@@ -400,17 +408,11 @@ func (db *DB) open(at Tid, noPool bool) *Connection {
 	}
 
 	// no exact match - let's try to find nearest
-	δtail := db.δtail
 
 	// too far in the past, and we know there is no exact match
 	// -> new historic connection.
 	if at <= δtail.Tail() {
 		return newConnection(db, at)
-	}
-
-	// at should be ≤ head (caller waited for it before invoking us)
-	if head := δtail.Head(); at > head {
-		panic(fmt.Sprintf("open: at (%s) > head (%s)", at, head))
 	}
 
 	// at ∈ (δtail, δhead]	; try to get nearby idle connection or make a new one
