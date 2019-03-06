@@ -59,7 +59,7 @@ import (
 type ΔTail struct {
 	head  Tid
 	tail  Tid
-	tailv []ΔRevEntry	// XXX -> revv ? δv? δvec? changev ?
+	tailv []ΔRevEntry
 
 	lastRevOf map[Oid]Tid // index for LastRevOf queries
 	// XXX -> lastRevOf = {} oid -> []rev↑ if linear scan in LastRevOf starts to eat cpu
@@ -67,7 +67,7 @@ type ΔTail struct {
 
 // ΔRevEntry represents information of what have been changed in one revision.
 //
-// XXX -> CommitEvent?
+// XXX -> EventCommit?
 type ΔRevEntry struct {
 	Rev     Tid
 	Changev []Oid
@@ -96,9 +96,7 @@ func (δtail *ΔTail) Head() Tid {
 	return δtail.head
 }
 
-// Tail returns oldest database state for which δtail has history coverage.
-//
-// XXX not inclusive?
+// Tail returns lower-bound of database state for which δtail has history coverage.
 //
 // Tail is ↑= on Forget, even if δtail becomes empty.
 func (δtail *ΔTail) Tail() Tid {
