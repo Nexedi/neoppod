@@ -25,36 +25,10 @@ from __future__ import print_function
 import sys
 import hashlib
 import zlib
-from zlib import crc32, adler32
 from os.path import dirname
+from zodbtools.util import Adler32Hasher, CRC32Hasher
 
 from golang import testing
-
-# adler32 in hashlib interface
-class Adler32Hasher:
-    name = "adler32"
-
-    def __init__(self):
-        self.h = adler32('')
-
-    def update(self, data):
-        self.h = adler32(data, self.h)
-
-    def hexdigest(self):
-        return '%08x' % (self.h & 0xffffffff)
-
-# crc32 in hashlib interface
-class CRC32Hasher:
-    name = "crc32"
-
-    def __init__(self):
-        self.h = crc32('')
-
-    def update(self, data):
-        self.h = crc32(data, self.h)
-
-    def hexdigest(self):
-        return '%08x' % (self.h & 0xffffffff)
 
 # fmtsize formats size in human readable form
 _unitv = "BKMGT" # (2^10)^i represents by corresponding char suffix
