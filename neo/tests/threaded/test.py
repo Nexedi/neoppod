@@ -931,7 +931,7 @@ class Test(NEOThreadedTest):
                     ll()
             x2._p_deactivate()
             # Remove last version of x from cache
-            cache._remove(cache._oid_dict[x2._p_oid].pop())
+            cache._forget(cache._oid_dict[x2._p_oid][0])
             with ll, Patch(cluster.client, _loadFromStorage=break_after):
                 t = self.newThread(x2._p_activate)
                 ll()
