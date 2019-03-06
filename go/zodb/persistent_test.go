@@ -286,6 +286,25 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 	}
 }
 
+// Resync resyncs t to new transaction @at.
+func (t *tPersistentDB) Resync(at Tid) {
+	t.Helper()
+	db := t.conn.db
+
+	txn, ctx := transaction.New(context.Background())
+	err := t.conn.Resync(ctx, at)
+	if err != nil {
+		t.Fatalf("resync %s -> %s", at, err)
+	}
+
+	t.txn = txn
+	t.ctx = ctx
+
+	assert.Same(t, t.conn.db,  db)
+	assert.Same(t, t.conn.txn, t.txn)
+	assert.Equal(t, t.conn.At(), at)
+}
+
 // Abort aborts t's connection and verifies it becomes !live.
 func (t *tPersistentDB) Abort() {
 	t.Helper()
@@ -475,6 +494,108 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.Abort()
 	t2.Abort()
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+	// open new connection in nopool mode to verify resync
+	t4 := testopen(&ConnOptions{NoPool: true})
+	t = t4
+	assert.Equal(t.conn.At(), at2)
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+	// pin obj2 into live cache, similarly to conn1
+	rzcache := t.conn.Cache()
+	rzcache.Lock()
+	rzcache.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
+	rzcache.Unlock()
+
+	// it should see latest data
+	robj1 := t.Get(101)
+	robj2 := t.Get(102)
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
+
+	t.PActivate(robj1)
+	t.PActivate(robj2)
+	t.checkObj(robj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(robj2, 102, at2, UPTODATE, 1, "kitty")
+
+	// obj2 stays in live cache
+	robj1.PDeactivate()
+	robj2.PDeactivate()
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, at2, UPTODATE,    0, "kitty")
+
+	// txn4 completes, but its conn stays out of db pool
+	t.Abort()
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+	// Resync ↓ (at2 -> at1; within δtail coverage)
+	t.Resync(at1)
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+	// obj2 should be invalidated
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
+
+	// obj2 data should be old
+	t.PActivate(robj1)
+	t.PActivate(robj2)
+	t.checkObj(robj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(robj2, 102, at1, UPTODATE, 1, "world")
+
+	robj1.PDeactivate()
+	robj2.PDeactivate()
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, at1, UPTODATE, 0, "world")
+
+	// Resync ↑ (at1 -> at2; within δtail coverage)
+	t.Abort()
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+	t.Resync(at2)
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+	// obj2 should be invalidated
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
+
+	t.PActivate(robj1)
+	t.PActivate(robj2)
+	t.checkObj(robj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(robj2, 102, at2, UPTODATE, 1, "kitty")
+
+	robj1.PDeactivate()
+	robj2.PDeactivate()
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, at2, UPTODATE, 0, "kitty")
+
+	// Resync ↓ (at1 -> at0; to outside δtail coverage)
+	t.Abort()
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+	t.Resync(at0)
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+	// obj2 should be invalidated
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
+
+	t.PActivate(robj1)
+	t.PActivate(robj2)
+	t.checkObj(robj1, 101, at0, UPTODATE, 1, "init")
+	t.checkObj(robj2, 102, at0, UPTODATE, 1, "db")
+
+	robj1.PDeactivate()
+	robj2.PDeactivate()
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, at0, UPTODATE, 0, "db")
+
+	// Resync ↑ (at0 -> at2; from outside δtail coverage)
+	t.Abort()
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+	t.Resync(at2)
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+	// obj2 should be invalidated
+	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
 }
 
 // TODO Map & List tests.

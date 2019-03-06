@@ -166,6 +166,14 @@ func (db *DB) Close() error {
 type ConnOptions struct {
 	At     Tid  // if !0, open Connection bound to `at` view of database; not latest.
 	NoSync bool // don't sync with storage to get its last tid.
+
+	// don't put connection back into DB pool after transaction ends.
+	//
+	// This is low-level option that allows to inspect/use connection's
+	// LiveCache after transaction finishes, and to manually resync the
+	// connection onto another database view. See Connection.Resync for
+	// details.
+	NoPool bool
 }
 
 // String represents connection options in human-readable form.
@@ -186,6 +194,12 @@ func (opt *ConnOptions) String() string {
 		s += "!"
 	}
 	s += "sync"
+
+	s += ", "
+	if opt.NoPool {
+		s += "!"
+	}
+	s += "pool"
 
 	s += ")"
 	return s
@@ -317,7 +331,9 @@ func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
 //
 // Open must be called under transaction.
 // Opened connection must be used only under the same transaction and only
-// until that transaction is complete.
+// until that transaction is complete(*).
+//
+// (*) unless NoPool option is used.
 func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err error) {
 	defer func() {
 		if err == nil {
@@ -361,7 +377,7 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	}
 
 	// open(at)
-	conn := db.open(at)
+	conn := db.open(at, opt.NoPool)
 	conn.resync(ctx, at)
 	return conn, nil
 }
@@ -373,17 +389,24 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 //
 // Must be called with at ≤ db.Head .
 // Must be called with db.mu released.
-func (db *DB) open(at Tid) *Connection {
+func (db *DB) open(at Tid, noPool bool) *Connection {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	δtail := db.δtail
 
-	//fmt.Printf("db.open @%s\t; δtail (%s, %s]\n", at, δtail.Tail(), δtail.Head())
+	//fmt.Printf("db.open @%s nopool=%v\t; δtail (%s, %s]\n", at, noPool, δtail.Tail(), δtail.Head())
 
 	// at should be ≤ head (caller waited for it before invoking us)
 	if head := δtail.Head(); at > head {
 		panic(fmt.Sprintf("open: at (%s) > head (%s)", at, head))
+	}
+
+	// NoPool connection - create one anew
+	if noPool {
+		conn := newConnection(db, at)
+		conn.noPool = true
+		return conn
 	}
 
 	// check if we already have an exact match
@@ -412,7 +435,47 @@ func (db *DB) open(at Tid) *Connection {
 	return conn
 }
 
-// resync serves DB.Open .
+// Resync resyncs the connection onto different database view and transaction.
+//
+// Connection's objects pinned in live cache are guaranteed to stay in live
+// cache, even if maybe in ghost state (e.g. if they have to be invalidated due
+// to database changes).
+//
+// Resync can be used many times.
+//
+// Resync must be used only under the following conditions:
+//
+//	- the connection was initially opened with NoPool flag;
+//	- previous transaction, under which connection was previously
+//	  opened/resynced, must be already complete;
+//	- contrary to DB.Open, at cannot be 0.
+//
+// Note: new at can be both higher and lower than previous connection at.
+//
+// Note: if new at is already covered by DB.Head Resync will be non-blocking
+// operation. However if at is > current DB.Head Resync, similarly to DB.Open,
+// will block waiting for DB.Head to become ≥ at.
+func (conn *Connection) Resync(ctx context.Context, at Tid) (err error) {
+	if !conn.noPool {
+		panic("Conn.Resync: connection was opened without NoPool flag")
+	}
+	if at == 0 {
+		panic("Conn.Resync: resync to at=0 (auto-mode is valid only for DB.Open)")
+	}
+
+	defer xerr.Contextf(&err, "resync @%s -> @%s", conn.at, at)
+
+	// wait for db.Head ≥ at
+	err = conn.db.headWait(ctx, at)
+	if err != nil {
+		return err
+	}
+
+	conn.resync(ctx, at)
+	return nil
+}
+
+// resync serves Connection.Resync and DB.Open .
 //
 // Must be called with at ≤ conn.db.Head .
 // Must be called with conn.db released.
@@ -611,5 +674,7 @@ func (csync *connTxnSync) AfterCompletion(txn transaction.Transaction) {
 	// mark the connection as no longer being live
 	conn.txn = nil
 
-	conn.db.put(conn)
+	if !conn.noPool {
+		conn.db.put(conn)
+	}
 }
