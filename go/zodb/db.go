@@ -475,6 +475,17 @@ func (conn *Connection) Resync(ctx context.Context, at Tid) error {
 // Must be called with conn.db released.
 func (conn *Connection) resync(ctx context.Context, at Tid) {
 	txn := transaction.Current(ctx)
+
+	conn.resync1(at)
+
+	// upon exit, with all locks released, register conn to txn.
+	conn.at = at
+	conn.txn = txn
+	txn.RegisterSync((*connTxnSync)(conn))
+}
+
+// resync1 serves resync.
+func (conn *Connection) resync1(at Tid) {
 	if conn.txn != nil {
 		panic("Conn.resync: previous transaction is not yet complete")
 	}
@@ -488,13 +499,6 @@ func (conn *Connection) resync(ctx context.Context, at Tid) {
 		panic(fmt.Sprintf("resync: at (%s) > head (%s)", at, head))
 	}
 
-	// upon exit, with all locks released, register conn to txn.
-	// XXX -> outer func (more clear control flow) ?
-	defer func() {
-		conn.at = at
-		conn.txn = txn
-		txn.RegisterSync((*connTxnSync)(conn))
-	}()
 
 	// conn.at == at - nothing to do (even if out of δtail coverage)
 	if conn.at == at {
