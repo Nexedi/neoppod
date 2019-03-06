@@ -56,7 +56,7 @@ type Cache struct {
 	mu sync.RWMutex
 
 	// cache is currently synchronized with storage for transactions with tid <= head.
-	// XXX clarify ^^^ (it means if revCacheEntry.head=∞ it is Cache.head)	XXX
+	// XXX clarify ^^^ (it means if revCacheEntry.head=∞ it is Cache.head)
 	// XXX load(at > head) -> wait?
 	head Tid
 
