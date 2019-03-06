@@ -290,17 +290,17 @@ type hwaiter struct {
 func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
 	defer xerr.Contextf(&err, "wait head ≥ %s", at)
 
-	db.mu.Lock()
-
-	// XXX check if db is already down -> error even if at is under coverage?
-	// XXX under mu - ok?
+	// check if db is already down -> error even if at is under coverage
 	if ready(db.down) {
 		return db.downErr
 	}
 
+	db.mu.Lock()
+
+	// we already have the coverage
 	if at <= db.δtail.Head() {
 		db.mu.Unlock()
-		return nil // we already have the coverage
+		return nil
 	}
 
 	// we have some δtail coverage, but at is ahead of that.
