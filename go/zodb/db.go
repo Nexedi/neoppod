@@ -113,7 +113,8 @@ type DB struct {
 	// waiters for δtail.Head to become ≥ their at.
 	hwait map[hwaiter]struct{} // set{(at, ready)}
 
-	// XXX δtail/hwait -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
+	// XXX δtail/hwait -> Storage or -> Cache?
+	// (so it is not duplicated many times for many DB case)
 }
 
 
@@ -427,6 +428,7 @@ func (db *DB) open(at Tid, noPool bool) *Connection {
 	}
 
 	// at ∈ (δtail, δhead]	; try to get nearby idle connection or make a new one
+	//conn = db.get(δtail.Tail()+1, at)
 	conn = db.get(δtail.Tail(), at)
 	if conn == nil {
 		conn = newConnection(db, at)
@@ -570,7 +572,7 @@ func (conn *Connection) resync1(at Tid) {
 
 // get returns connection from db pool most close to at with conn.at ∈ [atMin, at].
 //
-// XXX recheck [atMin    or   (atMin	-- see "= δtail.Tail" in resync.
+// Note: contraty to e.g. δtail.Tail, atMin is inclusive.
 //
 // If there is no such connection in the pool - nil is returned.
 // Must be called with db.mu locked.
@@ -651,7 +653,7 @@ func (db *DB) put(conn *Connection) {
 	copy(db.pool[i+1:], db.pool[i:])
 	db.pool[i] = conn
 
-	// XXX GC too idle connections here? XXX
+	// XXX GC too idle connections here
 }
 
 // ---- txn sync ----
