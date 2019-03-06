@@ -1,0 +1,41 @@
+#!/bin/bash
+# δtail.go.cat-generic - cat to stdout δtail.go variant suitable for templating.
+
+# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+
+# This program emits δtail.go that is suitable for templating with the
+# following parameters:
+#
+#	PACKAGE
+#	ID
+#
+# The types that are emitted are
+#
+#	ΔTail
+#	ΔRevEntry
+
+input=$(dirname $0)/δtail.go
+
+cat "$input" |sed	\
+	-e 's/package zodb/package PACKAGE/g'	\
+	-e '/package PACKAGE/a \\nimport "lab.nexedi.com/kirr/neo/go/zodb"'	\
+	-e 's/Tid/zodb.Tid/g'	\
+	-e 's/Oid/ID/g'		\
+	-e 's/CommitEvent/ΔRevEntry/g'
