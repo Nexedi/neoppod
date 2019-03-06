@@ -22,36 +22,14 @@
 
 from __future__ import print_function
 
-import zodbtools.util
+from zodbtools.util import storageFromURL, hashRegistry
 from ZODB.POSException import POSKeyError
 from ZODB.utils import p64, u64
 
-import hashlib
-from tcpu import Adler32Hasher, CRC32Hasher
 import sys
 import logging
 from time import time
 from getopt import getopt, GetoptError
-
-# hasher that discards data
-class NullHasher:
-    name = "null"
-
-    def update(self, data):
-        pass
-
-    def hexdigest(self):
-        return "00"
-
-# {} name -> hasher
-hashRegistry = {
-    "null":     NullHasher,
-    "adler32":  Adler32Hasher,
-    "crc32":    CRC32Hasher,
-    "sha1":     hashlib.sha1,
-    "sha256":   hashlib.sha256,
-    "sha512":   hashlib.sha512,
-}
 
 def usage(w):
     print(\
@@ -115,7 +93,7 @@ def zhash():
     l = logging.getLogger()
     l.addHandler(logging.StreamHandler())
 
-    stor = zodbtools.util.storageFromURL(url, read_only=True)
+    stor = storageFromURL(url, read_only=True)
     last_tid = stor.lastTransaction()
     before = p64(u64(last_tid) + 1)
 
