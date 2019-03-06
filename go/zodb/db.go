@@ -304,7 +304,7 @@ func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
 	}
 
 	// we have some δtail coverage, but at is ahead of that.
-	// wait till δtail.head is up to date covering ≥ at,
+	// wait till δtail.head is up to date covering ≥ at.
 	δready := make(chan struct{})
 	db.hwait[hwaiter{at, δready}] = struct{}{}
 	db.mu.Unlock()
@@ -347,6 +347,11 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 		}
 	}()
 
+	// don't bother to sync to storage if db is down
+	if ready(db.down) {
+		return nil, db.downErr
+	}
+
 	// find out db state we should open at
 	at := opt.At
 	if at == 0 {
@@ -355,11 +360,6 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 			at = db.δtail.Head()
 			db.mu.Unlock()
 		} else {
-			// don't bother to sync to storage if db is down
-			if ready(db.down) {
-				return nil, db.downErr
-			}
-
 			// sync storage for lastTid
 			var err error
 
@@ -462,7 +462,7 @@ func (conn *Connection) Resync(ctx context.Context, at Tid) (err error) {
 		panic("Conn.Resync: resync to at=0 (auto-mode is valid only for DB.Open)")
 	}
 
-	defer xerr.Contextf(&err, "resync @%s -> %s", conn.at, at)
+	defer xerr.Contextf(&err, "resync @%s -> @%s", conn.at, at)
 
 	// wait for db.Head ≥ at
 	err = conn.db.headWait(ctx, at)
