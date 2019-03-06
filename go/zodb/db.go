@@ -284,15 +284,16 @@ type hwaiter struct {
 
 // headWait waits till db.Head becomes ≥ at.
 //
-// Must be called db.mu released.
+// It returns error either if db is down or ctx is canceled.
 //
-// XXX -> waitHead? needHead? waitHeadAfter? ensureAt?
+// Must be called db.mu released.
 func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
+	defer xerr.Contextf(&err, "wait head ≥ %s", at)
+
 	db.mu.Lock()
 
 	// XXX check if db is already down -> error even if at is under coverage?
 	// XXX under mu - ok?
-	// XXX err ctx
 	if ready(db.down) {
 		return db.downErr
 	}
@@ -307,8 +308,6 @@ func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
 	δready := make(chan struct{})
 	db.hwait[hwaiter{at, δready}] = struct{}{}
 	db.mu.Unlock()
-
-	defer xerr.Contextf(&err, "wait head ≥ %s", at)
 
 	select {
 	case <-δready:
