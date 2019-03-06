@@ -428,7 +428,10 @@ func (db *DB) open(at Tid, noPool bool) *Connection {
 	}
 
 	// at ∈ (δtail, δhead]	; try to get nearby idle connection or make a new one
-	//conn = db.get(δtail.Tail()+1, at)
+	//
+	// note: we are ok to get conn with .at = δtail.Tail inclusive, because
+	// we need only later transactions to invalidate conn cache, and data
+	// about later transactions is present in δtail.
 	conn = db.get(δtail.Tail(), at)
 	if conn == nil {
 		conn = newConnection(db, at)
@@ -520,7 +523,7 @@ func (conn *Connection) resync1(at Tid) {
 	δall  := false                  // if we have to invalidate all objects
 
 	// both conn.at and at are covered by δtail - we can invalidate selectively
-	if (δtail.Tail() < conn.at && conn.at <= δtail.Head()) &&	// XXX conn.at can = δtail.Tail
+	if (δtail.Tail() < conn.at && conn.at <= δtail.Head()) &&
 	   (δtail.Tail() <      at &&      at <= δtail.Head()) {
 		var δv []ΔRevEntry
 		if conn.at <= at {
@@ -572,10 +575,11 @@ func (conn *Connection) resync1(at Tid) {
 
 // get returns connection from db pool most close to at with conn.at ∈ [atMin, at].
 //
-// Note: contraty to e.g. δtail.Tail, atMin is inclusive.
-//
 // If there is no such connection in the pool - nil is returned.
 // Must be called with db.mu locked.
+//
+// Note: atMin is inclusive, because even if we get conn with .at = δtail.Tail,
+// we still can use δtail data to invalidate conn cache with followup transactions.
 func (db *DB) get(atMin, at Tid) *Connection {
 	l := len(db.pool)
 
