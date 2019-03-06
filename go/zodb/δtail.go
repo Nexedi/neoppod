@@ -66,8 +66,6 @@ type ΔTail struct {
 }
 
 // ΔRevEntry represents information of what have been changed in one revision.
-//
-// XXX -> EventCommit?
 type ΔRevEntry struct {
 	Rev     Tid
 	Changev []Oid
