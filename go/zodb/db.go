@@ -276,15 +276,16 @@ type hwaiter struct {
 
 // headWait waits till db.Head becomes ≥ at.
 //
-// Must be called with db.mu locked and can release/relock it in the process.
-// On error db.mu is unlocked.
+// Must be called db.mu released.
 //
 // XXX -> waitHead?
-// XXX -> waitHeadOrDBUnlock?
 func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
+	db.mu.Lock()
+
 	// XXX check if db is already down -> error even if at is under coverage?
 
 	if at <= db.δtail.Head() {
+		db.mu.Unlock()
 		return nil // we already have the coverage
 	}
 
@@ -298,11 +299,9 @@ func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
 
 	select {
 	case <-δready:
-		// ok - δtail.head went over at; relock db	XXX ok to relock?
-		db.mu.Lock()
+		// ok - δtail.head went over at
 		return nil
 
-	// on error leave db.mu unlocked	XXX ok?
 	case <-ctx.Done():
 		return ctx.Err()
 
@@ -364,16 +363,15 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	}
 
 	// proceed to open(at)
-	db.mu.Lock() // unlocked in *DBUnlock
 
 	// wait for db.Head ≥ at
-	err = db.headWait(ctx, at)	// XXX -> waitHeadOrDBUnlock ?
+	err = db.headWait(ctx, at)
 	if err != nil {
 		return nil, err
 	}
 
 	conn := db.open(at, opt.NoPool)
-	conn.resyncAndDBUnlock(ctx, at)
+	conn.resync(ctx, at)
 	return conn, nil
 }
 
@@ -383,9 +381,12 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 // Returned connection does not generally have .at=at, and have to go through .resync().
 //
 // Must be called with at ≤ db.Head .
-// Must be called with db.mu locked.
+// Must be called with db.mu released.
 func (db *DB) open(at Tid, noPool bool) *Connection {
-	δtail := db.δtail.
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	δtail := db.δtail
 
 	fmt.Printf("db.open @%s nopool=%v\t; δtail (%s, %s]\n", at, noPool, δtail.Tail(), δtail.Head())
 
@@ -458,30 +459,28 @@ func (conn *Connection) Resync(ctx context.Context, at Tid) error {
 	// XXX check db is already down/closed
 	// XXX or -> headWait?
 
-	db.mu.Lock()
-
 	// wait for db.Head ≥ at
 	err := db.headWait(ctx, at)
 	if err != nil {
 		return err
 	}
 
-	conn.resyncAndDBUnlock(ctx, at)
+	conn.resync(ctx, at)
 	return nil
 }
 
-// resyncAndDBUnlock serves Connection.Resync and DB.Open .
+// resync serves Connection.Resync and DB.Open .
 //
 // Must be called with at ≤ conn.db.Head .
-// Must be called with conn.db locked and unlocks it at the end.
-func (conn *Connection) resyncAndDBUnlock(ctx context.Context, at Tid) {
-	db := conn.db
-	txn := transaction.Current(ctx)	// XXX no unlock here if !txn
-
+// Must be called with conn.db released.
+func (conn *Connection) resync(ctx context.Context, at Tid) {
+	txn := transaction.Current(ctx)
 	if conn.txn != nil {
-		db.mu.Unlock()
 		panic("Conn.resync: previous transaction is not yet complete")
 	}
+
+	db := conn.db
+	db.mu.Lock()
 
 	// at should be ≤ head (caller waited for it before invoking us)
 	if head := db.δtail.Head(); at > head {
@@ -490,6 +489,7 @@ func (conn *Connection) resyncAndDBUnlock(ctx context.Context, at Tid) {
 	}
 
 	// upon exit, with all locks released, register conn to txn.
+	// XXX -> outer func (more clear control flow) ?
 	defer func() {
 		conn.at = at
 		conn.txn = txn
@@ -501,8 +501,6 @@ func (conn *Connection) resyncAndDBUnlock(ctx context.Context, at Tid) {
 		db.mu.Unlock()
 		return
 	}
-
-	// XXX -> DB.δobj(at1, at2) ?
 
 	// conn.at != at - have to invalidate objects in live cache.
 	δtail := db.δtail
@@ -535,7 +533,6 @@ func (conn *Connection) resyncAndDBUnlock(ctx context.Context, at Tid) {
 	// unlock db before locking cache and txn
 	db.mu.Unlock()
 
-	// XXX -> separate func? (then we can drop "AndDBUnlock")
 	conn.cache.Lock()
 	defer conn.cache.Unlock()
 
@@ -564,7 +561,7 @@ func (conn *Connection) resyncAndDBUnlock(ctx context.Context, at Tid) {
 
 // get returns connection from db pool most close to at with conn.at ∈ [atMin, at].
 //
-// XXX recheck [atMin    or   (atMin	-- see "= δtail.Tail" in resyncAndDBUnlock.
+// XXX recheck [atMin    or   (atMin	-- see "= δtail.Tail" in resync.
 //
 // if there is no such connection in the pool - nil is returned.
 // must be called with db.mu locked.
