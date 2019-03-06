@@ -615,13 +615,6 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	// obj2 should be invalidated
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
-
-
-
-	// XXX DB.Open with at on and +-1 δtail edges	XXX don't be lazy and do this
-
-
-	// XXX Get(txn = different) -> panic
 }
 
 // TODO Map & List tests.

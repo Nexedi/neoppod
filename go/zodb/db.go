@@ -399,7 +399,7 @@ func (db *DB) open(at Tid, noPool bool) *Connection {
 
 	δtail := db.δtail
 
-	fmt.Printf("db.open @%s nopool=%v\t; δtail (%s, %s]\n", at, noPool, δtail.Tail(), δtail.Head())
+	//fmt.Printf("db.open @%s nopool=%v\t; δtail (%s, %s]\n", at, noPool, δtail.Tail(), δtail.Head())
 
 	// at should be ≤ head (caller waited for it before invoking us)
 	if head := δtail.Head(); at > head {
