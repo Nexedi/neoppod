@@ -290,7 +290,7 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 // Resync resyncs t to new transaction @at.
 func (t *tPersistentDB) Resync(at Tid) {
 	t.Helper()
-	db := t.conn.db // XXX -> t.db ?
+	db := t.conn.db
 
 	txn, ctx := transaction.New(context.Background())
 	err := t.conn.Resync(ctx, at)
