@@ -99,9 +99,11 @@ func (opt *ConnOptions) String() string {
 
 	s += ", "
 	if opt.NoSync {
-		s += "no"
+		s += "!"
 	}
-	s += "sync)"
+	s += "sync"
+
+	s += ")"
 	return s
 }
 
