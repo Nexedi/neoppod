@@ -657,7 +657,7 @@ func (db *DB) put(conn *Connection) {
 	copy(db.pool[i+1:], db.pool[i:])
 	db.pool[i] = conn
 
-	// XXX GC too idle connections here
+	// TODO GC too idle connections here
 }
 
 // ---- txn sync ----
