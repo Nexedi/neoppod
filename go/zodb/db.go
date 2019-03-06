@@ -290,7 +290,7 @@ type hwaiter struct {
 func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
 	defer xerr.Contextf(&err, "wait head ≥ %s", at)
 
-	// check if db is already down -> error even if at is under coverage
+	// precheck if db is already down -> error even if at is under coverage
 	if ready(db.down) {
 		return db.downErr
 	}
@@ -454,7 +454,7 @@ func (db *DB) open(at Tid, noPool bool) *Connection {
 // Note: if new at is already covered by DB.Head Resync will be non-blocking
 // operation. However if at is > current DB.Head Resync, similarly to DB.Open,
 // will block waiting for DB.Head to become ≥ at.
-func (conn *Connection) Resync(ctx context.Context, at Tid) error {
+func (conn *Connection) Resync(ctx context.Context, at Tid) (err error) {
 	if !conn.noPool {
 		panic("Conn.Resync: connection was opened without NoPool flag")
 	}
@@ -462,10 +462,10 @@ func (conn *Connection) Resync(ctx context.Context, at Tid) error {
 		panic("Conn.Resync: resync to at=0 (auto-mode is valid only for DB.Open)")
 	}
 
-	// XXX err ctx?	("resync @at -> @at")
+	defer xerr.Contextf(&err, "resync @%s -> %s", conn.at, at)
 
 	// wait for db.Head ≥ at
-	err := conn.db.headWait(ctx, at)
+	err = conn.db.headWait(ctx, at)
 	if err != nil {
 		return err
 	}
