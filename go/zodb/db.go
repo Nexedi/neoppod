@@ -65,10 +65,18 @@ type invEntry struct {
 
 
 // NewDB creates new database handle.
+//
+// Created database handle must be closed when no longer needed.
 func NewDB(stor IStorage) *DB {
 	// XXX db options?
 	return &DB{stor: stor}
 }
+
+// Close closes database handle.
+func (db *DB) Close() error {
+	return nil
+}
+
 
 // ConnOptions describes options to DB.Open .
 type ConnOptions struct {
