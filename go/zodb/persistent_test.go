@@ -20,12 +20,18 @@
 package zodb
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
+	"lab.nexedi.com/kirr/neo/go/transaction"
+
+	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/mem"
-	"github.com/stretchr/testify/require"
+	assert "github.com/stretchr/testify/require"
 )
 
 // test Persistent type.
@@ -33,6 +39,10 @@ type MyObject struct {
 	Persistent
 
 	value string
+}
+
+func NewMyObject(jar *Connection) *MyObject {
+	return NewPersistent(reflect.TypeOf(MyObject{}), jar).(*MyObject)
 }
 
 type myObjectState MyObject
@@ -122,9 +132,9 @@ func tCheckObj(t testing.TB) func(IPersistent, *Connection, Oid, Tid, ObjectStat
 	}
 }
 
-
-func TestPersistent(t *testing.T) {
-	assert := require.New(t)
+// basic Persistent tests without storage.
+func TestPersistentBasic(t *testing.T) {
+	assert := assert.New(t)
 	checkObj := tCheckObj(t)
 
 	// unknown type -> Broken
@@ -179,11 +189,292 @@ func TestPersistent(t *testing.T) {
 
 		obj.PDeactivate()
 	}()
+}
 
-	// TODO activate	- jar has to load, state changes
-	// TODO activate again	- refcnt++
-	// TODO deactivate	- refcnt--
-	// TODO deactivate	- state dropped
+// ---- TestPersistentDB ----
+
+// zcacheControl is simple live cache control that prevents specified objects
+// to be evicted from live cache.
+type zcacheControl struct {
+	keep []Oid // objects that must not be evicted
+}
+
+func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
+	for _, oid := range cc.keep {
+		if obj.POid() == oid {
+			return false
+		}
+	}
+	return true
+}
+
+// tPersistentDB represents one testing environment inside TestPersistentDB.
+type tPersistentDB struct {
+	*testing.T
+
+	// a transaction and DB connection opened under it
+	txn   transaction.Transaction
+	ctx   context.Context
+	conn  *Connection
+}
+
+// Get gets oid from t.conn and asserts its type.
+func (t *tPersistentDB) Get(oid Oid) *MyObject {
+	t.Helper()
+	xobj, err := t.conn.Get(t.ctx, oid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	zclass := ClassOf(xobj)
+	zmy    := "t.zodb.MyObject"
+	if zclass != zmy {
+		t.Fatalf("get %d: got %s;  want %s", oid, zclass, zmy)
+	}
+
+	return xobj.(*MyObject)
+}
+
+// PActivate activates obj in t environment.
+func (t *tPersistentDB) PActivate(obj IPersistent) {
+	t.Helper()
+	err := obj.PActivate(t.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// checkObj checks state of obj and that obj ∈ t.conn.
+//
+// if object is !GHOST - it also verifies its value.
+func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state ObjectState, refcnt int32, valueOk ...string) {
+	t.Helper()
+
+	// any object with live pointer to it must be also in conn's cache.
+	cache := t.conn.Cache()
+	cache.Lock()
+	connObj := cache.Get(oid)
+	cache.Unlock()
+	if obj != connObj {
+		t.Fatalf("cache.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
+	}
+
+	// and conn.Get must return exactly obj.
+	connObj, err := t.conn.Get(t.ctx, oid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obj != connObj {
+		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
+	}
+
+	checkObj(t.T, obj, t.conn, oid, serial, state, refcnt)
+
+	if state == GHOST {
+		if len(valueOk) != 0 {
+			panic("t.checkObj(GHOST) must come without value")
+		}
+		return
+	}
+
+	if len(valueOk) != 1 {
+		panic("t.checkObj(!GHOST) must come with one value")
+	}
+	value := valueOk[0]
+	if obj.value != value {
+		t.Fatalf("obj.value mismatch: have %q;  want %q", obj.value, value)
+	}
+}
+
+// Abort aborts t's connection and verifies it becomes !live.
+func (t *tPersistentDB) Abort() {
+	t.Helper()
+	assert.Same(t, t.conn.txn, t.txn)
+	t.txn.Abort()
+	assert.Equal(t, t.conn.txn, nil)
+}
+
+
+// Persistent tests with storage.
+//
+// this test covers everything at application-level: Persistent, DB, Connection, LiveCache.
+func TestPersistentDB(t *testing.T) {
+	// perform tests without and with raw data cache.
+	// (rawcache=y verifies how raw cache handles invalidations)
+	t.Run("rawcache=n", func(t *testing.T) { testPersistentDB(t, false) })
+	t.Run("rawcache=y", func(t *testing.T) { testPersistentDB(t, true) })
+}
+
+func testPersistentDB(t0 *testing.T, rawcache bool) {
+	X := exc.Raiseif
+	assert := assert.New(t0)
+
+	work, err := ioutil.TempDir("", "t-persistent"); X(err)
+	defer func() {
+		err := os.RemoveAll(work); X(err)
+	}()
+
+	zurl := work + "/1.fs"
+
+	// create test db via py with 2 objects
+	// XXX hack as _objX go without jar.
+	_obj1 := NewMyObject(nil); _obj1.oid = 101; _obj1.value = "init"
+	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "db"
+	at0, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
+
+	_obj1.value = "hello"
+	_obj2.value = "world"
+	at1, err := ZPyCommit(zurl, at0, _obj1, _obj2); X(err)
+
+	// open connection to it via zodb/go
+	ctx := context.Background()
+	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true, NoCache: !rawcache}); X(err)
+	db := NewDB(stor)
+	defer func() {
+		err := db.Close(); X(err)
+	}()
+
+	// testopen opens new db transaction/connection and wraps it with tPersistentDB.
+	testopen := func(opt *ConnOptions) *tPersistentDB {
+		t0.Helper()
+
+		txn, ctx := transaction.New(context.Background())
+		conn, err := db.Open(ctx, opt); X(err)
+
+		assert.Same(conn.db, db)
+		assert.Same(conn.txn, txn)
+
+		return &tPersistentDB{
+			T:    t0,
+			txn:  txn,
+			ctx:  ctx,
+			conn: conn,
+		}
+	}
+
+	t1 := testopen(&ConnOptions{})
+	t := t1
+	assert.Equal(t.conn.At(), at1)
+	assert.Equal(db.pool, []*Connection(nil))
+
+	// δtail coverage is (at1, at1]  (at0 not included)
+	assert.Equal(db.δtail.Tail(), at1)
+	assert.Equal(db.δtail.Head(), at1)
+
+	// do not evict obj2 from live cache. obj1 is ok to be evicted.
+	zcache1 := t.conn.Cache()
+	zcache1.Lock()
+	zcache1.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
+	zcache1.Unlock()
+
+	// get objects
+	obj1 := t.Get(101)
+	obj2 := t.Get(102)
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, InvalidTid, GHOST, 0)
+
+	// activate:		jar has to load, state changes -> uptodate
+	t.PActivate(obj1)
+	t.PActivate(obj2)
+	t.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(obj2, 102, at1, UPTODATE, 1, "world")
+
+	// activate again:	refcnt++
+	t.PActivate(obj1)
+	t.PActivate(obj2)
+	t.checkObj(obj1, 101, at1, UPTODATE, 2, "hello")
+	t.checkObj(obj2, 102, at1, UPTODATE, 2, "world")
+
+	// deactivate:		refcnt--
+	obj1.PDeactivate()
+	obj2.PDeactivate()
+	t.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(obj2, 102, at1, UPTODATE, 1, "world")
+
+	// deactivate:		state dropped for obj1, obj2 stays in live cache
+	obj1.PDeactivate()
+	obj2.PDeactivate()
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, at1, UPTODATE,    0, "world")
+
+	// invalidate:		obj2 state dropped
+	obj1.PInvalidate()
+	obj2.PInvalidate()
+	t.checkObj(obj1, 101, InvalidTid, GHOST,    0)
+	t.checkObj(obj2, 102, InvalidTid, GHOST,    0)
+
+	// commit change to obj2 from external process
+	_obj2.value = "kitty"
+	at2, err := ZPyCommit(zurl, at1, _obj2); X(err)
+
+	// new db connection should see the change
+	t2 := testopen(&ConnOptions{})
+	assert.Equal(t2.conn.At(), at2)
+	assert.Equal(db.pool, []*Connection(nil))
+
+	// δtail coverage is (at1, at2]
+	assert.Equal(db.δtail.Tail(), at1)
+	assert.Equal(db.δtail.Head(), at2)
+
+	c2obj1 := t2.Get(101)
+	c2obj2 := t2.Get(102)
+	t2.checkObj(c2obj1, 101, InvalidTid, GHOST, 0)
+	t2.checkObj(c2obj2, 102, InvalidTid, GHOST, 0)
+
+	t2.PActivate(c2obj1)
+	t2.PActivate(c2obj2)
+	t2.checkObj(c2obj1, 101, at1, UPTODATE, 1, "hello")
+	t2.checkObj(c2obj2, 102, at2, UPTODATE, 1, "kitty")
+	c2obj1.PDeactivate()
+	c2obj2.PDeactivate()
+
+
+	// conn1 stays at older view for now
+	t1.checkObj(obj1, 101, InvalidTid, GHOST,    0)
+	t1.checkObj(obj2, 102, InvalidTid, GHOST,    0)
+	t1.PActivate(obj1)
+	t1.PActivate(obj2)
+	t1.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
+	t1.checkObj(obj2, 102, at1, UPTODATE, 1, "world")
+
+	// conn1 deactivate:	obj2 stays in conn1 live cache with old state
+	obj1.PDeactivate()
+	obj2.PDeactivate()
+	t1.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t1.checkObj(obj2, 102, at1, UPTODATE,    0, "world")
+
+	// txn1 completes - conn1 goes back to db pool
+	t1.Abort()
+	assert.Equal(db.pool, []*Connection{t1.conn})
+
+
+	// open new connection - it should be conn1 but at updated database view
+	t3 := testopen(&ConnOptions{})
+	assert.Same(t3.conn, t1.conn)
+	t = t3
+	assert.Equal(t.conn.At(), at2)
+	assert.Equal(db.pool, []*Connection{})
+
+	// obj2 should be invalidated
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, InvalidTid, GHOST, 0)
+
+	// obj2 data should be new
+	t.PActivate(obj1);
+	t.PActivate(obj2);
+	t.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
+	t.checkObj(obj2, 102, at2, UPTODATE, 1, "kitty")
+
+	obj1.PDeactivate()
+	obj2.PDeactivate()
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, at2, UPTODATE,    0, "kitty")
+
+
+	// finish tnx3 and txn2 - conn1 and conn2 go back to db pool
+	t.Abort()
+	t2.Abort()
+	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 }
 
 // TODO Map & List tests.
