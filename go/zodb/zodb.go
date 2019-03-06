@@ -440,7 +440,7 @@ type Event interface {
 func (_ *EventError)  event() {}
 func (_ *EventCommit) event() {}
 
-// EventError is event descrbing an error observed by watcher.
+// EventError is event describing an error observed by watcher.
 type EventError struct {
 	Err error
 }

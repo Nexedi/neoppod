@@ -274,7 +274,7 @@ func (conn *Connection) checkTxnCtx(ctx context.Context, who string) {
 // checkTxn asserts that specified "current" transaction is the same as conn.txn .
 func (conn *Connection) checkTxn(txn transaction.Transaction, who string) {
 	if txn != conn.txn {
-		panic("connection: " + who + "current transaction is different from connection transaction")
+		panic("connection: " + who + ": current transaction is different from connection transaction")
 	}
 }
 

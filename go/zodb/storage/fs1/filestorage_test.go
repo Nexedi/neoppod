@@ -155,7 +155,7 @@ func TestLoad(t *testing.T) {
 	}
 
 	// load at ∞ with TidMax
-	// XXX should we get "no such transaction" with at > head?
+	// XXX should we get "no such transaction" with at > head? - yes
 	for oid, expect := range before {
 		xid := zodb.Xid{zodb.TidMax, oid}
 		checkLoad(t, fs, xid, expect)

@@ -65,7 +65,7 @@ func (o *myObjectState) PyGetState() interface{} {
 	return o.value
 }
 
-// Peristent that is not registered to ZODB.
+// Persistent that is not registered to ZODB.
 type Unregistered struct {
 	Persistent
 }
@@ -599,3 +599,12 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 }
 
 // TODO Map & List tests.
+
+
+// TODO PyGetState vs PySetState tests (general - for any type):
+//
+// db1: produced by zodb/py
+// go: load db1
+// go: commit -> db2 (resave)
+// go: load db2
+// go: check (loaded from db2) == (loaded from db1)

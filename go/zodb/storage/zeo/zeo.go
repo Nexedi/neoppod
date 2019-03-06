@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package zeo provides simple ZEO client
+// Package zeo provides simple ZEO client.
 package zeo
 
 import (

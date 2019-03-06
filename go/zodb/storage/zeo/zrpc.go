@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -216,7 +216,7 @@ func pktDecode(pkb *pktBuf) (msg, error) {
 }
 
 
-// call makes 1 RPC call to server, waits for reply and returns it.
+// Call makes 1 RPC call to server, waits for reply and returns it.
 func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, _ error) {
 	// defer func() ...
 	reply, err := zl._call(ctx, method, argv...)

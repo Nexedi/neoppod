@@ -59,6 +59,7 @@ import (
 type Persistent struct {
 	// ZODB class of this object.
 	// XXX it could be deduced via typeTab[reflect.TypeOf(.instance)]
+	// XXX or better drop .instance and deduce it via casting to .zclass.typ
 	zclass *zclass
 
 	jar    *Connection
@@ -370,7 +371,7 @@ var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStatef
 //
 // Only registered classes can be saved to database, and are converted to
 // corresponding application-level objects on load. When ZODB loads an object
-// whose class is not know, it will represent it as Broken object.
+// whose class is not known, it will represent it as Broken object.
 //
 // class is a full class path for registered class, e.g. "BTrees.LOBTree.LOBucket".
 // typ is Go type corresponding to class.
