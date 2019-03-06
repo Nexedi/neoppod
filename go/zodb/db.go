@@ -133,8 +133,8 @@ func NewDB(stor IStorage) *DB {
 
 	at0 := stor.AddWatch(db.watchq)
 	db.δtail = NewΔTail(at0) // init to (at0, at0]
-
 	go db.watcher()
+
 	return db
 }
 
@@ -192,7 +192,15 @@ func (opt *ConnOptions) String() string {
 	if opt.NoSync {
 		s += "no"
 	}
-	s += "sync)"
+	s += "sync"
+
+	s += ", "
+	if opt.NoPool {
+		s += "no"
+	}
+	s += "pool"
+
+	s += ")"
 	return s
 }
 
