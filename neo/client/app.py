@@ -725,10 +725,7 @@ class Application(ThreadedApplication):
         txn_container = self._txn_container
         if not txn_container.get(transaction).voted:
             self.tpc_vote(transaction)
-        checked_list = []
-        self._load_lock_acquire()
-        try:
-            # Call finish on master
+        if 1:
             txn_context = txn_container.pop(transaction)
             cache_dict = txn_context.cache_dict
             checked_list = [oid for oid, data  in cache_dict.iteritems()
@@ -745,8 +742,6 @@ class Application(ThreadedApplication):
                 if not tid:
                     raise
             return tid
-        finally:
-            self._load_lock_release()
 
     def _getFinalTID(self, ttid):
         try:

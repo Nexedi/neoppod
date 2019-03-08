@@ -82,9 +82,13 @@ class PrimaryNotificationsHandler(MTEventHandler):
         cache = app._cache
         app._cache_lock_acquire()
         try:
+            invalidate = app._cache.invalidate
+            loading = app._loading_oid
             for oid, data in cache_dict.iteritems():
                 # Update ex-latest value in cache
-                cache.invalidate(oid, tid)
+                invalidate(oid, tid)
+                if oid == loading:
+                    app._loading_invalidated.append(tid)
                 if data is not None:
                     # Store in cache with no next_tid
                     cache.store(oid, data, tid, None)

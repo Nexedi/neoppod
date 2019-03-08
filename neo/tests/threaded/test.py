@@ -863,6 +863,27 @@ class Test(NEOThreadedTest):
         self.assertNotIn('2', c.root())
 
     @with_cluster()
+    def testLoadVsFinish(self, cluster):
+        t1, c1 = cluster.getTransaction()
+        c1.root()['x'] = x1 = PCounter()
+        t1.commit()
+        t1.begin()
+        x1.value = 1
+        t2, c2 = cluster.getTransaction()
+        x2 = c2.root()['x']
+        cluster.client._cache.clear()
+        def _loadFromStorage(orig, *args):
+            r = orig(*args)
+            ll()
+            return r
+        with LockLock() as ll, Patch(cluster.client,
+                _loadFromStorage=_loadFromStorage):
+            t = self.newThread(x2._p_activate)
+            ll()
+            t1.commit()
+        t.join()
+
+    @with_cluster()
     def testInternalInvalidation(self, cluster):
         def _handlePacket(orig, conn, packet, kw={}, handler=None):
             if type(packet) is Packets.AnswerTransactionFinished:
