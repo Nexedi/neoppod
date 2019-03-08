@@ -128,14 +128,14 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 		l1cache:  cache,
 
 		down:        make(chan struct{}),
+		head:        at0,
 		drvWatchq:   drvWatchq,
-		drvHead:     at0,
 		watchReq:    make(chan watchRequest),
 		watchTab:    make(map[chan<- Event]struct{}),
 		watchCancel: make(map[chan<- Event]chan struct{}),
 
 	}
-	go stor.watcher() // stoped on close
+	go stor.watcher() // stopped on close
 
 	return stor, nil
 }
@@ -145,7 +145,7 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 // storage represents storage opened via OpenStorage.
 //
 // it provides a small cache on top of raw storage driver to implement prefetch
-// and other storage-independed higher-level functionality.
+// and other storage-independent higher-level functionality.
 type storage struct {
 	driver  IStorageDriver
 	l1cache *Cache // can be =nil, if opened with NoCache
@@ -155,8 +155,9 @@ type storage struct {
 	downErr  error         // reason for shutdown
 
 	// watcher
+	headMu    sync.Mutex
+	head      Tid                       // local view of storage head; mutated by watcher only
 	drvWatchq chan Event                // watchq passed to driver
-	drvHead   Tid                       // last tid received from drvWatchq
 	watchReq  chan watchRequest         // {Add,Del}Watch requests go here
 	watchTab  map[chan<- Event]struct{} // registered watchers
 
@@ -190,16 +191,66 @@ func (s *storage) Close() error {
 
 // loading goes through cache - this way prefetching can work
 
-func (s *storage) LastTid(ctx context.Context) (Tid, error) {
-	// XXX LastTid - report only LastTid for which cache is ready?
-	//		 or driver.LastTid(), then wait cache is ready?
+func (s *storage) Head() Tid {
+	s.headMu.Lock()
+	head := s.head
+	s.headMu.Unlock()
+	return head
+}
+
+// XXX place -> near watcher
+func (s *storage) Sync(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			err = s.zerr("sync", nil, err)
+		}
+	}()
 
 	// XXX better -> xcontext.Merge(ctx, s.opCtx) but currently it costs 1+ goroutine
 	if ready(s.down) {
-		return InvalidTid, s.zerr("last_tid", nil, s.downErr)
+		return s.downErr
 	}
 
-	return s.driver.LastTid(ctx)
+	head, err := s.driver.Sync(ctx)
+	if err != nil {
+		return err
+	}
+
+	// XXX check that driver returns head↑
+
+	// wait till .head >= head
+	watchq := make(chan Event)
+	at := s.AddWatch(watchq)
+	defer s.DelWatch(watchq)
+
+	for at < head {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
+		case <-s.down:
+			return s.downErr
+
+		case event, ok := <-watchq:
+			if !ok {
+				// closed
+				return s.downErr	// XXX ok? sync on .down?
+			}
+
+			switch e := event.(type) {
+			default:
+				panic("XXX")	// XXX
+
+			case *EventError:
+				return e.Err
+
+			case *EventCommit:
+				at = e.Tid
+			}
+		}
+	}
+
+	return nil
 }
 
 // Load implements Loader.
@@ -287,10 +338,10 @@ func (s *storage) _watcher() error {
 			panic("bad watch request op")
 		}
 
-		req.ack <- s.drvHead
+		req.ack <- s.head
 	}
 
-	// close all subscribers's watchq on watcher shutdow
+	// close all subscribers's watchq on watcher shutdown
 	defer func() {
 		addqFlush()
 		for watchq := range s.watchTab {
@@ -327,13 +378,15 @@ func (s *storage) _watcher() error {
 			case *EventCommit:
 				// verify event.Tid ↑  (else e.g. δtail.Append will panic)
 				// if !↑ - stop the storage with error.
-				if !(e.Tid > s.drvHead) {
+				if !(e.Tid > s.head) {
 					errDown = fmt.Errorf(
 						"%s: storage error: notified with δ.tid not ↑ (%s -> %s)",
-						s.URL(), s.drvHead, e.Tid)
+						s.URL(), s.head, e.Tid)
 					event = &EventError{errDown}
 				} else {
-					s.drvHead = e.Tid
+					s.headMu.Lock()
+					s.head = e.Tid
+					s.headMu.Unlock()
 				}
 			}
 
@@ -369,7 +422,9 @@ func (s *storage) AddWatch(watchq chan<- Event) (at0 Tid) {
 	// no longer operational: behave if watchq was registered before that
 	// and then seen down/close events. Interact with DelWatch directly.
 	case <-s.down:
-		at0 = s.drvHead
+		s.headMu.Lock()   // shutdown may be due to Close call and watcher might be
+		at0 = s.head      // still running - we cannot skip locking.
+		s.headMu.Unlock()
 
 		s.watchMu.Lock()
 		_, already := s.watchTab[watchq]

@@ -115,12 +115,15 @@ func (fs *FileStorage) zerr(op string, args interface{}, err error) *zodb.OpErro
 	return &zodb.OpError{URL: fs.URL(), Op: op, Args: args, Err: err}
 }
 
-func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
+func (fs *FileStorage) Sync(_ context.Context) (zodb.Tid, error) {
+	// FIXME: it currently does not do full sync to check data state as of Sync call time
+	// XXX    -> move closer to watcher
+
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
 
 	if fs.downErr != nil {
-		return zodb.InvalidTid, fs.zerr("last_tid", nil, fs.downErr)
+		return zodb.InvalidTid, fs.zerr("sync", nil, fs.downErr)
 	}
 
 	return fs.txnhMax.Tid, nil // txnhMax.Tid = 0, if empty
@@ -491,7 +494,7 @@ func (fs *FileStorage) watcher(w *fsnotify.Watcher, errFirstRead chan<- error) {
 	}
 
 	// if watcher failed with e.g. IO error, we no longer know what is real
-	// last_tid and which objects were modified after it.
+	// head and which objects were modified after it.
 	// -> storage operations have to fail from now on.
 	fs.shutdown(err)
 

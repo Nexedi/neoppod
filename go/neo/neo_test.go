@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -169,7 +169,7 @@ func TestMasterStorage(t0 *testing.T) {
 	}))
 
 	lastOid, err1 := zstor.LastOid(bg)
-	lastTid, err2 := zstor.LastTid(bg)
+	lastTid, err2 := zstor.Sync(bg)
 	exc.Raiseif(xerr.Merge(err1, err2))
 	tMS.Expect(conntx("m:2", "s:2", 8, &proto.LastIDs{}))
 	tMS.Expect(conntx("s:2", "m:2", 8, &proto.AnswerLastIDs{
@@ -250,7 +250,7 @@ func TestMasterStorage(t0 *testing.T) {
 	// C asks M about last tid	XXX better master sends it itself on new client connected
 	wg = &errgroup.Group{}
 	gox(wg, func() {
-		cLastTid, err := C.LastTid(bg)
+		cLastTid, err := C.Sync(bg)
 		exc.Raiseif(err)
 
 		if cLastTid != lastTid {

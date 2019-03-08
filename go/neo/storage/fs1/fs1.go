@@ -58,7 +58,7 @@ func Open(ctx context.Context, path string) (*Backend, error) {
 
 
 func (f *Backend) LastTid(ctx context.Context) (zodb.Tid, error) {
-	return f.zstor.LastTid(ctx)
+	return f.zstor.Sync(ctx)
 }
 
 func (f *Backend) LastOid(ctx context.Context) (zodb.Oid, error) {

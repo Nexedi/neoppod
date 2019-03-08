@@ -376,10 +376,10 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neonet.NodeLink) (er
 
 // --- user API calls ---
 
-func (c *Client) LastTid(ctx context.Context) (_ zodb.Tid, err error) {
+func (c *Client) Sync(ctx context.Context) (_ zodb.Tid, err error) {
 	defer func() {
 		if err != nil {
-			err = &zodb.OpError{URL: c.URL(), Op: "last_tid", Args: nil, Err: err}
+			err = &zodb.OpError{URL: c.URL(), Op: "sync", Args: nil, Err: err}
 		}
 	}()
 
@@ -539,7 +539,7 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (
 	// TODO change NEO protocol so that when C connects to M, M sends it
 	// current head and guarantees to send only followup invalidation
 	// updates.
-	at0, err := c.LastTid(ctx)
+	at0, err := c.Sync(ctx)
 	if err != nil {
 		c.Close() // XXX lclose
 		return nil, zodb.InvalidTid, fmt.Errorf("neo: open %q: %s", u, err)

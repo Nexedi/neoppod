@@ -52,10 +52,25 @@ type zeo struct {
 }
 
 
-func (z *zeo) LastTid(ctx context.Context) (zodb.Tid, error) {
-	z.mu.Lock()
-	defer z.mu.Unlock()
-	return z.lastTid, nil
+func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
+	defer func() {
+		if err != nil {
+			err = &zodb.OpError{URL: z.URL(), Op: "sync", Args: nil, Err: err}
+		}
+	}()
+
+	rpc := z.rpc("lastTransaction")
+	xhead, err := rpc.call(ctx)
+	if err != nil {
+		return zodb.InvalidTid, err
+	}
+
+	head, ok := tidUnpack(xhead)
+	if !ok {
+		return zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xhead)
+	}
+
+	return head, nil
 }
 
 func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {

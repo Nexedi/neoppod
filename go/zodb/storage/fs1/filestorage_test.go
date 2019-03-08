@@ -384,15 +384,15 @@ func TestWatch(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	checkLastTid := func(lastOk zodb.Tid) {
+	checkHead := func(headOk zodb.Tid) {
 		t.Helper()
-		head, err := fs.LastTid(ctx); X(err)
-		if head != lastOk {
-			t.Fatalf("check last_tid: got %s;  want %s", head, lastOk)
+		head, err := fs.Sync(ctx); X(err)
+		if head != headOk {
+			t.Fatalf("check head: got %s;  want %s", head, headOk)
 		}
 	}
 
-	checkLastTid(at)
+	checkHead(at)
 
 	checkLoad := func(at zodb.Tid, oid zodb.Oid, dataOk string, serialOk zodb.Tid) {
 		t.Helper()
@@ -441,7 +441,7 @@ func TestWatch(t *testing.T) {
 			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", δ.Tid, δ.Changev, at, objvWant)
 		}
 
-		checkLastTid(at)
+		checkHead(at)
 
 		// make sure we can load what was committed.
 		checkLoad(at, 0, data0, at)
@@ -498,9 +498,9 @@ func TestOpenRecovery(t *testing.T) {
 			if at0 != lastTidOk {
 				t.Fatalf("at0: %s  ; expected: %s", at0, lastTidOk)
 			}
-			head, err := fs.LastTid(ctx); X(err)
+			head, err := fs.Sync(ctx); X(err)
 			if head != lastTidOk {
-				t.Fatalf("last_tid: %s  ; expected: %s", head, lastTidOk)
+				t.Fatalf("head: %s  ; expected: %s", head, lastTidOk)
 			}
 		})
 	}
