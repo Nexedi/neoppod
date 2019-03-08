@@ -725,23 +725,22 @@ class Application(ThreadedApplication):
         txn_container = self._txn_container
         if not txn_container.get(transaction).voted:
             self.tpc_vote(transaction)
-        if 1:
-            txn_context = txn_container.pop(transaction)
-            cache_dict = txn_context.cache_dict
-            checked_list = [oid for oid, data  in cache_dict.iteritems()
-                                if data is CHECKED_SERIAL]
-            for oid in checked_list:
-                del cache_dict[oid]
-            ttid = txn_context.ttid
-            p = Packets.AskFinishTransaction(ttid, cache_dict, checked_list)
-            try:
-                tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
-                assert tid
-            except ConnectionClosed:
-                tid = self._getFinalTID(ttid)
-                if not tid:
-                    raise
-            return tid
+        txn_context = txn_container.pop(transaction)
+        cache_dict = txn_context.cache_dict
+        checked_list = [oid for oid, data  in cache_dict.iteritems()
+                            if data is CHECKED_SERIAL]
+        for oid in checked_list:
+            del cache_dict[oid]
+        ttid = txn_context.ttid
+        p = Packets.AskFinishTransaction(ttid, cache_dict, checked_list)
+        try:
+            tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
+            assert tid
+        except ConnectionClosed:
+            tid = self._getFinalTID(ttid)
+            if not tid:
+                raise
+        return tid
 
     def _getFinalTID(self, ttid):
         try:
