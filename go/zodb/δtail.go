@@ -87,6 +87,13 @@ func (δtail *ΔTail) Len() int {
 	return len(δtail.tailv)
 }
 
+// Data returns slice with δtail data.
+//
+// The caller must not modify returned slice.
+func (δtail *ΔTail) Data() /*readonly*/ []ΔRevEntry {
+	return δtail.tailv
+}
+
 // Head returns newest database state for which δtail has history coverage.
 //
 // Head is ↑ on Append, in particular it does not ↓ on Forget even if δtail becomes empty.
