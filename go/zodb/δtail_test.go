@@ -61,6 +61,10 @@ func TestΔTail(t *testing.T) {
 			t.Fatalf("tailv:\nhave: %v\nwant: %v", δtail.tailv, tailv)
 		}
 
+		if d := δtail.Data(); !tailvEqual(d, tailv) {
+			t.Fatalf("Data():\nhave: %v\nwant: %v", d, tailv)
+		}
+
 		if l := δtail.Len(); l != len(tailv) {
 			t.Fatalf("Len() -> %d  ; want %d", l, len(tailv))
 		}

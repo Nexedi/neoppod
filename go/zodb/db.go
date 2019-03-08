@@ -103,12 +103,16 @@ type DB struct {
 	// FIXME for now we just fix
 	//
 	//	Tδkeep = 10min
+	//	δkeep  = 10
 	//
-	// and keep δtail coverage for Tδkeep time
+	// and keep δtail coverage for Tδkeep time, with ensuring that we keep
+	// at least δkeep entries not to loose cache on very seldom commits:
 	//
 	//	timelen(δtail) = Tδkeep
+	//	len(δtail)     ≥ δkeep
 	δtail  *ΔTail        // [](rev↑, []oid)
 	tδkeep time.Duration
+	δkeep  int
 
 	// waiters for δtail.Head to become ≥ their at.
 	hwait map[hwaiter]struct{} // set{(at, ready)}
@@ -130,6 +134,7 @@ func NewDB(stor IStorage) *DB {
 		hwait:  make(map[hwaiter]struct{}),
 
 		tδkeep: 10*time.Minute, // see δtail discussion
+		δkeep:  10,             // ---- // ----
 	}
 
 	at0 := stor.AddWatch(db.watchq)
@@ -261,9 +266,25 @@ func (db *DB) watcher() (err error) {
 
 		// forget older δtail entries
 		tcut := db.δtail.Head().Time().Add(-db.tδkeep)
-		δcut := TidFromTime(tcut)
+		δcut := TidFromTime(tcut) // cut by δTkeep rule
 		//fmt.Printf("db: watcher: δtail: =  (%s, %s]\n", db.δtail.Tail(), db.δtail.Head())
 		//fmt.Printf("db: watcher: forget <=  %s\n", δcut)
+
+		// take db.δkeep into account, so that we preserve len(δtail) ≥ δkeep
+		δtail := db.δtail.Data()
+		rcut := δcut // cut by δkeep rule
+		if l := len(δtail); l > db.δkeep {
+			rcut = δtail[l-db.δkeep-1].Rev
+			rcut -= 1 // ForgetPast forgets by ≤
+		} else {
+			rcut = 0 // keep everything
+		}
+
+		if rcut < δcut {
+			//fmt.Printf("db: watcher: forget %s -> %s (seldom commits)\n", δcut, rcut)
+			δcut = rcut
+		}
+
 		db.δtail.ForgetPast(δcut)
 		//fmt.Printf("db: watcher: δtail: -> (%s, %s]\n", db.δtail.Tail(), db.δtail.Head())
 
