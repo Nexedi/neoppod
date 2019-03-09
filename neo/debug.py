@@ -197,8 +197,7 @@ elif IF == 'trace-cache':
 
     @defer
     def profile(app):
-        app._cache_lock_acquire()
-        try:
+        with app._cache_lock:
             cache = app._cache
             if type(cache) is ClientCache:
                 app._cache = CacheTracer(cache, '%s-%s.neo-cache-trace' %
@@ -206,5 +205,3 @@ elif IF == 'trace-cache':
                 app._cache.clear()
             else:
                 app._cache = cache.close()
-        finally:
-            app._cache_lock_release()

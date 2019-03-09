@@ -1072,8 +1072,7 @@ class NEOThreadedTest(NeoTestBase):
 
         def run(self):
             try:
-                apply(*self.__target)
-                self.__exc_info = None
+                self.__result = apply(*self.__target)
             except:
                 self.__exc_info = sys.exc_info()
                 if self.__exc_info[0] is NEOThreadedTest.failureException:
@@ -1081,10 +1080,13 @@ class NEOThreadedTest(NeoTestBase):
 
         def join(self, timeout=None):
             threading.Thread.join(self, timeout)
-            if not self.is_alive() and self.__exc_info:
-                etype, value, tb = self.__exc_info
-                del self.__exc_info
-                raise etype, value, tb
+            if not self.is_alive():
+                try:
+                    return self.__result
+                except AttributeError:
+                    etype, value, tb = self.__exc_info
+                    del self.__exc_info
+                    raise etype, value, tb
 
     class newThread(newPausedThread):
 

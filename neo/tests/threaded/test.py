@@ -1009,7 +1009,7 @@ class Test(NEOThreadedTest):
         x = r[''] = PCounter()
         t.commit()
         tid1 = x._p_serial
-        nonlocal_ = [0, 1]
+        nonlocal_ = [0, 0, 0]
         l1 = threading.Lock(); l1.acquire()
         l2 = threading.Lock(); l2.acquire()
         def invalidateObjects(orig, *args):
@@ -1019,12 +1019,26 @@ class Test(NEOThreadedTest):
             nonlocal_[0] += 1
             if nonlocal_[0] == 2:
                 l2.release()
-        def _cache_lock_release(orig):
-            orig()
-            if nonlocal_[1]:
-                nonlocal_[1] = 0
+        class CacheLock(object):
+            def __init__(self, client):
+                self._lock = client._cache_lock
+            def __enter__(self):
+                self._lock.acquire()
+            def __exit__(self, t, v, tb):
+                count = nonlocal_[1]
+                nonlocal_[1] = count + 1
+                self._lock.release()
+                if count == 0:
+                    load_same.start()
+                    l2.acquire()
+                elif count == 1:
+                    load_other.start()
+        def _loadFromStorage(orig, *args):
+            count = nonlocal_[2]
+            nonlocal_[2] = count + 1
+            if not count:
                 l1.release()
-                l2.acquire()
+            return orig(*args)
         with cluster.newClient() as client, \
               Patch(client.notifications_handler,
                     invalidateObjects=invalidateObjects):
@@ -1043,17 +1057,34 @@ class Test(NEOThreadedTest):
             r._p_changed = 1
             t.commit()
             self.assertEqual(tid1, client.last_tid)
-            with Patch(client, _cache_lock_release=_cache_lock_release):
+            load_same = self.newPausedThread(client.load, x._p_oid)
+            load_other = self.newPausedThread(client.load, r._p_oid)
+            with Patch(client, _cache_lock=CacheLock(client)), \
+                 Patch(client, _loadFromStorage=_loadFromStorage):
                 # 1. Just after having found nothing in cache, the worker
                 #    thread asks the poll thread to get notified about
                 #    invalidations for the loading oid.
-                # <context switch>
+                # <context switch> (l1)
                 # 2. Both invalidations are processed. -> last_tid=tid3
-                # <context switch>
+                # <context switch> (l2)
                 # 3. The worker thread loads before tid3+1.
                 #    The poll thread notified [tid2], which must be ignored.
-                self.assertEqual((tid2, None), client.load(x._p_oid)[1:])
-        self.assertEqual(nonlocal_, [2, 0])
+                # In parallel, 2 other loads are done (both cache misses):
+                # - one for the same oid, which waits for first load to
+                #   complete and in particular fill cache, in order to
+                #   avoid asking the same data to the storage node
+                # - another for a different oid, which doesn't wait, as shown
+                #   by the fact that it returns an old record (i.e. before any
+                #   invalidation packet is processed)
+                loaded = client.load(x._p_oid)
+            self.assertEqual((tid2, None), loaded[1:])
+            self.assertEqual(loaded, load_same.join())
+            self.assertEqual((tid1, r._p_serial), load_other.join()[1:])
+            # To summary:
+            # - 3 concurrent loads starting with cache misses
+            # - 2 loads from storage
+            # - 1 load ending with a cache hit
+        self.assertEqual(nonlocal_, [2, 8, 2])
 
     @with_cluster(storage_count=2, partitions=2)
     def testReadVerifyingStorage(self, cluster):

@@ -52,8 +52,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
             # Either we're connecting or we already know the last tid
             # via invalidations.
             assert app.master_conn is None, app.master_conn
-            app._cache_lock_acquire()
-            try:
+            with app._cache_lock:
                 if app_last_tid < ltid:
                     app._cache.clear_current()
                     # In the past, we tried not to invalidate the
@@ -67,9 +66,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
                     app._cache.clear()
                 # Make sure a parallel load won't refill the cache
                 # with garbage.
-                app._loading_oid = app._loading_invalidated = None
-            finally:
-                app._cache_lock_release()
+                app._loading.clear()
             db = app.getDB()
             db is None or db.invalidateCache()
             app.last_tid = ltid
@@ -80,22 +77,20 @@ class PrimaryNotificationsHandler(MTEventHandler):
         app.last_tid = tid
         # Update cache
         cache = app._cache
-        app._cache_lock_acquire()
-        try:
+        with app._cache_lock:
             invalidate = app._cache.invalidate
-            loading = app._loading_oid
+            loading_get = app._loading.get
             for oid, data in cache_dict.iteritems():
                 # Update ex-latest value in cache
                 invalidate(oid, tid)
-                if oid == loading:
-                    app._loading_invalidated.append(tid)
+                loading = loading_get(oid)
+                if loading:
+                    loading[1].append(tid)
                 if data is not None:
                     # Store in cache with no next_tid
                     cache.store(oid, data, tid, None)
             if callback is not None:
                 callback(tid)
-        finally:
-            app._cache_lock_release()
 
     def connectionClosed(self, conn):
         app = self.app
@@ -124,19 +119,17 @@ class PrimaryNotificationsHandler(MTEventHandler):
         if app.ignore_invalidations:
             return
         app.last_tid = tid
-        app._cache_lock_acquire()
-        try:
+        with app._cache_lock:
             invalidate = app._cache.invalidate
-            loading = app._loading_oid
+            loading_get = app._loading.get
             for oid in oid_list:
                 invalidate(oid, tid)
-                if oid == loading:
-                    app._loading_invalidated.append(tid)
+                loading = loading_get(oid)
+                if loading:
+                    loading[1].append(tid)
             db = app.getDB()
             if db is not None:
                 db.invalidate(tid, oid_list)
-        finally:
-            app._cache_lock_release()
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         if self.app.pt.filled():
