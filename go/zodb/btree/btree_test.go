@@ -101,7 +101,7 @@ func (b *bucketWrap) MaxKey(ctx context.Context) (k int64, ok bool, err error) {
 func TestBTree(t *testing.T) {
 	X := exc.Raiseif
 	ctx := context.Background()
-	stor, err := zodb.OpenStorage(ctx, "testdata/1.fs", &zodb.OpenOptions{ReadOnly: true})
+	stor, err := zodb.Open(ctx, "testdata/1.fs", &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		t.Fatal(err)
 	}

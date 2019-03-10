@@ -125,7 +125,7 @@ func infoMain(argv []string) {
 
 	ctx := context.Background()
 
-	stor, err := zodb.OpenStorage(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
+	stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		prog.Fatal(err)
 	}

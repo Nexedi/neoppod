@@ -348,7 +348,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 
 	// open connection to it via zodb/go
 	ctx := context.Background()
-	stor, err := OpenStorage(ctx, zurl, &OpenOptions{ReadOnly: true, NoCache: !rawcache}); X(err)
+	stor, err := Open(ctx, zurl, &OpenOptions{ReadOnly: true, NoCache: !rawcache}); X(err)
 	db := NewDB(stor)
 	defer func() {
 		err := db.Close(); X(err)

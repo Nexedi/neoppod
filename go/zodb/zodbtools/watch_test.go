@@ -62,7 +62,7 @@ func TestWatch(t *testing.T) {
 
 	// open tfs at go side
 	bg := context.Background()
-	stor, err := zodb.OpenStorage(bg, tfs, &zodb.OpenOptions{ReadOnly: true}); X(err)
+	stor, err := zodb.Open(bg, tfs, &zodb.OpenOptions{ReadOnly: true}); X(err)
 
 	// spawn plain and verbose watchers
 	ctx0, cancel := context.WithCancel(bg)
