@@ -55,7 +55,7 @@
 // The storage layer provides access to a ZODB database in terms of database
 // records with raw bytes payload.
 //
-// At storage level a ZODB database can be opened with OpenStorage. Once opened
+// At storage level a ZODB database can be opened with Open. Once opened
 // IStorage interface is returned that represents access to the database.
 // Please see IStorage, and interfaces it embeds, for details.
 //

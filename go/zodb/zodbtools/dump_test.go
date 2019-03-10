@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017  Nexedi SA and Contributors.
+// Copyright (C) 2016-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -67,7 +67,7 @@ func loadZdumpPy(t *testing.T, path string) string {
 }
 
 func withTestdataFs(t testing.TB, db string, f func(zstor zodb.IStorage)) {
-	zstor, err := zodb.OpenStorage(context.Background(), fmt.Sprintf("../../zodb/storage/fs1/testdata/%s.fs", db), &zodb.OpenOptions{ReadOnly: true})
+	zstor, err := zodb.Open(context.Background(), fmt.Sprintf("../../zodb/storage/fs1/testdata/%s.fs", db), &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		t.Fatal(err)
 	}

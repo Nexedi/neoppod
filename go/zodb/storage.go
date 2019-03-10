@@ -32,7 +32,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xcontext"
 )
 
-// OpenOptions describes options for OpenStorage.
+// OpenOptions describes options for Open.
 type OpenOptions struct {
 	ReadOnly bool // whether to open storage as read-only
 	NoCache  bool // don't use cache for read/write operations; prefetch will be noop
@@ -73,14 +73,14 @@ func RegisterDriver(scheme string, opener DriverOpener) {
 	driverRegistry[scheme] = opener
 }
 
-// OpenStorage opens ZODB storage by URL.
+// Open opens ZODB storage by URL.
 //
 // Only URL schemes registered to zodb package are handled.
 // Users should import in storage packages they use or zodb/wks package to
 // get support for well-known storages.
 //
 // Storage authors should register their storages with RegisterStorage.
-func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) {
+func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) {
 	// no scheme -> file://
 	if !strings.Contains(zurl, "://") {
 		zurl = "file://" + zurl
@@ -142,7 +142,7 @@ func OpenStorage(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, 
 
 
 
-// storage represents storage opened via OpenStorage.
+// storage represents storage opened via Open.
 //
 // it provides a small cache on top of raw storage driver to implement prefetch
 // and other storage-independed higher-level functionality.
