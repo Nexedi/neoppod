@@ -144,7 +144,7 @@ func zhashMain(argv []string) {
 func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, check string) (err error) {
 	defer task.Running(&ctx, "zhash")(&err)
 
-	stor, err := zodb.OpenStorage(ctx, url, &zodb.OpenOptions{ReadOnly: true})
+	stor, err := zodb.Open(ctx, url, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		return err
 	}
@@ -395,7 +395,7 @@ func zwrkPreconnect(ctx context.Context, url string, at zodb.Tid, nwrk int) (_ [
 				ReadOnly: true,
 				NoCache:  true,
 			}
-			stor, err := zodb.OpenStorage(ctx, url, &opts)
+			stor, err := zodb.Open(ctx, url, &opts)
 			if err != nil {
 				return err
 			}
@@ -444,7 +444,7 @@ func zwrkPreconnect(ctx context.Context, url string, at zodb.Tid, nwrk int) (_ [
 func zwrkPrepare(ctx context.Context, url string, h hasher, check string) (at zodb.Tid, objcheckv []uint32, err error) {
 	defer task.Running(&ctx, "zwrk/prepare")(&err)
 
-	stor, err := zodb.OpenStorage(ctx, url, &zodb.OpenOptions{ReadOnly: true})
+	stor, err := zodb.Open(ctx, url, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		return 0, nil, err
 	}
