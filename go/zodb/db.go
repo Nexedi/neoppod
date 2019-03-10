@@ -377,18 +377,14 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 	// find out db state we should open at
 	at := opt.At
 	if at == 0 {
-		if opt.NoSync {
-			db.mu.Lock()
-			at = db.δtail.Head()
-			db.mu.Unlock()
-		} else {
+		if !opt.NoSync {
 			// sync storage for head
 			err = db.stor.Sync(ctx)
 			if err != nil {
 				return nil, err
 			}
-			at = db.stor.Head()
 		}
+		at = db.stor.Head()
 	}
 
 	// wait for db.Head ≥ at
