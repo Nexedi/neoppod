@@ -428,7 +428,6 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	at2, err := ZPyCommit(zurl, at1, _obj2); X(err)
 
 	// new db connection should see the change
-	// XXX currently there is a race because db.Open does not do proper Sync
 	t2 := testopen(&ConnOptions{})
 	assert.Equal(t2.conn.At(), at2)
 	assert.Equal(db.pool, []*Connection(nil))

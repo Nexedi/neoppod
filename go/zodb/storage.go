@@ -155,8 +155,10 @@ type storage struct {
 	downErr  error         // reason for shutdown
 
 	// watcher
-	headMu    sync.Mutex
-	head      Tid                       // local view of storage head; mutated by watcher only
+
+	headMu sync.Mutex
+	head   Tid        // local view of storage head; mutated by watcher only
+
 	drvWatchq chan Event                // watchq passed to driver
 	watchReq  chan watchRequest         // {Add,Del}Watch requests go here
 	watchTab  map[chan<- Event]struct{} // registered watchers
@@ -190,68 +192,6 @@ func (s *storage) Close() error {
 }
 
 // loading goes through cache - this way prefetching can work
-
-func (s *storage) Head() Tid {
-	s.headMu.Lock()
-	head := s.head
-	s.headMu.Unlock()
-	return head
-}
-
-// XXX place -> near watcher
-func (s *storage) Sync(ctx context.Context) (err error) {
-	defer func() {
-		if err != nil {
-			err = s.zerr("sync", nil, err)
-		}
-	}()
-
-	// XXX better -> xcontext.Merge(ctx, s.opCtx) but currently it costs 1+ goroutine
-	if ready(s.down) {
-		return s.downErr
-	}
-
-	head, err := s.driver.Sync(ctx)
-	if err != nil {
-		return err
-	}
-
-	// XXX check that driver returns head↑
-
-	// wait till .head >= head
-	watchq := make(chan Event)
-	at := s.AddWatch(watchq)
-	defer s.DelWatch(watchq)
-
-	for at < head {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-
-		case <-s.down:
-			return s.downErr
-
-		case event, ok := <-watchq:
-			if !ok {
-				// closed
-				return s.downErr	// XXX ok? sync on .down?
-			}
-
-			switch e := event.(type) {
-			default:
-				panic("XXX")	// XXX
-
-			case *EventError:
-				return e.Err
-
-			case *EventCommit:
-				at = e.Tid
-			}
-		}
-	}
-
-	return nil
-}
 
 // Load implements Loader.
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
@@ -481,6 +421,70 @@ func (s *storage) DelWatch(watchq chan<- Event) {
 	case s.watchReq <- watchRequest{delWatch, ack, watchq}:
 		<-ack
 	}
+}
+
+// Head implements IStorage.
+func (s *storage) Head() Tid {
+	s.headMu.Lock()
+	head := s.head
+	s.headMu.Unlock()
+	return head
+}
+
+// Sync implements IStorage.
+func (s *storage) Sync(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			err = s.zerr("sync", nil, err)
+		}
+	}()
+
+	// XXX better -> xcontext.Merge(ctx, s.opCtx) but currently it costs 1+ goroutine
+	if ready(s.down) {
+		return s.downErr
+	}
+
+	head, err := s.driver.Sync(ctx)
+	if err != nil {
+		return err
+	}
+
+	// XXX check that driver returns head↑
+
+	// wait till .head >= head
+	watchq := make(chan Event)
+	at := s.AddWatch(watchq)
+	defer s.DelWatch(watchq)
+
+	for at < head {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
+		case <-s.down:
+			return s.downErr
+
+		case event, ok := <-watchq:
+			if !ok {
+				// closed
+				<-s.down
+				return s.downErr
+			}
+
+			switch e := event.(type) {
+			default:
+				panic(fmt.Sprintf("unexpected event %T", e))
+
+			case *EventError:
+				return e.Err
+
+			case *EventCommit:
+				at = e.Tid
+			}
+		}
+	}
+
+	return nil
 }
 
 
