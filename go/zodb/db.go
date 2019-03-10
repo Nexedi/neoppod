@@ -382,14 +382,11 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 			at = db.δtail.Head()
 			db.mu.Unlock()
 		} else {
-			// sync storage for lastTid
-			var err error
-
+			// sync storage for head
 			err = db.stor.Sync(ctx)
 			if err != nil {
 				return nil, err
 			}
-
 			at = db.stor.Head()
 		}
 	}

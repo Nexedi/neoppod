@@ -462,7 +462,7 @@ func TestOpenRecovery(t *testing.T) {
 	X := exc.Raiseif
 	main, err := ioutil.ReadFile("testdata/1.fs"); X(err)
 	index, err := ioutil.ReadFile("testdata/1.fs.index"); X(err)
-	lastTidOk := _1fs_dbEntryv[len(_1fs_dbEntryv)-1].Header.Tid
+	headOk := _1fs_dbEntryv[len(_1fs_dbEntryv)-1].Header.Tid
 	topPos := int64(_1fs_indexTopPos)
 	voteTail, err := ioutil.ReadFile("testdata/1voted.tail"); X(err)
 
@@ -495,12 +495,12 @@ func TestOpenRecovery(t *testing.T) {
 			defer func() {
 				err = fs.Close(); X(err)
 			}()
-			if at0 != lastTidOk {
-				t.Fatalf("at0: %s  ; expected: %s", at0, lastTidOk)
+			if at0 != headOk {
+				t.Fatalf("at0: %s  ; expected: %s", at0, headOk)
 			}
 			head, err := fs.Sync(ctx); X(err)
-			if head != lastTidOk {
-				t.Fatalf("head: %s  ; expected: %s", head, lastTidOk)
+			if head != headOk {
+				t.Fatalf("head: %s  ; expected: %s", head, headOk)
 			}
 		})
 	}
