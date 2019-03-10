@@ -151,7 +151,7 @@ type storage struct {
 	l1cache *Cache // can be =nil, if opened with NoCache
 
 	down     chan struct{} // ready when no longer operational
-	downOnce sync.Once     // shutdown may be due to both Close and IO error in watcher
+	downOnce sync.Once     // shutdown may be due to both Close and IO error in watcher|Sync
 	downErr  error         // reason for shutdown
 
 	// watcher
@@ -444,16 +444,25 @@ func (s *storage) Sync(ctx context.Context) (err error) {
 		return s.downErr
 	}
 
+	s.headMu.Lock()
+	at := s.head
+	s.headMu.Unlock()
+
 	head, err := s.driver.Sync(ctx)
 	if err != nil {
 		return err
 	}
 
-	// XXX check that driver returns head↑
+	// check that driver returns head↑
+	if !(head >= at) {
+		err = fmt.Errorf("%s: storage error: sync not ↑= (%s -> %s)", s.URL(), at, head)
+		s.shutdown(err)
+		return err
+	}
 
 	// wait till .head >= head
 	watchq := make(chan Event)
-	at := s.AddWatch(watchq)
+	at = s.AddWatch(watchq)
 	defer s.DelWatch(watchq)
 
 	for at < head {
