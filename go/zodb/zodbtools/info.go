@@ -41,10 +41,16 @@ var infov = []struct {name string; getParam paramFunc} {
 	}},
 // TODO reenable size
 //	{"size", func(stor zodb.IStorage) (string, error) { return stor.StorageSize(), nil }},
+	{"head", zhead},
 	{"last_tid", func(ctx context.Context, stor zodb.IStorage) (string, error) {
-		tid, err := stor.LastTid(ctx)
-		return tid.String(), err
+		fmt.Fprintf(os.Stderr, "W: last_tid is deprecated alias for head\n")
+		return zhead(ctx, stor)
 	}},
+}
+
+func zhead(ctx context.Context, stor zodb.IStorage) (string, error) {
+	err := stor.Sync(ctx)
+	return stor.Head().String(), err
 }
 
 // {} parameter_name -> get_parameter(stor)

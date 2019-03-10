@@ -101,6 +101,10 @@ type FileStorage struct {
 	// driver client <- watcher: database commits | errors.
 	watchq chan<- zodb.Event
 
+	// sync(s) waiting for feedback from watcher
+	syncMu sync.Mutex
+	syncv  []chan zodb.Tid
+
 	down     chan struct{}  // ready when storage is no longer operational
 	downOnce sync.Once      // shutdown may be due to both Close and IO error in watcher
 	errClose error          // error from .file.Close()
@@ -113,17 +117,6 @@ var _ zodb.IStorageDriver = (*FileStorage)(nil)
 // zerr turns err into zodb.OpError about fs.op(args)
 func (fs *FileStorage) zerr(op string, args interface{}, err error) *zodb.OpError {
 	return &zodb.OpError{URL: fs.URL(), Op: op, Args: args, Err: err}
-}
-
-func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
-	fs.mu.RLock()
-	defer fs.mu.RUnlock()
-
-	if fs.downErr != nil {
-		return zodb.InvalidTid, fs.zerr("last_tid", nil, fs.downErr)
-	}
-
-	return fs.txnhMax.Tid, nil // txnhMax.Tid = 0, if empty
 }
 
 func (fs *FileStorage) LastOid(_ context.Context) (zodb.Oid, error) {
@@ -478,7 +471,7 @@ func (fs *FileStorage) watcher(w *fsnotify.Watcher, errFirstRead chan<- error) {
 	}
 
 	// if watcher failed with e.g. IO error, we no longer know what is real
-	// last_tid and which objects were modified after it.
+	// head and which objects were modified after it.
 	// -> storage operations have to fail from now on.
 	fs.shutdown(err)
 
@@ -522,8 +515,15 @@ func (fs *FileStorage) _watcher(w *fsnotify.Watcher, errFirstRead chan<- error) 
 	defer tick.Stop()
 	var t0partial time.Time
 	first := true
+	var syncv []chan zodb.Tid
 mainloop:
 	for {
+		// notify Sync(s) that queued before previous stat + advance
+		for _, sync := range syncv {
+			sync <- fs.txnhMax.Tid // TODO +lock after commit is implemented
+		}
+		syncv = nil // just in case
+
 		if !first {
 			traceWatch("select ...")
 			select {
@@ -570,6 +570,12 @@ mainloop:
 			}
 		}
 		first = false
+
+		// remember queued Sync(s) that we should notify after stat + advance
+		fs.syncMu.Lock()
+		syncv = fs.syncv
+		fs.syncv = nil
+		fs.syncMu.Unlock()
 
 		// check f size, to see whether there could be any updates.
 		fi, err := f.Stat()
@@ -687,6 +693,56 @@ mainloop:
 				}
 			}
 		}
+	}
+}
+
+// Sync implements zodb.IStorageDriver.
+func (fs *FileStorage) Sync(ctx context.Context) (head zodb.Tid, err error) {
+	defer func() {
+		if err != nil {
+			err = fs.zerr("sync", nil, err)
+		}
+	}()
+
+	// check file size; if it is the same there was no new commits.
+	fs.mu.RLock()
+	topPos := fs.index.TopPos
+	head = fs.txnhMax.Tid
+	fs.mu.RUnlock()
+
+	fi, err := fs.file.Stat()
+	if err != nil {
+		return zodb.InvalidTid, err
+	}
+	fsize := fi.Size()
+
+	switch {
+	case fsize == topPos:
+		return head, nil // same as before
+	case fsize < topPos:
+		// XXX add pack support?
+		return zodb.InvalidTid, fmt.Errorf("file truncated (%d -> %d)", topPos, fsize)
+	}
+
+	// the file has more data than covered by current topPos. However that
+	// might be in-progress transaction that will be aborted. Ask watcher
+	// to give us feedback after it goes through one iteration to:
+	//	- stat the file once again, and
+	//	- advance as much as it can.
+	syncq := make(chan zodb.Tid, 1)
+	fs.syncMu.Lock()
+	fs.syncv = append(fs.syncv, syncq)
+	fs.syncMu.Unlock()
+
+	select {
+	case <-fs.down:
+		return zodb.InvalidTid, fs.downErr
+
+	case <-ctx.Done():
+		return zodb.InvalidTid, ctx.Err()
+
+	case head := <-syncq:
+		return head, nil
 	}
 }
 

@@ -325,9 +325,33 @@ type IStorage interface {
 	// same as in IStorageDriver
 	URL() string
 	Close() error
-	LastTid(context.Context) (Tid, error)
 	Loader
 	Iterator
+
+	// similar to IStorage
+
+	// Sync syncs to storage and updates current view of it.
+	//
+	// After Sync, Head is guaranteed to give ID of last transaction
+	// committed to storage data as observed from some time _afterwards_
+	// Sync call was made. In particular for client-server case, Sync
+	// cannot retain cached view of storage and has to perform round-trip
+	// to the server.
+	Sync(context.Context) error
+
+	// Head returns ID of last committed transaction.
+	//
+	// Returned head is ID of last committed transaction as observed from
+	// some time _before_ Head call was made. In particular for
+	// client-sever case, Head can return cached view of storage that was
+	// learned some time ago.
+	//
+	// Head is ↑=.
+	//
+	// Head is 0 if no transactions have been committed yet.
+	//
+	// Use Sync to synchronize with the storage.
+	Head() Tid
 
 	// additional to IStorageDriver
 	Prefetcher
@@ -355,10 +379,17 @@ type IStorageDriver interface {
 	// Close closes storage
 	Close() error
 
-	// LastTid returns the id of the last committed transaction.
+	// Sync syncs to storage and returns ID of last committed transaction.
 	//
-	// If no transactions have been committed yet, LastTid returns 0.
-	LastTid(ctx context.Context) (Tid, error)
+	// Returned head is ID of last transaction committed to storage data as
+	// observed from some time _afterwards_ Sync call was made. In particular
+	// for client-server case, Sync cannot return cached view of storage
+	// and has to perform round-trip to the server.
+	//
+	// Head is ↑=.
+	//
+	// Head is 0 if no transactions have been committed yet.
+	Sync(ctx context.Context) (head Tid, _ error)
 
 	Loader
 	Iterator

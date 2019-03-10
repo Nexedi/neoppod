@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -180,10 +180,7 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, c
 
 
 
-	lastTid, err := stor.LastTid(ctx)
-	if err != nil {
-		return err
-	}
+	at := stor.Head()
 
 	tstart := time.Now()
 
@@ -191,7 +188,7 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, c
 	nread := 0
 loop:
 	for {
-		xid := zodb.Xid{Oid: oid, At: lastTid}
+		xid := zodb.Xid{Oid: oid, At: at}
 		if xid.Oid % nprefetch == 0 {
 			prefetchBlk(ctx, xid)
 		}
@@ -404,9 +401,9 @@ func zwrkPreconnect(ctx context.Context, url string, at zodb.Tid, nwrk int) (_ [
 			storv[i] = stor
 
 			// storage to warm-up the connection
-			// ( in case of NEO LastTid connects to master and Load
+			// ( in case of NEO Sync connects to master and Load
 			//   - to a storage )
-			_, err = stor.LastTid(ctx)
+			err = stor.Sync(ctx)
 			if err != nil {
 				return err
 			}
@@ -455,15 +452,12 @@ func zwrkPrepare(ctx context.Context, url string, h hasher, check string) (at zo
 		err = xerr.First(err, err2)
 	}()
 
-	lastTid, err := stor.LastTid(ctx)
-	if err != nil {
-		return 0, nil, err
-	}
+	at = stor.Head()
 
 	oid := zodb.Oid(0)
 loop:
 	for {
-		xid := zodb.Xid{Oid: oid, At: lastTid}
+		xid := zodb.Xid{Oid: oid, At: at}
 		buf, _, err := stor.Load(ctx, xid)
 		if err != nil {
 			switch errors.Cause(err).(type) {
@@ -493,7 +487,7 @@ loop:
 		}
 	}
 
-	return lastTid, objcheckv, nil
+	return at, objcheckv, nil
 }
 
 // ----------------------------------------
