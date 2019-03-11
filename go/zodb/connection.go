@@ -113,8 +113,11 @@ type LiveCache struct {
 	// Hopefully we don't have cycles with BTree/Bucket.
 
 	sync.Mutex
-	objtab map[Oid]*weak.Ref   // oid -> weak.Ref(IPersistent); potentially have a referee
-	pinned map[Oid]IPersistent // objects that are pinned and don't have any referee currently
+
+	// pinned objects. may have referees.
+	pinned map[Oid]IPersistent
+	// not pinned objects. may have referees.
+	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
 
 	// hooks for application to influence live caching decisions.
 	control LiveCacheControl
@@ -198,6 +201,7 @@ func (e *wrongClassError) Error() string {
 // Get lookups object corresponding to oid in the cache.
 //
 // If object is found, it is guaranteed to stay in live cache while the caller keeps reference to it.
+// LiveCacheControl can be used to extend that guarantee.
 func (cache *LiveCache) Get(oid Oid) IPersistent {
 	wobj := cache.objtab[oid]
 	var obj IPersistent
@@ -216,14 +220,14 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 
 // set sets objects corresponding to oid.
 func (cache *LiveCache) set(oid Oid, obj IPersistent) {
-	var pc PCachePolicy // XXX -> cp, pol? ... ?
+	var cp PCachePolicy
 	if cc := cache.control; cc != nil {
-		pc = cache.control.PCacheClassify(obj)
+		cp = cache.control.PCacheClassify(obj)
 	}
-	// XXX remember pc in obj .pcachePolicy?
+	// XXX remember cp in obj .pcachePolicy?
 	// XXX del .objtab[oid] ?
 	// XXX del .pinned[oid] ?
-	if pc & PCachePinObject != 0 {
+	if cp & PCachePinObject != 0 {
 		cache.pinned[oid] = obj
 	} else {
 		cache.objtab[oid] = weak.NewRef(obj)
@@ -250,7 +254,14 @@ func (cache *LiveCache) forEach(f func(IPersistent)) {
 // It is not safe to call SetControl simultaneously to other cache operations.
 func (cache *LiveCache) SetControl(c LiveCacheControl) {
 	cache.control = c
-	// XXX reclassify all objects
+
+	// reclassify all objects
+	c2 := *cache
+	cache.objtab = make(map[Oid]*weak.Ref)
+	cache.pinned = make(map[Oid]IPersistent)
+	c2.forEach(func(obj IPersistent) {
+		cache.set(obj.POid(), obj)
+	})
 }
 
 // get is like Get, but used when we already know object class.
