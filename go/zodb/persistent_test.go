@@ -217,6 +217,9 @@ type tPersistentDB struct {
 
 	head    Tid           // last committed transaction
 	commitq []IPersistent // queue to be committed
+
+	// testdb options
+	rawcache bool
 }
 
 // tPersistentConn represents testing Connection.	XXX -> tConn ?
@@ -232,7 +235,10 @@ type tPersistentConn struct {
 // testdb creates and initializes new test database.
 func testdb(t0 *testing.T, rawcache bool) *tPersistentDB {
 	t0.Helper()
-	t := &tPersistentDB{T: t0}
+	t := &tPersistentDB{
+		T:        t0,
+		rawcache: rawcache,
+	}
 	X := t.fatalif
 
 	work, err := ioutil.TempDir("", "t-persistent"); X(err)
@@ -252,13 +258,40 @@ func testdb(t0 *testing.T, rawcache bool) *tPersistentDB {
 	t.Commit()
 
 	// open the db via zodb/go
-	stor, err := Open(context.Background(), t.zurl, &OpenOptions{ReadOnly: true, NoCache: !rawcache}); X(err)
-	db := NewDB(stor)
-	t.stor = stor
-	t.db = db
+	t.Reopen()
 
 	finishok = true
 	return t
+}
+
+// Reopen repoens zodb/go .stor and .db .
+func (t *tPersistentDB) Reopen() {
+	t.Helper()
+	X := t.fatalif
+
+	t.close()
+	stor, err := Open(context.Background(), t.zurl, &OpenOptions{
+		ReadOnly: true,
+		NoCache: !t.rawcache,
+	}); X(err)
+	db := NewDB(stor)
+	t.stor = stor
+	t.db = db
+}
+
+func (t *tPersistentDB) close() {
+	t.Helper()
+	X := t.fatalif
+
+	if t.db != nil {
+		err := t.db.Close(); X(err)
+		t.db = nil
+	}
+	if t.stor != nil {
+		err := t.stor.Close(); X(err)
+		t.stor = nil
+	}
+
 }
 
 // Close release resources associated with test database.
@@ -266,9 +299,8 @@ func (t *tPersistentDB) Close() {
 	t.Helper()
 	X := t.fatalif
 
-	err := t.db.Close(); X(err)
-	err = t.stor.Close(); X(err)
-	err = os.RemoveAll(t.work); X(err)
+	t.close()
+	err := os.RemoveAll(t.work); X(err)
 }
 
 // Add marks object with oid as modified and queues it to be committed as
@@ -290,6 +322,7 @@ func (t *tPersistentDB) Commit() {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fmt.Printf("commit @%s -> @%s\n", t.head, head)
 	t.head = head
 	t.commitq = nil
 }
@@ -442,6 +475,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	tdb.Commit()
 	at1 := tdb.head
 
+	tdb.Reopen() // so that at0 is not covered by db.δtail
 	db := tdb.db
 
 	t1 := tdb.Open(&ConnOptions{})
@@ -450,6 +484,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	assert.Equal(db.pool, []*Connection(nil))
 
 	// δtail coverage is (at1, at1]  (at0 not included)
+	fmt.Println(db.δtail.Tail(), db.δtail.Head())
 	assert.Equal(db.δtail.Tail(), at1)
 	assert.Equal(db.δtail.Head(), at1)
 
