@@ -207,7 +207,7 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 	return obj
 }
 
-// set sets objects corre ... XXX
+// set sets objects corresponding ... XXX
 func (cache *LiveCache) set(oid Oid, obj IPersistent) {
 	cache.objtab[oid] = weak.NewRef(obj)
 }
