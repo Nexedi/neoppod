@@ -30,7 +30,6 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/transaction"
 
-	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/mem"
 	assert "github.com/stretchr/testify/require"
 )
@@ -231,14 +230,14 @@ type tPersistentConn struct {
 }
 
 // testdb creates and initializes new test database.
-func testdb(t0 *testing.T) *tPersistentDB {
+func testdb(t0 *testing.T, rawcache bool) *tPersistentDB {
 	t0.Helper()
 	t := &tPersistentDB{T: t0}
 	X := t.fatalif
 
 	work, err := ioutil.TempDir("", "t-persistent"); X(err)
 	t.work = work
-	t.zurl = work + "1/.fs"
+	t.zurl = work + "/1.fs"
 
 	finishok := false
 	defer func() {
@@ -432,10 +431,9 @@ func TestPersistentDB(t *testing.T) {
 }
 
 func testPersistentDB(t0 *testing.T, rawcache bool) {
-	X := exc.Raiseif
 	assert := assert.New(t0)
 
-	tdb := testdb(t0)
+	tdb := testdb(t0, rawcache)
 	defer tdb.Close()
 	at0 := tdb.head
 
