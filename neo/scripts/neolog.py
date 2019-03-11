@@ -2,7 +2,7 @@
 #
 # neolog - read a NEO log
 #
-# Copyright (C) 2012-2017  Nexedi SA
+# Copyright (C) 2012-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
