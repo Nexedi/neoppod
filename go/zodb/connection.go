@@ -113,7 +113,8 @@ type LiveCache struct {
 	// Hopefully we don't have cycles with BTree/Bucket.
 
 	sync.Mutex
-	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
+	objtab map[Oid]*weak.Ref   // oid -> weak.Ref(IPersistent); potentially have a referee
+	pinned map[Oid]IPersistent // objects that are pinned and don't have any referee currently
 
 	// hooks for application to influence live caching decisions.
 	control LiveCacheControl
@@ -169,6 +170,7 @@ func newConnection(db *DB, at Tid) *Connection {
 		at:    at,
 		cache: LiveCache{
 			objtab: make(map[Oid]*weak.Ref),
+			pinned: make(map[Oid]IPersistent),
 		},
 	}
 }
@@ -204,12 +206,40 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 			obj = xobj.(IPersistent)
 		}
 	}
+	if obj == nil {
+		obj = cache.pinned[oid]
+		// XXX -> weakref?
+		// XXX -> start lookup from pinned?
+	}
 	return obj
 }
 
-// set sets objects corresponding ... XXX
+// set sets objects corresponding to oid.
 func (cache *LiveCache) set(oid Oid, obj IPersistent) {
-	cache.objtab[oid] = weak.NewRef(obj)
+	var pc PCachePolicy // XXX -> cp, pol? ... ?
+	if cc := cache.control; cc != nil {
+		pc = cache.control.PCacheClassify(obj)
+	}
+	// XXX remember pc in obj .pcachePolicy?
+	// XXX del .objtab[oid] ?
+	// XXX del .pinned[oid] ?
+	if pc & PCachePinObject != 0 {
+		cache.pinned[oid] = obj
+	} else {
+		cache.objtab[oid] = weak.NewRef(obj)
+	}
+}
+
+// forEach calls f for all objects in the cache.
+func (cache *LiveCache) forEach(f func(IPersistent)) {
+	for _, obj := range cache.pinned {
+		f(obj)
+	}
+	for _, wobj := range cache.objtab {
+		if xobj := wobj.Get(); xobj != nil {
+			f(xobj.(IPersistent))
+		}
+	}
 }
 
 // SetControl installs c to handle cache decisions.
@@ -220,6 +250,7 @@ func (cache *LiveCache) set(oid Oid, obj IPersistent) {
 // It is not safe to call SetControl simultaneously to other cache operations.
 func (cache *LiveCache) SetControl(c LiveCacheControl) {
 	cache.control = c
+	// XXX reclassify all objects
 }
 
 // get is like Get, but used when we already know object class.
@@ -232,7 +263,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	obj := conn.cache.Get(oid)
 	if obj == nil {
 		obj = newGhost(class, oid, conn)
-		conn.cache.objtab[oid] = weak.NewRef(obj) // XXX -> conn.cache.set(oid, obj)
+		conn.cache.set(oid, obj)
 		checkClass = false
 	}
 	conn.cache.Unlock()

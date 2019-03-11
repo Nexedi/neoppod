@@ -384,7 +384,7 @@ func (t *tPersistentConn) checkObj(obj *MyObject, oid Oid, serial Tid, state Obj
 	connObj := cache.Get(oid)
 	cache.Unlock()
 	if obj != connObj {
-		t.Fatalf("cache.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
+		t.Fatalf("cache.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, obj)
 	}
 
 	// and conn.Get must return exactly obj.
@@ -393,7 +393,7 @@ func (t *tPersistentConn) checkObj(obj *MyObject, oid Oid, serial Tid, state Obj
 		t.Fatal(err)
 	}
 	if obj != connObj {
-		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
+		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, obj)
 	}
 
 	checkObj(t.T, obj, t.conn, oid, serial, state, refcnt)
@@ -788,11 +788,11 @@ func TestLiveCache(t0 *testing.T) {
 	assert.NotEqual(xobj2, nil)
 	assert.NotEqual(xobj3, nil)
 	obj2 = xobj2.(*MyObject)
-	obj3 = xobj2.(*MyObject)
+	obj3 = xobj3.(*MyObject)
 	t.checkObj(obj2, 102, at1, UPTODATE,      0, "труд")
 	t.checkObj(obj3, 103, InvalidTid, GHOST,  0)
 
-	assert.Equal(obj2._v_cookie, "zzz")	// XXX labour
+	assert.Equal(obj2._v_cookie, "labour")
 	assert.Equal(obj3._v_cookie, "may")
 
 	obj1 = t.Get(101)
