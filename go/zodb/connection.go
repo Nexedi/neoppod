@@ -152,17 +152,28 @@ const (
 	// state eviction until discard is really needed.
 	PCachePinObject PCachePolicy = 1 << iota
 
-        // don't discard object state.
+	// don't keep object in the cache.
+	//
+	// The object will be discarded from the cache completely as soon as it
+	// is semantically valid to do so.
+	PCacheDiscardObject
+	PCacheOmitObject
+
+        // keep object state in the cache.
+	//
+	// Object's state is kept XXX ...
+	// Note: object can go awai (PCachePinObject)
 	//
 	// Note: on invalidation, state of invalidated objects is discarded
 	// unconditionally.
 	PCacheKeepState
 
-	// data access is non-temporal.
+	// don't keep object state.
 	//
-	// Object's state is used once and then won't be used for a long time.
-	// Don't pollute cache with state of this object.
-	PCacheNonTemporal	// XXX PCacheForgetState? DropState?
+	// Data access is non-temporal. Object's state is used once and then
+	// won't be used for a long time. Don't pollute cache with state of
+	// this object.
+	PCacheOmitState
 )
 
 // ----------------------------------------

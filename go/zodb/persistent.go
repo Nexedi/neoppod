@@ -264,8 +264,6 @@ func (obj *Persistent) PDeactivate() {
 
 	var cp PCachePolicy
 	if cc := obj.jar.cache.control; cc != nil {
-		// XXX catch inconsistency in PCacheClassify result
-		// XXX locking for .control ?
 		cp = cc.PCacheClassify(obj.instance)
 	}
 
