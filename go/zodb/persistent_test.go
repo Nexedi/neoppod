@@ -216,14 +216,8 @@ type tPersistentDB struct {
 	stor IStorage
 	db   *DB
 
-	head    Tid        // last committed transaction
-	commitq []toCommit // queue to be committed
-}
-
-// XXX place? name?
-type toCommit struct {
-	oid   Oid
-	value string
+	head    Tid           // last committed transaction
+	commitq []IPersistent // queue to be committed
 }
 
 // tPersistentConn represents testing Connection.	XXX -> tConn ?
@@ -283,22 +277,17 @@ func (t *tPersistentDB) Close() {
 //
 // The commit is performed by Commit.
 func (t *tPersistentDB) Add(oid Oid, value string) {
-	t.commitq = append(t.commitq, toCommit{oid, value})
+	obj := NewMyObject(nil) // XXX hack - goes without jar
+	obj.oid = oid
+	obj.value = value
+	t.commitq = append(t.commitq, obj)
 }
 
 // Commit commits objects queued by Add.
 func (t *tPersistentDB) Commit() {
 	t.Helper()
 
-	var objv []IPersistent
-	for _, tc := range t.commitq {
-		obj := NewMyObject(nil) // XXX hack - goes without jar
-		obj.oid = tc.oid
-		obj.value = tc.value
-		objv = append(objv, obj)
-	}
-
-	head, err := ZPyCommit(t.zurl, t.head, objv...)
+	head, err := ZPyCommit(t.zurl, t.head, t.commitq...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,46 +444,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	tdb.Commit()
 	at1 := tdb.head
 
-	/*
-	// create test db via py with 2 objects
-	// XXX hack as _objX go without jar.
-	_obj1 := NewMyObject(nil); _obj1.oid = 101; _obj1.value = "init"
-	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "db"
-	at0, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
-
-	_obj1.value = "hello"
-	_obj2.value = "world"
-	at1, err := ZPyCommit(zurl, at0, _obj1, _obj2); X(err)
-
-	// open connection to it via zodb/go
-	ctx := context.Background()
-	stor, err := Open(ctx, zurl, &OpenOptions{ReadOnly: true, NoCache: !rawcache}); X(err)
-	db := NewDB(stor)
-	defer func() {
-		err := db.Close(); X(err)
-	}()
-
-	// testopen opens new db transaction/connection and wraps it with tPersistentDB.
-	testopen := func(opt *ConnOptions) *tPersistentDB {
-		t0.Helper()
-
-		txn, ctx := transaction.New(context.Background())
-		conn, err := db.Open(ctx, opt); X(err)
-
-		assert.Same(conn.db, db)
-		assert.Same(conn.txn, txn)
-
-		return &tPersistentDB{
-			T:    t0,
-			txn:  txn,
-			ctx:  ctx,
-			conn: conn,
-		}
-	}
-	*/
-
 	db := tdb.db
-
 
 	t1 := tdb.Open(&ConnOptions{})
 	t := t1

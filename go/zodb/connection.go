@@ -157,6 +157,7 @@ const (
 	//
 	// Object state is used once and then won't be used for a long time.
 	// There is no reason to preserve object state in cache.
+	// XXX Don't pollute ...
 	PCacheNonTemporal	// XXX PCachePolicy ?
 )
 
