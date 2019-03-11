@@ -38,8 +38,8 @@ import (
 type MyObject struct {
 	Persistent
 
-	value    string // persistent state
-	_v_value string // volatile in-RAM only state; not managed by persistency layer
+	value     string // persistent state
+	_v_cookie string // volatile in-RAM only state; not managed by persistency layer
 }
 
 func NewMyObject(jar *Connection) *MyObject {
@@ -602,23 +602,6 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(obj2, 102, at2, UPTODATE,    0, "kitty")
 
-	// live cache keeps pinned object live even if we drop
-	// all regular pointers to it and do GC.
-	// XXX also PCachePinObject without PCacheKeepState
-	obj1 = nil
-	obj2 = nil
-	for i := 0; i < 10; i++ {
-		runtime.GC() // need only 2 runs since cache uses finalizers
-	}
-
-	xobj1 := t.conn.Cache().Get(101)
-	xobj2 := t.conn.Cache().Get(102)
-	assert.Equal(xobj1, nil)
-	assert.NotEqual(xobj2, nil)
-	obj2 = xobj2.(*MyObject)
-	t.checkObj(obj2, 102, at2, UPTODATE,    0, "kitty")
-
-
 	// finish tnx3 and txn2 - conn1 and conn2 go back to db pool
 	t.Abort()
 	t2.Abort()
@@ -732,6 +715,8 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 
 // Test details of how LiveCache handles live caching policy.
 func TestLiveCache(t0 *testing.T) {
+	assert := assert.New(t0)
+
 	tdb := testdb(t0, /*rawcache=*/false)
 	defer tdb.Close()
 
@@ -778,7 +763,37 @@ func TestLiveCache(t0 *testing.T) {
 	obj3.PDeactivate()
 	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(obj2, 102, at1, UPTODATE, 0, "труд")
-	t.checkObj(obj3, 103, at1, UPTODATE, 0, "май")
+	t.checkObj(obj3, 103, InvalidTid, GHOST, 0)
+
+	// live cache should keep pinned object live even if we drop all
+	// regular pointers to it and do GC.
+	obj1._v_cookie = "peace"
+	obj2._v_cookie = "labour"
+	obj3._v_cookie = "may"
+	obj1 = nil
+	obj2 = nil
+	obj3 = nil
+	for i := 0; i < 10; i++ {
+		runtime.GC() // need only 2 runs since cache uses finalizers
+	}
+
+	xobj1 := zcache.Get(101)
+	xobj2 := zcache.Get(102)
+	xobj3 := zcache.Get(103)
+	assert.Equal(xobj1, nil)
+	assert.NotEqual(xobj2, nil)
+	assert.NotEqual(xobj3, nil)
+	obj2 = xobj2.(*MyObject)
+	obj3 = xobj2.(*MyObject)
+	t.checkObj(obj2, 102, at1, UPTODATE,      0, "труд")
+	t.checkObj(obj3, 103, InvalidTid, GHOST,  0)
+
+	assert.Equal(obj2._v_cookie, "zzz")	// XXX labour
+	assert.Equal(obj3._v_cookie, "may")
+
+	obj1 = t.Get(101)
+	t.checkObj(obj1, 101, InvalidTid, GHOST,  0)
+	assert.Equal(obj1._v_cookie, "")
 }
 
 // TODO Map & List tests.
