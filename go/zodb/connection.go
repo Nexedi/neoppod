@@ -65,6 +65,13 @@ type Connection struct {
 //
 // Use .Lock() / .Unlock() to serialize access.
 type LiveCache struct {
+	sync.Mutex
+
+	// pinned objects. may have referees.
+	pinned map[Oid]IPersistent
+
+	// not pinned objects. may have referees. cache keeps weak reference to an object.
+	//
 	// rationale for using weakref:
 	//
 	// on invalidations: we need to go oid -> obj and invalidate it.
@@ -111,12 +118,6 @@ type LiveCache struct {
 	//
 	// NOTE2 finalizers don't run on when they are attached to an object in cycle.
 	// Hopefully we don't have cycles with BTree/Bucket.
-
-	sync.Mutex
-
-	// pinned objects. may have referees.
-	pinned map[Oid]IPersistent
-	// not pinned objects. may have referees.
 	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
 
 	// hooks for application to influence live caching decisions.
@@ -155,13 +156,13 @@ const (
 	//
 	// Note: on invalidation, state of invalidated objects is discarded
 	// unconditionally.
-	PCacheKeepState		// XXX PCachePolicy explicitly?
+	PCacheKeepState
 
 	// data access is non-temporal.
 	//
 	// Object state is used once and then won't be used for a long time.
 	// Don't pollute cache with this object state.
-	PCacheNonTemporal	// XXX PCachePolicy ?
+	PCacheNonTemporal	// XXX PCacheForgetState? DropState?
 )
 
 // ----------------------------------------
@@ -203,17 +204,22 @@ func (e *wrongClassError) Error() string {
 // If object is found, it is guaranteed to stay in live cache while the caller keeps reference to it.
 // LiveCacheControl can be used to extend that guarantee.
 func (cache *LiveCache) Get(oid Oid) IPersistent {
+	// 1. lookup in pinned objects (potentially hottest)
 	obj := cache.pinned[oid]
 	if obj != nil {
 		return obj
 	}
 
+	// 2. lookup in referenced object (they are likely to be loaded as
+	//    other objects reference them)
 	wobj := cache.objtab[oid]
 	if wobj != nil {
 		if xobj := wobj.Get(); xobj != nil {
 			obj = xobj.(IPersistent)
 		}
 	}
+
+	// 3. TODO lookup in non-referenced LRU
 
 	return obj
 }
