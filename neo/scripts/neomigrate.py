@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# neomaster - run a master node of NEO
+# neomigrate - import/export data between NEO and a FileStorage
 #
 # Copyright (C) 2006-2019  Nexedi SA
 #
