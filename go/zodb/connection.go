@@ -120,17 +120,45 @@ type LiveCache struct {
 }
 
 // LiveCacheControl is the interface that allows applications to influence
-// Connection's decisions with respect to Connection's live cache.
+// Connection's decisions with respect to Connection's LiveCache.
+//
+// See Connection.Cache and LiveCache.SetControl for how to install
+// LiveCacheControl on a connection's live cache.
 type LiveCacheControl interface {
-	// WantEvict is called when object is going to be evicted from live
-	// cache on deactivation and made ghost.
-	//
-	// If !ok the object will remain live.
-	//
-	// NOTE on invalidation invalidated objects are evicted from live cache
-	// unconditionally.
-	WantEvict(obj IPersistent) (ok bool)
+	// PCacheClassify is called to classify an object and returns live
+	// cache policy that should be used for this object.
+	PCacheClassify(obj IPersistent) PCachePolicy
 }
+
+// PCachePolicy describes live caching policy for a persistent object.
+//
+// It is | combination of PCache* flags with 0 meaning "use default policy".
+//
+// See LiveCacheControl for how to apply a caching policy.
+type PCachePolicy int
+
+const (
+	// keep object pinned into cache, even if in ghost state.
+	//
+	// This allows to rely on object being never evicted from live cache.
+	//
+	// Note: object's state can still be evicted and the object can go into
+	// ghost state. Use PCacheKeepState to prevent such automatic eviction
+	// until it is really needed.
+	PCachePinObject PCachePolicy = 1 << iota
+
+        // don't discard object state.
+	//
+	// Note: on invalidation, state of invalidated objects is discarded
+	// unconditionally.
+	PCacheKeepState		// XXX PCachePolicy explicitly?
+
+	// data access is non-temporal.
+	//
+	// Object state is used once and then won't be used for a long time.
+	// There is no reason to preserve object state in cache.
+	PCacheNonTemporal	// XXX PCachePolicy ?
+)
 
 // ----------------------------------------
 
