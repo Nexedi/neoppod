@@ -203,18 +203,18 @@ func (e *wrongClassError) Error() string {
 // If object is found, it is guaranteed to stay in live cache while the caller keeps reference to it.
 // LiveCacheControl can be used to extend that guarantee.
 func (cache *LiveCache) Get(oid Oid) IPersistent {
+	obj := cache.pinned[oid]
+	if obj != nil {
+		return obj
+	}
+
 	wobj := cache.objtab[oid]
-	var obj IPersistent
 	if wobj != nil {
 		if xobj := wobj.Get(); xobj != nil {
 			obj = xobj.(IPersistent)
 		}
 	}
-	if obj == nil {
-		obj = cache.pinned[oid]
-		// XXX -> weakref?
-		// XXX -> start lookup from pinned?
-	}
+
 	return obj
 }
 
