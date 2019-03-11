@@ -699,7 +699,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(robj2, 102, at2, UPTODATE, 0, "kitty")
 
-	// Resync ↓ (at1 -> at0; to outside δtail coverage)
+	// Resync ↓ (at2 -> at0; to outside δtail coverage)
 	t.Abort()
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 	t.Resync(at0)
@@ -728,6 +728,57 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	// obj2 should be invalidated
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(robj2, 102, InvalidTid, GHOST, 0)
+}
+
+// Test details of how LiveCache handles live caching policy.
+func TestLiveCache(t0 *testing.T) {
+	tdb := testdb(t0, /*rawcache=*/false)
+	defer tdb.Close()
+
+	tdb.Add(101, "мир")
+	tdb.Add(102, "труд")
+	tdb.Add(103, "май")
+	tdb.Commit()
+	at1 := tdb.head
+
+	zcc := &zcacheControl{map[Oid]PCachePolicy{
+		// obj1 - don't pin and don't keep state (default)
+		101: 0,
+		// obj2 - pin and keep state
+		102: PCachePinObject | PCacheKeepState,
+		// obj3 - pin, but don't keep state
+		103: PCachePinObject | PCacheNonTemporal,
+	}}
+
+	t := tdb.Open(&ConnOptions{})
+	zcache := t.conn.Cache()
+	zcache.Lock()
+	zcache.SetControl(zcc)
+	zcache.Unlock()
+
+	// get objects
+	obj1 := t.Get(101)
+	obj2 := t.Get(102)
+	obj3 := t.Get(103)
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, InvalidTid, GHOST, 0)
+	t.checkObj(obj3, 103, InvalidTid, GHOST, 0)
+
+	// activate	* -> uptodate
+	t.PActivate(obj1)
+	t.PActivate(obj2)
+	t.PActivate(obj3)
+	t.checkObj(obj1, 101, at1, UPTODATE, 1, "мир")
+	t.checkObj(obj2, 102, at1, UPTODATE, 1, "труд")
+	t.checkObj(obj3, 103, at1, UPTODATE, 1, "май")
+
+	// deactivate	obj{1,3} drop state, obj2 is kept
+	obj1.PDeactivate()
+	obj2.PDeactivate()
+	obj3.PDeactivate()
+	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
+	t.checkObj(obj2, 102, at1, UPTODATE, 0, "труд")
+	t.checkObj(obj3, 103, at1, UPTODATE, 0, "май")
 }
 
 // TODO Map & List tests.
