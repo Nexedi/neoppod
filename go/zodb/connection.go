@@ -147,9 +147,9 @@ const (
 	//
 	// This allows to rely on object being never evicted from live cache.
 	//
-	// Note: object's state can still be evicted and the object can go into
-	// ghost state. Use PCacheKeepState to prevent such automatic eviction
-	// until it is really needed.
+	// Note: object's state can still be discarded and the object can go
+	// into ghost state. Use PCacheKeepState to prevent such automatic
+	// state eviction until discard is really needed.
 	PCachePinObject PCachePolicy = 1 << iota
 
         // don't discard object state.
@@ -160,8 +160,8 @@ const (
 
 	// data access is non-temporal.
 	//
-	// Object state is used once and then won't be used for a long time.
-	// Don't pollute cache with this object state.
+	// Object's state is used once and then won't be used for a long time.
+	// Don't pollute cache with state of this object.
 	PCacheNonTemporal	// XXX PCacheForgetState? DropState?
 )
 
@@ -173,8 +173,8 @@ func newConnection(db *DB, at Tid) *Connection {
 		db:    db,
 		at:    at,
 		cache: LiveCache{
-			objtab: make(map[Oid]*weak.Ref),
 			pinned: make(map[Oid]IPersistent),
+			objtab: make(map[Oid]*weak.Ref),
 		},
 	}
 }
@@ -204,14 +204,14 @@ func (e *wrongClassError) Error() string {
 // If object is found, it is guaranteed to stay in live cache while the caller keeps reference to it.
 // LiveCacheControl can be used to extend that guarantee.
 func (cache *LiveCache) Get(oid Oid) IPersistent {
-	// 1. lookup in pinned objects (potentially hottest)
+	// 1. lookup in pinned objects (likely hottest ones)
 	obj := cache.pinned[oid]
 	if obj != nil {
 		return obj
 	}
 
-	// 2. lookup in referenced object (they are likely to be loaded as
-	//    other objects reference them)
+	// 2. lookup in !pinned referenced object (they are likely to be loaded
+	//    going from a referee)
 	wobj := cache.objtab[oid]
 	if wobj != nil {
 		if xobj := wobj.Get(); xobj != nil {
@@ -219,12 +219,13 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 		}
 	}
 
-	// 3. TODO lookup in non-referenced LRU
+	// 3. TODO lookup in non-referenced LRU cache
 
 	return obj
 }
 
 // set sets objects corresponding to oid.
+// XXX -> setNew?
 func (cache *LiveCache) set(oid Oid, obj IPersistent) {
 	var cp PCachePolicy
 	if cc := cache.control; cc != nil {
