@@ -262,14 +262,14 @@ func (obj *Persistent) PDeactivate() {
 	// no constant load/unload on object access. XXX  -> MRU cache?
 	// NOTE wcfs manages its objects explicitly and does not need this.
 
-	// XXX reenable
-/*
 	if cc := obj.jar.cache.control; cc != nil {
-		if !cc.WantEvict(obj.instance) {
+		// XXX catch inconsistency in PCacheClassify result
+		// XXX locking for .control ?
+		cp := cc.PCacheClassify(obj.instance)
+		if cp & PCacheKeepState != 0 {
 			return
 		}
 	}
-*/
 
 	// already ghost
 	if obj.state == GHOST {

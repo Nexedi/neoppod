@@ -156,8 +156,7 @@ const (
 	// data access is non-temporal.
 	//
 	// Object state is used once and then won't be used for a long time.
-	// There is no reason to preserve object state in cache.
-	// XXX Don't pollute ...
+	// Don't pollute cache with this object state.
 	PCacheNonTemporal	// XXX PCachePolicy ?
 )
 

@@ -468,6 +468,10 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 
 	tdb := testdb(t0, rawcache)
 	defer tdb.Close()
+
+	tdb.Add(101, "bonjour")
+	tdb.Add(102, "monde")
+	tdb.Commit()
 	at0 := tdb.head
 
 	tdb.Add(101, "hello")
@@ -694,13 +698,13 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 
 	t.PActivate(robj1)
 	t.PActivate(robj2)
-	t.checkObj(robj1, 101, at0, UPTODATE, 1, "init")
-	t.checkObj(robj2, 102, at0, UPTODATE, 1, "db")
+	t.checkObj(robj1, 101, at0, UPTODATE, 1, "bonjour")
+	t.checkObj(robj2, 102, at0, UPTODATE, 1, "monde")
 
 	robj1.PDeactivate()
 	robj2.PDeactivate()
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
-	t.checkObj(robj2, 102, at0, UPTODATE, 0, "db")
+	t.checkObj(robj2, 102, at0, UPTODATE, 0, "monde")
 
 	// Resync ↑ (at0 -> at2; from outside δtail coverage)
 	t.Abort()
