@@ -322,7 +322,7 @@ func (t *tPersistentDB) Commit() {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("commit @%s -> @%s\n", t.head, head)
+	//fmt.Printf("commit @%s -> @%s\n", t.head, head)
 	t.head = head
 	t.commitq = nil
 }
@@ -484,7 +484,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	assert.Equal(db.pool, []*Connection(nil))
 
 	// δtail coverage is (at1, at1]  (at0 not included)
-	fmt.Println(db.δtail.Tail(), db.δtail.Head())
+	//fmt.Println(db.δtail.Tail(), db.δtail.Head())
 	assert.Equal(db.δtail.Tail(), at1)
 	assert.Equal(db.δtail.Head(), at1)
 
