@@ -29,7 +29,6 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/transaction"
 
-	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/mem"
 	assert "github.com/stretchr/testify/require"
 )
@@ -208,8 +207,28 @@ func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
 	return true
 }
 
-// tPersistentDB represents one testing environment inside TestPersistentDB.
-type tPersistentDB struct {
+// tDB represents testing database.
+//
+// The database can be worked on via zodb/go and committed into via zodb/py.
+type tDB struct {
+	*testing.T
+
+	work string // working directory
+	zurl string // zurl for database under work
+
+	// zodb/go stor/db handle for the database
+	stor IStorage
+	db   *DB
+
+	head    Tid           // last committed transaction
+	commitq []IPersistent // queue to be committed
+
+	// testdb options
+	rawcache bool
+}
+
+// tConnection represents testing Connection.
+type tConnection struct {
 	*testing.T
 
 	// a transaction and DB connection opened under it
@@ -218,8 +237,121 @@ type tPersistentDB struct {
 	conn  *Connection
 }
 
+// testdb creates and initializes new test database.
+func testdb(t0 *testing.T, rawcache bool) *tDB {
+	t0.Helper()
+	t := &tDB{
+		T:        t0,
+		rawcache: rawcache,
+	}
+	X := t.fatalif
+
+	work, err := ioutil.TempDir("", "t-persistent"); X(err)
+	t.work = work
+	t.zurl = work + "/1.fs"
+
+	finishok := false
+	defer func() {
+		if !finishok {
+			err := os.RemoveAll(t.work); X(err)
+		}
+	}()
+
+	// create test db via py with 2 objects
+	t.Add(11, "init")
+	t.Add(12, "db")
+	t.Commit()
+
+	// open the db via zodb/go
+	t.Reopen()
+
+	finishok = true
+	return t
+}
+
+// Reopen repoens zodb/go .stor and .db .
+func (t *tDB) Reopen() {
+	t.Helper()
+	X := t.fatalif
+
+	t.close()
+	stor, err := Open(context.Background(), t.zurl, &OpenOptions{
+		ReadOnly: true,
+		NoCache: !t.rawcache,
+	}); X(err)
+	db := NewDB(stor)
+	t.stor = stor
+	t.db = db
+}
+
+func (t *tDB) close() {
+	t.Helper()
+	X := t.fatalif
+
+	if t.db != nil {
+		err := t.db.Close(); X(err)
+		t.db = nil
+	}
+	if t.stor != nil {
+		err := t.stor.Close(); X(err)
+		t.stor = nil
+	}
+
+}
+
+// Close release resources associated with test database.
+func (t *tDB) Close() {
+	t.Helper()
+	X := t.fatalif
+
+	t.close()
+	err := os.RemoveAll(t.work); X(err)
+}
+
+// Add marks object with oid as modified and queues it to be committed as
+// MyObject(value).
+//
+// The commit is performed by Commit.
+func (t *tDB) Add(oid Oid, value string) {
+	obj := NewMyObject(nil) // XXX hack - goes without jar
+	obj.oid = oid
+	obj.value = value
+	t.commitq = append(t.commitq, obj)
+}
+
+// Commit commits objects queued by Add.
+func (t *tDB) Commit() {
+	t.Helper()
+
+	head, err := ZPyCommit(t.zurl, t.head, t.commitq...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.head = head
+	t.commitq = nil
+}
+
+// Open opens new test transaction/connection.
+func (t *tDB) Open(opt *ConnOptions) *tConnection {
+	t.Helper()
+	X := t.fatalif
+
+	txn, ctx := transaction.New(context.Background())
+	conn, err := t.db.Open(ctx, opt); X(err)
+
+	assert.Same(t, conn.db, t.db)
+	assert.Same(t, conn.txn, txn)
+
+	return &tConnection{
+		T:    t.T,
+		txn:  txn,
+		ctx:  ctx,
+		conn: conn,
+	}
+}
+
 // Get gets oid from t.conn and asserts its type.
-func (t *tPersistentDB) Get(oid Oid) *MyObject {
+func (t *tConnection) Get(oid Oid) *MyObject {
 	t.Helper()
 	xobj, err := t.conn.Get(t.ctx, oid)
 	if err != nil {
@@ -236,7 +368,7 @@ func (t *tPersistentDB) Get(oid Oid) *MyObject {
 }
 
 // PActivate activates obj in t environment.
-func (t *tPersistentDB) PActivate(obj IPersistent) {
+func (t *tConnection) PActivate(obj IPersistent) {
 	t.Helper()
 	err := obj.PActivate(t.ctx)
 	if err != nil {
@@ -247,7 +379,7 @@ func (t *tPersistentDB) PActivate(obj IPersistent) {
 // checkObj checks state of obj and that obj ∈ t.conn.
 //
 // if object is !GHOST - it also verifies its value.
-func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state ObjectState, refcnt int32, valueOk ...string) {
+func (t *tConnection) checkObj(obj *MyObject, oid Oid, serial Tid, state ObjectState, refcnt int32, valueOk ...string) {
 	t.Helper()
 
 	// any object with live pointer to it must be also in conn's cache.
@@ -287,7 +419,7 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 }
 
 // Resync resyncs t to new transaction @at.
-func (t *tPersistentDB) Resync(at Tid) {
+func (t *tConnection) Resync(at Tid) {
 	t.Helper()
 	db := t.conn.db
 
@@ -306,13 +438,24 @@ func (t *tPersistentDB) Resync(at Tid) {
 }
 
 // Abort aborts t's connection and verifies it becomes !live.
-func (t *tPersistentDB) Abort() {
+func (t *tConnection) Abort() {
 	t.Helper()
 	assert.Same(t, t.conn.txn, t.txn)
 	t.txn.Abort()
 	assert.Equal(t, t.conn.txn, nil)
 }
 
+func (t *tDB) fatalif(err error) {
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (t *tConnection) fatalif(err error) {
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 
 // Persistent tests with storage.
 //
@@ -325,53 +468,25 @@ func TestPersistentDB(t *testing.T) {
 }
 
 func testPersistentDB(t0 *testing.T, rawcache bool) {
-	X := exc.Raiseif
 	assert := assert.New(t0)
 
-	work, err := ioutil.TempDir("", "t-persistent"); X(err)
-	defer func() {
-		err := os.RemoveAll(work); X(err)
-	}()
+	tdb := testdb(t0, rawcache)
+	defer tdb.Close()
 
-	zurl := work + "/1.fs"
+	tdb.Add(101, "bonjour")
+	tdb.Add(102, "monde")
+	tdb.Commit()
+	at0 := tdb.head
 
-	// create test db via py with 2 objects
-	// XXX hack as _objX go without jar.
-	_obj1 := NewMyObject(nil); _obj1.oid = 101; _obj1.value = "init"
-	_obj2 := NewMyObject(nil); _obj2.oid = 102; _obj2.value = "db"
-	at0, err := ZPyCommit(zurl, 0, _obj1, _obj2); X(err)
+	tdb.Add(101, "hello")
+	tdb.Add(102, "world")
+	tdb.Commit()
+	at1 := tdb.head
 
-	_obj1.value = "hello"
-	_obj2.value = "world"
-	at1, err := ZPyCommit(zurl, at0, _obj1, _obj2); X(err)
+	tdb.Reopen() // so that at0 is not covered by db.δtail
+	db := tdb.db
 
-	// open connection to it via zodb/go
-	ctx := context.Background()
-	stor, err := Open(ctx, zurl, &OpenOptions{ReadOnly: true, NoCache: !rawcache}); X(err)
-	db := NewDB(stor)
-	defer func() {
-		err := db.Close(); X(err)
-	}()
-
-	// testopen opens new db transaction/connection and wraps it with tPersistentDB.
-	testopen := func(opt *ConnOptions) *tPersistentDB {
-		t0.Helper()
-
-		txn, ctx := transaction.New(context.Background())
-		conn, err := db.Open(ctx, opt); X(err)
-
-		assert.Same(conn.db, db)
-		assert.Same(conn.txn, txn)
-
-		return &tPersistentDB{
-			T:    t0,
-			txn:  txn,
-			ctx:  ctx,
-			conn: conn,
-		}
-	}
-
-	t1 := testopen(&ConnOptions{})
+	t1 := tdb.Open(&ConnOptions{})
 	t := t1
 	assert.Equal(t.conn.At(), at1)
 	assert.Equal(db.pool, []*Connection(nil))
@@ -383,7 +498,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	// do not evict obj2 from live cache. obj1 is ok to be evicted.
 	zcache1 := t.conn.Cache()
 	zcache1.Lock()
-	zcache1.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
+	zcache1.SetControl(&zcacheControl{[]Oid{102}})
 	zcache1.Unlock()
 
 	// get objects
@@ -423,11 +538,12 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.checkObj(obj2, 102, InvalidTid, GHOST,    0)
 
 	// commit change to obj2 from external process
-	_obj2.value = "kitty"
-	at2, err := ZPyCommit(zurl, at1, _obj2); X(err)
+	tdb.Add(102, "kitty")
+	tdb.Commit()
+	at2 := tdb.head
 
 	// new db connection should see the change
-	t2 := testopen(&ConnOptions{})
+	t2 := tdb.Open(&ConnOptions{})
 	assert.Equal(t2.conn.At(), at2)
 	assert.Equal(db.pool, []*Connection(nil))
 
@@ -468,7 +584,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 
 
 	// open new connection - it should be conn1 but at updated database view
-	t3 := testopen(&ConnOptions{})
+	t3 := tdb.Open(&ConnOptions{})
 	assert.Same(t3.conn, t1.conn)
 	t = t3
 	assert.Equal(t.conn.At(), at2)
@@ -496,7 +612,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 
 	// open new connection in nopool mode to verify resync
-	t4 := testopen(&ConnOptions{NoPool: true})
+	t4 := tdb.Open(&ConnOptions{NoPool: true})
 	t = t4
 	assert.Equal(t.conn.At(), at2)
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
@@ -504,7 +620,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	// pin obj2 into live cache, similarly to conn1
 	rzcache := t.conn.Cache()
 	rzcache.Lock()
-	rzcache.SetControl(&zcacheControl{[]Oid{_obj2.oid}})
+	rzcache.SetControl(&zcacheControl{[]Oid{102}})
 	rzcache.Unlock()
 
 	// it should see latest data
@@ -579,13 +695,13 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 
 	t.PActivate(robj1)
 	t.PActivate(robj2)
-	t.checkObj(robj1, 101, at0, UPTODATE, 1, "init")
-	t.checkObj(robj2, 102, at0, UPTODATE, 1, "db")
+	t.checkObj(robj1, 101, at0, UPTODATE, 1, "bonjour")
+	t.checkObj(robj2, 102, at0, UPTODATE, 1, "monde")
 
 	robj1.PDeactivate()
 	robj2.PDeactivate()
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
-	t.checkObj(robj2, 102, at0, UPTODATE, 0, "db")
+	t.checkObj(robj2, 102, at0, UPTODATE, 0, "monde")
 
 	// Resync ↑ (at0 -> at2; from outside δtail coverage)
 	t.Abort()
