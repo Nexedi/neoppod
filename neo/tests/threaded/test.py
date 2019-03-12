@@ -1008,13 +1008,27 @@ class Test(NEOThreadedTest):
             client.sync()
             with cluster.master.filterConnection(client) as mc2:
                 mc2.delayInvalidateObjects()
+                # A first client node (C1) modifies an oid whereas
+                # invalidations to the other node (C2) are delayed.
                 x._p_changed = 1
                 t.commit()
                 tid2 = x._p_serial
+                # C2 loads the most recent revision of this oid (last_tid=tid1).
                 self.assertEqual((tid1, tid2), client.load(x._p_oid)[1:])
+            # C2 poll thread is frozen just before processing invalidation
+            # packet for tid2. C1 modifies something else -> tid3
             r._p_changed = 1
             t.commit()
+            self.assertEqual(tid1, client.last_tid)
             with Patch(client, _cache_lock_release=_cache_lock_release):
+                # 1. Just after having found nothing in cache, the worker
+                #    thread asks the poll thread to get notified about
+                #    invalidations for the loading oid.
+                # <context switch>
+                # 2. Both invalidations are processed. -> last_tid=tid3
+                # <context switch>
+                # 3. The worker thread loads before tid3+1.
+                #    The poll thread notified [tid2], which must be ignored.
                 self.assertEqual((tid2, None), client.load(x._p_oid)[1:])
         self.assertEqual(nonlocal_, [2, 0])
 
