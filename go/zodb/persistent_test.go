@@ -607,6 +607,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(obj2, 102, at2, UPTODATE,    0, "kitty")
 
+
 	// finish tnx3 and txn2 - conn1 and conn2 go back to db pool
 	t.Abort()
 	t2.Abort()

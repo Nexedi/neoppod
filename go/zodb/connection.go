@@ -222,7 +222,7 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 	}
 
 	// 2. lookup in !pinned referenced object (they are likely to be loaded
-	//    going from a referee)
+	//    going from a referrer)
 	wobj := cache.objtab[oid]
 	if wobj != nil {
 		if xobj := wobj.Get(); xobj != nil {
