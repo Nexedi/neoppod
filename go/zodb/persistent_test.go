@@ -727,16 +727,20 @@ func TestLiveCache(t0 *testing.T) {
 	tdb.Add(101, "мир")
 	tdb.Add(102, "труд")
 	tdb.Add(103, "май")
+	tdb.Add(104, "весна")
 	tdb.Commit()
 	at1 := tdb.head
 
 	zcc := &zcacheControl{map[Oid]PCachePolicy{
-		// obj1 - don't pin and don't keep state (default)
+		// obj1 - default (currently: don't pin and don't keep state)
+		// TODO: it should go into LRU on release, not dropped
 		101: 0,
-		// obj2 - pin and keep state
+		// objPK - pin and keep state
 		102: PCachePinObject | PCacheKeepState,
-		// obj3 - pin, but don't keep state
-		103: PCachePinObject | PCacheNonTemporal,
+		// objPD - pin, but don't keep state
+		103: PCachePinObject | PCacheDropState,
+		// objDD - drop object and state
+		104: PCacheDropObject | PCacheDropState,
 	}}
 
 	t := tdb.Open(&ConnOptions{})
@@ -746,58 +750,72 @@ func TestLiveCache(t0 *testing.T) {
 	zcache.Unlock()
 
 	// get objects
-	obj1 := t.Get(101)
-	obj2 := t.Get(102)
-	obj3 := t.Get(103)
-	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
-	t.checkObj(obj2, 102, InvalidTid, GHOST, 0)
-	t.checkObj(obj3, 103, InvalidTid, GHOST, 0)
+	obj := t.Get(101)
+	objPK := t.Get(102)
+	objPD := t.Get(103)
+	objDD := t.Get(104)
+	t.checkObj(obj,   101, InvalidTid, GHOST, 0)
+	t.checkObj(objPK, 102, InvalidTid, GHOST, 0)
+	t.checkObj(objPD, 103, InvalidTid, GHOST, 0)
+	t.checkObj(objDD, 104, InvalidTid, GHOST, 0)
 
 	// activate	* -> uptodate
-	t.PActivate(obj1)
-	t.PActivate(obj2)
-	t.PActivate(obj3)
-	t.checkObj(obj1, 101, at1, UPTODATE, 1, "мир")
-	t.checkObj(obj2, 102, at1, UPTODATE, 1, "труд")
-	t.checkObj(obj3, 103, at1, UPTODATE, 1, "май")
+	t.PActivate(obj)
+	t.PActivate(objPK)
+	t.PActivate(objPD)
+	t.PActivate(objDD)
+	t.checkObj(obj,   101, at1, UPTODATE, 1, "мир")
+	t.checkObj(objPK, 102, at1, UPTODATE, 1, "труд")
+	t.checkObj(objPD, 103, at1, UPTODATE, 1, "май")
+	t.checkObj(objDD, 104, at1, UPTODATE, 1, "весна")
 
-	// deactivate	obj{1,3} drop state, obj2 is kept
-	obj1.PDeactivate()
-	obj2.PDeactivate()
-	obj3.PDeactivate()
-	t.checkObj(obj1, 101, InvalidTid, GHOST, 0)
-	t.checkObj(obj2, 102, at1, UPTODATE, 0, "труд")
-	t.checkObj(obj3, 103, InvalidTid, GHOST, 0)
+	// deactivate	obj{,PD,DD} drop state, objPK is kept
+	obj.PDeactivate()
+	objPK.PDeactivate()
+	objPD.PDeactivate()
+	objDD.PDeactivate()
+	t.checkObj(obj,   101, InvalidTid, GHOST, 0)
+	t.checkObj(objPK, 102, at1, UPTODATE, 0, "труд")
+	t.checkObj(objPD, 103, InvalidTid, GHOST, 0)
+	t.checkObj(objDD, 104, InvalidTid, GHOST, 0)
 
 	// live cache should keep pinned object live even if we drop all
 	// regular pointers to it and do GC.
-	obj1._v_cookie = "peace"
-	obj2._v_cookie = "labour"
-	obj3._v_cookie = "may"
-	obj1 = nil
-	obj2 = nil
-	obj3 = nil
+	obj._v_cookie = "peace"
+	objPK._v_cookie = "labour"
+	objPD._v_cookie = "may"
+	objDD._v_cookie = "spring"
+	obj = nil
+	objPK = nil
+	objPD = nil
+	objDD = nil
 	for i := 0; i < 10; i++ {
 		runtime.GC() // need only 2 runs since cache uses finalizers
 	}
 
-	xobj1 := zcache.Get(101)
-	xobj2 := zcache.Get(102)
-	xobj3 := zcache.Get(103)
-	assert.Equal(xobj1, nil)
-	assert.NotEqual(xobj2, nil)
-	assert.NotEqual(xobj3, nil)
-	obj2 = xobj2.(*MyObject)
-	obj3 = xobj3.(*MyObject)
-	t.checkObj(obj2, 102, at1, UPTODATE,      0, "труд")
-	t.checkObj(obj3, 103, InvalidTid, GHOST,  0)
+	xobj := zcache.Get(101)
+	xobjPK := zcache.Get(102)
+	xobjPD := zcache.Get(103)
+	xobjDD := zcache.Get(104)
+	assert.Equal(xobj, nil)
+	assert.NotEqual(xobjPK, nil)
+	assert.NotEqual(xobjPD, nil)
+	assert.Equal(xobjDD, nil)
+	objPK = xobjPK.(*MyObject)
+	objPD = xobjPD.(*MyObject)
+	t.checkObj(objPK, 102, at1, UPTODATE,      0, "труд")
+	t.checkObj(objPD, 103, InvalidTid, GHOST,  0)
 
-	assert.Equal(obj2._v_cookie, "labour")
-	assert.Equal(obj3._v_cookie, "may")
+	assert.Equal(objPK._v_cookie, "labour")
+	assert.Equal(objPD._v_cookie, "may")
 
-	obj1 = t.Get(101)
-	t.checkObj(obj1, 101, InvalidTid, GHOST,  0)
-	assert.Equal(obj1._v_cookie, "")
+	obj = t.Get(101)
+	objDD = t.Get(104)
+	t.checkObj(obj,   101, InvalidTid, GHOST,  0)
+	t.checkObj(objDD, 104, InvalidTid, GHOST,  0)
+
+	assert.Equal(obj._v_cookie, "")
+	assert.Equal(objDD._v_cookie, "")
 }
 
 // TODO Map & List tests.
