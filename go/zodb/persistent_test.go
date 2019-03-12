@@ -456,7 +456,8 @@ func (t *tConnection) fatalif(err error) {
 
 // Persistent tests with storage.
 //
-// this test covers everything at application-level: Persistent, DB, Connection, LiveCache.
+// this test covers everything at application-level: Persistent, DB, Connection
+// and somewhat LiveCache.
 func TestPersistentDB(t *testing.T) {
 	// perform tests without and with raw data cache.
 	// (rawcache=y verifies how raw cache handles invalidations)
@@ -780,7 +781,7 @@ func TestLiveCache(t0 *testing.T) {
 	t.checkObj(objPD, 103, InvalidTid, GHOST, 0)
 	t.checkObj(objDD, 104, InvalidTid, GHOST, 0)
 
-	// live cache should keep pinned object live even if we drop all
+	// live cache should keep pinned object present even if we drop all
 	// regular pointers to it and do GC.
 	obj._v_cookie = "peace"
 	objPK._v_cookie = "labour"
@@ -817,6 +818,8 @@ func TestLiveCache(t0 *testing.T) {
 
 	assert.Equal(obj._v_cookie, "")
 	assert.Equal(objDD._v_cookie, "")
+
+	// TODO reclassify tests
 }
 
 // TODO Map & List tests.
