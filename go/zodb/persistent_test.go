@@ -816,6 +816,8 @@ func TestLiveCache(t0 *testing.T) {
 
 	assert.Equal(obj._v_cookie, "")
 	assert.Equal(objDD._v_cookie, "")
+
+	// TODO reclassify tests
 }
 
 // TODO Map & List tests.

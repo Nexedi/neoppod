@@ -268,6 +268,14 @@ func (cache *LiveCache) forEach(f func(IPersistent)) {
 // It is not safe to call SetControl simultaneously to other cache operations.
 func (cache *LiveCache) SetControl(c LiveCacheControl) {
 	cache.control = c
+
+	// reclassify all objects
+	c2 := *cache
+	cache.objtab = make(map[Oid]*weak.Ref)
+	cache.pinned = make(map[Oid]IPersistent)
+	c2.forEach(func(obj IPersistent) {
+		cache.setNew(obj.POid(), obj)
+	})
 }
 
 // get is like Get, but used when we already know object class.
