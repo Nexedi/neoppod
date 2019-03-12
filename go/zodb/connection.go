@@ -67,10 +67,10 @@ type Connection struct {
 type LiveCache struct {
 	sync.Mutex
 
-	// pinned objects. may have referees.
+	// pinned objects. may have referrers.
 	pinned map[Oid]IPersistent
 
-	// not pinned objects. may have referees. cache keeps weak references to objects.
+	// not pinned objects. may have referrers. cache keeps weak references to objects.
 	//
 	// rationale for using weakref:
 	//
