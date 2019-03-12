@@ -118,7 +118,7 @@ func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) 
 		cache = NewCache(storDriver, 128 * 4*1024)
 
 		// FIXME teach cache for watching and remove vvv
-		log.Printf("zodb: FIXME: open %s: cache is not ready for invalidations" +
+		log.Printf("zodb: FIXME: open %s: raw cache is not ready for invalidations" +
 			   " -> NoCache forced", zurl)
 		cache = nil
 	}
