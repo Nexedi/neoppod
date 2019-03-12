@@ -276,6 +276,8 @@ func (obj *Persistent) PDeactivate() {
 		return
 	}
 
+	// TODO cp & PCacheDropState | PCacheDropObject -> drop unconditionally; otherwise -> LRU
+
 	obj.serial = InvalidTid
 	obj.istate().DropState()
 	obj.state = GHOST

@@ -65,6 +65,13 @@ type Connection struct {
 //
 // Use .Lock() / .Unlock() to serialize access.
 type LiveCache struct {
+	sync.Mutex
+
+	// pinned objects. may have referrers.
+	pinned map[Oid]IPersistent
+
+	// not pinned objects. may have referrers. cache keeps weak references to objects.
+	//
 	// rationale for using weakref:
 	//
 	// on invalidations: we need to go oid -> obj and invalidate it.
@@ -111,8 +118,6 @@ type LiveCache struct {
 	//
 	// NOTE2 finalizers don't run on when they are attached to an object in cycle.
 	// Hopefully we don't have cycles with BTree/Bucket.
-
-	sync.Mutex
 	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
 
 	// hooks for application to influence live caching decisions.
@@ -135,14 +140,37 @@ type LiveCacheControl interface {
 type PCachePolicy int
 
 const (
+	// keep object pinned into cache, even if in ghost state.
+	//
+	// This allows to rely on object being never evicted from live cache.
+	//
+	// Note: object's state can still be discarded and the object can go
+	// into ghost state. Use PCacheKeepState to prevent such automatic
+	// state eviction until state discard is semantically required.
+	PCachePinObject PCachePolicy = 1 << iota
+
+	// don't keep object in cache.
+	//
+	// The object will be discarded from the cache completely as soon as it
+	// is semantically valid to do so.
+	PCacheDropObject
+
 	// keep object state in cache.
 	//
 	// This prevents object state to go away when !dirty object is no
-	// longer used.
+	// longer used. However the object itself can go away unless it is
+	// pinned into cache via PCachePinObject.
 	//
 	// Note: on invalidation, state of invalidated objects is discarded
 	// unconditionally.
-	PCacheKeepState PCachePolicy = 1 << iota
+	PCacheKeepState
+
+	// don't keep object state.
+	//
+	// Data access is likely non-temporal and object's state will be used
+	// once and then won't be used for a long time. Don't pollute cache
+	// with state of this object.
+	PCacheDropState
 )
 
 // ----------------------------------------
@@ -153,6 +181,7 @@ func newConnection(db *DB, at Tid) *Connection {
 		db:    db,
 		at:    at,
 		cache: LiveCache{
+			pinned: make(map[Oid]IPersistent),
 			objtab: make(map[Oid]*weak.Ref),
 		},
 	}
@@ -182,13 +211,23 @@ func (e *wrongClassError) Error() string {
 //
 // If object is found, it is guaranteed to stay in live cache while the caller keeps reference to it.
 func (cache *LiveCache) Get(oid Oid) IPersistent {
+	// 1. lookup in pinned objects (likely hottest ones)
+	obj := cache.pinned[oid]
+	if obj != nil {
+		return obj
+	}
+
+	// 2. lookup in !pinned referenced object (they are likely to be loaded
+	//    going from a referrer)
 	wobj := cache.objtab[oid]
-	var obj IPersistent
 	if wobj != nil {
 		if xobj := wobj.Get(); xobj != nil {
 			obj = xobj.(IPersistent)
 		}
 	}
+
+	// 3. TODO lookup in non-referenced LRU cache
+
 	return obj
 }
 
@@ -196,11 +235,24 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 //
 // The cache must not have entry for oid when setNew is called.
 func (cache *LiveCache) setNew(oid Oid, obj IPersistent) {
-	cache.objtab[oid] = weak.NewRef(obj)
+	var cp PCachePolicy
+	if cc := cache.control; cc != nil {
+		cp = cache.control.PCacheClassify(obj)
+	}
+	if cp & PCachePinObject != 0 {
+		cache.pinned[oid] = obj
+		// XXX assert .objtab[oid] == nil ?
+	} else {
+		cache.objtab[oid] = weak.NewRef(obj)
+		// XXX asseer .pinned[oid] == nil ?
+	}
 }
 
 // forEach calls f for all objects in the cache.
 func (cache *LiveCache) forEach(f func(IPersistent)) {
+	for _, obj := range cache.pinned {
+		f(obj)
+	}
 	for _, wobj := range cache.objtab {
 		if xobj := wobj.Get(); xobj != nil {
 			f(xobj.(IPersistent))
