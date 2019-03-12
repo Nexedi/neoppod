@@ -70,7 +70,7 @@ type LiveCache struct {
 	// pinned objects. may have referees.
 	pinned map[Oid]IPersistent
 
-	// not pinned objects. may have referees. cache keeps weak reference to an object.
+	// not pinned objects. may have referees. cache keeps weak references to objects.
 	//
 	// rationale for using weakref:
 	//
@@ -149,20 +149,20 @@ const (
 	//
 	// Note: object's state can still be discarded and the object can go
 	// into ghost state. Use PCacheKeepState to prevent such automatic
-	// state eviction until discard is really needed.
+	// state eviction until state discard is semantically required.
 	PCachePinObject PCachePolicy = 1 << iota
 
 	// don't keep object in the cache.
 	//
 	// The object will be discarded from the cache completely as soon as it
 	// is semantically valid to do so.
-	PCacheDiscardObject
-	PCacheOmitObject
+	PCacheDropObject
 
         // keep object state in the cache.
 	//
-	// Object's state is kept XXX ...
-	// Note: object can go awai (PCachePinObject)
+	// This prevents object state to go away when !dirty object is no
+	// longer used. However the object itself can go away unless it is
+	// pinned into cache via PCachePinObject.
 	//
 	// Note: on invalidation, state of invalidated objects is discarded
 	// unconditionally.
@@ -170,10 +170,10 @@ const (
 
 	// don't keep object state.
 	//
-	// Data access is non-temporal. Object's state is used once and then
-	// won't be used for a long time. Don't pollute cache with state of
-	// this object.
-	PCacheOmitState
+	// Data access is likely non-temporal and object's state will be used
+	// once and then won't be used for a long time. Don't pollute cache
+	// with state of this object.
+	PCacheDropState
 )
 
 // ----------------------------------------
