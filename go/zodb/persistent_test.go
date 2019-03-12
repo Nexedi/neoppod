@@ -256,7 +256,7 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 	connObj := cache.Get(oid)
 	cache.Unlock()
 	if obj != connObj {
-		t.Fatalf("cache.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
+		t.Fatalf("cache.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, obj)
 	}
 
 	// and conn.Get must return exactly obj.
@@ -265,7 +265,7 @@ func (t *tPersistentDB) checkObj(obj *MyObject, oid Oid, serial Tid, state Objec
 		t.Fatal(err)
 	}
 	if obj != connObj {
-		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, oid)
+		t.Fatalf("conn.get %s -> not same object:\nhave: %#v\nwant: %#v", oid, connObj, obj)
 	}
 
 	checkObj(t.T, obj, t.conn, oid, serial, state, refcnt)
