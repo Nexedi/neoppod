@@ -229,9 +229,9 @@ type tConnection struct {
 	*testing.T
 
 	// a transaction and DB connection opened under it
-	txn   transaction.Transaction
-	ctx   context.Context
-	conn  *Connection
+	txn  transaction.Transaction
+	ctx  context.Context
+	conn *Connection
 }
 
 // testdb creates and initializes new test database.
@@ -597,8 +597,8 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.checkObj(obj2, 102, InvalidTid, GHOST, 0)
 
 	// obj2 data should be new
-	t.PActivate(obj1);
-	t.PActivate(obj2);
+	t.PActivate(obj1)
+	t.PActivate(obj2)
 	t.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
 	t.checkObj(obj2, 102, at2, UPTODATE, 1, "kitty")
 
