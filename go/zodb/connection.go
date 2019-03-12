@@ -152,13 +152,13 @@ const (
 	// state eviction until state discard is semantically required.
 	PCachePinObject PCachePolicy = 1 << iota
 
-	// don't keep object in the cache.
+	// don't keep object in cache.
 	//
 	// The object will be discarded from the cache completely as soon as it
 	// is semantically valid to do so.
 	PCacheDropObject
 
-        // keep object state in the cache.
+	// keep object state in cache.
 	//
 	// This prevents object state to go away when !dirty object is no
 	// longer used. However the object itself can go away unless it is
@@ -237,7 +237,7 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 
 // setNew sets objects corresponding to oid.
 //
-// The cache must not have previous entry for oid before setNew is called.
+// The cache must not have entry for oid when setNew is called.
 func (cache *LiveCache) setNew(oid Oid, obj IPersistent) {
 	var cp PCachePolicy
 	if cc := cache.control; cc != nil {

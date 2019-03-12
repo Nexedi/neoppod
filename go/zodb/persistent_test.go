@@ -204,8 +204,10 @@ func (cc *zcacheControl) PCacheClassify(obj IPersistent) PCachePolicy {
 	return cc.pCachePolicy[obj.POid()] // default -> 0
 }
 
-// tPersistentDB represents testing database.	XXX -> tDB ?
-type tPersistentDB struct {
+// tDB represents testing database.
+//
+// The database can be worked on via zodb/go and committed into via zodb/py.
+type tDB struct {
 	*testing.T
 
 	work string // working directory
@@ -222,8 +224,8 @@ type tPersistentDB struct {
 	rawcache bool
 }
 
-// tPersistentConn represents testing Connection.	XXX -> tConn ?
-type tPersistentConn struct {
+// tConnection represents testing Connection.
+type tConnection struct {
 	*testing.T
 
 	// a transaction and DB connection opened under it
@@ -233,9 +235,9 @@ type tPersistentConn struct {
 }
 
 // testdb creates and initializes new test database.
-func testdb(t0 *testing.T, rawcache bool) *tPersistentDB {
+func testdb(t0 *testing.T, rawcache bool) *tDB {
 	t0.Helper()
-	t := &tPersistentDB{
+	t := &tDB{
 		T:        t0,
 		rawcache: rawcache,
 	}
@@ -265,7 +267,7 @@ func testdb(t0 *testing.T, rawcache bool) *tPersistentDB {
 }
 
 // Reopen repoens zodb/go .stor and .db .
-func (t *tPersistentDB) Reopen() {
+func (t *tDB) Reopen() {
 	t.Helper()
 	X := t.fatalif
 
@@ -279,7 +281,7 @@ func (t *tPersistentDB) Reopen() {
 	t.db = db
 }
 
-func (t *tPersistentDB) close() {
+func (t *tDB) close() {
 	t.Helper()
 	X := t.fatalif
 
@@ -295,7 +297,7 @@ func (t *tPersistentDB) close() {
 }
 
 // Close release resources associated with test database.
-func (t *tPersistentDB) Close() {
+func (t *tDB) Close() {
 	t.Helper()
 	X := t.fatalif
 
@@ -307,7 +309,7 @@ func (t *tPersistentDB) Close() {
 // MyObject(value).
 //
 // The commit is performed by Commit.
-func (t *tPersistentDB) Add(oid Oid, value string) {
+func (t *tDB) Add(oid Oid, value string) {
 	obj := NewMyObject(nil) // XXX hack - goes without jar
 	obj.oid = oid
 	obj.value = value
@@ -315,20 +317,19 @@ func (t *tPersistentDB) Add(oid Oid, value string) {
 }
 
 // Commit commits objects queued by Add.
-func (t *tPersistentDB) Commit() {
+func (t *tDB) Commit() {
 	t.Helper()
 
 	head, err := ZPyCommit(t.zurl, t.head, t.commitq...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	//fmt.Printf("commit @%s -> @%s\n", t.head, head)
 	t.head = head
 	t.commitq = nil
 }
 
 // Open opens new test transaction/connection.
-func (t *tPersistentDB) Open(opt *ConnOptions) *tPersistentConn {
+func (t *tDB) Open(opt *ConnOptions) *tConnection {
 	t.Helper()
 	X := t.fatalif
 
@@ -338,7 +339,7 @@ func (t *tPersistentDB) Open(opt *ConnOptions) *tPersistentConn {
 	assert.Same(t, conn.db, t.db)
 	assert.Same(t, conn.txn, txn)
 
-	return &tPersistentConn{
+	return &tConnection{
 		T:    t.T,
 		txn:  txn,
 		ctx:  ctx,
@@ -347,7 +348,7 @@ func (t *tPersistentDB) Open(opt *ConnOptions) *tPersistentConn {
 }
 
 // Get gets oid from t.conn and asserts its type.
-func (t *tPersistentConn) Get(oid Oid) *MyObject {
+func (t *tConnection) Get(oid Oid) *MyObject {
 	t.Helper()
 	xobj, err := t.conn.Get(t.ctx, oid)
 	if err != nil {
@@ -364,7 +365,7 @@ func (t *tPersistentConn) Get(oid Oid) *MyObject {
 }
 
 // PActivate activates obj in t environment.
-func (t *tPersistentConn) PActivate(obj IPersistent) {
+func (t *tConnection) PActivate(obj IPersistent) {
 	t.Helper()
 	err := obj.PActivate(t.ctx)
 	if err != nil {
@@ -375,7 +376,7 @@ func (t *tPersistentConn) PActivate(obj IPersistent) {
 // checkObj checks state of obj and that obj ∈ t.conn.
 //
 // if object is !GHOST - it also verifies its value.
-func (t *tPersistentConn) checkObj(obj *MyObject, oid Oid, serial Tid, state ObjectState, refcnt int32, valueOk ...string) {
+func (t *tConnection) checkObj(obj *MyObject, oid Oid, serial Tid, state ObjectState, refcnt int32, valueOk ...string) {
 	t.Helper()
 
 	// any object with live pointer to it must be also in conn's cache.
@@ -415,7 +416,7 @@ func (t *tPersistentConn) checkObj(obj *MyObject, oid Oid, serial Tid, state Obj
 }
 
 // Resync resyncs t to new transaction @at.
-func (t *tPersistentConn) Resync(at Tid) {
+func (t *tConnection) Resync(at Tid) {
 	t.Helper()
 	db := t.conn.db
 
@@ -434,20 +435,20 @@ func (t *tPersistentConn) Resync(at Tid) {
 }
 
 // Abort aborts t's connection and verifies it becomes !live.
-func (t *tPersistentConn) Abort() {
+func (t *tConnection) Abort() {
 	t.Helper()
 	assert.Same(t, t.conn.txn, t.txn)
 	t.txn.Abort()
 	assert.Equal(t, t.conn.txn, nil)
 }
 
-func (t *tPersistentDB) fatalif(err error) {
+func (t *tDB) fatalif(err error) {
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (t *tPersistentConn) fatalif(err error) {
+func (t *tConnection) fatalif(err error) {
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,7 +489,6 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	assert.Equal(db.pool, []*Connection(nil))
 
 	// δtail coverage is (at1, at1]  (at0 not included)
-	//fmt.Println(db.δtail.Tail(), db.δtail.Head())
 	assert.Equal(db.δtail.Tail(), at1)
 	assert.Equal(db.δtail.Head(), at1)
 
