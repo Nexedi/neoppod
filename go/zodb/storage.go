@@ -118,7 +118,7 @@ func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) 
 		cache = NewCache(storDriver, 128 * 4*1024)
 
 		// FIXME teach cache for watching and remove vvv
-		log.Printf("zodb: FIXME: open %s: cache is not ready for invalidations" +
+		log.Printf("zodb: FIXME: open %s: raw cache is not ready for invalidations" +
 			   " -> NoCache forced", zurl)
 		cache = nil
 	}
@@ -135,7 +135,7 @@ func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) 
 		watchCancel: make(map[chan<- Event]chan struct{}),
 
 	}
-	go stor.watcher() // stoped on close
+	go stor.watcher() // stopped on close
 
 	return stor, nil
 }
@@ -145,7 +145,7 @@ func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) 
 // storage represents storage opened via Open.
 //
 // it provides a small cache on top of raw storage driver to implement prefetch
-// and other storage-independed higher-level functionality.
+// and other storage-independent higher-level functionality.
 type storage struct {
 	driver  IStorageDriver
 	l1cache *Cache // can be =nil, if opened with NoCache
@@ -281,7 +281,7 @@ func (s *storage) _watcher() error {
 		req.ack <- s.head
 	}
 
-	// close all subscribers's watchq on watcher shutdow
+	// close all subscribers's watchq on watcher shutdown
 	defer func() {
 		addqFlush()
 		for watchq := range s.watchTab {

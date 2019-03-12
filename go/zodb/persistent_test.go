@@ -229,9 +229,9 @@ type tConnection struct {
 	*testing.T
 
 	// a transaction and DB connection opened under it
-	txn   transaction.Transaction
-	ctx   context.Context
-	conn  *Connection
+	txn  transaction.Transaction
+	ctx  context.Context
+	conn *Connection
 }
 
 // testdb creates and initializes new test database.
@@ -597,8 +597,8 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.checkObj(obj2, 102, InvalidTid, GHOST, 0)
 
 	// obj2 data should be new
-	t.PActivate(obj1);
-	t.PActivate(obj2);
+	t.PActivate(obj1)
+	t.PActivate(obj2)
 	t.checkObj(obj1, 101, at1, UPTODATE, 1, "hello")
 	t.checkObj(obj2, 102, at2, UPTODATE, 1, "kitty")
 
@@ -612,6 +612,9 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.Abort()
 	t2.Abort()
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
+
+
+	// ---- Resync ----
 
 	// open new connection in nopool mode to verify resync
 	t4 := tdb.Open(&ConnOptions{NoPool: true})
@@ -685,7 +688,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	t.checkObj(robj1, 101, InvalidTid, GHOST, 0)
 	t.checkObj(robj2, 102, at2, UPTODATE, 0, "kitty")
 
-	// Resync ↓ (at1 -> at0; to outside δtail coverage)
+	// Resync ↓ (at2 -> at0; to outside δtail coverage)
 	t.Abort()
 	assert.Equal(db.pool, []*Connection{t1.conn, t2.conn})
 	t.Resync(at0)

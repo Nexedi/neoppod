@@ -125,7 +125,10 @@ type LiveCache struct {
 }
 
 // LiveCacheControl is the interface that allows applications to influence
-// Connection's decisions with respect to Connection's live cache.
+// Connection's decisions with respect to Connection's LiveCache.
+//
+// See Connection.Cache and LiveCache.SetControl for how to install
+// LiveCacheControl on a connection's live cache.
 type LiveCacheControl interface {
 	// PCacheClassify is called to classify an object and returns live
 	// cache policy that should be used for this object.
@@ -210,6 +213,7 @@ func (e *wrongClassError) Error() string {
 // Get lookups object corresponding to oid in the cache.
 //
 // If object is found, it is guaranteed to stay in live cache while the caller keeps reference to it.
+// LiveCacheControl can be used to extend that guarantee.
 func (cache *LiveCache) Get(oid Oid) IPersistent {
 	// 1. lookup in pinned objects (likely hottest ones)
 	obj := cache.pinned[oid]
