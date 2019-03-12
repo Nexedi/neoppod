@@ -21,9 +21,11 @@ import os, random, shutil, time, unittest
 import transaction, ZODB
 from neo.client.exception import NEOPrimaryMasterLost
 from neo.lib import logging
-from neo.lib.util import u64
+from neo.lib.util import p64, u64
+from neo.master.transactions import TransactionManager
 from neo.storage.database import getAdapterKlass, importer, manager
-from neo.storage.database.importer import Repickler, TransactionRecord
+from neo.storage.database.importer import \
+    Repickler, TransactionRecord, WriteBack
 from .. import expectedFailure, getTempDirectory, random_tree, Patch
 from . import NEOCluster, NEOThreadedTest
 from ZODB import serialize
@@ -179,7 +181,7 @@ class ImporterTests(NEOThreadedTest):
         del db_list, iter_list
         #del zodb[0][1][zodb.pop()[0]]
         # Start NEO cluster with transparent import.
-        with NEOCluster(importer=importer) as cluster:
+        with NEOCluster(importer=importer, partitions=2) as cluster:
             # Suspend import for a while, so that import
             # is finished in the middle of the below 'for' loop.
             # Use a slightly different main loop for storage so that it
@@ -243,10 +245,10 @@ class ImporterTests(NEOThreadedTest):
             db.close()
 
     @unittest.skipUnless(importer.FORK, 'no os.fork')
-    def test1(self):
+    def testMultiProcessWriteBack(self):
         self._importFromFileStorage()
 
-    def testThreadedWriteback(self):
+    def testThreadedWritebackAndDBReconnection(self):
         # Also check reconnection to the underlying DB for relevant backends.
         tid_list = []
         def __init__(orig, tr, db, tid):
@@ -273,6 +275,24 @@ class ImporterTests(NEOThreadedTest):
             self._importFromFileStorage()
             self.assertFalse(p.applied)
         self.assertEqual(len(tid_list), 11)
+
+    def testThreadedWritebackWithUnbalancedPartitions(self):
+        N = 7
+        nonlocal_ = [0]
+        def committed(orig, self):
+            if nonlocal_[0] > N:
+                orig(self)
+        def _nextTID(orig, self, *args):
+            if args:
+                return orig(self, *args)
+            nonlocal_[0] += 1
+            return orig(self, p64(nonlocal_[0] == N), 2)
+        with Patch(importer, FORK=False), \
+             Patch(TransactionManager, _nextTID=_nextTID), \
+             Patch(WriteBack, chunk_size=N-2), \
+             Patch(WriteBack, committed=committed):
+            self._importFromFileStorage()
+        self.assertEqual(nonlocal_[0], 10)
 
     def testMerge(self):
         multi = 1, 2, 3

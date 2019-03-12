@@ -678,6 +678,7 @@ class WriteBack(object):
 
     _changed = False
     _process = None
+    chunk_size = 100
 
     def __init__(self, db, storage):
         self._db = db
@@ -737,7 +738,6 @@ class WriteBack(object):
     def iterator(self):
         db = self._db
         np = self._np
-        chunk_size = max(2, 1000 // np)
         offset_list = xrange(np)
         while 1:
             with db:
@@ -748,23 +748,26 @@ class WriteBack(object):
                 if np == len(db._readable_set):
                     while 1:
                         tid_list = []
-                        loop = False
+                        max_tid = MAX_TID
                         for offset in offset_list:
                             x = db.getReplicationTIDList(
-                                self.min_tid, MAX_TID, chunk_size, offset)
+                                self.min_tid, max_tid, self.chunk_size, offset)
                             tid_list += x
-                            if len(x) == chunk_size:
-                                loop = True
-                        if tid_list:
-                            tid_list.sort()
-                            for tid in tid_list:
-                                if self._stop.is_set():
-                                    return
-                                yield TransactionRecord(db, tid)
+                            if len(x) == self.chunk_size:
+                                max_tid = x[-1]
+                        if not tid_list:
+                            break
+                        tid_list.sort()
+                        for tid in tid_list:
+                            if self._stop.is_set():
+                                return
+                            yield TransactionRecord(db, tid)
+                            if tid == max_tid:
+                                break
+                        else:
                             self.min_tid = util.add64(tid, 1)
-                            if loop:
-                                continue
-                        break
+                            break
+                        self.min_tid = util.add64(tid, 1)
             if not self._event.is_set():
                 self._idle.set()
                 self._event.wait()
