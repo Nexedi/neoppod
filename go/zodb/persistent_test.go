@@ -192,19 +192,14 @@ func TestPersistentBasic(t *testing.T) {
 
 // ---- TestPersistentDB ----
 
-// zcacheControl is simple live cache control that prevents specified objects
-// to be evicted from live cache.
+// zcacheControl is simple live cache control that is organized as `{} oid ->
+// PCachePolicy` table.
 type zcacheControl struct {
-	keep []Oid // objects that must not be evicted
+	pCachePolicy map[Oid]PCachePolicy
 }
 
-func (cc *zcacheControl) WantEvict(obj IPersistent) bool {
-	for _, oid := range cc.keep {
-		if obj.POid() == oid {
-			return false
-		}
-	}
-	return true
+func (cc *zcacheControl) PCacheClassify(obj IPersistent) PCachePolicy {
+	return cc.pCachePolicy[obj.POid()] // default -> 0
 }
 
 // tDB represents testing database.
@@ -496,9 +491,13 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	assert.Equal(db.δtail.Head(), at1)
 
 	// do not evict obj2 from live cache. obj1 is ok to be evicted.
+	zcc := &zcacheControl{map[Oid]PCachePolicy{
+		102: PCacheKeepState,
+	}}
+
 	zcache1 := t.conn.Cache()
 	zcache1.Lock()
-	zcache1.SetControl(&zcacheControl{[]Oid{102}})
+	zcache1.SetControl(zcc)
 	zcache1.Unlock()
 
 	// get objects
@@ -620,7 +619,7 @@ func testPersistentDB(t0 *testing.T, rawcache bool) {
 	// pin obj2 into live cache, similarly to conn1
 	rzcache := t.conn.Cache()
 	rzcache.Lock()
-	rzcache.SetControl(&zcacheControl{[]Oid{102}})
+	rzcache.SetControl(zcc)
 	rzcache.Unlock()
 
 	// it should see latest data
