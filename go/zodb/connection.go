@@ -235,20 +235,20 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 	return obj
 }
 
-// set sets objects corresponding to oid.
-// XXX -> setNew?
-func (cache *LiveCache) set(oid Oid, obj IPersistent) {
+// setNew sets objects corresponding to oid.
+//
+// The cache must not have previous entry for oid before setNew is called.
+func (cache *LiveCache) setNew(oid Oid, obj IPersistent) {
 	var cp PCachePolicy
 	if cc := cache.control; cc != nil {
 		cp = cache.control.PCacheClassify(obj)
 	}
-	// XXX remember cp in obj .pcachePolicy?
-	// XXX del .objtab[oid] ?
-	// XXX del .pinned[oid] ?
 	if cp & PCachePinObject != 0 {
 		cache.pinned[oid] = obj
+		// XXX assert .objtab[oid] == nil ?
 	} else {
 		cache.objtab[oid] = weak.NewRef(obj)
+		// XXX asseer .pinned[oid] == nil ?
 	}
 }
 
@@ -278,7 +278,7 @@ func (cache *LiveCache) SetControl(c LiveCacheControl) {
 	cache.objtab = make(map[Oid]*weak.Ref)
 	cache.pinned = make(map[Oid]IPersistent)
 	c2.forEach(func(obj IPersistent) {
-		cache.set(obj.POid(), obj)
+		cache.setNew(obj.POid(), obj)
 	})
 }
 
@@ -292,7 +292,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	obj := conn.cache.Get(oid)
 	if obj == nil {
 		obj = newGhost(class, oid, conn)
-		conn.cache.set(oid, obj)
+		conn.cache.setNew(oid, obj)
 		checkClass = false
 	}
 	conn.cache.Unlock()

@@ -741,6 +741,7 @@ func TestLiveCache(t0 *testing.T) {
 		103: PCachePinObject | PCacheDropState,
 		// objDD - drop object and state
 		104: PCacheDropObject | PCacheDropState,
+		// XXX objDK ?
 	}}
 
 	t := tdb.Open(&ConnOptions{})
