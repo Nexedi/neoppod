@@ -565,14 +565,9 @@ func (conn *Connection) resync1(at Tid) {
 	defer conn.cache.Unlock()
 
 	if δall {
-		// XXX keep synced with LiveCache details
-		// XXX -> conn.cache.forEach?
-		for _, wobj := range conn.cache.objtab {
-			obj, _ := wobj.Get().(IPersistent)
-			if obj != nil {
-				obj.PInvalidate()
-			}
-		}
+		conn.cache.forEach(func(obj IPersistent) {
+			obj.PInvalidate()
+		})
 	} else {
 		for oid := range δobj {
 			obj := conn.cache.Get(oid)

@@ -179,6 +179,22 @@ func (cache *LiveCache) Get(oid Oid) IPersistent {
 	return obj
 }
 
+// setNew sets objects corresponding to oid.
+//
+// The cache must not have entry for oid when setNew is called.
+func (cache *LiveCache) setNew(oid Oid, obj IPersistent) {
+	cache.objtab[oid] = weak.NewRef(obj)
+}
+
+// forEach calls f for all objects in the cache.
+func (cache *LiveCache) forEach(f func(IPersistent)) {
+	for _, wobj := range cache.objtab {
+		if xobj := wobj.Get(); xobj != nil {
+			f(xobj.(IPersistent))
+		}
+	}
+}
+
 // SetControl installs c to handle cache decisions.
 //
 // Any previously installed cache control is uninstalled.
@@ -199,7 +215,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	obj := conn.cache.Get(oid)
 	if obj == nil {
 		obj = newGhost(class, oid, conn)
-		conn.cache.objtab[oid] = weak.NewRef(obj)
+		conn.cache.setNew(oid, obj)
 		checkClass = false
 	}
 	conn.cache.Unlock()
