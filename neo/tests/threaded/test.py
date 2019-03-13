@@ -949,6 +949,8 @@ class Test(NEOThreadedTest):
             t.join()
             self.assertEqual(x2.value, 1)
             self.assertEqual(x1.value, 0)
+            self.assertEqual((x2._p_serial, x1._p_serial),
+                cluster.client._cache.load(x1._p_oid, x1._p_serial)[1:])
 
             def invalidations(conn):
                 try:
