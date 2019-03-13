@@ -397,7 +397,11 @@ class Application(ThreadedApplication):
         try:
             while 1:
                 with lock:
-                    result = self._loadFromCache(oid, tid, before_tid)
+                    if tid:
+                        result = self._cache.load(oid, tid + '*')
+                        assert not result or result[1] == tid
+                    else:
+                        result = self._cache.load(oid, before_tid)
                     if result:
                         return result
                     load_lock = self._loading[oid][0]
@@ -464,16 +468,6 @@ class Application(ThreadedApplication):
         return self._askStorageForRead(oid,
             Packets.AskObject(oid, at_tid, before_tid),
             askStorage)
-
-    def _loadFromCache(self, oid, at_tid=None, before_tid=None):
-        """
-        Load from local cache, return None if not found.
-        """
-        if at_tid:
-            result = self._cache.load(oid, at_tid + '*')
-            assert not result or result[1] == at_tid
-            return result
-        return self._cache.load(oid, before_tid)
 
     def tpc_begin(self, storage, transaction, tid=None, status=' '):
         """Begin a new transaction."""
