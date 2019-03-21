@@ -91,8 +91,8 @@ class Application(BaseApplication):
             help='the name of cluster to backup')
         _('M', 'upstream-masters', parse=util.parseMasterList,
             help='list of master nodes in the cluster to backup')
-        _.int('u', 'uuid',
-            help="specify an UUID to use for this process (testing purpose)")
+        _.int('i', 'nid',
+            help="specify an NID to use for this process (testing purpose)")
 
     def __init__(self, config):
         super(Application, self).__init__(
@@ -108,7 +108,7 @@ class Application(BaseApplication):
         for master_address in config['masters']:
             self.nm.createMaster(address=master_address)
         self._node = self.nm.createMaster(address=self.server,
-                                          uuid=config.get('uuid'))
+                                          uuid=config.get('nid'))
         logging.node(self.name, self.uuid)
 
         logging.debug('IP address is %s, port is %d', *self.server)

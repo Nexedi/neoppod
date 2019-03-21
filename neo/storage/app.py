@@ -65,9 +65,9 @@ class Application(BaseApplication):
                  " inefficient (this option should disappear in the future)")
 
         _ = parser.group('database creation')
-        _.int('u', 'uuid',
-            help="specify an UUID to use for this process. Previously"
-                 " assigned UUID takes precedence (i.e. you should"
+        _.int('i', 'nid',
+            help="specify an NID to use for this process. Previously"
+                 " assigned NID takes precedence (i.e. you should"
                  " always use reset with this switch)")
         _('e', 'engine', help="database engine (MySQL only)")
         _.bool('dedup',
@@ -119,8 +119,8 @@ class Application(BaseApplication):
         self.devpath = self.dm.getTopologyPath()
 
         # force node uuid from command line argument, for testing purpose only
-        if 'uuid' in config:
-            self.uuid = config['uuid']
+        if 'nid' in config:
+            self.uuid = config['nid']
             logging.node(self.name, self.uuid)
 
         registerLiveDebugger(on_log=self.log)

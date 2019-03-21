@@ -36,8 +36,8 @@ class Application(BaseApplication):
         cls.addCommonServerOptions('admin', '127.0.0.1:9999')
 
         _ = _.group('admin')
-        _.int('u', 'uuid',
-            help="specify an UUID to use for this process (testing purpose)")
+        _.int('i', 'nid',
+            help="specify an NID to use for this process (testing purpose)")
 
     def __init__(self, config):
         super(Application, self).__init__(
@@ -53,7 +53,7 @@ class Application(BaseApplication):
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
-        self.uuid = config.get('uuid')
+        self.uuid = config.get('nid')
         logging.node(self.name, self.uuid)
         self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)

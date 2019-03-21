@@ -282,7 +282,7 @@ class NEOProcess(Process):
     def _args(self):
         args = super(NEOProcess, self)._args()
         if self.uuid:
-            args[:0] = '--uuid', str(self.uuid)
+            args[:0] = '--nid', str(self.uuid)
         return args
 
     def run(self):

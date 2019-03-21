@@ -76,7 +76,7 @@ class Application(ThreadedApplication):
         self.primary_master_node = None
         self.trying_master_node = None
 
-        # no self-assigned UUID, primary master will supply us one
+        # no self-assigned NID, primary master will supply us one
         self._cache = ClientCache() if cache_size is None else \
                       ClientCache(max_size=cache_size)
         self._loading_oid = None
