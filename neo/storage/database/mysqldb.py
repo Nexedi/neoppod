@@ -965,7 +965,7 @@ class MySQLDatabaseManager(DatabaseManager):
         cmd += self._cmdline()
         return subprocess.check_output(cmd)
 
-    def restore(self, sql):
+    def _restore(self, sql):
         import subprocess
         cmd = ['mysql']
         cmd += self._cmdline()
