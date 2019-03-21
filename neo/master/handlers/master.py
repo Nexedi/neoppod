@@ -38,7 +38,7 @@ class ElectionHandler(MasterHandler):
             super(ElectionHandler, self).connectionCompleted(conn)
             app = self.app
             conn.ask(Packets.RequestIdentification(NodeTypes.MASTER,
-                app.uuid, app.server, app.name, (), app.election))
+                app.uuid, app.server, app.name, app.election, (), ()))
 
     def connectionFailed(self, conn):
         super(ElectionHandler, self).connectionFailed(conn)

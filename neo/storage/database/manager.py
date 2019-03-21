@@ -180,6 +180,10 @@ class DatabaseManager(object):
     def erase(self):
         """"""
 
+    def restore(self, dump): # for tests
+        self.erase()
+        self._restore(dump)
+
     def _setup(self, dedup=False):
         """To be overridden by the backend to set up a database
 
@@ -532,7 +536,7 @@ class DatabaseManager(object):
                 None if data_serial is None else util.p64(data_serial))
 
     @requires(_getPartitionTable)
-    def _iterAssignedCells(self):
+    def iterAssignedCells(self):
         my_nid = self.getUUID()
         return ((offset, tid) for offset, nid, tid in self._getPartitionTable()
                               if my_nid == nid)
@@ -578,13 +582,13 @@ class DatabaseManager(object):
                 d.append(p << 48 if i is None else i + 1)
         else:
             readable_set.clear()
-        readable_set.update(x[0] for x in self._iterAssignedCells()
+        readable_set.update(x[0] for x in self.iterAssignedCells()
                                  if -x[1] in READABLE)
 
     @requires(_changePartitionTable, _getLastIDs, _getLastTID)
     def changePartitionTable(self, ptid, cell_list, reset=False):
         my_nid = self.getUUID()
-        pt = dict(self._iterAssignedCells())
+        pt = dict(self.iterAssignedCells())
         # In backup mode, the last transactions of a readable cell may be
         # incomplete.
         backup_tid = self.getBackupTID()
@@ -609,7 +613,7 @@ class DatabaseManager(object):
 
     @requires(_changePartitionTable)
     def updateCellTID(self, partition, tid):
-        t, = (t for p, t in self._iterAssignedCells() if p == partition)
+        t, = (t for p, t in self.iterAssignedCells() if p == partition)
         if t < 0:
             return
         tid = util.u64(tid)
@@ -631,7 +635,7 @@ class DatabaseManager(object):
             next_tid = util.u64(backup_tid)
             if next_tid:
                 next_tid += 1
-        for offset, tid in self._iterAssignedCells():
+        for offset, tid in self.iterAssignedCells():
             if tid >= 0: # OUT_OF_DATE
                 yield offset, p64(tid and tid + 1)
             elif -tid in READABLE:
@@ -873,7 +877,7 @@ class DatabaseManager(object):
             assert tid, tid
             cell_list = []
             my_nid = self.getUUID()
-            for partition, state in self._iterAssignedCells():
+            for partition, state in self.iterAssignedCells():
                 if state > tid:
                     cell_list.append((partition, my_nid, tid))
                 self._deleteRange(partition, tid)
