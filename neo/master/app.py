@@ -196,7 +196,7 @@ class Application(BaseApplication):
             node_dict[NodeTypes.MASTER].append(node_info)
         return node_dict
 
-    def broadcastNodesInformation(self, node_list, exclude=None):
+    def broadcastNodesInformation(self, node_list):
         """
           Broadcast changes for a set a nodes
           Send only one packet per connection to reduce bandwidth
@@ -209,7 +209,7 @@ class Application(BaseApplication):
             # We don't skip pending storage nodes because we don't send them
             # the full list of nodes when they're added, and it's also quite
             # useful to notify them about new masters.
-            if node_list and node is not exclude:
+            if node_list:
                 node.send(Packets.NotifyNodeInformation(now, node_list))
 
     def broadcastPartitionChanges(self, cell_list):

@@ -713,5 +713,5 @@ class SQLiteDatabaseManager(DatabaseManager):
         main[-1:-1] = data
         return '\n'.join(main) + '\n'
 
-    def restore(self, sql):
+    def _restore(self, sql):
         self.conn.executescript(sql)
