@@ -32,7 +32,7 @@ class IdentificationHandler(EventHandler):
         return self.app.nm
 
     def requestIdentification(self, conn, node_type, uuid, address, name,
-                              devpath, id_timestamp):
+                              id_timestamp, devpath, new_nid):
         self.checkClusterName(name)
         app = self.app
         # reject any incoming connections if not ready

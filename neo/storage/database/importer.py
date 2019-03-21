@@ -379,7 +379,7 @@ class ImporterDatabaseManager(DatabaseManager):
         db = self.db = buildDatabaseManager(conf['adapter'],
             (conf['database'], conf.get('engine'), conf['wait']))
         for x in """getConfiguration _setConfiguration setNumPartitions
-                    query erase getPartitionTable _iterAssignedCells
+                    query erase getPartitionTable iterAssignedCells
                     updateCellTID getUnfinishedTIDDict dropUnfinishedData
                     abortTransaction storeTransaction lockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit

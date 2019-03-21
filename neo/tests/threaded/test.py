@@ -2826,7 +2826,6 @@ class Test(NEOThreadedTest):
             dm = s.dm
             dm.commit()
             dump_dict[s.uuid] = dm.dump()
-            dm.erase()
             with open(path % (s.getAdapter(), s.uuid)) as f:
                 dm.restore(f.read())
         with NEOCluster(storage_count=3, partitions=3, replicas=1,
