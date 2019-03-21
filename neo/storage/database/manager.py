@@ -271,6 +271,18 @@ class DatabaseManager(object):
     def _setConfiguration(self, key, value):
         """"""
 
+    def _changePartitionTable(self, cell_list, reset=False):
+        """Change a part of a partition table. The list of cells is
+        a tuple of tuples, each of which consists of an offset (row ID),
+        the NID of a storage node, and a cell state. If reset is True,
+        existing data is first thrown away.
+        """
+
+    def _getPartitionTable(self):
+        """Return a whole partition table as a sequence of rows. Each row
+        is again a tuple of an offset (row ID), the NID of a storage
+        node, and a cell state."""
+
     def getUUID(self):
         """
             Load a NID from a database.
@@ -279,11 +291,19 @@ class DatabaseManager(object):
         if nid is not None:
             return int(nid)
 
+    @requires(_changePartitionTable, _getPartitionTable)
     def setUUID(self, nid):
         """
             Store a NID into a database.
         """
-        self.setConfiguration('nid', str(nid))
+        old_nid = self.getUUID()
+        if nid != old_nid:
+            if old_nid:
+                self._changePartitionTable((offset, x, tid)
+                    for offset, x, tid in self._getPartitionTable()
+                    if x == old_nid
+                    for x, tid in ((x, None), (nid, tid)))
+            self.setConfiguration('nid', str(nid))
 
     def getNumPartitions(self):
         """
@@ -511,11 +531,6 @@ class DatabaseManager(object):
             return (util.p64(serial), compression, checksum, data,
                 None if data_serial is None else util.p64(data_serial))
 
-    def _getPartitionTable(self):
-        """Return a whole partition table as a sequence of rows. Each row
-        is again a tuple of an offset (row ID), the NID of a storage
-        node, and a cell state."""
-
     @requires(_getPartitionTable)
     def _iterAssignedCells(self):
         my_nid = self.getUUID()
@@ -536,13 +551,6 @@ class DatabaseManager(object):
             yield
         finally:
             readable_set.remove(offset)
-
-    def _changePartitionTable(self, cell_list, reset=False):
-        """Change a part of a partition table. The list of cells is
-        a tuple of tuples, each of which consists of an offset (row ID),
-        the NID of a storage node, and a cell state. If reset is True,
-        existing data is first thrown away.
-        """
 
     def _getDataLastId(self, partition):
         """

@@ -399,6 +399,13 @@ class ImporterDatabaseManager(DatabaseManager):
     def _updateReadable(self):
         raise AssertionError
 
+    def setUUID(self, nid):
+        old_nid = self.getUUID()
+        if old_nid:
+            assert old_nid == nid, (old_nid, nid)
+        else:
+            self.setConfiguration('nid', str(nid))
+
     def changePartitionTable(self, *args, **kw):
         self.db.changePartitionTable(*args, **kw)
         if self._writeback:
