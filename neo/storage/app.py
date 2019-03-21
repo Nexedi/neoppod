@@ -63,6 +63,11 @@ class Application(BaseApplication):
             help="do not delete data of discarded cells, which is useful for"
                  " big databases because the current implementation is"
                  " inefficient (this option should disappear in the future)")
+        _.bool('new-nid',
+            help="request a new NID from a cluster that is already"
+                 " operational, update the database with the new NID and exit,"
+                 " which makes easier to quickly set up a replica by copying"
+                 " the database of another node while it was stopped")
 
         _ = parser.group('database creation')
         _.int('i', 'nid',
@@ -118,10 +123,16 @@ class Application(BaseApplication):
         self.loadConfiguration()
         self.devpath = self.dm.getTopologyPath()
 
-        # force node uuid from command line argument, for testing purpose only
-        if 'nid' in config:
-            self.uuid = config['nid']
-            logging.node(self.name, self.uuid)
+        if config.get('new_nid'):
+            self.new_nid = [x[0] for x in self.dm.iterAssignedCells()]
+            if not self.new_nid:
+                sys.exit('database is empty')
+            self.uuid = None
+        else:
+            self.new_nid = ()
+            if 'nid' in config: # for testing purpose only
+                self.uuid = config['nid']
+                logging.node(self.name, self.uuid)
 
         registerLiveDebugger(on_log=self.log)
 
@@ -250,8 +261,9 @@ class Application(BaseApplication):
         pt = self.pt
 
         # search, find, connect and identify to the primary master
-        bootstrap = BootstrapManager(self, NodeTypes.STORAGE, self.server,
-                                     self.devpath)
+        bootstrap = BootstrapManager(self, NodeTypes.STORAGE,
+                                     None if self.new_nid else self.server,
+                                     self.devpath, self.new_nid)
         self.master_node, self.master_conn, num_partitions, num_replicas = \
             bootstrap.getPrimaryConnection()
         self.dm.setUUID(self.uuid)

@@ -17,14 +17,14 @@
 from neo.lib import logging
 from neo.lib.exception import PrimaryElected
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, \
-    NotReadyError, Packets, ProtocolError, uuid_str
+from neo.lib.protocol import CellStates, ClusterStates, NodeStates, \
+    NodeTypes, NotReadyError, Packets, ProtocolError, uuid_str
 from ..app import monotonic_time
 
 class IdentificationHandler(EventHandler):
 
     def requestIdentification(self, conn, node_type, uuid,
-                              address, name, devpath, id_timestamp):
+                              address, name, id_timestamp, devpath, new_nid):
         app = self.app
         self.checkClusterName(name)
         if address == app.server:
@@ -77,6 +77,16 @@ class IdentificationHandler(EventHandler):
                 manager = app
             state, handler = manager.identifyStorageNode(
                 uuid is not None and node is not None)
+            if not address:
+                if app.cluster_state == ClusterStates.RECOVERING:
+                    raise NotReadyError
+                if uuid or not new_nid:
+                    raise ProtocolError
+                state = NodeStates.DOWN
+                # We'll let the storage node close the connection. If we
+                # aborted it at the end of the method, BootstrapManager
+                # (which is used by storage nodes) could see the closure
+                # and try to reconnect to a master.
             human_readable_node_type = ' storage (%s) ' % (state, )
         elif node_type == NodeTypes.MASTER:
             if app.election:
@@ -105,9 +115,15 @@ class IdentificationHandler(EventHandler):
             node.devpath = tuple(devpath)
         node.id_timestamp = monotonic_time()
         node.setState(state)
+        app.broadcastNodesInformation([node])
+        if new_nid:
+            changed_list = []
+            for offset in new_nid:
+                changed_list.append((offset, uuid, CellStates.OUT_OF_DATE))
+                app.pt._setCell(offset, node, CellStates.OUT_OF_DATE)
+            app.broadcastPartitionChanges(changed_list)
         conn.setHandler(handler)
         node.setConnection(conn, not node.isIdentified())
-        app.broadcastNodesInformation([node], node)
 
         conn.answer(Packets.AcceptIdentification(
             NodeTypes.MASTER,
@@ -118,11 +134,10 @@ class IdentificationHandler(EventHandler):
         handler._notifyNodeInformation(conn)
         handler.connectionCompleted(conn, True)
 
-
 class SecondaryIdentificationHandler(EventHandler):
 
     def requestIdentification(self, conn, node_type, uuid,
-                              address, name, devpath, id_timestamp):
+                              address, name, id_timestamp, devpath, new_nid):
         app = self.app
         self.checkClusterName(name)
         if address == app.server:

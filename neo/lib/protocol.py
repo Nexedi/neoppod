@@ -685,8 +685,10 @@ class RequestIdentification(Packet):
         PUUID('uuid'),
         PAddress('address'),
         PString('name'),
-        PList('devpath', PString('devid')),
         PFloat('id_timestamp'),
+        # storage:
+            PList('devpath', PString('devid')),
+            PList('new_nid', PNumber('offset')),
     )
 
     _answer = PStruct('accept_identification',

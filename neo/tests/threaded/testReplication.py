@@ -29,7 +29,7 @@ from neo.storage.database.manager import DatabaseManager
 from neo.storage import replicator
 from neo.lib.connector import SocketConnector
 from neo.lib.connection import ClientConnection
-from neo.lib.protocol import CellStates, ClusterStates, Packets, \
+from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import add64, p64, u64
 from .. import Patch, TransactionalResource
@@ -927,6 +927,39 @@ class ReplicationTests(NEOThreadedTest):
 
     def testReplicationBlockedByUnfinished2(self):
         self.testReplicationBlockedByUnfinished1(True)
+
+    @with_cluster(partitions=6, storage_count=4, start_cluster=0)
+    def testCloneStorage(self, cluster):
+        """
+        Test cloning of storage nodes using --new-nid instead NEO replication.
+        """
+        s01 = cluster.storage_list[:2]
+        s23 = cluster.storage_list[2:]
+        cluster.start(storage_list=s01)
+        cluster.importZODB()(6)
+        self.tic()
+        with Patch(cluster, storage_list=s01):
+            cluster.sortStorageList()
+            cluster.stop(replicas=1)
+        cluster.storage_list[:2] = s01
+        storage_dict = {}
+        for s, d in zip(s01, s23):
+            d.dm.restore(s.dm.dump())
+            d.resetNode(new_nid=True)
+            storage_dict[s] = NodeStates.RUNNING
+            storage_dict[d] = NodeStates.DOWN
+        cluster.start(storage_dict)
+        cluster.join(s23)
+        for d in s23:
+            d.resetNode(new_nid=False)
+            d.start()
+        self.tic()
+        self.checkReplicas(cluster)
+        expected = '|'.join(['U.U.|.U.U'] * 3)
+        self.assertPartitionTable(cluster, expected)
+        cluster.neoctl.tweakPartitionTable()
+        self.tic()
+        self.assertPartitionTable(cluster, expected)
 
     @with_cluster(partitions=5, replicas=2, storage_count=3)
     def testCheckReplicas(self, cluster):
