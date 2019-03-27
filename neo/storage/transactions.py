@@ -98,9 +98,12 @@ class TransactionManager(EventQueue):
         self._load_lock_dict = {}
         self._replicated = {}
         self._replicating = set()
+
+    def getPartition(self, oid):
         from neo.lib.util import u64
-        np = app.pt.getPartitions()
+        np = self._app.pt.getPartitions()
         self.getPartition = lambda oid: u64(oid) % np
+        return self.getPartition(oid)
 
     def discarded(self, offset_list):
         self._replicating.difference_update(offset_list)

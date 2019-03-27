@@ -36,8 +36,6 @@ class BootstrapManager(EventHandler):
         self.devpath = devpath
         self.new_nid = new_nid
         self.node_type = node_type
-        self.num_replicas = None
-        self.num_partitions = None
         app.nm.reset()
 
     uuid = property(lambda self: self.app.uuid)
@@ -54,10 +52,8 @@ class BootstrapManager(EventHandler):
     def connectionLost(self, conn, new_state):
         self.current = None
 
-    def _acceptIdentification(self, node, num_partitions, num_replicas):
+    def _acceptIdentification(self, node):
         assert self.current is node, (self.current, node)
-        self.num_partitions = num_partitions
-        self.num_replicas = num_replicas
 
     def getPrimaryConnection(self):
         """
@@ -74,8 +70,7 @@ class BootstrapManager(EventHandler):
             try:
                 while self.current:
                     if self.current.isIdentified():
-                        return (self.current, self.current.getConnection(),
-                            self.num_partitions, self.num_replicas)
+                        return self.current, self.current.getConnection()
                     poll(1)
             except PrimaryElected, e:
                 if self.current:

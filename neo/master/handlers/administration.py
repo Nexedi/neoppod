@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import random
+from functools import wraps
 
 from . import MasterHandler
 from ..app import monotonic_time, StateChangedException
@@ -38,8 +39,24 @@ NODE_STATE_WORKFLOW = {
     NodeTypes.STORAGE: (NodeStates.DOWN, NodeStates.UNKNOWN),
 }
 
+def check_state(*states):
+    def decorator(wrapped):
+        def wrapper(self, *args):
+            state = self.app.getClusterState()
+            if state not in states:
+                raise ProtocolError('%s RPC can not be used in %s state'
+                                    % (wrapped.__name__, state))
+            wrapped(self, *args)
+        return wraps(wrapped)(wrapper)
+    return decorator
+
+
 class AdministrationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
+
+    def handlerSwitched(self, conn, new):
+        assert new
+        super(AdministrationHandler, self).handlerSwitched(conn, new)
 
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByUUID(conn.getUUID())
@@ -134,16 +151,17 @@ class AdministrationHandler(MasterHandler):
                     monotonic_time(), [node.asTuple()]))
             app.broadcastNodesInformation([node])
 
+    # XXX: Would it be safe to allow more states ?
+    __change_pt_rpc = check_state(
+        ClusterStates.RUNNING,
+        ClusterStates.STARTING_BACKUP,
+        ClusterStates.BACKINGUP)
+
+    @__change_pt_rpc
     def addPendingNodes(self, conn, uuid_list):
         uuids = ', '.join(map(uuid_str, uuid_list))
         logging.debug('Add nodes %s', uuids)
         app = self.app
-        state = app.getClusterState()
-        # XXX: Would it be safe to allow more states ?
-        if state not in (ClusterStates.RUNNING,
-                         ClusterStates.STARTING_BACKUP,
-                         ClusterStates.BACKINGUP):
-            raise ProtocolError('Can not add nodes in %s state' % state)
         # take all pending nodes
         node_list = list(app.pt.addNodeList(node
             for node in app.nm.getStorageList()
@@ -172,24 +190,21 @@ class AdministrationHandler(MasterHandler):
             node.send(repair)
         conn.answer(Errors.Ack(''))
 
+    @__change_pt_rpc
+    def setNumReplicas(self, conn, num_replicas):
+        self.app.broadcastPartitionChanges((), num_replicas)
+        conn.answer(Errors.Ack(''))
+
+    @__change_pt_rpc
     def tweakPartitionTable(self, conn, uuid_list):
         app = self.app
-        state = app.getClusterState()
-        # XXX: Would it be safe to allow more states ?
-        if state not in (ClusterStates.RUNNING,
-                         ClusterStates.STARTING_BACKUP,
-                         ClusterStates.BACKINGUP):
-            raise ProtocolError('Can not tweak partition table in %s state'
-                                % state)
         app.broadcastPartitionChanges(app.pt.tweak([node
             for node in app.nm.getStorageList()
             if node.getUUID() in uuid_list or not node.isRunning()]))
         conn.answer(Errors.Ack(''))
 
+    @check_state(ClusterStates.RUNNING)
     def truncate(self, conn, tid):
-        app = self.app
-        if app.cluster_state != ClusterStates.RUNNING:
-            raise ProtocolError('Can not truncate in this state')
         conn.answer(Errors.Ack(''))
         raise StoppedOperation(tid)
 
@@ -237,3 +252,5 @@ class AdministrationHandler(MasterHandler):
                 node.send(Packets.CheckPartition(
                     offset, source, min_tid, max_tid))
         conn.answer(Errors.Ack(''))
+
+    del __change_pt_rpc

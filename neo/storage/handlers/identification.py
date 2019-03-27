@@ -65,6 +65,6 @@ class IdentificationHandler(EventHandler):
             conn.setHandler(handler)
             node.setConnection(conn, force)
         # accept the identification and trigger an event
-        conn.answer(Packets.AcceptIdentification(NodeTypes.STORAGE, uuid and
-            app.uuid, app.pt.getPartitions(), app.pt.getReplicas(), uuid))
+        conn.answer(Packets.AcceptIdentification(
+            NodeTypes.STORAGE, uuid and app.uuid, uuid))
         handler.connectionCompleted(conn)

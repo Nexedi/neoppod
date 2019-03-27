@@ -128,11 +128,9 @@ class IdentificationHandler(EventHandler):
         conn.answer(Packets.AcceptIdentification(
             NodeTypes.MASTER,
             app.uuid,
-            app.pt.getPartitions(),
-            app.pt.getReplicas(),
             uuid))
         handler._notifyNodeInformation(conn)
-        handler.connectionCompleted(conn, True)
+        handler.handlerSwitched(conn, True)
 
 class SecondaryIdentificationHandler(EventHandler):
 

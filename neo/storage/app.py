@@ -169,36 +169,27 @@ class Application(BaseApplication):
         # load configuration
         self.uuid = dm.getUUID()
         logging.node(self.name, self.uuid)
-        num_partitions = dm.getNumPartitions()
-        num_replicas = dm.getNumReplicas()
-        ptid = dm.getPTID()
-
-        # check partition table configuration
-        if num_partitions is not None and num_replicas is not None:
-            if num_partitions <= 0:
-                raise RuntimeError, 'partitions must be more than zero'
-            # create a partition table
-            self.pt = PartitionTable(num_partitions, num_replicas)
 
         logging.info('Configuration loaded:')
-        logging.info('PTID      : %s', dump(ptid))
+        logging.info('PTID      : %s', dump(dm.getPTID()))
         logging.info('Name      : %s', self.name)
-        logging.info('Partitions: %s', num_partitions)
-        logging.info('Replicas  : %s', num_replicas)
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
-        self.pt.clear()
         ptid = self.dm.getPTID()
         if ptid is None:
+            self.pt = PartitionTable(0, 0)
             return
-        cell_list = []
+        row_list = []
         for offset, uuid, state in self.dm.getPartitionTable():
+            while len(row_list) <= offset:
+                row_list.append([])
             # register unknown nodes
             if self.nm.getByUUID(uuid) is None:
                 self.nm.createStorage(uuid=uuid)
-            cell_list.append((offset, uuid, CellStates[state]))
-        self.pt.update(ptid, cell_list, self.nm)
+            row_list[offset].append((uuid, CellStates[state]))
+        self.pt = object.__new__(PartitionTable)
+        self.pt.load(ptid, self.dm.getNumReplicas(), row_list, self.nm)
 
     def run(self):
         try:
@@ -258,30 +249,16 @@ class Application(BaseApplication):
 
         Note that I do not accept any connection from non-master nodes
         at this stage."""
-        pt = self.pt
-
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, NodeTypes.STORAGE,
                                      None if self.new_nid else self.server,
                                      self.devpath, self.new_nid)
-        self.master_node, self.master_conn, num_partitions, num_replicas = \
-            bootstrap.getPrimaryConnection()
+        self.master_node, self.master_conn = bootstrap.getPrimaryConnection()
         self.dm.setUUID(self.uuid)
 
-        # Reload a partition table from the database. This is necessary
-        # when a previous primary master died while sending a partition
-        # table, because the table might be incomplete.
-        if pt is not None:
-            self.loadPartitionTable()
-            if num_partitions != pt.getPartitions():
-                raise RuntimeError('the number of partitions is inconsistent')
-
-        if pt is None or pt.getReplicas() != num_replicas:
-            # changing number of replicas is not an issue
-            self.dm.setNumPartitions(num_partitions)
-            self.dm.setNumReplicas(num_replicas)
-            self.pt = PartitionTable(num_partitions, num_replicas)
-            self.loadPartitionTable()
+        # Reload a partition table from the database,
+        # in case that we're in RECOVERING phase.
+        self.loadPartitionTable()
 
     def initialize(self):
         logging.debug('initializing...')
