@@ -160,8 +160,7 @@ class EventHandler(object):
     def _acceptIdentification(*args):
         pass
 
-    def acceptIdentification(self, conn, node_type, uuid,
-                             num_partitions, num_replicas, your_uuid):
+    def acceptIdentification(self, conn, node_type, uuid, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
         assert node.getConnection() is conn, (node.getConnection(), conn)
@@ -180,7 +179,7 @@ class EventHandler(object):
             elif node.getUUID() != uuid or app.uuid != your_uuid != None:
                 raise ProtocolError('invalid uuids')
             node.setIdentified()
-            self._acceptIdentification(node, num_partitions, num_replicas)
+            self._acceptIdentification(node)
             return
         conn.close()
 

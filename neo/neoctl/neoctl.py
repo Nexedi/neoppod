@@ -97,6 +97,12 @@ class NeoCTL(BaseApplication):
             raise RuntimeError(response)
         return response[2]
 
+    def setNumReplicas(self, nr):
+        response = self.__ask(Packets.SetNumReplicas(nr))
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
+        return response[2]
+
     def setClusterState(self, state):
         """
           Set cluster state.

@@ -52,9 +52,8 @@ class RecoveryManager(MasterHandler):
         """
         logging.info('begin the recovery of the status')
         app = self.app
-        pt = app.pt
+        pt = app.pt = app.newPartitionTable()
         app.changeClusterState(ClusterStates.RECOVERING)
-        pt.clear()
 
         self.try_secondary = True
 
@@ -113,7 +112,7 @@ class RecoveryManager(MasterHandler):
                             for node in node_list:
                                 conn = node.getConnection()
                                 conn.send(truncate)
-                                self.connectionCompleted(conn, False)
+                                self.handlerSwitched(conn, False)
                             continue
                     node_list = pt.getConnectedNodeList()
                 break
@@ -140,12 +139,12 @@ class RecoveryManager(MasterHandler):
             logging.info('creating a new partition table')
             pt.make(node_list)
             self._notifyAdmins(Packets.SendPartitionTable(
-                pt.getID(), pt.getRowList()))
+                pt.getID(), pt.getReplicas(), pt.getRowList()))
         else:
             cell_list = pt.outdate()
             if cell_list:
                 self._notifyAdmins(Packets.NotifyPartitionChanges(
-                    pt.setNextID(), cell_list))
+                    pt.setNextID(), pt.getReplicas(), cell_list))
             if app.backup_tid:
                 pt.setBackupTidDict(self.backup_tid_dict)
                 app.backup_tid = pt.getBackupTid()
@@ -175,10 +174,9 @@ class RecoveryManager(MasterHandler):
         if node is None or node.getState() == new_state:
             return
         node.setState(new_state)
-        # broadcast to all so that admin nodes gets informed
         self.app.broadcastNodesInformation([node])
 
-    def connectionCompleted(self, conn, new):
+    def handlerSwitched(self, conn, new):
         # ask the last IDs to perform the recovery
         conn.ask(Packets.AskRecovery())
 
@@ -197,17 +195,14 @@ class RecoveryManager(MasterHandler):
         self.backup_tid_dict[uuid] = backup_tid
         self.truncate_dict[uuid] = truncate_tid
 
-    def answerPartitionTable(self, conn, ptid, row_list):
+    def answerPartitionTable(self, conn, ptid, num_replicas, row_list):
         # If this is not from a target node, ignore it.
-        if ptid == self.target_ptid:
+        if None is not ptid == self.target_ptid:
             app = self.app
-            try:
-                new_nodes = app.pt.load(ptid, row_list, app.nm)
-            except IndexError:
-                raise ProtocolError('Invalid offset')
+            new_nodes = app.pt.load(ptid, num_replicas, row_list, app.nm)
             self._notifyAdmins(
                 Packets.NotifyNodeInformation(monotonic_time(), new_nodes),
-                Packets.SendPartitionTable(ptid, row_list))
+                Packets.SendPartitionTable(ptid, num_replicas, row_list))
             self.ask_pt = ()
             uuid = conn.getUUID()
             app.backup_tid = self.backup_tid_dict[uuid]

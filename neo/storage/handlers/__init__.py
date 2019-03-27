@@ -65,14 +65,14 @@ class BaseMasterHandler(BaseHandler):
                 # See comment in ClientOperationHandler.connectionClosed
                 self.app.tm.abortFor(uuid, even_if_voted=True)
 
-    def notifyPartitionChanges(self, conn, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, ptid, num_replicas, cell_list):
         """This is very similar to Send Partition Table, except that
        the information is only about changes from the previous."""
         app = self.app
         if ptid != 1 + app.pt.getID():
             raise ProtocolError('wrong partition table id')
-        app.pt.update(ptid, cell_list, app.nm)
-        app.dm.changePartitionTable(ptid, cell_list)
+        app.pt.update(ptid, num_replicas, cell_list, app.nm)
+        app.dm.changePartitionTable(ptid, num_replicas, cell_list)
         if app.operational:
             app.replicator.notifyPartitionChanges(cell_list)
         app.dm.commit()
