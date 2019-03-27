@@ -56,6 +56,10 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         self._id += 1
         return self._id
 
+    def setReplicas(self, num_replicas):
+        assert num_replicas >= 0, num_replicas
+        self.nr = num_replicas
+
     def make(self, node_list):
         """Make a new partition table from scratch."""
         assert self._id is None and node_list, (self._id, node_list)
@@ -108,26 +112,19 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             self.num_filled_rows = len(filter(None, self.partition_list))
         return change_list
 
-    def load(self, ptid, row_list, nm):
+    def load(self, ptid, num_replicas, row_list, nm):
         """
         Load a partition table from a storage node during the recovery.
         Return the new storage nodes registered
         """
-        # check offsets
-        for offset, _row in row_list:
-            if offset >= self.getPartitions():
-                raise IndexError, offset
-        # store the partition table
-        self.clear()
-        self._id = ptid
         new_nodes = []
-        for offset, row in row_list:
-            for uuid, state in row:
-                node = nm.getByUUID(uuid)
-                if node is None:
-                    node = nm.createStorage(uuid=uuid)
-                    new_nodes.append(node.asTuple())
-                self._setCell(offset, node, state)
+        def getByUUID(nid):
+            node = nm.getByUUID(nid)
+            if node is None:
+                node = nm.createStorage(uuid=nid)
+                new_nodes.append(node.asTuple())
+            return node
+        self._load(ptid, num_replicas, row_list, getByUUID)
         return new_nodes
 
     def setUpToDate(self, node, offset):

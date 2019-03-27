@@ -42,6 +42,7 @@ from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
+from neo.master.pt import PartitionTable
 from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
@@ -1307,7 +1308,7 @@ class Test(NEOThreadedTest):
             del conn._queue[:] # XXX
             conn.close()
         if 1:
-            with Patch(cluster.master.pt, make=make), \
+            with Patch(PartitionTable, make=make), \
                  Patch(InitializationHandler,
                        askPartitionTable=askPartitionTable) as p:
                 cluster.start()
@@ -2336,8 +2337,8 @@ class Test(NEOThreadedTest):
         for x in 'ab':
             r[x] = PCounterWithResolution()
             t1.commit()
-        cluster.stop(replicas=1)
-        cluster.start()
+        cluster.neoctl.setNumReplicas(1)
+        self.tic()
         s0, s1 = cluster.sortStorageList()
         t1, c1 = cluster.getTransaction()
         r = c1.root()
@@ -2521,8 +2522,8 @@ class Test(NEOThreadedTest):
         for x in 'ab':
             r[x] = PCounterWithResolution()
             t1.commit()
-        cluster.stop(replicas=1)
-        cluster.start()
+        cluster.neoctl.setNumReplicas(1)
+        self.tic()
         s0, s1 = cluster.sortStorageList()
         t1, c1 = cluster.getTransaction()
         r = c1.root()
@@ -2825,6 +2826,7 @@ class Test(NEOThreadedTest):
             dump_dict[s.uuid] = dm.dump()
             with open(path % (s.getAdapter(), s.uuid)) as f:
                 dm.restore(f.read())
+            dm.setConfiguration('partitions', None) # XXX: see dm._migrate4
         with NEOCluster(storage_count=3, partitions=3, replicas=1,
                         name=self._testMethodName) as cluster:
             s1, s2, s3 = cluster.storage_list

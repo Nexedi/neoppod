@@ -813,7 +813,7 @@ class NEOCluster(object):
             master_list = self.master_list
         if storage_list is None:
             storage_list = self.storage_list
-        def answerPartitionTable(release, orig, *args):
+        def sendPartitionTable(release, orig, *args):
             orig(*args)
             release()
         def dispatch(release, orig, handler, *args):
@@ -829,7 +829,7 @@ class NEOCluster(object):
             if state in expected_state:
                 release()
         with Serialized.until(MasterEventHandler,
-                answerPartitionTable=answerPartitionTable) as tic1, \
+                sendPartitionTable=sendPartitionTable) as tic1, \
              Serialized.until(RecoveryManager, dispatch=dispatch) as tic2, \
              Serialized.until(MasterEventHandler,
                 notifyClusterInformation=notifyClusterInformation) as tic3:

@@ -56,7 +56,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         self.app.pt = Mock({'getID': 1})
         count = len(self.app.nm.getList())
         self.assertRaises(ProtocolError, self.operation.notifyPartitionChanges,
-                          conn, 0, ())
+                          conn, 0, 0, ())
         self.assertEqual(self.app.pt.getID(), 1)
         self.assertEqual(len(self.app.nm.getList()), count)
         calls = self.app.replicator.mockGetNamedCalls('removePartition')
@@ -84,13 +84,13 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         ptid = 2
         app.dm = Mock({ })
         app.replicator = Mock({})
-        self.operation.notifyPartitionChanges(conn, ptid, cells)
+        self.operation.notifyPartitionChanges(conn, ptid, 1, cells)
         # ptid set
         self.assertEqual(app.pt.getID(), ptid)
         # dm call
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(ptid, cells)
+        calls[0].checkArgs(ptid, 1, cells)
 
 if __name__ == "__main__":
     unittest.main()

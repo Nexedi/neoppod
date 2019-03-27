@@ -86,15 +86,9 @@ class PartitionTable(object):
         'a cell became non-readable whereas all cells were readable'
 
     def __init__(self, num_partitions, num_replicas):
-        self._id = None
         self.np = num_partitions
         self.nr = num_replicas
-        self.num_filled_rows = 0
-        # Note: don't use [[]] * num_partition construct, as it duplicates
-        # instance *references*, so the outer list contains really just one
-        # inner list instance.
-        self.partition_list = [[] for _ in xrange(num_partitions)]
-        self.count_dict = {}
+        self.clear()
 
     def getID(self):
         return self._id
@@ -113,7 +107,7 @@ class PartitionTable(object):
         # instance *references*, so the outer list contains really just one
         # inner list instance.
         self.partition_list = [[] for _ in xrange(self.np)]
-        self.count_dict.clear()
+        self.count_dict = {}
 
     def getAssignedPartitionList(self, uuid):
         """ Return the partition assigned to the specified UUID """
@@ -203,31 +197,31 @@ class PartitionTable(object):
             del self.count_dict[node]
         return not count
 
-    def load(self, ptid, row_list, nm):
+    def _load(self, ptid, num_replicas, row_list, getByUUID):
+        self.__init__(len(row_list), num_replicas)
+        self._id = ptid
+        for offset, row in enumerate(row_list):
+            for uuid, state in row:
+                node = getByUUID(uuid)
+                self._setCell(offset, node, state)
+
+    def load(self, ptid, num_replicas, row_list, nm):
         """
         Load the partition table with the specified PTID, discard all previous
         content.
         """
-        self.clear()
-        self._id = ptid
-        for offset, row in row_list:
-            if offset >= self.getPartitions():
-                raise IndexError
-            for uuid, state in row:
-                node = nm.getByUUID(uuid)
-                # the node must be known by the node manager
-                assert node is not None
-                self._setCell(offset, node, state)
+        self._load(ptid, num_replicas, row_list, nm.getByUUID)
         logging.debug('partition table loaded (ptid=%s)', ptid)
         self.log()
 
-    def update(self, ptid, cell_list, nm):
+    def update(self, ptid, num_replicas, cell_list, nm):
         """
         Update the partition with the cell list supplied. If a node
         is not known, it is created in the node manager and set as unavailable
         """
         assert self._id < ptid, (self._id, ptid)
         self._id = ptid
+        self.nr = num_replicas
         readable_list = []
         for row in self.partition_list:
             if not all(cell.isReadable() for cell in row):
@@ -310,14 +304,11 @@ class PartitionTable(object):
         return True
 
     def getRow(self, offset):
-        row = self.partition_list[offset]
-        if row is None:
-            return []
-        return [(cell.getUUID(), cell.getState()) for cell in row]
+        return [(cell.getUUID(), cell.getState())
+                for cell in self.partition_list[offset]]
 
     def getRowList(self):
-        getRow = self.getRow
-        return [(x, getRow(x)) for x in xrange(self.np)]
+        return map(self.getRow, xrange(self.np))
 
 class MTPartitionTable(PartitionTable):
     """ Thread-safe aware version of the partition table, override only methods

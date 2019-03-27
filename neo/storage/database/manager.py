@@ -102,25 +102,24 @@ class DatabaseManager(object):
         finally:
             db.close()
 
+    _cached_attr_list = (
+        '_readable_set', '_getPartition', '_getReadablePartition')
+
     def __getattr__(self, attr):
-        if attr in ('_readable_set', '_getPartition', '_getReadablePartition'):
+        if attr in self._cached_attr_list:
             self._updateReadable()
         return self.__getattribute__(attr)
-
-    def _partitionTableChanged(self):
-        try:
-            del (self._readable_set,
-                 self._getPartition,
-                 self._getReadablePartition)
-        except AttributeError:
-            pass
 
     def __enter__(self):
         assert not self.LOCK, "not a secondary connection"
         # XXX: All config caching should be done in this class,
         #      rather than in backend classes.
         self._config.clear()
-        self._partitionTableChanged()
+        try:
+            for attr in self._cached_attr_list:
+                delattr(self, attr)
+        except AttributeError:
+            pass
 
     def __exit__(self, t, v, tb):
         if v is None:
@@ -309,21 +308,6 @@ class DatabaseManager(object):
                     for x, tid in ((x, None), (nid, tid)))
             self.setConfiguration('nid', str(nid))
 
-    def getNumPartitions(self):
-        """
-            Load the number of partitions from a database.
-        """
-        n = self.getConfiguration('partitions')
-        if n is not None:
-            return int(n)
-
-    def setNumPartitions(self, num_partitions):
-        """
-            Store the number of partitions into a database.
-        """
-        self.setConfiguration('partitions', num_partitions)
-        self._partitionTableChanged()
-
     def getNumReplicas(self):
         """
             Load the number of replicas from a database.
@@ -331,12 +315,6 @@ class DatabaseManager(object):
         n = self.getConfiguration('replicas')
         if n is not None:
             return int(n)
-
-    def setNumReplicas(self, num_replicas):
-        """
-            Store the number of replicas into a database.
-        """
-        self.setConfiguration('replicas', num_replicas)
 
     def getName(self):
         """
@@ -398,8 +376,9 @@ class DatabaseManager(object):
 
         tids are in unpacked format.
         """
-        if self.getNumPartitions():
-            return max(self._getLastTID(x, max_tid) for x in self._readable_set)
+        x = self._readable_set
+        if x:
+            return max(self._getLastTID(x, max_tid) for x in x)
 
     def _getLastIDs(self, partition):
         """Return max(tid) & max(oid) for objects of given partition
@@ -560,13 +539,15 @@ class DatabaseManager(object):
         """
         """
 
-    @requires(_getDataLastId)
-    def _updateReadable(self):
-        try:
-            readable_set = self.__dict__['_readable_set']
-        except KeyError:
+    def _getMaxPartition(self):
+        """
+        """
+
+    @requires(_getDataLastId, _getMaxPartition)
+    def _updateReadable(self, reset=True):
+        if reset:
             readable_set = self._readable_set = set()
-            np = self.getNumPartitions()
+            np = 1 + self._getMaxPartition()
             def _getPartition(x, np=np):
                 return x % np
             def _getReadablePartition(x, np=np, r=readable_set):
@@ -581,12 +562,13 @@ class DatabaseManager(object):
                 i = self._getDataLastId(p)
                 d.append(p << 48 if i is None else i + 1)
         else:
+            readable_set = self._readable_set
             readable_set.clear()
         readable_set.update(x[0] for x in self.iterAssignedCells()
                                  if -x[1] in READABLE)
 
     @requires(_changePartitionTable, _getLastIDs, _getLastTID)
-    def changePartitionTable(self, ptid, cell_list, reset=False):
+    def changePartitionTable(self, ptid, num_replicas, cell_list, reset=False):
         my_nid = self.getUUID()
         pt = dict(self.iterAssignedCells())
         # In backup mode, the last transactions of a readable cell may be
@@ -607,9 +589,10 @@ class DatabaseManager(object):
                 outofdate_tid(offset)))
             for offset, nid, state in cell_list]
         self._changePartitionTable(cell_list, reset)
-        self._updateReadable()
+        self._updateReadable(reset)
         assert isinstance(ptid, (int, long)), ptid
         self._setConfiguration('ptid', str(ptid))
+        self._setConfiguration('replicas', str(num_replicas))
 
     @requires(_changePartitionTable)
     def updateCellTID(self, partition, tid):

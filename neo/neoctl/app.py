@@ -30,6 +30,7 @@ action_dict = {
     },
     'set': {
         'cluster': 'setClusterState',
+        'replicas': 'setNumReplicas',
     },
     'check': 'checkReplicas',
     'start': 'startCluster',
@@ -108,7 +109,7 @@ class TerminalNeoCTL(object):
         ptid, row_list = self.neoctl.getPartitionRowList(
                 min_offset=min_offset, max_offset=max_offset, node=node)
         # TODO: return ptid
-        return self.formatRowList(row_list)
+        return self.formatRowList(enumerate(row_list, min_offset))
 
     def getNodeList(self, params):
         """
@@ -139,6 +140,18 @@ class TerminalNeoCTL(object):
         """
         assert len(params) == 1
         return self.neoctl.setClusterState(self.asClusterState(params[0]))
+
+    def setNumReplicas(self, params):
+        """
+          Set number of replicas.
+          Parameters: nr
+            nr: positive number (0 means no redundancy)
+        """
+        assert len(params) == 1
+        nr = int(params[0])
+        if nr < 0:
+            sys.exit('invalid number of replicas')
+        return self.neoctl.setNumReplicas(nr)
 
     def startCluster(self, params):
         """
