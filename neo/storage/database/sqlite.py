@@ -144,6 +144,12 @@ class SQLiteDatabaseManager(DatabaseManager):
             " WHEN 2 THEN -2"  # FEEDING
             " ELSE 1-state END")
 
+    # Let's wait for a more important change to clean up,
+    # so that users can still downgrade.
+    if 0:
+      def _migrate4(self, schema_dict, index_dict):
+        self._setConfiguration('partitions', None)
+
     def _setup(self, dedup=False):
         # BBB: SQLite has transactional DDL but before Python 3.6,
         #      the binding automatically commits between such statements.
@@ -264,6 +270,9 @@ class SQLiteDatabaseManager(DatabaseManager):
             q("DELETE FROM config WHERE name=?", (key,))
         else:
             q("REPLACE INTO config VALUES (?,?)", (key, str(value)))
+
+    def _getMaxPartition(self):
+        return self.query("SELECT MAX(`partition`) FROM pt").next()[0]
 
     def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")

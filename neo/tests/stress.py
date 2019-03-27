@@ -19,12 +19,9 @@ class Handler(MasterEventHandler):
         super(Handler, self).answerClusterState(conn, state)
         self.app.refresh('state')
 
-    def answerPartitionTable(self, *args):
-        super(Handler, self).answerPartitionTable(*args)
-        self.app.refresh('pt')
-
     def sendPartitionTable(self, *args):
-        raise AssertionError
+        super(Handler, self).sendPartitionTable(*args)
+        self.app.refresh('pt')
 
     def notifyPartitionChanges(self, *args):
         super(Handler, self).notifyPartitionChanges(*args)

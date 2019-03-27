@@ -616,10 +616,7 @@ PFCellList = PList('cell_list',
 )
 
 PFRowList = PList('row_list',
-    PStruct('row',
-        PNumber('offset'),
-        PFCellList,
-    ),
+    PFCellList,
 )
 
 PFHistoryList = PList('history_list',
@@ -694,8 +691,6 @@ class RequestIdentification(Packet):
     _answer = PStruct('accept_identification',
         PFNodeType,
         PUUID('my_uuid'),
-        PNumber('num_partitions'),
-        PNumber('num_replicas'),
         PUUID('your_uuid'),
     )
 
@@ -751,23 +746,24 @@ class LastIDs(Packet):
 class PartitionTable(Packet):
     """
     Ask storage node the remaining data needed by master to recover.
-    This is also how the clients get the full partition table on connection.
 
-    :nodes: M -> S; C -> M
+    :nodes: M -> S
     """
     _answer = PStruct('answer_partition_table',
         PPTID('ptid'),
+        PNumber('num_replicas'),
         PFRowList,
     )
 
 class NotifyPartitionTable(Packet):
     """
-    Send the full partition table to admin/storage nodes on connection.
+    Send the full partition table to admin/client/storage nodes on connection.
 
-    :nodes: M -> A, S
+    :nodes: M -> A, C, S
     """
     _fmt = PStruct('send_partition_table',
         PPTID('ptid'),
+        PNumber('num_replicas'),
         PFRowList,
     )
 
@@ -779,6 +775,7 @@ class PartitionChanges(Packet):
     """
     _fmt = PStruct('notify_partition_changes',
         PPTID('ptid'),
+        PNumber('num_replicas'),
         PList('cell_list',
             PStruct('cell',
                 PNumber('offset'),
@@ -1270,6 +1267,18 @@ class NotifyNodeInformation(Packet):
         PFloat('id_timestamp'),
         PFNodeList,
     )
+
+class SetNumReplicas(Packet):
+    """
+    Set the number of replicas.
+
+    :nodes: ctl -> A -> M
+    """
+    _fmt = PStruct('set_num_replicas',
+        PNumber('num_replicas'),
+    )
+
+    _answer = Error
 
 class SetClusterState(Packet):
     """
@@ -1766,6 +1775,8 @@ class Packets(dict):
                     AddPendingNodes, ignore_when_closed=False)
     TweakPartitionTable = register(
                     TweakPartitionTable, ignore_when_closed=False)
+    SetNumReplicas = register(
+                    SetNumReplicas, ignore_when_closed=False)
     SetClusterState = register(
                     SetClusterState, ignore_when_closed=False)
     Repair = register(

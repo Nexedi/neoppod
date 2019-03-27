@@ -656,7 +656,7 @@ class NEOCluster(object):
             row_list = self.neoctl.getPartitionRowList()[1]
             number_of_outdated = 0
             for row in row_list:
-                for cell in row[1]:
+                for cell in row:
                     if cell[1] == CellStates.OUT_OF_DATE:
                         number_of_outdated += 1
             return number_of_outdated == number, number_of_outdated
@@ -667,7 +667,7 @@ class NEOCluster(object):
             row_list = self.neoctl.getPartitionRowList()[1]
             assigned_cells_number = 0
             for row in row_list:
-                for cell in row[1]:
+                for cell in row:
                     if cell[0] == process.getUUID():
                         assigned_cells_number += 1
             return assigned_cells_number == number, assigned_cells_number
