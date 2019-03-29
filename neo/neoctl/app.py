@@ -180,7 +180,9 @@ class TerminalNeoCTL(object):
     def tweakPartitionTable(self, params):
         """
           Optimize partition table.
-          No partition will be assigned to specified storage nodes.
+          No change is done to the specified/down storage nodes and they don't
+          count as replicas. The purpose of listing nodes is usually to drop
+          them once the data is replicated to other nodes.
           Parameters: [node [...]]
         """
         return self.neoctl.tweakPartitionTable(map(self.asNode, params))
