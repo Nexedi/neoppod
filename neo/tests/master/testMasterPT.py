@@ -289,7 +289,9 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         pt.addNodeList(sn[1:3])
         self.assertPartitionTable(pt, 'U..|U..|U..|U..|U..|U..|U..')
         self.update(pt, self.tweak(pt, sn[:1]))
-        self.assertPartitionTable(pt, '.U.|..U|.U.|..U|.U.|..U|.U.')
+        # See note in PartitionTable.tweak() about drop_list.
+        #self.assertPartitionTable(pt,'.U.|..U|.U.|..U|.U.|..U|.U.')
+        self.assertPartitionTable(pt, 'UU.|U.U|UU.|U.U|UU.|U.U|UU.')
 
     def test_18_tweakBigPT(self):
         seed = repr(time.time())

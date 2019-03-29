@@ -180,7 +180,8 @@ class PartitionTable(neo.lib.pt.PartitionTable):
           few readable cells, some cells are instead marked as FEEDING. This is
           a preliminary step to drop these nodes, otherwise the partition table
           could become non-operational.
-        - Other nodes must have the same number of cells, off by 1.
+          In fact, the code touching these cells is disabled (see NOTE below).
+        - Other nodes must have the same number of non-feeding cells, off by 1.
         - When a transaction creates new objects (oids are roughly allocated
           sequentially), we expect better performance by maximizing the number
           of involved nodes (i.e. parallelizing writes).
@@ -417,6 +418,22 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     outdated_list[offset] -= 1
             for offset, cell in cell_dict.iteritems():
                 discard_list[offset].append(cell)
+        # NOTE: The following line disables the next 2 lines, which actually
+        #       causes cells in drop_list to be discarded, now or later;
+        #       drop_list could be renamed into ignore_list.
+        #       1. Deleting data partition per partition is a lot of work, so
+        #          why ask nodes in drop_list to do that when the goal is
+        #          simply to trash the whole underlying database?
+        #       2. By excluding nodes from a tweak, it becomes possible to have
+        #          parts of the partition table that are tweaked differently.
+        #          This may require to temporarily change the number of
+        #          replicas for the part being tweaked. In the future, this
+        #          number may be specified in the 'tweak' command, to avoid
+        #          race conditions with setUpToDate().
+        #       Overall, a common use case is when importing a ZODB to NEO,
+        #       to keep the initial importing node up until the database is
+        #       split and replicated to the final nodes.
+        drop_list = {}
         for offset, drop_list in drop_list.iteritems():
             discard_list[offset] += drop_list
         # We have sorted cells to discard in order to first deallocate nodes
