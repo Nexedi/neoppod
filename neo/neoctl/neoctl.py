@@ -169,7 +169,7 @@ class NeoCTL(BaseApplication):
         response = self.__ask(packet)
         if response[0] != Packets.AnswerPartitionList:
             raise RuntimeError(response)
-        return response[1:3] # ptid, row_list
+        return response[1:]
 
     def startCluster(self):
         """

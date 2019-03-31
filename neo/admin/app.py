@@ -122,11 +122,13 @@ class Application(BaseApplication):
         self.master_conn.ask(Packets.AskClusterState())
 
     def sendPartitionTable(self, conn, min_offset, max_offset, uuid):
+        pt = self.pt
         if max_offset == 0:
-            max_offset = self.pt.getPartitions()
+            max_offset = pt.getPartitions()
         try:
-            row_list = map(self.pt.getRow, xrange(min_offset, max_offset))
+            row_list = map(pt.getRow, xrange(min_offset, max_offset))
         except IndexError:
             conn.send(Errors.ProtocolError('invalid partition table offset'))
         else:
-            conn.answer(Packets.AnswerPartitionList(self.pt.getID(), row_list))
+            conn.answer(Packets.AnswerPartitionList(
+                pt.getID(), pt.getReplicas(), row_list))

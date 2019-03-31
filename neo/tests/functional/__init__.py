@@ -649,7 +649,7 @@ class NEOCluster(object):
 
     def expectOudatedCells(self, number, *args, **kw):
         def callback(last_try):
-            row_list = self.neoctl.getPartitionRowList()[1]
+            row_list = self.neoctl.getPartitionRowList()[2]
             number_of_outdated = 0
             for row in row_list:
                 for cell in row:
@@ -660,7 +660,7 @@ class NEOCluster(object):
 
     def expectAssignedCells(self, process, number, *args, **kw):
         def callback(last_try):
-            row_list = self.neoctl.getPartitionRowList()[1]
+            row_list = self.neoctl.getPartitionRowList()[2]
             assigned_cells_number = 0
             for row in row_list:
                 for cell in row:
