@@ -1254,10 +1254,14 @@ class TweakPartitionTable(Packet):
     :nodes: ctl -> A -> M
     """
     _fmt = PStruct('tweak_partition_table',
+        PBoolean('dry_run'),
         PFUUIDList,
     )
 
-    _answer = Error
+    _answer = PStruct('answer_tweak_partition_table',
+        PBoolean('changed'),
+        PFRowList,
+    )
 
 class NotifyNodeInformation(Packet):
     """
@@ -1775,8 +1779,8 @@ class Packets(dict):
                     SetNodeState, ignore_when_closed=False)
     AddPendingNodes = register(
                     AddPendingNodes, ignore_when_closed=False)
-    TweakPartitionTable = register(
-                    TweakPartitionTable, ignore_when_closed=False)
+    TweakPartitionTable, AnswerTweakPartitionTable = register(
+                    TweakPartitionTable)
     SetNumReplicas = register(
                     SetNumReplicas, ignore_when_closed=False)
     SetClusterState = register(
