@@ -195,17 +195,28 @@ class AdministrationHandler(MasterHandler):
         conn.answer(Errors.Ack(''))
 
     @__change_pt_rpc
-    def tweakPartitionTable(self, conn, uuid_list):
+    def tweakPartitionTable(self, conn, dry_run, uuid_list):
         app = self.app
         drop_list = [node for node in app.nm.getStorageList()
             if node.getUUID() in uuid_list or not node.isRunning()]
+        if dry_run:
+            pt = object.__new__(app.pt.__class__)
+            new_nodes = pt.load(app.pt.getID(), app.pt.getReplicas(),
+                                app.pt.getRowList(), app.nm)
+            assert not new_nodes
+            pt.addNodeList(node
+                for node, count in app.pt.count_dict.iteritems()
+                if not count)
+        else:
+            pt = app.pt
         try:
-            changed_list = app.pt.tweak(drop_list)
+            changed_list = pt.tweak(drop_list)
         except PartitionTableException, e:
             raise AnswerDenied(str(e))
-        else:
+        if not dry_run:
             app.broadcastPartitionChanges(changed_list)
-        conn.answer(Errors.Ack(''))
+        conn.answer(Packets.AnswerTweakPartitionTable(
+            bool(changed_list), pt.getRowList()))
 
     @check_state(ClusterStates.RUNNING)
     def truncate(self, conn, tid):

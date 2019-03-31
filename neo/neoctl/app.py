@@ -183,9 +183,15 @@ class TerminalNeoCTL(object):
           No change is done to the specified/down storage nodes and they don't
           count as replicas. The purpose of listing nodes is usually to drop
           them once the data is replicated to other nodes.
-          Parameters: [node [...]]
+          Parameters: [-n] [node [...]]
+            -n: dry run
         """
-        return self.neoctl.tweakPartitionTable(map(self.asNode, params))
+        dry_run = params[0] == '-n'
+        changed, row_list = self.neoctl.tweakPartitionTable(
+            map(self.asNode, params[dry_run:]), dry_run)
+        if changed:
+            return self.formatRowList(enumerate(row_list))
+        return 'No change done.'
 
     def killNode(self, params):
         """
