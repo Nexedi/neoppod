@@ -979,7 +979,7 @@ class ReplicationTests(NEOThreadedTest):
             return s0.uuid
         def check(expected_state, expected_count):
             self.assertEqual(expected_count, len([None
-              for row in cluster.neoctl.getPartitionRowList()[1]
+              for row in cluster.neoctl.getPartitionRowList()[2]
               for cell in row
               if cell[1] == CellStates.CORRUPTED]))
             self.assertEqual(expected_state, cluster.neoctl.getClusterState())
