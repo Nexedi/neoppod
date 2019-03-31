@@ -106,10 +106,10 @@ class TerminalNeoCTL(object):
         max_offset = int(max_offset)
         if node is not None:
             node = self.asNode(node)
-        ptid, row_list = self.neoctl.getPartitionRowList(
+        ptid, num_replicas, row_list = self.neoctl.getPartitionRowList(
                 min_offset=min_offset, max_offset=max_offset, node=node)
-        # TODO: return ptid
-        return self.formatRowList(enumerate(row_list, min_offset))
+        return '# ptid: %s, replicas: %s\n%s' % (ptid, num_replicas,
+            self.formatRowList(enumerate(row_list, min_offset)))
 
     def getNodeList(self, params):
         """

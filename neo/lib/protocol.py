@@ -1201,6 +1201,7 @@ class PartitionList(Packet):
 
     _answer = PStruct('answer_partition_list',
         PPTID('ptid'),
+        PNumber('num_replicas'),
         PFRowList,
     )
 
