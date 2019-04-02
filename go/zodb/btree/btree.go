@@ -18,6 +18,7 @@
 // kind: they are either all leafs or all intermediate nodes(+).
 //
 // BTree and Bucket represent an intermediate and a leaf tree node correspondingly.
+// Node represents any of them.
 //
 // node.Get(key) performs point-query.
 //

@@ -38,6 +38,7 @@ sed	\
 	-e "s/<KIND>/$KIND/g"		\
 	-e "s/KEY/$KEY/g"		\
 	-e "s/<Key>/$Key/g"		\
+	-e "s/\bNode\b/${KIND}Node/g"			\
 	-e "s/\bBTree\b/${KIND}BTree/g"			\
 	-e "s/\bEntry\b/${KIND}Entry/g"			\
 	-e "s/\bBucket\b/${KIND}Bucket/g"		\
