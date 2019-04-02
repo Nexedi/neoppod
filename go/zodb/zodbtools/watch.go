@@ -158,7 +158,12 @@ func watchMain(argv []string) {
 	if err != nil {
 		prog.Fatal(err)
 	}
-	// TODO defer stor.Close()
+	defer func() {
+		err := stor.Close()
+		if err != nil {
+			prog.Fatal(err)
+		}
+	}()
 
 	err = Watch(ctx, stor, os.Stdout, verbose)
 	if err != nil {

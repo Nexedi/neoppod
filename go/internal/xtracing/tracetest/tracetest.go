@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -98,6 +98,8 @@ var chatty = flag.Bool("tracetest.v", false, "verbose: print events as they are 
 // New channels must be created via NewSyncChan.
 //
 // It is safe to use SyncChan from multiple goroutines simultaneously.
+//
+// XXX -> Chan
 type SyncChan struct {
 	msgq chan *SyncMsg
 	name string
@@ -129,6 +131,8 @@ func (ch *SyncChan) Recv() *SyncMsg {
 // SyncMsg represents message with 1 event sent over SyncChan.
 //
 // The goroutine which sent the message will wait for Ack before continue.
+//
+// XXX -> Event?
 type SyncMsg struct {
 	Event interface {}
 	ack   chan<- bool
