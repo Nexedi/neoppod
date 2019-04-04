@@ -197,9 +197,14 @@ class AdministrationHandler(MasterHandler):
     @__change_pt_rpc
     def tweakPartitionTable(self, conn, uuid_list):
         app = self.app
-        app.broadcastPartitionChanges(app.pt.tweak([node
-            for node in app.nm.getStorageList()
-            if node.getUUID() in uuid_list or not node.isRunning()]))
+        drop_list = [node for node in app.nm.getStorageList()
+            if node.getUUID() in uuid_list or not node.isRunning()]
+        try:
+            changed_list = app.pt.tweak(drop_list)
+        except PartitionTableException, e:
+            raise AnswerDenied(str(e))
+        else:
+            app.broadcastPartitionChanges(changed_list)
         conn.answer(Errors.Ack(''))
 
     @check_state(ClusterStates.RUNNING)
