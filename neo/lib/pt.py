@@ -109,6 +109,15 @@ class PartitionTable(object):
         self.partition_list = [[] for _ in xrange(self.np)]
         self.count_dict = {}
 
+    def addNodeList(self, node_list):
+        """Add nodes"""
+        added_list = []
+        for node in node_list:
+            if node not in self.count_dict:
+                self.count_dict[node] = 0
+                added_list.append(node)
+        return added_list
+
     def getAssignedPartitionList(self, uuid):
         """ Return the partition assigned to the specified UUID """
         assigned_partitions = []

@@ -16,9 +16,11 @@
 
 import sys
 from .neoctl import NeoCTL, NotReadyException
+from neo.lib.node import NodeManager
+from neo.lib.pt import PartitionTable
 from neo.lib.util import p64, u64, tidFromTime, timeStringFromTID
 from neo.lib.protocol import uuid_str, formatNodeList, \
-    ClusterStates, NodeTypes, UUID_NAMESPACES, ZERO_TID
+    ClusterStates, NodeStates, NodeTypes, UUID_NAMESPACES, ZERO_TID
 
 action_dict = {
     'print': {
@@ -47,6 +49,11 @@ uuid_int = (lambda ns: lambda uuid:
     (ns[uuid[0]] << 24) + int(uuid[1:])
     )({str(k)[0]: v for k, v in UUID_NAMESPACES.iteritems()})
 
+
+class dummy_app:
+    id_timestamp = uuid = 0
+
+
 class TerminalNeoCTL(object):
     def __init__(self, *args, **kw):
         self.neoctl = NeoCTL(*args, **kw)
@@ -67,6 +74,15 @@ class TerminalNeoCTL(object):
         return p64(int(value, 0))
 
     asNode = staticmethod(uuid_int)
+
+    def formatPartitionTable(self, row_list):
+        nm = NodeManager()
+        nm.update(dummy_app, 1,
+            self.neoctl.getNodeList(node_type=NodeTypes.STORAGE))
+        pt = object.__new__(PartitionTable)
+        pt._load(None, None, row_list, nm.getByUUID)
+        pt.addNodeList(nm.getByStateList(NodeStates.RUNNING))
+        return '\n'.join(line[4:] for line in pt._format())
 
     def formatRowList(self, row_list):
         return '\n'.join('%03d |%s' % (offset,
@@ -109,7 +125,9 @@ class TerminalNeoCTL(object):
         ptid, num_replicas, row_list = self.neoctl.getPartitionRowList(
                 min_offset=min_offset, max_offset=max_offset, node=node)
         return '# ptid: %s, replicas: %s\n%s' % (ptid, num_replicas,
-            self.formatRowList(enumerate(row_list, min_offset)))
+            self.formatRowList(enumerate(row_list, min_offset))
+            if min_offset or max_offset else
+            self.formatPartitionTable(row_list))
 
     def getNodeList(self, params):
         """
@@ -190,7 +208,7 @@ class TerminalNeoCTL(object):
         changed, row_list = self.neoctl.tweakPartitionTable(
             map(self.asNode, params[dry_run:]), dry_run)
         if changed:
-            return self.formatRowList(enumerate(row_list))
+            return self.formatPartitionTable(row_list)
         return 'No change done.'
 
     def killNode(self, params):
