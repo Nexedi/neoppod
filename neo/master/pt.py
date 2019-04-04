@@ -163,15 +163,6 @@ class PartitionTable(neo.lib.pt.PartitionTable):
 
         return cell_list
 
-    def addNodeList(self, node_list):
-        """Add nodes"""
-        added_list = []
-        for node in node_list:
-            if node not in self.count_dict:
-                self.count_dict[node] = 0
-                added_list.append(node)
-        return added_list
-
     def tweak(self, drop_list=()):
         """Optimize partition table
 
