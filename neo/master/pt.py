@@ -230,6 +230,8 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         # Collect some data in a usable form for the rest of the method.
         node_list = {node: {} for node in self.count_dict
                               if node not in drop_list}
+        if not node_list:
+            raise neo.lib.pt.PartitionTableException("Can't remove all nodes.")
         drop_list = defaultdict(list)
         for offset, row in enumerate(self.partition_list):
             for cell in row:
