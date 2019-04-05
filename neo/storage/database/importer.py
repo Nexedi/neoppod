@@ -509,6 +509,7 @@ class ImporterDatabaseManager(DatabaseManager):
             " your configuration to use the native backend and restart.")
         self._import = None
         for x in """getObject getReplicationTIDList getReplicationObjectList
+                    _fetchObject
                  """.split():
             setattr(self, x, getattr(self.db, x))
 
@@ -673,6 +674,9 @@ class ImporterDatabaseManager(DatabaseManager):
                 r += self.db.getReplicationTIDList(max(min_tid, tid), max_tid,
                                                    length, partition)
         return r
+
+    def _fetchObject(*_):
+        raise AssertionError
 
     def getObjectHistory(self, *args, **kw):
         raise BackendNotImplemented(self.getObjectHistory)
