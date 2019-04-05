@@ -395,7 +395,7 @@ class DatabaseManager(object):
         tids are in unpacked format.
         """
         if self.getNumPartitions():
-            return max(map(self._getLastTID, self._readable_set))
+            return max(self._getLastTID(x, max_tid) for x in self._readable_set)
 
     def _getLastIDs(self, partition):
         """Return max(tid) & max(oid) for objects of given partition
@@ -415,7 +415,7 @@ class DatabaseManager(object):
         x = self._readable_set
         if x:
             tid, oid = zip(*map(self._getLastIDs, x))
-            tid = max(self.getLastTID(None), max(tid))
+            tid = max(self.getLastTID(), max(tid))
             oid = max(oid)
             return (None if tid is None else util.p64(tid),
                     None if oid is None else util.p64(oid))
