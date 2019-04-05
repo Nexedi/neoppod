@@ -444,8 +444,11 @@ class ImporterDatabaseManager(DatabaseManager):
         zodb = self.zodb[-1]
         self.zodb_loid = zodb.shift_oid + zodb.next_oid - 1
         self.zodb_tid = self.db.getLastTID(self.zodb_ltid) or 0
-        if callable(self._import):
-            self._import = self._import()
+        if callable(self._import): # XXX: why ?
+            if self.zodb_tid == self.zodb_ltid:
+                self._finished()
+            else:
+                self._import = self._import()
 
     def doOperation(self, app):
         if self._import:
@@ -505,6 +508,9 @@ class ImporterDatabaseManager(DatabaseManager):
         if process:
             process.join()
         self.commit()
+        self._finished()
+
+    def _finished(self):
         logging.warning("All data are imported. You should change"
             " your configuration to use the native backend and restart.")
         self._import = None
