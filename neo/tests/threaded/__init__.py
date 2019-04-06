@@ -310,7 +310,7 @@ class Node(object):
             if c:
                 a = c.addr
                 b = c.getAddress()
-                return (a, b) if c.is_server else (b, a)
+                return (b, a) if c.is_server else (ServerNode.resolv(a), b)
         addr_set = {addr(c.connector) for peer in peers
             for c in peer.em.connection_dict.itervalues()
             if isinstance(c, Connection)}
@@ -935,7 +935,7 @@ class NEOCluster(object):
     def startCluster(self):
         try:
             self.neoctl.startCluster()
-        except RuntimeError:
+        except SystemExit:
             Serialized.tic()
             if self.neoctl.getClusterState() not in (
                       ClusterStates.BACKINGUP,
