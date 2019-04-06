@@ -433,7 +433,7 @@ class NEOCluster(object):
                         pending_count += 1
                     if pending_count == target[0]:
                         neoctl.startCluster()
-            except (NotReadyException, RuntimeError):
+            except (NotReadyException, SystemExit):
                 pass
         if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
@@ -445,7 +445,7 @@ class NEOCluster(object):
         def start(last_try):
             try:
                 self.neoctl.startCluster()
-            except (NotReadyException, RuntimeError), e:
+            except (NotReadyException, SystemExit), e:
                 return False, e
             return True, None
         self.expectCondition(start)

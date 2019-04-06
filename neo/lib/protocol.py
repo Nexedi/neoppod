@@ -62,6 +62,7 @@ class Enum(tuple):
 @Enum
 def ErrorCodes():
     ACK
+    DENIED
     NOT_READY
     OID_NOT_FOUND
     TID_NOT_FOUND
