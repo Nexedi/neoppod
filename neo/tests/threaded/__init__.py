@@ -304,7 +304,13 @@ class TestSerialized(Serialized):
 class Node(object):
 
     def getConnectionList(self, *peers):
-        addr = lambda c: c and (c.addr if c.is_server else c.getAddress())
+        def addr(c):
+            # Do not identify only by source address because 2 TCP connections
+            # can have same source host:port to different destinations.
+            if c:
+                a = c.addr
+                b = c.getAddress()
+                return (a, b) if c.is_server else (b, a)
         addr_set = {addr(c.connector) for peer in peers
             for c in peer.em.connection_dict.itervalues()
             if isinstance(c, Connection)}
