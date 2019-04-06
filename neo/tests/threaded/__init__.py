@@ -934,7 +934,7 @@ class NEOCluster(object):
     def startCluster(self):
         try:
             self.neoctl.startCluster()
-        except RuntimeError:
+        except SystemExit:
             Serialized.tic()
             if self.neoctl.getClusterState() not in (
                       ClusterStates.BACKINGUP,

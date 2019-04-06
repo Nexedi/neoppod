@@ -21,9 +21,10 @@ from . import MasterHandler
 from ..app import monotonic_time, StateChangedException
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
+from neo.lib.handler import AnswerDenied
 from neo.lib.pt import PartitionTableException
 from neo.lib.protocol import ClusterStates, Errors, \
-    NodeStates, NodeTypes, Packets, ProtocolError, uuid_str
+    NodeStates, NodeTypes, Packets, uuid_str
 from neo.lib.util import dump
 
 CLUSTER_STATE_WORKFLOW = {
@@ -44,8 +45,8 @@ def check_state(*states):
         def wrapper(self, *args):
             state = self.app.getClusterState()
             if state not in states:
-                raise ProtocolError('%s RPC can not be used in %s state'
-                                    % (wrapped.__name__, state))
+                raise AnswerDenied('%s RPC can not be used in %s state'
+                                   % (wrapped.__name__, state))
             wrapped(self, *args)
         return wraps(wrapped)(wrapper)
     return decorator
@@ -75,30 +76,28 @@ class AdministrationHandler(MasterHandler):
         # check request
         try:
             if app.cluster_state not in CLUSTER_STATE_WORKFLOW[state]:
-                raise ProtocolError('Can not switch to this state')
+                raise AnswerDenied('Can not switch to this state')
         except KeyError:
             if state != ClusterStates.STOPPING:
-                raise ProtocolError('Invalid state requested')
+                raise AnswerDenied('Invalid state requested')
 
         # change state
         if state == ClusterStates.VERIFYING:
             storage_list = app.nm.getStorageList(only_identified=True)
             if not storage_list:
-                raise ProtocolError('Cannot exit recovery without any '
-                    'storage node')
+                raise AnswerDenied(
+                    'Cannot exit recovery without any storage node')
             for node in storage_list:
                 assert node.isPending(), node
                 if node.getConnection().isPending():
-                    # XXX: It's wrong to use ProtocolError here. We must reply
-                    #      less aggressively because the admin has no way to
-                    #      know that there's still pending activity.
-                    raise ProtocolError('Cannot exit recovery now: node %r is '
-                        'entering cluster' % (node, ))
+                    raise AnswerDenied(
+                        'Cannot exit recovery now: node %r is entering cluster'
+                        % node,)
             app._startup_allowed = True
             state = app.cluster_state
         elif state == ClusterStates.STARTING_BACKUP:
             if app.tm.hasPending() or app.nm.getClientList(True):
-                raise ProtocolError("Can not switch to %s state with pending"
+                raise AnswerDenied("Can not switch to %s state with pending"
                     " transactions or connected clients" % state)
 
         conn.answer(Errors.Ack('Cluster state changed'))
@@ -110,11 +109,11 @@ class AdministrationHandler(MasterHandler):
         app = self.app
         node = app.nm.getByUUID(uuid)
         if node is None:
-            raise ProtocolError('unknown node')
+            raise AnswerDenied('unknown node')
         if state not in NODE_STATE_WORKFLOW.get(node.getType(), ()):
-            raise ProtocolError('can not switch node to this state')
+            raise AnswerDenied('can not switch node to %s state' % state)
         if uuid == app.uuid:
-            raise ProtocolError('can not kill primary master node')
+            raise AnswerDenied('can not kill primary master node')
 
         state_changed = state != node.getState()
         message = ('state changed' if state_changed else
@@ -124,7 +123,7 @@ class AdministrationHandler(MasterHandler):
             try:
                 cell_list = app.pt.dropNodeList([node], keep)
             except PartitionTableException, e:
-                raise ProtocolError(str(e))
+                raise AnswerDenied(str(e))
             node.setState(state)
             if node.isConnected():
                 # notify itself so it can shutdown
@@ -183,7 +182,7 @@ class AdministrationHandler(MasterHandler):
         for uuid in uuid_list:
             node = getByUUID(uuid)
             if node is None or not (node.isStorage() and node.isIdentified()):
-                raise ProtocolError("invalid storage node %s" % uuid_str(uuid))
+                raise AnswerDenied("invalid storage node %s" % uuid_str(uuid))
             node_list.append(node)
         repair = Packets.NotifyRepair(*args)
         for node in node_list:

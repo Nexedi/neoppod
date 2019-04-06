@@ -26,6 +26,9 @@ from .protocol import (NodeStates, NodeTypes, Packets, uuid_str,
 from .util import cached_property
 
 
+class AnswerDenied(Exception):
+    """Helper exception to stop packet processing and answer a Denied error"""
+
 class DelayEvent(Exception):
     pass
 
@@ -98,6 +101,8 @@ class EventHandler(object):
                 % (m.im_class.__module__, m.im_class.__name__, m.__name__)))
         except NonReadableCell, e:
             conn.answer(Errors.NonReadableCell())
+        except AnswerDenied, e:
+            conn.answer(Errors.Denied(str(e)))
         except AssertionError:
             e = sys.exc_info()
             try:
