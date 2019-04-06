@@ -933,38 +933,59 @@ class ReplicationTests(NEOThreadedTest):
     def testReplicationBlockedByUnfinished2(self):
         self.testReplicationBlockedByUnfinished1(True)
 
-    @with_cluster(partitions=6, storage_count=4, start_cluster=0)
-    def testCloneStorage(self, cluster):
+    @with_cluster(partitions=6, storage_count=5, start_cluster=0)
+    def testSplitAndMakeResilientUsingClone(self, cluster):
         """
         Test cloning of storage nodes using --new-nid instead NEO replication.
         """
-        s01 = cluster.storage_list[:2]
-        s23 = cluster.storage_list[2:]
-        cluster.start(storage_list=s01)
+        s0 = cluster.storage_list[0]
+        s12 = cluster.storage_list[1:3]
+        s34 = cluster.storage_list[3:]
+        cluster.start(storage_list=(s0,))
         cluster.importZODB()(6)
-        self.tic()
-        with Patch(cluster, storage_list=s01):
-            cluster.sortStorageList()
-            cluster.stop()
-        cluster.storage_list[:2] = s01
-        storage_dict = {}
-        for s, d in zip(s01, s23):
+        for s in s12:
+            s.start()
+            self.tic()
+        drop_list = [s0.uuid]
+        self.assertRaises(SystemExit, cluster.neoctl.tweakPartitionTable,
+                          drop_list)
+        cluster.enableStorageList(s12)
+        def expected(changed):
+            s0 = 1, CellStates.UP_TO_DATE
+            s = CellStates.OUT_OF_DATE if changed else CellStates.UP_TO_DATE
+            return changed, 3 * [[s0, (2, s)], [s0, (3, s)]]
+        for dry_run in True, False:
+            self.assertEqual(expected(True),
+                cluster.neoctl.tweakPartitionTable(drop_list, dry_run))
+            self.tic()
+        self.assertEqual(expected(False),
+            cluster.neoctl.tweakPartitionTable(drop_list))
+        for s, d in zip(s12, s34):
+            s.stop()
+            cluster.join((s,))
+            s.resetNode()
             d.dm.restore(s.dm.dump())
             d.resetNode(new_nid=True)
-            storage_dict[s] = NodeStates.RUNNING
-            storage_dict[d] = NodeStates.DOWN
-        cluster.start(storage_dict)
-        cluster.join(s23)
-        for d in s23:
+            s.start()
+            d.start()
+            self.tic()
+            self.assertEqual(cluster.getNodeState(s), NodeStates.RUNNING)
+            self.assertEqual(cluster.getNodeState(d), NodeStates.DOWN)
+            cluster.join((d,))
             d.resetNode(new_nid=False)
             d.start()
         self.tic()
         self.checkReplicas(cluster)
-        expected = '|'.join(['U.U.|.U.U'] * 3)
+        expected = '|'.join(['UU.U.|U.U.U'] * 3)
         self.assertPartitionTable(cluster, expected)
         cluster.neoctl.setNumReplicas(1)
-        cluster.neoctl.tweakPartitionTable()
+        cluster.neoctl.tweakPartitionTable(drop_list)
         self.tic()
+        self.assertPartitionTable(cluster, expected)
+        s0.stop()
+        cluster.join((s0,))
+        cluster.neoctl.dropNode(s0.uuid)
+        expected = '|'.join(['U.U.|.U.U'] * 3)
         self.assertPartitionTable(cluster, expected)
 
     @with_cluster(partitions=5, replicas=2, storage_count=3)
