@@ -1834,18 +1834,7 @@ class Test(NEOThreadedTest):
                     x.value += 1
                     c2.root()['x'].value += 2
                     TransactionalResource(t1, 1, tpc_begin=begin1)
-                    # BUG: Very rarely, getConnectionList returns more that 1
-                    #      connection ("too many values to unpack"), which is
-                    #       a mystery and impossible to reproduce:
-                    #      - 1st time: v1.8.1 on a test machine (no SSL)
-                    #      - last: current revision on my laptop (SSL),
-                    #              at the first iteration of this loop
-                    _sm = list(s1.getConnectionList(cluster.master))
-                    try:
-                        s1m, = _sm
-                    except ValueError:
-                        self.fail((_sm, list(
-                            s1.getConnectionList(cluster.master))))
+                    s1m, = s1.getConnectionList(cluster.master)
                     try:
                         s1.em.removeReader(s1m)
                         with ConnectionFilter() as f, \
