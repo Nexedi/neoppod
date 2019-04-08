@@ -14,14 +14,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import struct, threading
+import threading
 from functools import partial
+from msgpack import packb
 
 # The protocol version must be increased whenever upgrading a node may require
-# to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
-# the high order byte 0 is different from TLS Handshake (0x16).
-PROTOCOL_VERSION = 6
-ENCODED_VERSION = struct.pack('!L', PROTOCOL_VERSION)
+# to upgrade other nodes.
+PROTOCOL_VERSION = 0
+# By encoding the handshake packet with msgpack, the whole NEO stream can be
+# decoded with msgpack. The first byte is 0x92, which is different from TLS
+# Handshake (0x16).
+HANDSHAKE_PACKET = packb(('NEO', PROTOCOL_VERSION))
 
 RESPONSE_MASK = 0x8000
 

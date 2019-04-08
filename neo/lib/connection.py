@@ -298,7 +298,7 @@ class ListeningConnection(BaseConnection):
             # message.
         else:
             conn._connected()
-            self.em.addWriter(conn) # for ENCODED_VERSION
+            self.em.addWriter(conn) # for HANDSHAKE_PACKET
 
     def getAddress(self):
         return self.connector.getAddress()
@@ -432,16 +432,19 @@ class Connection(BaseConnection):
             self._closure()
 
     def _parse(self):
-        from .protocol import ENCODED_VERSION, Packets
+        from .protocol import HANDSHAKE_PACKET, Packets
         read_buf = self.read_buf
-        version = read_buf.read_bytes(4)
-        if version != ENCODED_VERSION:
-            if len(version) < 4: # unlikely so tested last
+        handshake = read_buf.read_bytes(len(HANDSHAKE_PACKET))
+        if handshake != HANDSHAKE_PACKET:
+            if HANDSHAKE_PACKET.startswith(handshake): # unlikely so tested last
                 # Not enough data and there's no API to know it in advance.
                 # Put it back.
-                read_buf.feed(version)
+                read_buf.feed(handshake)
                 return
-            logging.warning('Protocol version mismatch with %r', self)
+            if HANDSHAKE_PACKET.startswith(handshake[:5]):
+                logging.warning('Protocol version mismatch with %r', self)
+            else:
+                logging.debug('Rejecting non-NEO %r', self)
             raise ConnectorException
         read_next = read_buf.next
         read_pos = read_buf.tell
