@@ -420,7 +420,7 @@ class ImporterDatabaseManager(DatabaseManager):
         if self._writeback:
             self._writeback.close()
         self.db.close()
-        if isinstance(self.zodb, list): # _setup called
+        if isinstance(self.zodb, tuple): # _setup called
             for zodb in self.zodb:
                 zodb.close()
 
@@ -518,6 +518,9 @@ class ImporterDatabaseManager(DatabaseManager):
                     _fetchObject
                  """.split():
             setattr(self, x, getattr(self.db, x))
+        for zodb in self.zodb:
+            zodb.close()
+        self.zodb = None
 
     def _iter_zodb(self, zodb_list):
         util.setproctitle('neostorage: import')
