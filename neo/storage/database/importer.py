@@ -216,7 +216,7 @@ class ZODB(object):
         self._connect = _connect
         config = section.config
         if 'read_only' in config.getSectionAttributes():
-            has_next_oid = config.read_only = hasattr(self, 'next_oid')
+            has_next_oid = config.read_only = 'next_oid' in self.__dict__
             if not has_next_oid:
                 import gc
                 # This will reopen read-only as soon as we know the last oid.
