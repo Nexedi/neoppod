@@ -17,11 +17,11 @@
 from cPickle import Pickler, Unpickler
 from cStringIO import StringIO
 from itertools import izip_longest
-import os, random, shutil, time, unittest
+import os, random, shutil, threading, time, unittest
 import transaction, ZODB
 from neo.client.exception import NEOPrimaryMasterLost
 from neo.lib import logging
-from neo.lib.util import p64, u64
+from neo.lib.util import cached_property, p64, u64
 from neo.master.transactions import TransactionManager
 from neo.storage.database import getAdapterKlass, importer, manager
 from neo.storage.database.importer import \
@@ -130,31 +130,51 @@ class ImporterTests(NEOThreadedTest):
         self.assertIs(Obj, load())
         self.assertDictEqual(state, load())
 
-    def _importFromFileStorage(self, multi=(),
-                               root_filter=None, sub_filter=None):
-        import_hash = '1d4ff03730fe6bcbf235e3739fbe5f5b'
+    @cached_property
+    def getFS(self):
+        fs_dir = os.path.join(getTempDirectory(), self.id())
+        shutil.rmtree(fs_dir, 1) # for --loop
+        os.mkdir(fs_dir)
+        def getFS(db='root'):
+            path = os.path.join(fs_dir, '%s.fs' % db)
+            return path, {
+                "storage": "<filestorage>\npath %s\n</filestorage>" % path
+            }
+        return getFS
+
+    def getData(self, tree=random_tree.generateTree(random.Random(0))):
         txn_size = 10
-        tree = random_tree.generateTree(random.Random(0))
         i = len(tree) // 3
         assert i > txn_size
         before_tree = tree[:i]
         after_tree = tree[i:]
-        fs_dir = os.path.join(getTempDirectory(), self.id())
-        shutil.rmtree(fs_dir, 1) # for --loop
-        os.mkdir(fs_dir)
+        def beforeCheck(h, count=52):
+            self.assertEqual(count, h())
+            self.assertEqual('1d4ff03730fe6bcbf235e3739fbe5f5b', h.hexdigest())
+        def finalCheck(r):
+            h = random_tree.hashTree(r)
+            self.assertEqual(93, h())
+            self.assertEqual('6bf0f0cb2d6c1aae9e52c412ef0e25b6', h.hexdigest())
+        return (
+            beforeCheck,
+            lambda r, *f: random_tree.importTree(r, before_tree, txn_size, *f),
+            finalCheck,
+            lambda r: random_tree.importTree(r, after_tree, txn_size),
+            )
+
+    def _importFromFileStorage(self, multi=(),
+                               root_filter=None, sub_filter=None):
+        beforeCheck, before, finalCheck, after = self.getData()
         iter_list = []
         db_list = []
         # Setup several FileStorage databases.
         for i, db in enumerate(('root',) + multi):
-            fs_path = os.path.join(fs_dir, '%s.fs' % db)
+            fs_path, cfg = self.getFS(db)
             c = ZODB.DB(FileStorage(fs_path)).open()
             r = c.root()['tree'] = random_tree.Node()
             transaction.commit()
-            iter_list.append(random_tree.importTree(r, before_tree, txn_size,
-                sub_filter(db) if i else root_filter))
-            db_list.append((db, r, {
-                "storage": "<filestorage>\npath %s\n</filestorage>" % fs_path
-                }))
+            iter_list.append(before(r, sub_filter(db) if i else root_filter))
+            db_list.append((db, r, cfg))
         # Populate FileStorage databases.
         for i, iter_list in enumerate(izip_longest(*iter_list)):
             for r in iter_list:
@@ -169,9 +189,7 @@ class ImporterTests(NEOThreadedTest):
                     for x in multi:
                         cfg['_%s' % x] = str(u64(r[x]._p_oid))
                 else:
-                    h = random_tree.hashTree(r)
-                    h()
-                    self.assertEqual(import_hash, h.hexdigest())
+                    beforeCheck(random_tree.hashTree(r))
                     importer['writeback'] = 'true'
             else:
                 cfg["oid"] = str(u64(r[db]._p_oid))
@@ -216,12 +234,10 @@ class ImporterTests(NEOThreadedTest):
             logging.info("start migration")
             dm.doOperation(cluster.storage)
             # Adjust if needed. Must remain > 0.
-            self.assertEqual(22, h())
-            self.assertEqual(import_hash, h.hexdigest())
+            beforeCheck(h, 22)
             # New writes after the switch to NEO.
             last_import = -1
-            for i, r in enumerate(random_tree.importTree(
-                    r, after_tree, txn_size)):
+            for i, r in enumerate(after(r)):
                 t.commit()
                 if cluster.storage.dm._import:
                     last_import = i
@@ -230,11 +246,6 @@ class ImporterTests(NEOThreadedTest):
             assert i < last_import * 3 < 2 * i, (last_import, i)
             self.assertFalse(cluster.storage.dm._import)
             storage._cache.clear()
-            def finalCheck(r):
-                h = random_tree.hashTree(r)
-                self.assertEqual(93, h())
-                self.assertEqual('6bf0f0cb2d6c1aae9e52c412ef0e25b6',
-                                 h.hexdigest())
             finalCheck(r)
             if dm._writeback:
                 dm.commit()
@@ -304,6 +315,53 @@ class ImporterTests(NEOThreadedTest):
         # XXX: With ZODB5, we should at least keep a working test that does not
         #      merge several DB.
         testMerge = expectedFailure(NEOPrimaryMasterLost)(testMerge)
+
+    def testIncremental(self):
+        """
+        This reproduces an undocumented way to speed up the import of a single
+        ZODB by doing most of the work before switching to NEO.
+        """
+        beforeCheck, before, finalCheck, after = self.getData()
+        fs_path, cfg = self.getFS()
+        c = ZODB.DB(FileStorage(fs_path)).open()
+        r = c.root()['tree'] = random_tree.Node()
+        transaction.commit()
+        for _ in before(r):
+            transaction.commit()
+        c.db().close()
+        importer = {'zodb': [('root', cfg)]}
+        # Start NEO cluster with transparent import.
+        with NEOCluster(importer=importer, partitions=2) as cluster:
+            s = cluster.storage
+            l = threading.Lock()
+            l.acquire()
+            def _finished(orig):
+                orig()
+                l.release()
+            with Patch(s.dm, _finished=_finished):
+                cluster.start()
+                l.acquire()
+            t, c = cluster.getTransaction()
+            r = c.root()['tree']
+            beforeCheck(random_tree.hashTree(r))
+            c = ZODB.DB(FileStorage(fs_path)).open()
+            for _ in after(c.root()['tree']):
+                transaction.commit()
+            c.db().close()
+            # TODO: Add a storage option that only does this and exits.
+            #       Such command would also check that there's no data after
+            #       what's already imported.
+            s.dm.setConfiguration('zodb', None)
+            s.stop()
+            cluster.join((s,))
+            s.resetNode()
+            with Patch(s.dm, _finished=_finished):
+                s.start()
+                self.tic()
+                l.acquire()
+            t.begin()
+            finalCheck(r)
+
 
 if __name__ == "__main__":
     unittest.main()
