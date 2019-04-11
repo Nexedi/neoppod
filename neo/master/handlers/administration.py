@@ -120,6 +120,9 @@ class AdministrationHandler(MasterHandler):
                    'node already in %s state' % state)
         if node.isStorage():
             keep = state == NodeStates.DOWN
+            if node.isRunning() and not keep:
+                raise AnswerDenied(
+                    "a running node must be stopped before removal")
             try:
                 cell_list = app.pt.dropNodeList([node], keep)
             except PartitionTableException, e:
@@ -197,8 +200,14 @@ class AdministrationHandler(MasterHandler):
     @__change_pt_rpc
     def tweakPartitionTable(self, conn, dry_run, uuid_list):
         app = self.app
-        drop_list = [node for node in app.nm.getStorageList()
-            if node.getUUID() in uuid_list or not node.isRunning()]
+        drop_list = []
+        for node in app.nm.getStorageList():
+            if node.getUUID() in uuid_list or node.isPending():
+                drop_list.append(node)
+            elif not node.isRunning():
+                drop_list.append(node)
+                raise AnswerDenied(
+                    'tweak: down nodes must be listed explicitly')
         if dry_run:
             pt = object.__new__(app.pt.__class__)
             new_nodes = pt.load(app.pt.getID(), app.pt.getReplicas(),

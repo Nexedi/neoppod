@@ -601,8 +601,9 @@ class ReplicationTests(NEOThreadedTest):
                     tweak()
                 t.commit()
                 t2.join()
-            cluster.neoctl.dropNode(S[2].uuid)
-            cluster.neoctl.dropNode(S[3].uuid)
+            for s in S[2:]:
+                cluster.neoctl.killNode(s.uuid)
+                cluster.neoctl.dropNode(s.uuid)
             cluster.neoctl.tweakPartitionTable()
             if done:
                 f.remove(delay)
@@ -987,6 +988,19 @@ class ReplicationTests(NEOThreadedTest):
         cluster.neoctl.dropNode(s0.uuid)
         expected = '|'.join(['U.U.|.U.U'] * 3)
         self.assertPartitionTable(cluster, expected)
+
+    @with_cluster(partitions=3, replicas=1, storage_count=3)
+    def testAdminOnerousOperationCondition(self, cluster):
+        s = cluster.storage_list[2]
+        cluster.neoctl.killNode(s.uuid)
+        tweak = cluster.neoctl.tweakPartitionTable
+        self.assertRaises(SystemExit, tweak)
+        self.assertRaises(SystemExit, tweak, dry_run=True)
+        self.assertTrue(tweak((s.uuid,))[0])
+        self.tic()
+        cluster.neoctl.dropNode(s.uuid)
+        s = cluster.storage_list[1]
+        self.assertRaises(SystemExit, cluster.neoctl.dropNode, s.uuid)
 
     @with_cluster(partitions=5, replicas=2, storage_count=3)
     def testCheckReplicas(self, cluster):

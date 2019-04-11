@@ -472,6 +472,7 @@ class Test(NEOThreadedTest):
             self.assertFalse(conn.isClosed())
             getCellSortKey = cluster.client.getCellSortKey
             self.assertEqual(getCellSortKey(s0, good), 0)
+            cluster.neoctl.killNode(s0.getUUID())
             cluster.neoctl.dropNode(s0.getUUID())
             self.assertEqual([s1], cluster.client.nm.getStorageList())
             self.assertTrue(conn.isClosed())
@@ -777,6 +778,7 @@ class Test(NEOThreadedTest):
             checkNodeState(NodeStates.RUNNING)
             self.assertEqual([], cluster.getOutdatedCells())
             # drop one
+            cluster.neoctl.killNode(s1.uuid)
             cluster.neoctl.dropNode(s1.uuid)
             checkNodeState(None)
             self.tic() # Let node state update reach remaining storage
