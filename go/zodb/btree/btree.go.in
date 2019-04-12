@@ -29,6 +29,15 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
+// Node represents a tree node - either BTree or Bucket.
+type Node interface {
+	zodb.IPersistent
+	node()
+}
+
+func (t *BTree)  node() {}
+func (b *Bucket) node() {}
+
 // BTree is a non-leaf node of a B⁺ tree.
 //
 // It contains []Entry in ↑ key order.
@@ -61,7 +70,7 @@ type BTree struct {
 // Key limits child's keys - see BTree.Entryv for details.
 type Entry struct {
 	key   KEY
-	child zodb.IPersistent // BTree or Bucket
+	child Node // BTree or Bucket
 }
 
 // Bucket is a leaf node of a B⁺ tree.
@@ -99,7 +108,7 @@ type BucketEntry struct {
 func (e *Entry) Key() KEY { return e.key }
 
 // Child returns BTree entry child.
-func (e *Entry) Child() zodb.IPersistent { return e.child }
+func (e *Entry) Child() Node { return e.child }
 
 // Entryv returns entries of a BTree node.
 //
@@ -159,7 +168,7 @@ func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err er
 // VGet is like Get but also calls visit while traversing the tree.
 //
 // Visit is called with node being activated.
-func (t *BTree) VGet(ctx context.Context, key KEY, visit func(node zodb.IPersistent)) (_ interface{}, _ bool, err error) {
+func (t *BTree) VGet(ctx context.Context, key KEY, visit func(node Node)) (_ interface{}, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)
 	err = t.PActivate(ctx)
 	if err != nil {
@@ -237,7 +246,7 @@ func (t *BTree) MinKey(ctx context.Context) (_ KEY, ok bool, err error) {
 // VMinKey is like MinKey but also calls visit while traversing the tree.
 //
 // Visit is called with node being activated.
-func (t *BTree) VMinKey(ctx context.Context, visit func(node zodb.IPersistent)) (_ KEY, ok bool, err error) {
+func (t *BTree) VMinKey(ctx context.Context, visit func(node Node)) (_ KEY, ok bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
 	err = t.PActivate(ctx)
 	if err != nil {
@@ -256,7 +265,7 @@ func (t *BTree) VMinKey(ctx context.Context, visit func(node zodb.IPersistent)) 
 
 	// NOTE -> can also use t.firstbucket
 	for {
-		child := t.data[0].child.(zodb.IPersistent)
+		child := t.data[0].child
 		t.PDeactivate()
 		err = child.PActivate(ctx)
 		if err != nil {
@@ -290,7 +299,7 @@ func (t *BTree) MaxKey(ctx context.Context) (_ KEY, _ bool, err error) {
 // VMaxKey is like MaxKey but also calls visit while traversing the tree.
 //
 // Visit is called with node being activated.
-func (t *BTree) VMaxKey(ctx context.Context, visit func(node zodb.IPersistent)) (_ KEY, _ bool, err error) {
+func (t *BTree) VMaxKey(ctx context.Context, visit func(node Node)) (_ KEY, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
 	err = t.PActivate(ctx)
 	if err != nil {
@@ -309,7 +318,7 @@ func (t *BTree) VMaxKey(ctx context.Context, visit func(node zodb.IPersistent)) 
 	}
 
 	for {
-		child := t.data[l-1].child.(zodb.IPersistent)
+		child := t.data[l-1].child
 		t.PDeactivate()
 		err = child.PActivate(ctx)
 		if err != nil {
@@ -615,7 +624,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, Entry{key: kkey, child: child.(zodb.IPersistent)})
+		bt.data = append(bt.data, Entry{key: kkey, child: child.(Node)})
 	}
 
 	return nil

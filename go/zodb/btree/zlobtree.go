@@ -31,6 +31,15 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
+// LONode represents a tree node - either LOBTree or LOBucket.
+type LONode interface {
+	zodb.IPersistent
+	node()
+}
+
+func (t *LOBTree)  node() {}
+func (b *LOBucket) node() {}
+
 // LOBTree is a non-leaf node of a B⁺ tree.
 //
 // It contains []LOEntry in ↑ key order.
@@ -63,7 +72,7 @@ type LOBTree struct {
 // Key limits child's keys - see LOBTree.Entryv for details.
 type LOEntry struct {
 	key   int64
-	child zodb.IPersistent // LOBTree or LOBucket
+	child LONode // LOBTree or LOBucket
 }
 
 // LOBucket is a leaf node of a B⁺ tree.
@@ -101,7 +110,7 @@ type LOBucketEntry struct {
 func (e *LOEntry) Key() int64 { return e.key }
 
 // Child returns LOBTree entry child.
-func (e *LOEntry) Child() zodb.IPersistent { return e.child }
+func (e *LOEntry) Child() LONode { return e.child }
 
 // Entryv returns entries of a LOBTree node.
 //
@@ -161,7 +170,7 @@ func (t *LOBTree) Get(ctx context.Context, key int64) (_ interface{}, _ bool, er
 // VGet is like Get but also calls visit while traversing the tree.
 //
 // Visit is called with node being activated.
-func (t *LOBTree) VGet(ctx context.Context, key int64, visit func(node zodb.IPersistent)) (_ interface{}, _ bool, err error) {
+func (t *LOBTree) VGet(ctx context.Context, key int64, visit func(node LONode)) (_ interface{}, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)
 	err = t.PActivate(ctx)
 	if err != nil {
@@ -239,7 +248,7 @@ func (t *LOBTree) MinKey(ctx context.Context) (_ int64, ok bool, err error) {
 // VMinKey is like MinKey but also calls visit while traversing the tree.
 //
 // Visit is called with node being activated.
-func (t *LOBTree) VMinKey(ctx context.Context, visit func(node zodb.IPersistent)) (_ int64, ok bool, err error) {
+func (t *LOBTree) VMinKey(ctx context.Context, visit func(node LONode)) (_ int64, ok bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
 	err = t.PActivate(ctx)
 	if err != nil {
@@ -258,7 +267,7 @@ func (t *LOBTree) VMinKey(ctx context.Context, visit func(node zodb.IPersistent)
 
 	// NOTE -> can also use t.firstbucket
 	for {
-		child := t.data[0].child.(zodb.IPersistent)
+		child := t.data[0].child
 		t.PDeactivate()
 		err = child.PActivate(ctx)
 		if err != nil {
@@ -292,7 +301,7 @@ func (t *LOBTree) MaxKey(ctx context.Context) (_ int64, _ bool, err error) {
 // VMaxKey is like MaxKey but also calls visit while traversing the tree.
 //
 // Visit is called with node being activated.
-func (t *LOBTree) VMaxKey(ctx context.Context, visit func(node zodb.IPersistent)) (_ int64, _ bool, err error) {
+func (t *LOBTree) VMaxKey(ctx context.Context, visit func(node LONode)) (_ int64, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
 	err = t.PActivate(ctx)
 	if err != nil {
@@ -311,7 +320,7 @@ func (t *LOBTree) VMaxKey(ctx context.Context, visit func(node zodb.IPersistent)
 	}
 
 	for {
-		child := t.data[l-1].child.(zodb.IPersistent)
+		child := t.data[l-1].child
 		t.PDeactivate()
 		err = child.PActivate(ctx)
 		if err != nil {
@@ -617,7 +626,7 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, LOEntry{key: kkey, child: child.(zodb.IPersistent)})
+		bt.data = append(bt.data, LOEntry{key: kkey, child: child.(LONode)})
 	}
 
 	return nil
