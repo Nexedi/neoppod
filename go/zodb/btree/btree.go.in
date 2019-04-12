@@ -202,6 +202,8 @@ func (t *BTree) VGet(ctx context.Context, key KEY, visit func(node Node)) (_ int
 			return nil, false, err
 		}
 
+		// XXX verify child keys are in valid range according to parent
+
 		if visit != nil {
 			visit(child)
 		}
@@ -276,6 +278,8 @@ func (t *BTree) VMinKey(ctx context.Context, visit func(node Node)) (_ KEY, ok b
 			visit(child)
 		}
 
+		// XXX verify child keys are in valid range according to parent
+
 		switch child := child.(type) {
 		case *BTree:
 			t = child
@@ -328,6 +332,8 @@ func (t *BTree) VMaxKey(ctx context.Context, visit func(node Node)) (_ KEY, _ bo
 		if visit != nil {
 			visit(child)
 		}
+
+		// XXX verify child keys are in valid range according to parent
 
 		switch child := child.(type) {
 		case *BTree:
