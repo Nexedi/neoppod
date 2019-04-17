@@ -295,6 +295,12 @@ class MySQLDatabaseManager(DatabaseManager):
             p += """ PARTITION BY LIST (`partition`) (
                 PARTITION dummy VALUES IN (NULL))"""
 
+        if engine == "RocksDB":
+            cf = lambda name, rev=False: " COMMENT '%scf_neo_%s'" % (
+                'rev:' if rev else '', name)
+        else:
+            cf = lambda *_: ''
+
         # The table "trans" stores information on committed transactions.
         schema_dict['trans'] =  """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
@@ -305,8 +311,8 @@ class MySQLDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL,
-                 PRIMARY KEY (`partition`, tid)
-             ) ENGINE=""" + p
+                 PRIMARY KEY (`partition`, tid){}
+             ) ENGINE={}""".format(cf('append_meta'), p)
 
         # The table "obj" stores committed object metadata.
         schema_dict['obj'] = """CREATE TABLE %s (
@@ -315,10 +321,11 @@ class MySQLDatabaseManager(DatabaseManager):
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (`partition`, oid, tid),
-                 KEY tid (`partition`, tid, oid),
-                 KEY (data_id)
-             ) ENGINE=""" + p
+                 PRIMARY KEY (`partition`, oid, tid){},
+                 KEY tid (`partition`, tid, oid){},
+                 KEY (data_id){}
+             ) ENGINE={}""".format(cf('obj_pk', True),
+                 cf('append_meta'), cf('append_meta'), p)
 
         if engine == "TokuDB":
             engine += " compression='tokudb_uncompressed'"
@@ -326,18 +333,21 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "data" stores object data.
         # We'd like to have partial index on 'hash' column (e.g. hash(4))
         # but 'UNIQUE' constraint would not work as expected.
-        schema_dict['data'] = """CREATE TABLE %%s (
-                 id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+        schema_dict['data'] = """CREATE TABLE %s (
+                 id BIGINT UNSIGNED NOT NULL,
                  hash BINARY(20) NOT NULL,
                  compression TINYINT UNSIGNED NULL,
-                 value MEDIUMBLOB NOT NULL%s
-             ) ENGINE=%s""" % (""",
-                 UNIQUE (hash, compression)""" if dedup else "", engine)
+                 value MEDIUMBLOB NOT NULL,
+                 PRIMARY KEY (id){}{}
+             ) ENGINE={}""".format(cf('append'), """,
+                 UNIQUE (hash, compression)""" + cf('no_comp') if dedup else "",
+                 engine)
 
         schema_dict['bigdata'] = """CREATE TABLE %s (
-                 id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                 value MEDIUMBLOB NOT NULL
-             ) ENGINE=""" + engine
+                 id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                 value MEDIUMBLOB NOT NULL,
+                 PRIMARY KEY (id){}
+             ) ENGINE={}""".format(cf('append'), p)
 
         # The table "ttrans" stores information on uncommitted transactions.
         schema_dict['ttrans'] = """CREATE TABLE %s (
@@ -348,8 +358,9 @@ class MySQLDatabaseManager(DatabaseManager):
                  user BLOB NOT NULL,
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
-                 ttid BIGINT UNSIGNED NOT NULL
-             ) ENGINE=""" + engine
+                 ttid BIGINT UNSIGNED NOT NULL,
+                 PRIMARY KEY (ttid){}
+             ) ENGINE={}""".format(cf('no_comp'), p)
 
         # The table "tobj" stores uncommitted object metadata.
         schema_dict['tobj'] = """CREATE TABLE %s (
@@ -358,8 +369,8 @@ class MySQLDatabaseManager(DatabaseManager):
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (tid, oid)
-             ) ENGINE=""" + engine
+                 PRIMARY KEY (tid, oid){}
+             ) ENGINE={}""".format(cf('no_comp'), p)
 
         if self.nonempty('config') is None:
             q(schema_dict.pop('config') % 'config')
