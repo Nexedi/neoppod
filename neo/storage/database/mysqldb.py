@@ -85,6 +85,10 @@ def auto_reconnect(wrapped):
                 retry -= 1
     return wraps(wrapped)(wrapper)
 
+def splitList(x, n):
+    for i in xrange(0, len(x), n):
+        yield x[i:i+n]
+
 
 @implements
 class MySQLDatabaseManager(DatabaseManager):
@@ -633,20 +637,29 @@ class MySQLDatabaseManager(DatabaseManager):
             q = self.query
             id_list = []
             bigid_list = []
-            for id, value in q("SELECT id, IF(compression < 128, NULL, value)"
-                               " FROM data LEFT JOIN obj ON (id = data_id)"
-                               " WHERE id IN (%s) AND data_id IS NULL"
-                               % ",".join(map(str, data_id_list))):
-                id_list.append(str(id))
-                if value:
-                    bigdata_id, length = self._unpackLL(value)
-                    bigid_list += xrange(bigdata_id,
-                                         bigdata_id + (length + 0x7fffff >> 23))
+            # Split the query to avoid exceeding max_allowed_packet.
+            # Each id is 20 chars maximum.
+            for data_id_list in splitList(sorted(data_id_list), 1000000):
+                for id, value in q(
+                        "SELECT id, IF(compression < 128, NULL, value)"
+                        " FROM data LEFT JOIN obj ON (id = data_id)"
+                        " WHERE id IN (%s) AND data_id IS NULL"
+                        % ",".join(map(str, data_id_list))):
+                    id_list.append(id)
+                    if value:
+                        bigdata_id, length = self._unpackLL(value)
+                        bigid_list += xrange(
+                            bigdata_id,
+                            bigdata_id + (length + 0x7fffff >> 23))
             if id_list:
-                q("DELETE FROM data WHERE id IN (%s)" % ",".join(id_list))
+                def delete(table, id_list):
+                    for id_list in splitList(id_list, 1000000):
+                        q("DELETE FROM %s WHERE id IN (%s)"
+                          % (table, ",".join(map(str, id_list))))
+                delete('data', id_list)
                 if bigid_list:
-                    q("DELETE FROM bigdata WHERE id IN (%s)"
-                      % ",".join(map(str, bigid_list)))
+                    bigid_list.sort()
+                    delete('bigdata', bigid_list)
                 return len(id_list)
         return 0
 
