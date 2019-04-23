@@ -36,7 +36,7 @@ from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump, setproctitle
-from .. import (ADDRESS_TYPE, DB_SOCKET, DB_USER, IP_VERSION_FORMAT_DICT, SSL,
+from .. import (ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SSL,
     buildUrlFromString, cluster, getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch)
 from neo.client.Storage import Storage
@@ -306,7 +306,7 @@ class NEOCluster(object):
     SSL = None
 
     def __init__(self, db_list, master_count=1, partitions=1, replicas=0,
-                 db_user=DB_USER, db_password='', name=None,
+                 name=None,
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
                  address_type=ADDRESS_TYPE, bind_ip=None, logger=True,
@@ -322,20 +322,28 @@ class NEOCluster(object):
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory ' + temp_dir
         if adapter == 'MySQL':
-            self.db_user = db_user
-            self.db_password = db_password
-            self.db_template = ('%s:%s@%%s%s' % (db_user, db_password,
-                                                 DB_SOCKET)).__mod__
+            self.db_template = setupMySQLdb(db_list, clear_databases)
         elif adapter == 'SQLite':
             self.db_template = (lambda t: lambda db:
                 ':memory:' if db is None else db if os.sep in db else t % db
                 )(os.path.join(temp_dir, '%s.sqlite'))
+            if clear_databases:
+                for db in self.db_list:
+                    if db is None:
+                        continue
+                    db = self.db_template(db)
+                    try:
+                        os.remove(db)
+                    except OSError, e:
+                        if e.errno != errno.ENOENT:
+                            raise
+                    else:
+                        logging.debug('%r deleted', db)
         else:
             assert False, adapter
         self.address_type = address_type
         self.local_ip = local_ip = bind_ip or \
             IP_VERSION_FORMAT_DICT[self.address_type]
-        self.setupDB(clear_databases)
         if importer:
             cfg = ImporterConfigParser(adapter, **importer)
             cfg.set("neo", "database", self.db_template(*db_list))
@@ -382,23 +390,10 @@ class NEOCluster(object):
         self.process_dict.setdefault(node_type, []).append(
             NEOProcess(command_dict[node_type], uuid=uuid, **kw))
 
-    def setupDB(self, clear_databases=True):
-        if self.adapter == 'MySQL':
-            setupMySQLdb(self.db_list, self.db_user, self.db_password,
-                         clear_databases)
-        elif self.adapter == 'SQLite':
-            if clear_databases:
-                for db in self.db_list:
-                    if db is None:
-                        continue
-                    db = self.db_template(db)
-                    try:
-                        os.remove(db)
-                    except OSError, e:
-                        if e.errno != errno.ENOENT:
-                            raise
-                    else:
-                        logging.debug('%r deleted', db)
+    def resetDB(self):
+        for db in self.db_list:
+            dm = buildDatabaseManager(self.adapter, (self.db_template(db),))
+            dm.setup(True)
 
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """

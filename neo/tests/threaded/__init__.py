@@ -40,7 +40,7 @@ from neo.lib.util import cached_property, parseMasterList, p64
 from neo.master.recovery import  RecoveryManager
 from .. import (getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch,
-    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER)
+    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX)
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
@@ -714,7 +714,7 @@ class NEOCluster(object):
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
-                       db_user=DB_USER, db_password='', compress=True,
+                       compress=True,
                        importer=None, autostart=None, dedup=False, name=None):
         self.name = name or 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
@@ -741,21 +741,20 @@ class NEOCluster(object):
             db_list = ['%s%u' % (DB_PREFIX, self._allocate('db', index))
                        for _ in xrange(storage_count)]
         if adapter == 'MySQL':
-            setupMySQLdb(db_list, db_user, db_password, clear_databases)
-            db = '%s:%s@%%s%s' % (db_user, db_password, DB_SOCKET)
+            db = setupMySQLdb(db_list, clear_databases)
         elif adapter == 'SQLite':
-            db = os.path.join(getTempDirectory(), '%s.sqlite')
+            db = os.path.join(getTempDirectory(), '%s.sqlite').__mod__
         else:
             assert False, adapter
         if importer:
             cfg = ImporterConfigParser(adapter, **importer)
-            cfg.set("neo", "database", db % tuple(db_list))
-            db = os.path.join(getTempDirectory(), '%s.conf')
-            with open(db % tuple(db_list), "w") as f:
+            cfg.set("neo", "database", db(*db_list))
+            db = os.path.join(getTempDirectory(), '%s.conf').__mod__
+            with open(db(*db_list), "w") as f:
                 cfg.write(f)
             kw["adapter"] = "Importer"
         kw['wait'] = 0
-        self.storage_list = [StorageApplication(database=db % x, **kw)
+        self.storage_list = [StorageApplication(database=db(x), **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
 
