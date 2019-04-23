@@ -117,9 +117,11 @@ class MySQLDatabaseManager(DatabaseManager):
         return super(MySQLDatabaseManager, self).__getattr__(attr)
 
     def _tryConnect(self):
-        kwd = {'db' : self.db, 'user' : self.user}
-        if self.passwd is not None:
-            kwd['passwd'] = self.passwd
+        kwd = {'db' : self.db}
+        if self.user:
+            kwd['user'] = self.user
+            if self.passwd is not None:
+                kwd['passwd'] = self.passwd
         if self.socket:
             kwd['unix_socket'] = os.path.expanduser(self.socket)
         logging.info('connecting to MySQL on the database %s with user %s',
