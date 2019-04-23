@@ -50,6 +50,7 @@ class StressApplication(AdminApplication):
 
     cluster_state = server = uuid = None
     listening_conn = True
+    fault_probability = 1
     restart_ratio = float('inf') # no firewall support
     _stress = False
 
@@ -191,7 +192,7 @@ class StressApplication(AdminApplication):
         self.loid = loid
         self.ltid = ltid
         self.em.setTimeout(int(time.time() + 1), self.askLastIDs)
-        if self._stress:
+        if self._stress and random.random() < self.fault_probability:
             node_list = self.nm.getStorageList()
             random.shuffle(node_list)
             fw = []

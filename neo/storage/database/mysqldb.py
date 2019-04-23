@@ -200,6 +200,7 @@ class MySQLDatabaseManager(DatabaseManager):
             self._connect()
 
     def _commit(self):
+        # XXX: Should we translate OperationalError into MysqlError ?
         self.conn.commit()
         self._active = 0
 

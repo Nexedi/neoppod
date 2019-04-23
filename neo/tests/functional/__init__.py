@@ -310,7 +310,7 @@ class NEOCluster(object):
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
                  address_type=ADDRESS_TYPE, bind_ip=None, logger=True,
-                 importer=None):
+                 importer=None, storage_kw={}):
         if not adapter:
             adapter = 'MySQL'
         self.adapter = adapter
@@ -372,7 +372,8 @@ class NEOCluster(object):
         # create storage nodes
         for i, db in enumerate(db_list):
             self._newProcess(NodeTypes.STORAGE, logger and 'storage_%u' % i,
-                             0, adapter=adapter, database=self.db_template(db))
+                             0, adapter=adapter, database=self.db_template(db),
+                             **storage_kw)
         # create neoctl
         self.neoctl = NeoCTL((self.local_ip, admin_port), ssl=self.SSL)
 
