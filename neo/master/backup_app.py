@@ -111,17 +111,12 @@ class BackupApplication(object):
                     else:
                         break
                     poll(1)
-                node, conn, num_partitions, num_replicas = \
-                    bootstrap.getPrimaryConnection()
+                node, conn = bootstrap.getPrimaryConnection()
                 try:
                     app.changeClusterState(ClusterStates.BACKINGUP)
                     del bootstrap, node
-                    if num_partitions != pt.getPartitions():
-                        raise RuntimeError("inconsistent number of partitions")
                     self.ignore_invalidations = True
-                    self.pt = PartitionTable(num_partitions, num_replicas)
                     conn.setHandler(BackupHandler(self))
-                    conn.ask(Packets.AskPartitionTable())
                     conn.ask(Packets.AskLastTransaction())
                     # debug variable to log how big 'tid_list' can be.
                     self.debug_tid_count = 0

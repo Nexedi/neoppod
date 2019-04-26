@@ -433,7 +433,7 @@ class NEOCluster(object):
                         pending_count += 1
                     if pending_count == target[0]:
                         neoctl.startCluster()
-            except (NotReadyException, RuntimeError):
+            except (NotReadyException, SystemExit):
                 pass
         if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
@@ -445,7 +445,7 @@ class NEOCluster(object):
         def start(last_try):
             try:
                 self.neoctl.startCluster()
-            except (NotReadyException, RuntimeError), e:
+            except (NotReadyException, SystemExit), e:
                 return False, e
             return True, None
         self.expectCondition(start)
@@ -649,10 +649,10 @@ class NEOCluster(object):
 
     def expectOudatedCells(self, number, *args, **kw):
         def callback(last_try):
-            row_list = self.neoctl.getPartitionRowList()[1]
+            row_list = self.neoctl.getPartitionRowList()[2]
             number_of_outdated = 0
             for row in row_list:
-                for cell in row[1]:
+                for cell in row:
                     if cell[1] == CellStates.OUT_OF_DATE:
                         number_of_outdated += 1
             return number_of_outdated == number, number_of_outdated
@@ -660,10 +660,10 @@ class NEOCluster(object):
 
     def expectAssignedCells(self, process, number, *args, **kw):
         def callback(last_try):
-            row_list = self.neoctl.getPartitionRowList()[1]
+            row_list = self.neoctl.getPartitionRowList()[2]
             assigned_cells_number = 0
             for row in row_list:
-                for cell in row[1]:
+                for cell in row:
                     if cell[0] == process.getUUID():
                         assigned_cells_number += 1
             return assigned_cells_number == number, assigned_cells_number

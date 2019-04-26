@@ -226,8 +226,8 @@ class Application(ThreadedApplication):
                         self.notifications_handler,
                         node=node,
                         dispatcher=self.dispatcher)
-                p = Packets.RequestIdentification(
-                    NodeTypes.CLIENT, self.uuid, None, self.name, (), None)
+                p = Packets.RequestIdentification(NodeTypes.CLIENT,
+                    self.uuid, None, self.name, None, (), ())
                 try:
                     ask(conn, p, handler=handler)
                 except ConnectionClosed:
@@ -244,7 +244,6 @@ class Application(ThreadedApplication):
                 # operational. Might raise ConnectionClosed so that the new
                 # primary can be looked-up again.
                 logging.info('Initializing from master')
-                ask(conn, Packets.AskPartitionTable(), handler=handler)
                 ask(conn, Packets.AskLastTransaction(), handler=handler)
                 if self.pt.operational():
                     break
@@ -270,7 +269,7 @@ class Application(ThreadedApplication):
         conn = MTClientConnection(self, self.storage_event_handler, node,
                                   dispatcher=self.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
-            self.uuid, None, self.name, (), self.id_timestamp)
+            self.uuid, None, self.name, self.id_timestamp, (), ())
         try:
             self._ask(conn, p, handler=self.storage_bootstrap_handler)
         except ConnectionClosed:

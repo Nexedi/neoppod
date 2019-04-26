@@ -23,10 +23,6 @@ from neo.lib.protocol import Packets
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
-    def connectionCompleted(self, conn, new=None):
-        if new is None:
-            super(MasterHandler, self).connectionCompleted(conn)
-
     def connectionLost(self, conn, new_state=None):
         if self.app.listening_conn: # if running
             self._connectionLost(conn)
@@ -59,17 +55,20 @@ class MasterHandler(EventHandler):
             + app.getNodeInformationDict(node_list)[node.getType()])
         conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
-    def askPartitionTable(self, conn):
+    def handlerSwitched(self, conn, new):
         pt = self.app.pt
-        conn.answer(Packets.AnswerPartitionTable(pt.getID(), pt.getRowList()))
+        # Except storages during recovery and secondary masters, all nodes
+        # receives the full partition table as soon as they're identified.
+        # It is also sent in 2 other cases:
+        # - to admins during recovery, whenever a newer PT is loaded;
+        # - to storage when switching from recovery to verification.
+        # After that, non-master nodes only receive incremental updates.
+        conn.send(Packets.SendPartitionTable(
+            pt.getID(), pt.getReplicas(), pt.getRowList()))
 
 
 class BaseServiceHandler(MasterHandler):
-    """This class deals with events for a service phase."""
-
-    def connectionCompleted(self, conn, new):
-        pt = self.app.pt
-        conn.send(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
+    """Common handler class for storage nodes."""
 
     def connectionLost(self, conn, new_state):
         app = self.app

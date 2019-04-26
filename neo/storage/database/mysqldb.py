@@ -273,6 +273,12 @@ class MySQLDatabaseManager(DatabaseManager):
             " ELSE 1-state"
             " END as tid")
 
+    # Let's wait for a more important change to clean up,
+    # so that users can still downgrade.
+    if 0:
+      def _migrate4(self, schema_dict):
+        self._setConfiguration('partitions', None)
+
     def _setup(self, dedup=False):
         self._config.clear()
         q = self.query
@@ -420,6 +426,9 @@ class MySQLDatabaseManager(DatabaseManager):
                 raise
             q("ALTER TABLE config MODIFY value VARBINARY(%s) NULL" % len(value))
             q(sql)
+
+    def _getMaxPartition(self):
+        return self.query("SELECT MAX(`partition`) FROM pt")[0][0]
 
     def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
@@ -979,7 +988,7 @@ class MySQLDatabaseManager(DatabaseManager):
         cmd += self._cmdline()
         return subprocess.check_output(cmd)
 
-    def restore(self, sql):
+    def _restore(self, sql):
         import subprocess
         cmd = ['mysql']
         cmd += self._cmdline()

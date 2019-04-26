@@ -56,6 +56,10 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         self._id += 1
         return self._id
 
+    def setReplicas(self, num_replicas):
+        assert num_replicas >= 0, num_replicas
+        self.nr = num_replicas
+
     def make(self, node_list):
         """Make a new partition table from scratch."""
         assert self._id is None and node_list, (self._id, node_list)
@@ -108,26 +112,19 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             self.num_filled_rows = len(filter(None, self.partition_list))
         return change_list
 
-    def load(self, ptid, row_list, nm):
+    def load(self, ptid, num_replicas, row_list, nm):
         """
         Load a partition table from a storage node during the recovery.
         Return the new storage nodes registered
         """
-        # check offsets
-        for offset, _row in row_list:
-            if offset >= self.getPartitions():
-                raise IndexError, offset
-        # store the partition table
-        self.clear()
-        self._id = ptid
         new_nodes = []
-        for offset, row in row_list:
-            for uuid, state in row:
-                node = nm.getByUUID(uuid)
-                if node is None:
-                    node = nm.createStorage(uuid=uuid)
-                    new_nodes.append(node.asTuple())
-                self._setCell(offset, node, state)
+        def getByUUID(nid):
+            node = nm.getByUUID(nid)
+            if node is None:
+                node = nm.createStorage(uuid=nid)
+                new_nodes.append(node.asTuple())
+            return node
+        self._load(ptid, num_replicas, row_list, getByUUID)
         return new_nodes
 
     def setUpToDate(self, node, offset):
@@ -183,7 +180,8 @@ class PartitionTable(neo.lib.pt.PartitionTable):
           few readable cells, some cells are instead marked as FEEDING. This is
           a preliminary step to drop these nodes, otherwise the partition table
           could become non-operational.
-        - Other nodes must have the same number of cells, off by 1.
+          In fact, the code touching these cells is disabled (see NOTE below).
+        - Other nodes must have the same number of non-feeding cells, off by 1.
         - When a transaction creates new objects (oids are roughly allocated
           sequentially), we expect better performance by maximizing the number
           of involved nodes (i.e. parallelizing writes).
@@ -232,6 +230,8 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         # Collect some data in a usable form for the rest of the method.
         node_list = {node: {} for node in self.count_dict
                               if node not in drop_list}
+        if not node_list:
+            raise neo.lib.pt.PartitionTableException("Can't remove all nodes.")
         drop_list = defaultdict(list)
         for offset, row in enumerate(self.partition_list):
             for cell in row:
@@ -420,6 +420,22 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     outdated_list[offset] -= 1
             for offset, cell in cell_dict.iteritems():
                 discard_list[offset].append(cell)
+        # NOTE: The following line disables the next 2 lines, which actually
+        #       causes cells in drop_list to be discarded, now or later;
+        #       drop_list could be renamed into ignore_list.
+        #       1. Deleting data partition per partition is a lot of work, so
+        #          why ask nodes in drop_list to do that when the goal is
+        #          simply to trash the whole underlying database?
+        #       2. By excluding nodes from a tweak, it becomes possible to have
+        #          parts of the partition table that are tweaked differently.
+        #          This may require to temporarily change the number of
+        #          replicas for the part being tweaked. In the future, this
+        #          number may be specified in the 'tweak' command, to avoid
+        #          race conditions with setUpToDate().
+        #       Overall, a common use case is when importing a ZODB to NEO,
+        #       to keep the initial importing node up until the database is
+        #       split and replicated to the final nodes.
+        drop_list = {}
         for offset, drop_list in drop_list.iteritems():
             discard_list[offset] += drop_list
         # We have sorted cells to discard in order to first deallocate nodes

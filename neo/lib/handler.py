@@ -26,6 +26,9 @@ from .protocol import (NodeStates, NodeTypes, Packets, uuid_str,
 from .util import cached_property
 
 
+class AnswerDenied(Exception):
+    """Helper exception to stop packet processing and answer a Denied error"""
+
 class DelayEvent(Exception):
     pass
 
@@ -98,6 +101,8 @@ class EventHandler(object):
                 % (m.im_class.__module__, m.im_class.__name__, m.__name__)))
         except NonReadableCell, e:
             conn.answer(Errors.NonReadableCell())
+        except AnswerDenied, e:
+            conn.answer(Errors.Denied(str(e)))
         except AssertionError:
             e = sys.exc_info()
             try:
@@ -160,8 +165,7 @@ class EventHandler(object):
     def _acceptIdentification(*args):
         pass
 
-    def acceptIdentification(self, conn, node_type, uuid,
-                             num_partitions, num_replicas, your_uuid):
+    def acceptIdentification(self, conn, node_type, uuid, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
         assert node.getConnection() is conn, (node.getConnection(), conn)
@@ -180,7 +184,7 @@ class EventHandler(object):
             elif node.getUUID() != uuid or app.uuid != your_uuid != None:
                 raise ProtocolError('invalid uuids')
             node.setIdentified()
-            self._acceptIdentification(node, num_partitions, num_replicas)
+            self._acceptIdentification(node)
             return
         conn.close()
 

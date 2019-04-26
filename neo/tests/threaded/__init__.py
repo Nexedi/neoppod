@@ -383,7 +383,10 @@ class ServerNode(Node):
         assert not self.is_alive()
         init_args = self._init_args
         init_args['reset'] = False
-        assert set(kw).issubset(init_args), (kw, init_args)
+        if __debug__:
+            x = set(kw).difference(init_args)
+            assert not x or x.issubset(self.option_parser.getOptionDict()), (
+                kw, init_args)
         init_args.update(kw)
         self.close()
         self.__init__(**init_args)
@@ -810,7 +813,7 @@ class NEOCluster(object):
             master_list = self.master_list
         if storage_list is None:
             storage_list = self.storage_list
-        def answerPartitionTable(release, orig, *args):
+        def sendPartitionTable(release, orig, *args):
             orig(*args)
             release()
         def dispatch(release, orig, handler, *args):
@@ -826,7 +829,7 @@ class NEOCluster(object):
             if state in expected_state:
                 release()
         with Serialized.until(MasterEventHandler,
-                answerPartitionTable=answerPartitionTable) as tic1, \
+                sendPartitionTable=sendPartitionTable) as tic1, \
              Serialized.until(RecoveryManager, dispatch=dispatch) as tic2, \
              Serialized.until(MasterEventHandler,
                 notifyClusterInformation=notifyClusterInformation) as tic3:
@@ -851,9 +854,13 @@ class NEOCluster(object):
         expected_state = (NodeStates.PENDING
             if state == ClusterStates.RECOVERING
             else NodeStates.RUNNING)
-        for node in self.storage_list if storage_list is None else storage_list:
+        for node, expected_state in (
+                storage_list if isinstance(storage_list, dict) else
+                dict.fromkeys(self.storage_list if storage_list is None else
+                              storage_list, expected_state)
+                ).iteritems():
             state = self.getNodeState(node)
-            assert state == expected_state, (repr(node), state)
+            assert state == expected_state, (repr(node), state, expected_state)
 
     def stop(self, clear_database=False, __print_exc=traceback.print_exc, **kw):
         if self.started:
@@ -927,7 +934,7 @@ class NEOCluster(object):
     def startCluster(self):
         try:
             self.neoctl.startCluster()
-        except RuntimeError:
+        except SystemExit:
             Serialized.tic()
             if self.neoctl.getClusterState() not in (
                       ClusterStates.BACKINGUP,
@@ -1006,18 +1013,18 @@ class NEOCluster(object):
         """Sort storages so that storage_list[i] has partition i for all i"""
         pt = [{x.getUUID() for x in x}
             for x in self.primary_master.pt.partition_list]
+        n = len(self.storage_list)
         r = []
         x = [iter(pt[0])]
-        try:
-            while 1:
-                try:
-                    r.append(next(x[-1]))
-                except StopIteration:
-                    del r[-1], x[-1]
-                else:
-                    x.append(iter(pt[len(r)].difference(r)))
-        except IndexError:
-            assert len(r) == len(self.storage_list)
+        while 1:
+            try:
+                r.append(next(x[-1]))
+            except StopIteration:
+                del r[-1], x[-1]
+            else:
+                if len(r) == n:
+                    break
+                x.append(iter(pt[len(r)].difference(r)))
         x = {x.uuid: x for x in self.storage_list}
         self.storage_list[:] = (x[r] for r in r)
         return self.storage_list
