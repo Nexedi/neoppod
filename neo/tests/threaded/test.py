@@ -1055,6 +1055,10 @@ class Test(NEOThreadedTest):
                 # Check that the storage hasn't answered to the store,
                 # which means that a lock is still taken for r['x'] by t2.
                 self.tic()
+                try:
+                    txn = txn.data(c1)
+                except KeyError: # BBB: ZODB < 5
+                    pass
                 txn_context = cluster.client._txn_container.get(txn)
                 empty = txn_context.queue.empty()
                 ll()
@@ -2282,6 +2286,10 @@ class Test(NEOThreadedTest):
                     # Check that the storage hasn't answered to the store,
                     # which means that a lock is still taken for r[''] by t1.
                     self.tic()
+                    try:
+                        txn = txn.data(c3)
+                    except KeyError: # BBB: ZODB < 5
+                        pass
                     txn_context = db.storage.app._txn_container.get(txn)
                     raise Abort(txn_context.queue.empty())
                 TransactionalResource(t3, 1, commit=t3_commit)
