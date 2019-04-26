@@ -20,10 +20,10 @@ from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
 
 class InitializationHandler(BaseMasterHandler):
 
-    def sendPartitionTable(self, conn, ptid, row_list):
+    def sendPartitionTable(self, conn, ptid, num_replicas, row_list):
         app = self.app
         pt = app.pt
-        pt.load(ptid, row_list, app.nm)
+        pt.load(ptid, num_replicas, row_list, app.nm)
         if not pt.filled():
             raise ProtocolError('Partial partition table received')
         # Install the partition table into the database for persistence.
@@ -44,7 +44,7 @@ class InitializationHandler(BaseMasterHandler):
             logging.debug('drop data for partitions %r', unassigned)
             dm.dropPartitions(unassigned)
 
-        dm.changePartitionTable(ptid, cell_list, reset=True)
+        dm.changePartitionTable(ptid, num_replicas, cell_list, reset=True)
         dm.commit()
 
     def truncate(self, conn, tid):
@@ -68,7 +68,8 @@ class InitializationHandler(BaseMasterHandler):
 
     def askPartitionTable(self, conn):
         pt = self.app.pt
-        conn.answer(Packets.AnswerPartitionTable(pt.getID(), pt.getRowList()))
+        conn.answer(Packets.AnswerPartitionTable(
+            pt.getID(), pt.getReplicas(), pt.getRowList()))
 
     def askLockedTransactions(self, conn):
         conn.answer(Packets.AnswerLockedTransactions(

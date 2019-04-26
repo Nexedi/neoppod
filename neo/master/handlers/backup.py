@@ -17,6 +17,7 @@
 from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import ZERO_TID
+from neo.lib.pt import PartitionTable
 
 class BackupHandler(EventHandler):
     """Handler dedicated to upstream master during BACKINGUP state"""
@@ -25,12 +26,15 @@ class BackupHandler(EventHandler):
         if self.app.app.listening_conn: # if running
             raise PrimaryFailure('connection lost')
 
-    def answerPartitionTable(self, conn, ptid, row_list):
-        self.app.pt.load(ptid, row_list, self.app.nm)
+    def sendPartitionTable(self, conn, ptid, num_replicas, row_list):
+        app = self.app
+        pt = app.pt = object.__new__(PartitionTable)
+        pt.load(ptid, num_replicas, row_list, self.app.nm)
+        if pt.getPartitions() != app.app.pt.getPartitions():
+            raise RuntimeError("inconsistent number of partitions")
 
-    def notifyPartitionChanges(self, conn, ptid, cell_list):
-        if self.app.pt.filled():
-            self.app.pt.update(ptid, cell_list, self.app.nm)
+    def notifyPartitionChanges(self, conn, ptid, num_replicas, cell_list):
+        self.app.pt.update(ptid, num_replicas, cell_list, self.app.nm)
 
     def answerLastTransaction(self, conn, tid):
         app = self.app

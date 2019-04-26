@@ -30,6 +30,7 @@ action_dict = {
     },
     'set': {
         'cluster': 'setClusterState',
+        'replicas': 'setNumReplicas',
     },
     'check': 'checkReplicas',
     'start': 'startCluster',
@@ -105,10 +106,10 @@ class TerminalNeoCTL(object):
         max_offset = int(max_offset)
         if node is not None:
             node = self.asNode(node)
-        ptid, row_list = self.neoctl.getPartitionRowList(
+        ptid, num_replicas, row_list = self.neoctl.getPartitionRowList(
                 min_offset=min_offset, max_offset=max_offset, node=node)
-        # TODO: return ptid
-        return self.formatRowList(row_list)
+        return '# ptid: %s, replicas: %s\n%s' % (ptid, num_replicas,
+            self.formatRowList(enumerate(row_list, min_offset)))
 
     def getNodeList(self, params):
         """
@@ -140,6 +141,18 @@ class TerminalNeoCTL(object):
         assert len(params) == 1
         return self.neoctl.setClusterState(self.asClusterState(params[0]))
 
+    def setNumReplicas(self, params):
+        """
+          Set number of replicas.
+          Parameters: nr
+            nr: positive number (0 means no redundancy)
+        """
+        assert len(params) == 1
+        nr = int(params[0])
+        if nr < 0:
+            sys.exit('invalid number of replicas')
+        return self.neoctl.setNumReplicas(nr)
+
     def startCluster(self, params):
         """
           Starts cluster operation after a startup.
@@ -167,10 +180,18 @@ class TerminalNeoCTL(object):
     def tweakPartitionTable(self, params):
         """
           Optimize partition table.
-          No partition will be assigned to specified storage nodes.
-          Parameters: [node [...]]
+          No change is done to the specified/down storage nodes and they don't
+          count as replicas. The purpose of listing nodes is usually to drop
+          them once the data is replicated to other nodes.
+          Parameters: [-n] [node [...]]
+            -n: dry run
         """
-        return self.neoctl.tweakPartitionTable(map(self.asNode, params))
+        dry_run = params[0] == '-n'
+        changed, row_list = self.neoctl.tweakPartitionTable(
+            map(self.asNode, params[dry_run:]), dry_run)
+        if changed:
+            return self.formatRowList(enumerate(row_list))
+        return 'No change done.'
 
     def killNode(self, params):
         """

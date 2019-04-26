@@ -378,8 +378,8 @@ class ImporterDatabaseManager(DatabaseManager):
         conf = self._conf
         db = self.db = buildDatabaseManager(conf['adapter'],
             (conf['database'], conf.get('engine'), conf['wait']))
-        for x in """getConfiguration _setConfiguration setNumPartitions
-                    query erase getPartitionTable _iterAssignedCells
+        for x in """getConfiguration _setConfiguration _getMaxPartition
+                    query erase getPartitionTable iterAssignedCells
                     updateCellTID getUnfinishedTIDDict dropUnfinishedData
                     abortTransaction storeTransaction lockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit
@@ -396,7 +396,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 self._writeback.committed()
         self.commit = db.commit = commit
 
-    def _updateReadable(self):
+    def _updateReadable(*_):
         raise AssertionError
 
     def setUUID(self, nid):
@@ -443,7 +443,8 @@ class ImporterDatabaseManager(DatabaseManager):
         self.zodb_ltid = max(x.ltid for x in self.zodb)
         zodb = self.zodb[-1]
         self.zodb_loid = zodb.shift_oid + zodb.next_oid - 1
-        self.zodb_tid = self.db.getLastTID(self.zodb_ltid) or 0
+        self.zodb_tid = self._getMaxPartition() is not None and \
+            self.db.getLastTID(self.zodb_ltid) or 0
         if callable(self._import): # XXX: why ?
             if self.zodb_tid == self.zodb_ltid:
                 self._finished()
@@ -726,7 +727,7 @@ class WriteBack(object):
                 self._event = Event()
                 self._idle = Event()
                 self._stop = Event()
-                self._np = self._db.getNumPartitions()
+                self._np = 1 + self._db._getMaxPartition()
                 self._db = cPickle.dumps(self._db, 2)
                 self._process = Process(target=self._run)
                 self._process.daemon = True

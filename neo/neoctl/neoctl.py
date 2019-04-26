@@ -91,8 +91,14 @@ class NeoCTL(BaseApplication):
             raise RuntimeError(response)
         return response[2]
 
-    def tweakPartitionTable(self, uuid_list=()):
-        response = self.__ask(Packets.TweakPartitionTable(uuid_list))
+    def tweakPartitionTable(self, uuid_list=(), dry_run=False):
+        response = self.__ask(Packets.TweakPartitionTable(dry_run, uuid_list))
+        if response[0] != Packets.AnswerTweakPartitionTable:
+            raise RuntimeError(response)
+        return response[1:]
+
+    def setNumReplicas(self, nr):
+        response = self.__ask(Packets.SetNumReplicas(nr))
         if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
             raise RuntimeError(response)
         return response[2]
@@ -163,7 +169,7 @@ class NeoCTL(BaseApplication):
         response = self.__ask(packet)
         if response[0] != Packets.AnswerPartitionList:
             raise RuntimeError(response)
-        return response[1:3] # ptid, row_list
+        return response[1:]
 
     def startCluster(self):
         """
