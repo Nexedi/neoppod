@@ -238,6 +238,7 @@ class ImporterTests(NEOThreadedTest):
             # New writes after the switch to NEO.
             last_import = -1
             for i, r in enumerate(after(r)):
+                c.readCurrent(r)
                 t.commit()
                 if cluster.storage.dm._import:
                     last_import = i

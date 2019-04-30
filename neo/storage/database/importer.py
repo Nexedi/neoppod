@@ -813,7 +813,10 @@ class TransactionRecord(BaseStorage.TransactionRecord):
     def __iter__(self):
         tid = self.tid
         for oid in self._oid_list:
-            _, compression, _, data, data_tid = self._db.fetchObject(oid, tid)
+            r = self._db.fetchObject(oid, tid)
+            if r is None: # checkCurrentSerialInTransaction
+                continue
+            _, compression, _, data, data_tid = r
             if data is not None:
                 data = compress.decompress_list[compression](data)
             yield BaseStorage.DataRecord(oid, tid, data, data_tid)
