@@ -349,6 +349,22 @@ class ReplicationTests(NEOThreadedTest):
                 self.tic()
                 self.assertTrue(backup.master.is_alive())
 
+    @with_cluster(master_count=2)
+    def testBackupFromUpstreamWithSecondaryMaster(self, upstream):
+        """
+        Check that the backup master reacts correctly when connecting first
+        to a secondary master of the upstream cluster.
+        """
+        with NEOCluster(upstream=upstream) as backup:
+            primary = upstream.primary_master
+            m, = (m for m in upstream.master_list if m is not primary)
+            backup.master.resetNode(upstream_masters=[m.server])
+            backup.start()
+            backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
+            self.tic()
+            self.assertEqual(backup.neoctl.getClusterState(),
+                             ClusterStates.BACKINGUP)
+
     @backup_test()
     def testCreationUndone(self, backup):
         """
