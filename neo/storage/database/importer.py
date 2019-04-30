@@ -641,7 +641,11 @@ class ImporterDatabaseManager(DatabaseManager):
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         # Even if everything is imported, we can't truncate below
         # because it would import again if we restart with this backend.
-        if min_tid < self.zodb_ltid:
+        # This is also incompatible with writeback, because ZODB has
+        # no API to truncate.
+        if min_tid < self.zodb_ltid or self._writeback:
+            # XXX: That's late to fail. The master should ask storage nodes
+            #      whether truncation is possible before going further.
             raise NotImplementedError
         self.db._deleteRange(partition, min_tid, max_tid)
 
