@@ -65,6 +65,7 @@ There is no conflict of node id between the 2 clusters:
 class BackupApplication(object):
 
     pt = None
+    server = None # like in BaseApplication
     uuid = None
 
     def __init__(self, app, name, master_addresses):
