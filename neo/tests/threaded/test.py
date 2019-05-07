@@ -149,6 +149,7 @@ class Test(NEOThreadedTest):
         c.root()[0] = ob = PCounterWithResolution()
         t.commit()
         tids = []
+        c.readCurrent(c.root())
         for x in inc:
             ob.value += x
             t.commit()

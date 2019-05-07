@@ -17,6 +17,7 @@
 import heapq
 import random
 import time
+from collections import defaultdict
 
 try:
     from ZODB._compat import dumps, loads, _protocol
@@ -776,17 +777,11 @@ class Application(ThreadedApplication):
     def undo(self, undone_tid, txn):
         txn_context = self._txn_container.get(txn)
         txn_info, txn_ext = self._getTransactionInformation(undone_tid)
-        txn_oid_list = txn_info['oids']
 
         # Regroup objects per partition, to ask a minimum set of storage.
-        partition_oid_dict = {}
-        for oid in txn_oid_list:
-            partition = self.pt.getPartition(oid)
-            try:
-                oid_list = partition_oid_dict[partition]
-            except KeyError:
-                oid_list = partition_oid_dict[partition] = []
-            oid_list.append(oid)
+        partition_oid_dict = defaultdict(list)
+        for oid in txn_info['oids']:
+            partition_oid_dict[self.pt.getPartition(oid)].append(oid)
 
         # Ask storage the undo serial (serial at which object's previous data
         # is)
@@ -828,8 +823,8 @@ class Application(ThreadedApplication):
                 raise UndoError('non-undoable transaction')
 
         # Send undo data to all storage nodes.
-        for oid in txn_oid_list:
-            current_serial, undo_serial, is_current = undo_object_tid_dict[oid]
+        for oid, (current_serial, undo_serial, is_current) in \
+                undo_object_tid_dict.iteritems():
             if is_current:
                 data = None
             else:
@@ -863,7 +858,7 @@ class Application(ThreadedApplication):
             self._store(txn_context, oid, current_serial, data, undo_serial)
 
         self.waitStoreResponses(txn_context)
-        return None, txn_oid_list
+        return None, list(undo_object_tid_dict)
 
     def _getTransactionInformation(self, tid):
         return self._askStorageForRead(tid,
@@ -944,9 +939,9 @@ class Application(ThreadedApplication):
         for serial, size in self._askStorageForRead(oid, packet):
                 txn_info, txn_ext = self._getTransactionInformation(serial)
                 # create history dict
-                txn_info.pop('id')
-                txn_info.pop('oids')
-                txn_info.pop('packed')
+                del txn_info['id']
+                del txn_info['oids']
+                del txn_info['packed']
                 txn_info['tid'] = serial
                 txn_info['version'] = ''
                 txn_info['size'] = size

@@ -796,6 +796,9 @@ class DatabaseManager(object):
                               oid, current_tid)
                 return current_tid, current_tid
             return current_tid, tid
+        found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
+        if found_undone_tid is None:
+            return
         if transaction_object:
             try:
                 current_tid = current_data_tid = u64(transaction_object[2])
@@ -805,8 +808,6 @@ class DatabaseManager(object):
             current_tid, current_data_tid = getDataTID(before_tid=ltid)
             if current_tid is None:
                 return None, None, False
-        found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
-        assert found_undone_tid is not None, (oid, undone_tid)
         is_current = undone_data_tid in (current_data_tid, tid)
         # Load object data as it was before given transaction.
         # It can be None, in which case it means we are undoing object
