@@ -26,22 +26,9 @@ from . import DatabaseFailure
 
 READABLE = CellStates.UP_TO_DATE, CellStates.FEEDING
 
-def lazymethod(func):
-    def getter(self):
-        cls = self.__class__
-        name = func.__name__
-        assert name not in cls.__dict__
-        setattr(cls, name, func(self))
-        return getattr(self, name)
-    return property(getter, doc=func.__doc__)
-
 def fallback(func):
-    def warn(self):
-        logging.info("Fallback to generic/slow implementation of %s."
-            " It should be overridden by backend storage (%s).",
-            func.__name__, self.__class__.__name__)
-        return func
-    return lazymethod(wraps(func)(warn))
+    setattr(Fallback, func.__name__, func)
+    return abstract(func)
 
 def splitOIDField(tid, oids):
     if len(oids) % 8:
@@ -50,6 +37,9 @@ def splitOIDField(tid, oids):
     return [oids[i:i+8] for i in xrange(0, len(oids), 8)]
 
 class CreationUndone(Exception):
+    pass
+
+class Fallback(object):
     pass
 
 class DatabaseManager(object):
@@ -493,6 +483,7 @@ class DatabaseManager(object):
                 None if data_serial is None else util.p64(data_serial))
 
     @fallback
+    @requires(_getObject)
     def _fetchObject(self, oid, tid):
         """Specialized version of _getObject, for replication"""
         r = self._getObject(oid, tid)
@@ -738,6 +729,7 @@ class DatabaseManager(object):
             return self._pruneData(data_id_list)
 
     @fallback
+    @requires(_getObject)
     def _getDataTID(self, oid, tid=None, before_tid=None):
         """
         Return a 2-tuple:

@@ -33,7 +33,7 @@ from ZODB.FileStorage import FileStorage
 
 from ..app import option_defaults
 from . import buildDatabaseManager, DatabaseFailure
-from .manager import DatabaseManager
+from .manager import DatabaseManager, Fallback
 from neo.lib import compress, logging, patch, util
 from neo.lib.interfaces import implements
 from neo.lib.protocol import BackendNotImplemented, MAX_TID
@@ -691,6 +691,9 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def _fetchObject(*_):
         raise AssertionError
+
+    getLastObjectTID = Fallback.getLastObjectTID.__func__
+    _getDataTID = Fallback._getDataTID.__func__
 
     def getObjectHistory(self, *args, **kw):
         raise BackendNotImplemented(self.getObjectHistory)
