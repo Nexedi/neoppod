@@ -516,7 +516,7 @@ class ImporterDatabaseManager(DatabaseManager):
             " your configuration to use the native backend and restart.")
         self._import = None
         for x in """getObject getReplicationTIDList getReplicationObjectList
-                    _fetchObject
+                    _fetchObject _getDataTID getLastObjectTID
                  """.split():
             setattr(self, x, getattr(self.db, x))
         for zodb in self.zodb:
@@ -573,6 +573,19 @@ class ImporterDatabaseManager(DatabaseManager):
         tid, oid = self.db.getLastIDs()
         return (max(tid, util.p64(self.zodb_ltid)),
                 max(oid, util.p64(self.zodb_loid)))
+
+    def _getObject(self, oid, tid=None, before_tid=None):
+        p64 = util.p64
+        r = self.getObject(p64(oid),
+            None if tid is None else p64(tid),
+            None if before_tid is None else p64(before_tid))
+        if r:
+            serial, next_serial, compression, checksum, data, data_serial = r
+            u64 = util.u64
+            return (u64(serial),
+                    next_serial and u64(next_serial),
+                    compression, checksum, data,
+                    data_serial and u64(data_serial))
 
     def getObject(self, oid, tid=None, before_tid=None):
         u64 = util.u64

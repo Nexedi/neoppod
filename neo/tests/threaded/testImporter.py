@@ -29,6 +29,7 @@ from neo.storage.database.importer import \
 from .. import expectedFailure, getTempDirectory, random_tree, Patch
 from . import NEOCluster, NEOThreadedTest
 from ZODB import serialize
+from ZODB.DB import TransactionalUndo
 from ZODB.FileStorage import FileStorage
 
 class Equal:
@@ -242,6 +243,13 @@ class ImporterTests(NEOThreadedTest):
                 t.commit()
                 if cluster.storage.dm._import:
                     last_import = i
+            for x in 0, 1:
+                undo = TransactionalUndo(c.db(), [storage.lastTransaction()])
+                txn = transaction.Transaction()
+                undo.tpc_begin(txn)
+                undo.commit(txn)
+                undo.tpc_vote(txn)
+                undo.tpc_finish(txn)
             self.tic()
             # Same as above. We want last_import smaller enough compared to i
             assert i < last_import * 3 < 2 * i, (last_import, i)
@@ -286,7 +294,7 @@ class ImporterTests(NEOThreadedTest):
              Patch(time, sleep=sleep) as p:
             self._importFromFileStorage()
             self.assertFalse(p.applied)
-        self.assertEqual(len(tid_list), 11)
+        self.assertEqual(len(tid_list), 13)
 
     def testThreadedWritebackWithUnbalancedPartitions(self):
         N = 7
@@ -304,7 +312,7 @@ class ImporterTests(NEOThreadedTest):
              Patch(WriteBack, chunk_size=N-2), \
              Patch(WriteBack, committed=committed):
             self._importFromFileStorage()
-        self.assertEqual(nonlocal_[0], 10)
+        self.assertEqual(nonlocal_[0], 12)
 
     def testMerge(self):
         multi = 1, 2, 3
