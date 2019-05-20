@@ -242,7 +242,7 @@ class TerminalNeoCTL(object):
             node: if "all", ask all connected storage nodes to repair,
                   otherwise, only the given list of storage nodes.
         """
-        dry_run = "01".index(params.pop(0))
+        dry_run = bool("01".index(params.pop(0)))
         return self.neoctl.repair(self._getStorageList(params), dry_run)
 
     def truncate(self, params):

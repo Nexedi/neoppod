@@ -1502,7 +1502,7 @@ class Test(NEOThreadedTest):
                 bad.append(s.getDataLockInfo())
                 s.dm.commit()
             def check(dry_run, expected):
-                cluster.neoctl.repair(node_list, dry_run)
+                cluster.neoctl.repair(node_list, bool(dry_run))
                 for e, s in zip(expected, cluster.storage_list):
                     while 1:
                         self.tic()
