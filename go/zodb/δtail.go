@@ -118,7 +118,7 @@ func (δtail *ΔTail) Tail() Tid {
 //
 // Note: contrary to regular go slicing, low is exclusive while high is inclusive.
 func (δtail *ΔTail) SliceByRev(low, high Tid) /*readonly*/ []ΔRevEntry {
-	tail := δtail.Tail()
+	tail := δtail.tail
 	head := δtail.head
 	if !(tail <= low && low <= high && high <= head) {
 		panic(fmt.Sprintf("δtail.Slice: invalid query: (%s, %s];  (tail, head] = (%s, %s]", low, high, tail, head))

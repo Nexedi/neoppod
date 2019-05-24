@@ -55,7 +55,7 @@ func NeedPy(t testing.TB, modules ...string) {
 	// verify if python is present
 	havePy, know := pyHave[".python"]
 	if !know {
-		cmd := exec.Command("python2", "-c", "0")
+		cmd := exec.Command("python", "-c", "0")
 		err := cmd.Run()
 		havePy = (err == nil)
 		pyHave[".python"] = havePy
@@ -69,7 +69,7 @@ func NeedPy(t testing.TB, modules ...string) {
 	for _, pymod := range modules {
 		have, know := pyHave[pymod]
 		if !know {
-			cmd := exec.Command("python2", "-c", "import "+pymod)
+			cmd := exec.Command("python", "-c", "import "+pymod)
 			err := cmd.Run()
 			have = (err == nil)
 			pyHave[pymod] = have
@@ -112,7 +112,7 @@ func ZPyCommitRaw(zurl string, at zodb.Tid, objv ...ZRawObject) (_ zodb.Tid, err
 	zin.WriteString("\n")
 
 	// run py `zodb commit`
-	cmd:= exec.Command("python2", "-m", "zodbtools.zodb", "commit", zurl, at.String())
+	cmd:= exec.Command("python", "-m", "zodbtools.zodb", "commit", zurl, at.String())
 	cmd.Stdin  = zin
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()

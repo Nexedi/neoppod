@@ -68,7 +68,8 @@ type DataHeader struct {
 }
 
 const (
-	Magic = "FS21" // every FileStorage file starts with this
+	Magic21 = "FS21" // FileStorage file produced by Python2 starts with this
+	Magic30	= "FS30" // ----//---- by Python3	XXX +test
 
 	// on-disk sizes
 	FileHeaderSize    = 4
@@ -154,8 +155,12 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 	if err != nil {
 		return fmt.Errorf("%sread magic: %s", ioprefix(r), err)
 	}
-	if string(fh.Magic[:]) != Magic {
+	switch string(fh.Magic[:]) {
+	default:
 		return fmt.Errorf("%sinvalid fs1 magic %q", ioprefix(r), fh.Magic)
+
+	case Magic21, Magic30:
+		// ok	XXX do we need to distinguish them somehow?
 	}
 
 	return nil

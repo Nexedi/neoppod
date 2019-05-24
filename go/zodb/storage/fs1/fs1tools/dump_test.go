@@ -19,6 +19,8 @@
 
 package fs1tools
 
+// XXX + py3
+
 //go:generate sh -c "python2 -m ZODB.scripts.fstail -n 1000000 ../testdata/1.fs >testdata/1.fstail.ok"
 //go:generate sh -c "python2 -c 'from ZODB.FileStorage import fsdump; fsdump.main()' ../testdata/1.fs >testdata/1.fsdump.ok"
 //go:generate sh -c "python2 -c 'from ZODB.FileStorage.fsdump import Dumper; import sys; d = Dumper(sys.argv[1]); d.dump()' ../testdata/1.fs >testdata/1.fsdumpv.ok"

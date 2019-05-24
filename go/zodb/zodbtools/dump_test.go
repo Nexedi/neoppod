@@ -19,6 +19,8 @@
 
 package zodbtools
 
+// XXX +py3 ?
+
 //go:generate sh -c "python2 -m zodbtools.zodb dump ../../zodb/storage/fs1/testdata/1.fs >testdata/1.zdump.pyok"
 //go:generate sh -c "python2 -m zodbtools.zodb dump ../../zodb/storage/fs1/testdata/empty.fs >testdata/empty.zdump.pyok"
 

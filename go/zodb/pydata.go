@@ -69,7 +69,7 @@ func encodePyData(pyclass pickle.Class, pystate interface{}) PyData {
 	p := pickle.NewEncoderWithConfig(buf, &pickle.EncoderConfig{
 		// allow pristine python2 to decode the pickle.
 		// TODO 2 -> 3 since ZODB5 switched to it and uses zodbpickle.
-		Protocol:      2,
+		Protocol:      2,	// XXX -> 3?
 		PersistentRef: persistentRef,
 	})
 
