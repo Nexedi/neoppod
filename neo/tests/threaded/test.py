@@ -427,6 +427,42 @@ class Test(NEOThreadedTest):
                              [tid3, tid2, tid1, tid0])
 
     @with_cluster()
+    def testSlowConflictResolution(self, cluster):
+        """
+        Check that a slow conflict resolution does not always result in a new
+        conflict because a concurrent client keeps modifying the same object
+        quickly.
+        An idea to fix it is to take the lock before the second attempt to
+        resolve.
+        """
+        t1, c1 = cluster.getTransaction()
+        c1.root()[''] = ob = PCounterWithResolution()
+        t1.commit()
+        l1 = threading.Lock(); l1.acquire()
+        l2 = threading.Lock(); l2.acquire()
+        conflicts = []
+        def _p_resolveConflict(orig, *args):
+            conflicts.append(get_ident())
+            l1.release(); l2.acquire()
+            return orig(*args)
+        with cluster.newClient(1) as db, Patch(PCounterWithResolution,
+                   _p_resolveConflict=_p_resolveConflict):
+            t2, c2 = cluster.getTransaction(db)
+            c2.root()[''].value += 1
+            for i in xrange(10):
+                ob.value += 1
+                t1.commit()
+                if i:
+                    l2.release()
+                else:
+                    t = self.newThread(t2.commit)
+                l1.acquire()
+            l2.release()
+            t.join()
+        with self.expectedFailure(): \
+        self.assertIn(get_ident(), conflicts)
+
+    @with_cluster()
     def testDelayedLoad(self, cluster):
         """
         Check that a storage node delays reads from the database,
