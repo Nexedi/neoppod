@@ -20,28 +20,46 @@ from neo.lib.protocol import uuid_str, Packets
 from neo.lib.pt import PartitionTable
 from neo.lib.exception import PrimaryFailure
 
-def check_primary_master(func):
-    def wrapper(self, *args, **kw):
-        if self.app.master_conn is not None:
-            return func(self, *args, **kw)
-        raise protocol.NotReadyError('Not connected to a primary master.')
-    return wrapper
+def AdminEventHandlerType(name, bases, d):
+    def check_primary_master(func):
+        def wrapper(self, *args, **kw):
+            if self.app.master_conn is not None:
+                return func(self, *args, **kw)
+            raise protocol.NotReadyError('Not connected to a primary master.')
+        return wrapper
 
-def forward_ask(klass):
-    return check_primary_master(lambda self, conn, *args, **kw:
-        self.app.master_conn.ask(klass(*args, **kw),
-                                 conn=conn, msg_id=conn.getPeerId()))
+    def forward_ask(klass):
+        return lambda self, conn, *args: self.app.master_conn.ask(
+            klass(*args), conn=conn, msg_id=conn.getPeerId())
+
+    del d['__metaclass__']
+    for x in (
+            Packets.AddPendingNodes,
+            Packets.AskLastIDs,
+            Packets.AskLastTransaction,
+            Packets.AskRecovery,
+            Packets.CheckReplicas,
+            Packets.Repair,
+            Packets.SetClusterState,
+            Packets.SetNodeState,
+            Packets.SetNumReplicas,
+            Packets.Truncate,
+            Packets.TweakPartitionTable,
+        ):
+        d[x.handler_method_name] = forward_ask(x)
+    return type(name, bases, {k: v if k[0] == '_' else check_primary_master(v)
+                              for k, v in d.iteritems()})
 
 class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
-    @check_primary_master
+    __metaclass__ = AdminEventHandlerType
+
     def askPartitionList(self, conn, min_offset, max_offset, uuid):
         logging.info("ask partition list from %s to %s for %s",
                      min_offset, max_offset, uuid_str(uuid))
         self.app.sendPartitionTable(conn, min_offset, max_offset, uuid)
 
-    @check_primary_master
     def askNodeList(self, conn, node_type):
         if node_type is None:
             node_type = 'all'
@@ -54,37 +72,22 @@ class AdminEventHandler(EventHandler):
         p = Packets.AnswerNodeList(node_information_list)
         conn.answer(p)
 
-    @check_primary_master
     def askClusterState(self, conn):
         conn.answer(Packets.AnswerClusterState(self.app.cluster_state))
 
-    @check_primary_master
     def askPrimary(self, conn):
         master_node = self.app.master_node
         conn.answer(Packets.AnswerPrimary(master_node.getUUID()))
 
-    @check_primary_master
     def flushLog(self, conn):
         self.app.master_conn.send(Packets.FlushLog())
         super(AdminEventHandler, self).flushLog(conn)
-
-    askLastIDs = forward_ask(Packets.AskLastIDs)
-    askLastTransaction = forward_ask(Packets.AskLastTransaction)
-    addPendingNodes = forward_ask(Packets.AddPendingNodes)
-    askRecovery = forward_ask(Packets.AskRecovery)
-    tweakPartitionTable = forward_ask(Packets.TweakPartitionTable)
-    setClusterState = forward_ask(Packets.SetClusterState)
-    setNodeState = forward_ask(Packets.SetNodeState)
-    setNumReplicas = forward_ask(Packets.SetNumReplicas)
-    checkReplicas = forward_ask(Packets.CheckReplicas)
-    truncate = forward_ask(Packets.Truncate)
-    repair = forward_ask(Packets.Repair)
 
 
 class MasterEventHandler(EventHandler):
     """ This class is just used to dispatch message to right handler"""
 
-    def _connectionLost(self, conn):
+    def connectionClosed(self, conn):
         app = self.app
         if app.listening_conn: # if running
             assert app.master_conn in (conn, None)
@@ -93,26 +96,18 @@ class MasterEventHandler(EventHandler):
             app.uuid = None
             raise PrimaryFailure
 
-    def connectionFailed(self, conn):
-        self._connectionLost(conn)
-
-    def connectionClosed(self, conn):
-        self._connectionLost(conn)
-
     def dispatch(self, conn, packet, kw={}):
-        if 'conn' in kw:
-            # expected answer
-            if packet.isResponse():
-                packet.setId(kw['msg_id'])
-                kw['conn'].answer(packet)
-            else:
-                self.app.request_handler.dispatch(conn, packet, kw)
-        else:
-            # unexpected answers and notifications
+        forward = kw.get('conn')
+        if forward is None:
             super(MasterEventHandler, self).dispatch(conn, packet, kw)
+        else:
+            packet.setId(kw['msg_id'])
+            forward.answer(packet)
 
     def answerClusterState(self, conn, state):
         self.app.cluster_state = state
+
+    notifyClusterInformation = answerClusterState
 
     def sendPartitionTable(self, conn, ptid, num_replicas, row_list):
         pt = self.app.pt = object.__new__(PartitionTable)
@@ -120,11 +115,3 @@ class MasterEventHandler(EventHandler):
 
     def notifyPartitionChanges(self, conn, ptid, num_replicas, cell_list):
         self.app.pt.update(ptid, num_replicas, cell_list, self.app.nm)
-
-    def notifyClusterInformation(self, conn, cluster_state):
-        self.app.cluster_state = cluster_state
-
-
-class MasterRequestEventHandler(EventHandler):
-    """ This class handle all answer from primary master node"""
-    # XXX: to be deleted ?

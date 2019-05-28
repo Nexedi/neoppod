@@ -18,8 +18,7 @@ from neo.lib import logging
 from neo.lib.app import BaseApplication, buildOptionParser
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import PrimaryFailure
-from .handler import AdminEventHandler, MasterEventHandler, \
-    MasterRequestEventHandler
+from .handler import AdminEventHandler, MasterEventHandler
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.protocol import ClusterStates, Errors, NodeTypes, Packets
 from neo.lib.debug import register as registerLiveDebugger
@@ -54,7 +53,6 @@ class Application(BaseApplication):
         self.pt = None
         self.uuid = config.get('nid')
         logging.node(self.name, self.uuid)
-        self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)
         self.cluster_state = None
         self.reset()
