@@ -101,8 +101,7 @@ class MasterEventHandler(EventHandler):
         if forward is None:
             super(MasterEventHandler, self).dispatch(conn, packet, kw)
         else:
-            packet.setId(kw['msg_id'])
-            forward.answer(packet)
+            forward.send(packet, kw['msg_id'])
 
     def answerClusterState(self, conn, state):
         self.app.cluster_state = state
