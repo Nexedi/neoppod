@@ -64,3 +64,4 @@ class CommandEventHandler(EventHandler):
     answerLastTransaction = __answer(Packets.AnswerLastTransaction)
     answerRecovery = __answer(Packets.AnswerRecovery)
     answerTweakPartitionTable = __answer(Packets.AnswerTweakPartitionTable)
+    answerMonitorInformation = __answer(Packets.AnswerMonitorInformation)

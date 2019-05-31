@@ -17,7 +17,7 @@ from neo.lib.connector import SocketConnector
 from neo.lib.debug import PdbSocket
 from neo.lib.node import Node
 from neo.lib.protocol import NodeTypes
-from neo.lib.util import timeStringFromTID, p64, u64
+from neo.lib.util import datetimeFromTID, p64, u64
 from neo.storage.app import DATABASE_MANAGER_DICT, \
     Application as StorageApplication
 from neo.tests import getTempDirectory, mysql_pool
@@ -533,7 +533,7 @@ class Application(StressApplication):
         ltid = self.ltid
         stdscr.addstr(y, 0,
             'last oid: 0x%x\nlast tid: 0x%x (%s)\nclients: '
-            % (u64(self.loid), u64(ltid), timeStringFromTID(ltid)))
+            % (u64(self.loid), u64(ltid), datetimeFromTID(ltid)))
         before = after = 0
         for i, p in enumerate(self.cluster.process_dict[Client]):
             if i:
@@ -708,7 +708,7 @@ def main():
                         ok = tid
                     finally:
                         conn.close()
-                print('bad: 0x%x (%s)' % (u64(bad), timeStringFromTID(bad)))
+                print('bad: 0x%x (%s)' % (u64(bad), datetimeFromTID(bad)))
         finally:
             db.close()
     finally:

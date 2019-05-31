@@ -18,6 +18,15 @@ import argparse, os, sys
 from functools import wraps
 from ConfigParser import SafeConfigParser
 
+class _DefaultList(list):
+    """
+    Special list type for default values of 'append' argparse actions,
+    so that the parser restarts from an empty list when the option is
+    used on the command-line.
+    """
+
+    def __copy__(self):
+        return []
 
 class _Required(object):
 
@@ -29,6 +38,8 @@ class _Required(object):
         return with_required is not None and self._name not in with_required
 
 class _Option(object):
+
+    multiple = False
 
     def __init__(self, *args, **kw):
         if len(args) > 1:
@@ -51,7 +62,12 @@ class _Option(object):
             action.required = _Required(option_list, self.name)
 
     def fromConfigFile(self, cfg, section):
-        return self(cfg.get(section, self.name.replace('-', '_')))
+        value = cfg.get(section, self.name.replace('-', '_'))
+        if self.multiple:
+            return [self(value)
+                for value in value.splitlines()
+                if value]
+        return self(value)
 
     @staticmethod
     def parse(value):
@@ -81,6 +97,11 @@ class Option(_Option):
                 kw[x] = getattr(self, x)
             except AttributeError:
                 pass
+        if self.multiple:
+            kw['action'] = 'append'
+            default = kw.get('default')
+            if default:
+              kw['default'] = _DefaultList(default)
         return kw
 
     @staticmethod
@@ -131,9 +152,6 @@ class OptionGroup(object):
         self._options.append(BoolOption(*args, **kw))
 
 class Argument(Option):
-
-    def __init__(self, name, **kw):
-        super(Argument, self).__init__(name, **kw)
 
     def _asArgparse(self, parser, option_list):
         kw = {'help': self.help, 'type': self}

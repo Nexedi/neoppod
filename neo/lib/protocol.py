@@ -826,6 +826,18 @@ class Packets(dict):
         :nodes: ctl -> A -> M -> *
         """)
 
+    AskMonitorInformation, AnswerMonitorInformation = request("""
+        :nodes: ctl -> A
+        """)
+
+    NotifyMonitorInformation = notify("""
+        :nodes: A -> A
+        """)
+
+    NotifyUpstreamAdmin = notify("""
+        :nodes: M -> A
+        """)
+
     del notify, request
 
 

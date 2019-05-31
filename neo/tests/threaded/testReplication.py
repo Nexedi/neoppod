@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2019  Nexedi SA
 #
@@ -41,10 +42,14 @@ from .test import PCounter, PCounterWithResolution # XXX
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     def decorator(wrapped):
         def wrapper(self):
-            with NEOCluster(partitions=partitions, **upstream_kw) as upstream:
+            with NEOCluster(partitions=partitions, backup_count=1,
+                            **upstream_kw) as upstream:
                 upstream.start()
+                name, = upstream.backup_list
                 with NEOCluster(partitions=partitions, upstream=upstream,
-                                **backup_kw) as backup:
+                                name=name, **backup_kw) as backup:
+                    self.assertMonitor(upstream, 2, 'RECOVERING',
+                                       (backup, None))
                     backup.start()
                     backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                     self.tic()
@@ -321,6 +326,10 @@ class ReplicationTests(NEOThreadedTest):
             delay = f.delayNotifyUnlockInformation()
             t1.commit()
             self.tic()
+            warning, problem, msg = upstream.neoctl.getMonitorInformation()
+            self.assertEqual(warning, (backup.name,))
+            self.assertFalse(problem)
+            self.assertTrue(msg.endswith('lag=ε'), msg)
             def storeObject(orig, *args, **kw):
                 p.revert()
                 f.remove(delay)
@@ -331,6 +340,10 @@ class ReplicationTests(NEOThreadedTest):
         t1.begin()
         self.assertEqual(5, ob.value)
         self.assertEqual(1, self.checkBackup(backup))
+        warning, problem, msg = upstream.neoctl.getMonitorInformation()
+        self.assertFalse(warning)
+        self.assertFalse(problem)
+        self.assertTrue(msg.endswith('lag=0.0'), msg)
 
     @with_cluster()
     def testBackupEarlyInvalidation(self, upstream):
@@ -761,6 +774,22 @@ class ReplicationTests(NEOThreadedTest):
     @backup_test(2, backup_kw=dict(replicas=1))
     def testResumingBackupReplication(self, backup):
         upstream = backup.upstream
+        for monitor in 'RECOVERING', 'VERIFYING', 'RUNNING':
+            monitor += '; UP_TO_DATE=2'
+            self.assertMonitor(upstream, 2, monitor, (backup, None))
+        self.assertMonitor(upstream, 0, monitor,
+                           (backup, 'BACKINGUP; UP_TO_DATE=4;'))
+        def checkMonitor():
+            self.assertMonitor(upstream, 2, monitor,
+                (backup, 'BACKINGUP; OUT_OF_DATE=2, UP_TO_DATE=2; DOWN=1;'))
+            self.assertNoMonitorInformation(upstream)
+            warning, problem, _ = upstream.neoctl.getMonitorInformation()
+            self.assertFalse(warning)
+            self.assertEqual(problem, (backup.name,))
+            warning, problem, _ = backup.neoctl.getMonitorInformation()
+            self.assertFalse(warning)
+            self.assertEqual(problem, (None,))
+
         t, c = upstream.getTransaction()
         r = c.root()
         r[1] = PCounter()
@@ -789,11 +818,18 @@ class ReplicationTests(NEOThreadedTest):
                 return x.pop(conn.getUUID(), 1)
             newTransaction()
             self.assertEqual(getBackupTid(), tids[1])
+            self.assertNoMonitorInformation(upstream)
             primary.stop()
             backup.join((primary,))
             primary.resetNode()
+            checkMonitor()
             primary.start()
             self.tic()
+            self.assertMonitor(upstream, 1, monitor,
+                (backup, 'BACKINGUP; OUT_OF_DATE=2, UP_TO_DATE=2; ltid='))
+            warning, problem, _ = backup.neoctl.getMonitorInformation()
+            self.assertEqual(warning, (None,))
+            self.assertFalse(problem)
             primary, slave = slave, primary
             self.assertEqual(tids, getTIDList(slave))
             self.assertEqual(tids[:1], getTIDList(primary))
@@ -803,6 +839,11 @@ class ReplicationTests(NEOThreadedTest):
         self.assertEqual(4, self.checkBackup(backup))
         self.assertEqual(getBackupTid(min), tids[1])
 
+        self.assertMonitor(upstream, 1, monitor,
+            (backup, 'BACKINGUP; OUT_OF_DATE=1, UP_TO_DATE=3; ltid='))
+        self.assertMonitor(upstream, 0, monitor,
+                           (backup, 'BACKINGUP; UP_TO_DATE=4;'))
+
         # Check that replication resumes from the maximum possible tid
         # (for UP_TO_DATE cells of a backup cluster). More precisely:
         # - cells are handled independently (done here by blocking replication
@@ -811,6 +852,7 @@ class ReplicationTests(NEOThreadedTest):
         #   we interrupt replication of obj in the middle of a transaction)
         slave.stop()
         backup.join((slave,))
+        checkMonitor()
         ask = []
         def delayReplicate(conn, packet):
             if isinstance(packet, Packets.AskFetchObjects):
@@ -820,16 +862,28 @@ class ReplicationTests(NEOThreadedTest):
                 return
             ask.append(packet._args)
         conn, = upstream.master.getConnectionList(backup.master)
+        admins = upstream.admin, backup.admin
         with ConnectionFilter() as f, Patch(replicator.Replicator,
                 _nextPartitionSortKey=lambda orig, self, offset: offset):
             f.add(delayReplicate)
-            delayReconnect = f.delayAskLastTransaction()
+            delayReconnect = f.delayAskLastTransaction(lambda conn:
+                self.getConnectionApp(conn) not in admins)
+            # Without the following delay, the upstream admin may be notified
+            # that the backup is back in BACKINGUP state before getting the
+            # last tid (from the upstream master); note that in such case,
+            # we would have 2 consecutive identical notifications.
+            delayMonitor = f.delayNotifyMonitorInformation(
+                lambda _, x=iter((0,)): next(x, 1))
             conn.close()
             newTransaction()
+            self.assertMonitor(upstream, 2, monitor, (backup,
+                'STARTING_BACKUP; OUT_OF_DATE=2, UP_TO_DATE=2; DOWN=1'))
+            f.remove(delayMonitor)
             newTransaction()
+            checkMonitor()
             newTransaction()
             self.assertFalse(ask)
-            self.assertEqual(f.filtered_count, 1)
+            self.assertEqual(f.filtered_count, 2)
             with Patch(replicator, FETCH_COUNT=1):
                 f.remove(delayReconnect)
                 self.tic()
@@ -859,6 +913,7 @@ class ReplicationTests(NEOThreadedTest):
             ])
         self.tic()
         self.assertEqual(2, self.checkBackup(backup))
+        checkMonitor()
 
     @with_cluster(start_cluster=0, replicas=1)
     def testStoppingDuringReplication(self, cluster):
