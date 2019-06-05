@@ -26,15 +26,14 @@ class BootstrapManager(EventHandler):
     Manage the bootstrap stage, lookup for the primary master then connect to it
     """
 
-    def __init__(self, app, node_type, server=None, devpath=(), new_nid=()):
+    def __init__(self, app, node_type, server=None, **extra):
         """
         Manage the bootstrap stage of a non-master node, it lookup for the
         primary master node, connect to it then returns when the master node
         is ready.
         """
         self.server = server
-        self.devpath = devpath
-        self.new_nid = new_nid
+        self.extra = extra
         self.node_type = node_type
         app.nm.reset()
 
@@ -43,7 +42,7 @@ class BootstrapManager(EventHandler):
     def connectionCompleted(self, conn):
         EventHandler.connectionCompleted(self, conn)
         conn.ask(Packets.RequestIdentification(self.node_type, self.uuid,
-            self.server, self.app.name, None, self.devpath, self.new_nid))
+            self.server, self.app.name, None, self.extra))
 
     def connectionFailed(self, conn):
         EventHandler.connectionFailed(self, conn)

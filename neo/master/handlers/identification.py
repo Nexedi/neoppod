@@ -24,7 +24,7 @@ from ..app import monotonic_time
 class IdentificationHandler(EventHandler):
 
     def requestIdentification(self, conn, node_type, uuid,
-                              address, name, id_timestamp, devpath, new_nid):
+                              address, name, id_timestamp, extra):
         app = self.app
         self.checkClusterName(name)
         if address == app.server:
@@ -60,6 +60,7 @@ class IdentificationHandler(EventHandler):
             # cloned/evil/buggy node connecting to us
             raise ProtocolError('already connected')
 
+        new_nid = extra.pop('new_nid', None)
         state = NodeStates.RUNNING
         if node_type == NodeTypes.CLIENT:
             if app.cluster_state == ClusterStates.RUNNING:
@@ -111,8 +112,7 @@ class IdentificationHandler(EventHandler):
                 uuid=uuid, address=address)
         else:
             node.setUUID(uuid)
-        if devpath:
-            node.devpath = tuple(devpath)
+        node.extra = extra
         node.id_timestamp = monotonic_time()
         node.setState(state)
         app.broadcastNodesInformation([node])
@@ -135,7 +135,7 @@ class IdentificationHandler(EventHandler):
 class SecondaryIdentificationHandler(EventHandler):
 
     def requestIdentification(self, conn, node_type, uuid,
-                              address, name, id_timestamp, devpath, new_nid):
+                              address, name, id_timestamp, extra):
         app = self.app
         self.checkClusterName(name)
         if address == app.server:

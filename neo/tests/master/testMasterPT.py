@@ -325,7 +325,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         pt.make(sn)
         pt.log()
         for i, s in enumerate(sn, sn_count):
-            s.devpath = tuple(bin(i)[3:-1])
+            s.extra = {'devpath': tuple(bin(i)[3:-1])}
         self.assertEqual(Counter(x[2] for x in self.tweak(pt)), {
             CellStates.OUT_OF_DATE: 96,
             CellStates.FEEDING: 96,
@@ -360,12 +360,12 @@ class MasterPartitionTableTests(NeoUnitTestBase):
             assert len(topo) <= sn_count
             sn2 = sn[:len(topo)]
             for s in sn2:
-                s.devpath = ()
+                s.extra = {}
             k = (1,7)[even]
             pt = PartitionTable(np*k, i)
             pt.make(sn2)
             for devpath, s in zip(topo, sn2):
-                s.devpath = tuple(devpath)
+                s.extra = {'devpath': tuple(devpath)}
             if type(expected) is tuple:
                 self.assertTrue(self.tweak(pt))
                 self.update(pt)

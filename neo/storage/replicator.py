@@ -350,7 +350,7 @@ class Replicator(object):
             try:
                 conn.ask(Packets.RequestIdentification(NodeTypes.STORAGE,
                     None if name else app.uuid, app.server, name or app.name,
-                    app.id_timestamp, (), ()))
+                    app.id_timestamp, {}))
             except ConnectionClosed:
                 if previous_node is self.current_node:
                     return

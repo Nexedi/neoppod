@@ -250,7 +250,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         devpath_max = []
         devpaths = [()] * node_count
         if repeats > 1:
-            _devpaths = [x[0].devpath for x in node_list]
+            _devpaths = [x[0].extra.get('devpath', ()) for x in node_list]
             max_depth = min(map(len, _devpaths))
             depth = 0
             while 1:

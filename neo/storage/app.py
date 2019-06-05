@@ -252,7 +252,7 @@ class Application(BaseApplication):
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, NodeTypes.STORAGE,
                                      None if self.new_nid else self.server,
-                                     self.devpath, self.new_nid)
+                                     devpath=self.devpath, new_nid=self.new_nid)
         self.master_node, self.master_conn = bootstrap.getPrimaryConnection()
         self.dm.setUUID(self.uuid)
 
