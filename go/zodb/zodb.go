@@ -480,7 +480,7 @@ type EventError struct {
 // EventCommit is event describing one observed database commit.
 type EventCommit struct {
 	Tid     Tid   // ID of committed transaction
-	Changev []Oid // ID of objects changed by committed transaction
+	Changev []Oid // ID of objects changed by committed transaction	XXX -> Objects ?
 }
 
 // Watcher allows to be notified of changes to database.
