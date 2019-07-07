@@ -310,7 +310,7 @@ type hwaiter struct {
 //
 // Must be called db.mu released.
 func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
-	defer xerr.Contextf(&err, "wait head ≥ %s", at)
+	defer xerr.Contextf(&err, "wait head ≥ @%s", at)
 
 	// precheck if db is already down -> error even if at is under coverage
 	if ready(db.down) {

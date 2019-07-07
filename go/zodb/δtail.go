@@ -199,6 +199,7 @@ func (δtail *ΔTail) ForgetPast(revCut Tid) {
 	δtail.tail = revCut
 }
 
+// XXX -> RevAt ?
 // LastRevOf tries to return what was the last revision that changed id as of at database state.
 //
 // Depending on current information in δtail it returns either exact result, or
