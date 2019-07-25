@@ -345,7 +345,6 @@ class Test(NEOThreadedTest):
             [DelayEvent, DelayEvent, ConflictError, ConflictError])
 
     def testDeadlockAvoidance(self):
-        # This test fail because deadlock avoidance is not fully implemented.
         # 0: C1 -> S1
         # 1: C2 -> S1, S2 (delayed)
         # 2: C1 -> S2 (deadlock)
@@ -2653,7 +2652,7 @@ class Test(NEOThreadedTest):
         work in itself, the code was hazardous and the client can't easily
         discard such "positive" answers, or process them early enough.
 
-        The scenario focuses on transaction t1 (storing object A)
+        The scenario focuses on transaction t1 (storing oid 1)
         and node s1 (initially replicating the only partition):
         1. t1 stores: conflict on s0, lockless write on s1
         2. t2 stores: locked on s0, lockless write on s1

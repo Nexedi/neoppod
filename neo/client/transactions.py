@@ -117,10 +117,11 @@ class Transaction(object):
             return
         if lockless:
             if lockless != serial: # late lockless write
+                # Oops! We shouldn't have executed the above 'remove'. Readd.
                 assert lockless < serial, (lockless, serial)
                 uuid_list.append(uuid)
                 return
-            # It's safe to do this after the above excepts: either the cell is
+            # It's safe to do this after the above except: either the cell is
             # already marked as lockless or the node will be reported as failed.
             lockless = self.lockless_dict
             if not lockless:
