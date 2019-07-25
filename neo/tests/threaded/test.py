@@ -36,11 +36,12 @@ from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
     Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
-from .. import unpickle_state, Patch, TransactionalResource
+from .. import Patch, TransactionalResource
 from . import ClientApplication, ConnectionFilter, LockLock, NEOCluster, \
     NEOThreadedTest, RandomConflictDict, Serialized, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
+from neo.client.handlers.storage import _DeadlockPacket
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.pt import PartitionTable
@@ -48,7 +49,6 @@ from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
 from neo.storage.handlers.initialization import InitializationHandler
-from neo.storage.replicator import Replicator
 
 class PCounter(Persistent):
     value = 0
@@ -279,7 +279,7 @@ class Test(NEOThreadedTest):
         self.assertEqual(except_list, [DelayEvent])
 
     @with_cluster(storage_count=2, replicas=1)
-    def _testDeadlockAvoidance(self, cluster, scenario):
+    def _testDeadlockAvoidance(self, cluster, scenario, delayed_conflict=None):
         except_list = []
         delay = threading.Event(), threading.Event()
         ident = get_ident()
@@ -304,6 +304,9 @@ class Test(NEOThreadedTest):
                 delay[c2].wait()
                 scenario[0] -= 1
                 switch = not scenario[0]
+            if c2 and delayed:
+                f.remove(delayed.pop())
+                self.assertFalse(delayed)
             try:
                 return orig(conn, packet, *args, **kw)
             finally:
@@ -324,7 +327,14 @@ class Test(NEOThreadedTest):
         o1.value += 1
         o2.value += 2
 
-        with Patch(TransactionManager, storeObject=onStoreObject), \
+        delayed = []
+        if delayed_conflict:
+            def finish1(*_):
+                d = f.byPacket(delayed_conflict, lambda _: delayed.append(d))
+            TransactionalResource(t1, 0, tpc_finish=finish1)
+
+        with ConnectionFilter() as f, \
+             Patch(TransactionManager, storeObject=onStoreObject), \
              Patch(MTClientConnection, ask=onAsk):
             t = self.newThread(t1.commit)
             t2.commit()
@@ -343,14 +353,24 @@ class Test(NEOThreadedTest):
         self.assertEqual(self._testDeadlockAvoidance([2, 4]),
             [DelayEvent, DelayEvent, ConflictError, ConflictError])
 
-    def testDeadlockAvoidance(self):
+    def testDeadlockAvoidance(self, **kw):
         # 0: C1 -> S1
         # 1: C2 -> S1, S2 (delayed)
         # 2: C1 -> S2 (deadlock)
-        # 3: C2 commits
-        # 4: C1 resolves conflict
-        self.assertEqual(self._testDeadlockAvoidance([1, 3]),
-            [DelayEvent, DelayEvent, DelayEvent, ConflictError])
+        # 3: C2 -> S2 (delayed)
+        # 4: C1 commits
+        # 5: C2 resolves conflict
+        self.assertEqual(self._testDeadlockAvoidance([1, 3], **kw),
+            [DelayEvent, DelayEvent, ConflictError])
+
+    # The following 2 tests cover extra paths when processing
+    # AnswerRelockObject.
+
+    def testDeadlockAvoidanceConflictVsLateRelock(self):
+        self.testDeadlockAvoidance(delayed_conflict=Packets.AnswerRelockObject)
+
+    def testDeadlockAvoidanceRelockVsLateConflict(self):
+        self.testDeadlockAvoidance(delayed_conflict=Packets.AnswerStoreObject)
 
     @with_cluster()
     def testConflictResolutionTriggered2(self, cluster):
@@ -2093,7 +2113,11 @@ class Test(NEOThreadedTest):
         self.assertEqual(x.value, 6)
 
     @contextmanager
-    def thread_switcher(self, threads, order, expected):
+    def thread_switcher(self, threads, order, expected,
+            # XXX: sched() can be recursive while handling conflicts. In some
+            #      cases, when the test is ending, it seems to work provided
+            #      we ignore a few exceptions.
+            allow_recurse=False):
         self.assertGreaterEqual(len(order), len(expected))
         thread_id = ThreadId()
         l = [threading.Lock() for l in xrange(len(threads)+1)]
@@ -2103,31 +2127,34 @@ class Test(NEOThreadedTest):
         expected = iter(expected)
         def sched(orig, *args, **kw):
             i = thread_id()
-            logging.info('%s: %s%r', i, orig.__name__, args)
+            e = orig.__name__
+            logging.info('%s: %s%r', i, e, args)
             try:
-                x = u64(kw['oid'])
+                e = u64((args[3] if e == '_handlePacket' else kw)['oid'])
             except KeyError:
                 for x in args:
                     if isinstance(x, Packet):
-                        x = type(x).__name__
+                        e = type(x).__name__
                         break
-                else:
-                    x = orig.__name__
             try:
                 j = next(order)
             except StopIteration:
-                end[i].append(x)
+                end[i].append(e)
                 j = None
                 try:
                     while 1:
-                        l.pop().release()
+                        try:
+                            l.pop().release()
+                        except threading.ThreadError:
+                            if not allow_recurse:
+                                raise
                 except IndexError:
                     pass
             else:
                 try:
-                    self.assertEqual(next(expected), x)
+                    self.assertEqual(next(expected), e)
                 except StopIteration:
-                    end[i].append(x)
+                    end[i].append(e)
             try:
                 if callable(j):
                     with contextmanager(j)(*args, **kw) as j:
@@ -2140,14 +2167,19 @@ class Test(NEOThreadedTest):
                         l[j].release()
                     except threading.ThreadError:
                         l[j].acquire()
-                        threads[j-1].start()
-                    if x != 'AskStoreTransaction':
+                        try:
+                            threads[j-1].start()
+                        except RuntimeError:
+                            if not allow_recurse:
+                                raise
+                            l[j].release()
+                    if e != 'AskStoreTransaction':
                         try:
                             l[i].acquire()
                         except IndexError:
                             pass
         def _handlePacket(orig, *args):
-            if isinstance(args[2], Packets.AnswerRebaseTransaction):
+            if args[2] is _DeadlockPacket:
                 return sched(orig, *args)
             return orig(*args)
         with RandomConflictDict, \
@@ -2167,184 +2199,71 @@ class Test(NEOThreadedTest):
         t1, c1 = cluster.getTransaction()
         r = c1.root()
         oids = []
-        for x in 'abcd':
+        for x in 'abc':
             r[x] = PCounterWithResolution()
             t1.commit()
             oids.append(u64(r[x]._p_oid))
         # The test relies on the implementation-defined behavior that ZODB
         # processes oids by order of registration. It's also simpler with
-        # oids from a=1 to d=4.
-        self.assertEqual(oids, range(1, 5))
+        # oids from a=1 to c=3.
+        self.assertEqual(oids, [1, 2, 3])
         t2, c2 = cluster.getTransaction()
         t3, c3 = cluster.getTransaction()
         changes(r, c2.root(), c3.root())
         threads = map(self.newPausedThread, (t2.commit, t3.commit))
         with self.thread_switcher(threads, order, expected_packets) as end:
             t1.commit()
+            threads[0].join()
             if except2 is None:
-                threads[0].join()
+                threads[1].join()
             else:
-                self.assertRaises(except2, threads[0].join)
-            threads[1].join()
+                self.assertRaises(except2, threads[1].join)
         t3.begin()
         r = c3.root()
-        self.assertEqual(expected_values, [r[x].value for x in 'abcd'])
+        self.assertEqual(expected_values, [r[x].value for x in 'abc'])
         return dict(end)
 
-    def testCascadedDeadlockAvoidanceWithOneStorage1(self):
-        """
-        locking tids: t1 < t2 < t3
-        1. A2 (t2 stores A)
-        2. B1, c2 (t2 checks C)
-        3. A3 (delayed), B3 (delayed), D3 (delayed)
-        4. C1 -> deadlock: B3
-        5. d2 -> deadlock: A3
-        locking tids: t3 < t1 < t2
-        6. t3 commits
-        7. t2 rebase: conflicts on A and D
-        8. t1 rebase: new deadlock on C
-        9. t2 aborts (D non current)
-        all locks released for t1, which rebases and resolves conflicts
-        """
+    def _testConflictDuringDeadlockAvoidance(self, change):
         def changes(r1, r2, r3):
-            r1['b'].value += 1
-            r1['c'].value += 2
-            r2['a'].value += 3
-            self.readCurrent(r2['c'])
-            self.readCurrent(r2['d'])
-            r3['a'].value += 4
-            r3['b'].value += 5
-            r3['d'].value += 6
-        x = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
-            (1, 1, 0, 1, 2, 2, 2, 2, 0, 1, 2, 1, 0, 0, 1, 0, 0, 1),
-            ('tpc_begin', 'tpc_begin', 1, 2, 3, 'tpc_begin', 1, 2, 4, 3, 4,
-             'AskStoreTransaction', 'AskRebaseTransaction',
-             'AskRebaseTransaction', 'AnswerRebaseTransaction',
-             'AnswerRebaseTransaction', 'AskRebaseTransaction',
-             'AnswerRebaseTransaction'),
-            [4, 6, 2, 6])
-        try:
-            x[1].remove(1)
-        except ValueError:
-            pass
-        self.assertEqual(x, {0: [2, 'AskStoreTransaction'], 1: ['tpc_abort']})
-
-    def testCascadedDeadlockAvoidanceWithOneStorage2(self):
-        def changes(r1, r2, r3):
-            r1['a'].value += 1
-            r1['b'].value += 2
-            r1['c'].value += 3
-            r2['a'].value += 4
-            r3['b'].value += 5
-            r3['c'].value += 6
-            self.readCurrent(r2['c'])
-            self.readCurrent(r2['d'])
-            self.readCurrent(r3['d'])
-            def unlock(orig, *args):
-                f.remove(rebase)
-                return orig(*args)
-            rebase = f.delayAskRebaseTransaction(
-                Patch(TransactionManager, unlock=unlock))
-        with ConnectionFilter() as f:
-            x = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
-                (0, 1, 1, 0, 1, 2, 2, 2, 2, 0, 1, 2, 1,
-                 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1),
-                ('tpc_begin', 1, 'tpc_begin', 1, 2, 3, 'tpc_begin',
-                 2, 3, 4, 3, 4, 'AskStoreTransaction', 'AskRebaseTransaction',
-                 'AskRebaseTransaction', 'AnswerRebaseTransaction'),
-                [1, 7, 9, 0])
-        x[0].sort(key=str)
-        try:
-            x[1].remove(1)
-        except ValueError:
-            pass
-        self.assertEqual(x, {
-            0: [2, 3, 'AnswerRebaseTransaction',
-                'AskRebaseTransaction', 'AskStoreTransaction'],
-            1: ['AnswerRebaseTransaction','AskRebaseTransaction',
-                'AnswerRebaseTransaction', 'tpc_abort'],
-        })
-
-    def testCascadedDeadlockAvoidanceOnCheckCurrent(self):
-        """Transaction checking an oid more than once
-
-        1. t1 < t2
-        2. t1 deadlocks, t2 gets all locks
-        3. t2 < t1 < t3
-        4. t2 finishes: conflict on A, t1 locks C, t3 locks B
-        5. t1 rebases B -> second deadlock
-        6. t1 resolves A
-        7. t3 resolves A -> deadlock, and t1 locks B
-        8. t1 rebases B whereas it was already locked
-        """
-        def changes(*r):
-            for r in r:
-                r['a'].value += 1
-                self.readCurrent(r['b'])
-                self.readCurrent(r['c'])
-        t = []
-        def vote_t2(*args, **kw):
-            yield 0
-            t.append(threading.currentThread())
-        def tic_t1(*args, **kw):
-            # Make sure t2 finishes before rebasing B,
-            # so that B is locked by a newer transaction (t3).
-            t[0].join()
-            yield 0
+            r1['a'].value = 1
+            self.readCurrent(r1['c'])
+            r2['b'].value = 2
+            r2['c'].value = 3
+            r3['b'].value = 4
+            change(r3['a'])
         end = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
-            (0, 1, 1, 0, 1, 1, 0, 0, 2, 2, 2, 2, 1, vote_t2, tic_t1),
-            ('tpc_begin', 1) * 2, [3, 0, 0, 0], None)
-        self.assertLessEqual(2, end[0].count('AskRebaseTransaction'))
+            (1, 2, 2, 2, 1, 1, 2, 0, 0, 1, 2, 0, 2, 1),
+            ('tpc_begin', 'tpc_begin', 'tpc_begin', 2, 1, 2, 3, 2, 1, 3, 3, 1,
+            'AskStoreTransaction', 'tpc_abort'),
+            [1, 2, 3], POSException.ConflictError)
+        self.assertEqual(end, {1: ['AskStoreTransaction']})
 
     def testFailedConflictOnBigValueDuringDeadlockAvoidance(self):
-        def changes(r1, r2, r3):
-            r1['b'].value = 1
-            r1['d'].value = 2
-            r2['a'].value = '*' * r2._p_jar.db().storage._cache.max_size
-            r2['b'].value = 3
-            r2['c'].value = 4
-            r3['a'].value = 5
-            self.readCurrent(r3['c'])
-            self.readCurrent(r3['d'])
-        with ConnectionFilter() as f:
-            x = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
-                (1, 1, 1, 2, 2, 2, 1, 2, 2, 0, 0, 1, 1, 1, 0),
-                ('tpc_begin', 'tpc_begin', 1, 2, 'tpc_begin', 1, 3, 3, 4,
-                'AskStoreTransaction', 2, 4, 'AskRebaseTransaction',
-                'AnswerRebaseTransaction', 'tpc_abort'),
-                [5, 1, 0, 2], POSException.ConflictError)
-        self.assertEqual(x, {0: ['AskStoreTransaction']})
+        @self._testConflictDuringDeadlockAvoidance
+        def change(ob):
+            ob.value = '*' * ob._p_jar.db().storage._cache.max_size
 
-    @with_cluster(replicas=1, partitions=4)
+    def testFailedCheckCurrentDuringDeadlockAvoidance(self):
+        self._testConflictDuringDeadlockAvoidance(self.readCurrent)
+
+    @with_cluster(replicas=1, partitions=2)
     def testNotifyReplicated(self, cluster):
         """
         Check replication while several concurrent transactions leads to
         conflict resolutions and deadlock avoidances, and in particular the
         handling of write-locks when the storage node is about to notify the
         master that partitions are replicated.
-        Transactions are committed in the following order:
-        - t2
-        - t4, conflict on 'd'
-        - t1, deadlock on 'a'
-        - t3, deadlock on 'b', and 2 conflicts on 'a'
-        Special care is also taken for the change done by t3 on 'a', to check
-        that the client resolves conflicts with correct oldSerial:
-        1. The initial store (a=8) is first delayed by t2.
-        2. It is then kept aside by the deadlock.
-        3. On s1, deadlock avoidance happens after t1 stores a=7 and the store
-           is delayed again. However, it's the contrary on s0, and a conflict
-           is reported to the client.
-        4. Second store (a=12) based on t2.
-        5. t1 finishes and s1 reports the conflict for first store (with t1).
-           At that point, the base serial of this store is meaningless:
-           the client only has data for last store (based on t2), and it's its
-           base serial that must be used. t3 write 15 (and not 19 !).
-        6. Conflicts for the second store are with t2 and they're ignored
-           because they're already resolved.
-        Note that this test method lacks code to enforce some events to happen
-        in the expected order. Sometimes, the above scenario is not reproduced
-        entirely, but it's so rare that there's no point in making the code
-        further complicated.
+
+        About releasing shared write-locks:
+        - The test was originally written with only t1 & t3, covering only the
+          case of not releasing a write-lock that is owned by a higher TTID.
+        - t4 was then added to test the opposite case ('a' on s1 by t3 & t4,
+          and t4 finishes first): the write-lock is released but given
+          immediately after while checking for replicated partitions.
+
+        At last, t2 was added to trigger a deadlock when t3 is about to vote:
+        - the notification from s0 is ignored
+        - s1 does not notify because 'a' is still lockless
         """
         s0, s1 = cluster.storage_list
         s1.stop()
@@ -2352,96 +2271,73 @@ class Test(NEOThreadedTest):
         s1.resetNode()
         t1, c1 = cluster.getTransaction()
         r = c1.root()
-        for x in 'abcd':
+        for x in 'abc':
             r[x] = PCounterWithResolution()
             t1.commit()
         t3, c3 = cluster.getTransaction()
-        r['c'].value += 1
+        r['a'].value += 1
         t1.commit()
-        r['b'].value += 2
-        r['a'].value += 3
+        r['a'].value += 2
+        r['c'].value += 3
         t2, c2 = cluster.getTransaction()
         r = c2.root()
         r['a'].value += 4
-        r['c'].value += 5
-        r['d'].value += 6
         r = c3.root()
-        r['c'].value += 7
-        r['a'].value += 8
-        r['b'].value += 9
+        r['b'].value += 5
+        r['c'].value += 6
+        r['a'].value += 7
         t4, c4 = cluster.getTransaction()
         r = c4.root()
-        r['d'].value += 10
+        r['a'].value += 8
         threads = map(self.newPausedThread, (t2.commit, t3.commit, t4.commit))
-        def t3_c(*args, **kw):
-            yield 1
-            # We want to resolve the conflict before storing A.
-            self.tic()
-        def t3_resolve(*args, **kw):
-            self.assertPartitionTable(cluster, 'UO|UO|UO|UO')
+        deadlocks = [(3, False)] # by t1
+        def t3_relock(*args, **kw):
+            self.assertPartitionTable(cluster, 'UO|UO')
             f.remove(delay)
             self.tic()
-            self.assertPartitionTable(cluster, 'UO|UO|UU|UO')
-            yield
-        def t1_rebase(*args, **kw):
-            self.tic()
-            self.assertPartitionTable(cluster, 'UO|UU|UU|UO')
-            yield
-        def t3_b(*args, **kw):
-            yield 1
-            self.tic()
-            self.assertPartitionTable(cluster, 'UO|UU|UU|UU')
-        def t4_d(*args, **kw):
-            self.tic()
-            self.assertPartitionTable(cluster, 'UU|UU|UU|UU')
+            self.assertPartitionTable(cluster, 'UU|UO')
+            yield 0
+        def t2_store(*args, **kw):
+            self.assertFalse(deadlocks)
+            deadlocks.append((1, True))
+            yield 3
+        def t4_vote(*args, **kw):
             yield 2
-        # Delay the conflict for the second store of 'a' by t3.
-        delay_conflict = {s0.uuid: [1], s1.uuid: [1,0]}
-        def delayConflict(conn, packet):
-            app = self.getConnectionApp(conn)
-            if (isinstance(packet, Packets.AnswerStoreObject)
-                and packet._args[0]):
-                conn, = cluster.client.getConnectionList(app)
-                kw = conn._handlers._pending[0][0][packet._id][1]
-                return 1 == u64(kw['oid']) and delay_conflict[app.uuid].pop()
-        def writeA(orig, txn_context, oid, serial, data):
-            if u64(oid) == 1:
-                value = unpickle_state(data)['value']
-                if value > 12:
-                    f.remove(delayConflict)
-                elif value == 12:
-                    f.add(delayConflict)
-            return orig(txn_context, oid, serial, data)
-        ###
+            f.remove(delayDeadlock)
+            self.assertFalse(deadlocks)
+        def delayDeadlock(conn, packet):
+            if isinstance(packet, Packets.NotifyDeadlock):
+                self.assertEqual(self.getConnectionApp(conn).uuid, s0.uuid)
+                oid, delay = deadlocks.pop()
+                self.assertEqual(u64(packet._args[1]), oid)
+                return delay
         with ConnectionFilter() as f, \
-             Patch(cluster.client, _store=writeA), \
              self.thread_switcher(threads,
-                (1, 2, 3, 0, 1, 0, 2, t3_c, 1, 3, 2, t3_resolve, 0, 0, 0,
-                 t1_rebase, 2, t3_b, 3, t4_d, 0, 2, 2),
+                (1, 2, 3, 2, 2, 2, 0, 3, 0, 2, t3_relock, 3,
+                 1, t2_store, t4_vote, 2, 2),
                 ('tpc_begin', 'tpc_begin', 'tpc_begin', 'tpc_begin',
-                 2, 1, 1, 3, 3, 4, 4, 3, 1,
-                 'AskRebaseTransaction', 'AskRebaseTransaction',
-                 'AnswerRebaseTransaction', 'AnswerRebaseTransaction', 2
-                 )) as end:
+                 2, 3, 1, 1, 1, 3, 3, 'AskStoreTransaction',
+                 1, 1, 'AskStoreTransaction'), allow_recurse=True) as end:
             delay = f.delayAskFetchTransactions()
+            f.add(delayDeadlock)
             s1.start()
             self.tic()
             t1.commit()
             for t in threads:
                 t.join()
         t4.begin()
-        self.assertEqual([15, 11, 13, 16], [r[x].value for x in 'abcd'])
-        self.assertEqual([2, 2], map(end.pop(2).count,
-            ['AskRebaseTransaction', 'AnswerRebaseTransaction']))
-        self.assertEqual(end, {
-            0: [1, 'AskStoreTransaction'],
-            1: ['AskStoreTransaction'],
-            3: [4, 'AskStoreTransaction'],
-        })
+        self.assertPartitionTable(cluster, 'UU|UU')
+        self.assertEqual([22, 5, 9], [r[x].value for x in 'abc'])
+        self.assertEqual(end.pop(3), [1])
+        self.assertEqual(sorted(end), [1, 2])
         self.assertFalse(s1.dm.getOrphanList())
 
     @with_cluster(replicas=1)
     def testNotifyReplicated2(self, cluster):
+        """
+        See comment in about using 'discard' instead of 'remove'
+        in TransactionManager._notifyReplicated of the storage node.
+        """
         s0, s1 = cluster.storage_list
         s1.stop()
         cluster.join((s1,))
@@ -2452,10 +2348,9 @@ class Test(NEOThreadedTest):
             r[x] = PCounterWithResolution()
             t1.commit()
         r['a'].value += 1
-        r['b'].value += 2
         t2, c2 = cluster.getTransaction()
         r = c2.root()
-        r['a'].value += 3
+        r['a'].value += 2
         r['b'].value += 4
         thread = self.newPausedThread(t2.commit)
         def t2_b(*args, **kw):
@@ -2464,17 +2359,15 @@ class Test(NEOThreadedTest):
             self.tic()
             self.assertPartitionTable(cluster, 'UO')
             yield 0
-        def t2_vote(*args, **kw):
+        def t1_vote(*args, **kw):
             self.tic()
-            self.assertPartitionTable(cluster, 'UU')
-            yield 0
+            self.assertPartitionTable(cluster, 'UO')
+            yield 1
         with ConnectionFilter() as f, \
              self.thread_switcher((thread,),
-                 (1, 0, 1, 1, t2_b, 0, 0, 1, t2_vote, 0, 0),
-                 ('tpc_begin', 'tpc_begin', 1, 1, 2, 2,
-                  'AskRebaseTransaction', 'AskRebaseTransaction',
-                  'AskStoreTransaction',
-                  'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
+                 (1, 0, 1, 1, t2_b, t1_vote, 1, 1),
+                 ('tpc_begin', 'tpc_begin', 1, 1, 2, 'AskStoreTransaction',
+                  1,  'AskStoreTransaction',
                   )) as end:
             delay = f.delayAskFetchTransactions()
             s1.start()
@@ -2482,164 +2375,39 @@ class Test(NEOThreadedTest):
             t1.commit()
             thread.join()
         t2.begin()
-        self.assertEqual([4, 6], [r[x].value for x in 'ab'])
+        self.assertPartitionTable(cluster, 'UU')
+        self.assertEqual([3, 4], [r[x].value for x in 'ab'])
+        self.assertFalse(end)
 
-    @with_cluster(replicas=1, partitions=2)
-    def testNotifyReplicated3(self, cluster):
+    @with_cluster(replicas=1)
+    def testLateLocklessWrite(self, cluster):
         s0, s1 = cluster.storage_list
-        t1, c1 = cluster.getTransaction()
-        r = c1.root()
-        r[''] = PCounter()
-        t1.commit()
         s1.stop()
         cluster.join((s1,))
         s1.resetNode()
-        nonlocal_ = [0]
-        class Abort(Exception):
-            pass
-        with cluster.newClient(1) as db, Patch(Replicator,
-                _nextPartitionSortKey=lambda orig, self, offset: offset):
-            t3, c3 = cluster.getTransaction(db)
-            with ConnectionFilter() as f, self.noConnection(c3, s0):
-                @f.delayAnswerFetchObjects
-                def delay(_):
-                    if nonlocal_:
-                        return nonlocal_.pop()
-                s1.start()
-                self.tic()
-                r[''].value += 1
-                r._p_changed = 1
-                t2, c2 = cluster.getTransaction()
-                c2.root()._p_changed = 1
-                def t1_rebase(*args, **kw):
-                    self.tic()
-                    f.remove(delay)
-                    yield 0
-                @self.newPausedThread
-                def commit23():
-                    t2.commit()
-                    c3.root()[''].value += 3
-                    with self.assertRaises(Abort) as cm:
-                        t3.commit()
-                    self.assertTrue(*cm.exception.args)
-                def t3_commit(txn):
-                    # Check that the storage hasn't answered to the store,
-                    # which means that a lock is still taken for r[''] by t1.
-                    self.tic()
-                    try:
-                        txn = txn.data(c3)
-                    except (AttributeError, KeyError): # BBB: ZODB < 5
-                        pass
-                    txn_context = db.storage.app._txn_container.get(txn)
-                    raise Abort(txn_context.queue.empty())
-                TransactionalResource(t3, 1, commit=t3_commit)
-                with self.thread_switcher((commit23,),
-                    (1, 1, 0, 0, t1_rebase, 0, 0, 0, 1, 1, 1, 1, 0),
-                    ('tpc_begin', 'tpc_begin', 0, 1, 0,
-                     'AskRebaseTransaction', 'AskRebaseTransaction',
-                     'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
-                     'AskStoreTransaction', 'tpc_begin', 1, 'tpc_abort',
-                     )) as end:
-                    self.assertRaises(POSException.ConflictError, t1.commit)
-                    commit23.join()
-        self.assertEqual(end, {0: ['tpc_abort']})
-        self.assertPartitionTable(cluster, 'UU|UU')
-
-    @with_cluster(partitions=2, storage_count=2)
-    def testConflictAfterLocklessWrite(self, cluster):
-        """
-        Show that in case of a write to an outdated cell, the client must
-        discard the answer if it comes after a resolved conflict, as the client
-        would not have the data anymore to solve a second conflict (deadlock
-        avoidance). This test reproduces a case where the storage node can't
-        easily return the correct data back to the client.
-
-        The scenario focuses on object A (oid 1) and node s0, which is
-        initially replicating partition 1:
-        1. t1 writes A: s1 conflicts and the answer from s0 is delayed
-        2. t1 writes B: a deadlock is triggered by s0 and internally, the write
-           of A is not considered lockless anymore
-        3. replication of partition 1 finishes: A is marked as locked normally
-           (which can be considered wrong but discarding the write at that
-            point is not trivial and anyway another write is coming)
-        4. t1 resolves A: s1 is not yet notified of the deadlock and accepts
-        5. t1 receives the answer for the first write of A to s1: if it didn't
-           discard it, it would mark the write of A as completed on all nodes
-        6. t1 starts resolving the deadlock, s0 conflicts for the second store
-           and returns that A needs to be rebased (like in 3, questionable)
-        7. the answer of s0 for the rebasing of A contains data from the first
-           write and it is processed first: this is not an issue if the client
-           still has the data (i.e. not moved to transaction cache, or
-           discarded because the cache is too small)
-        """
         t1, c1 = cluster.getTransaction()
-        r = c1.root()
-        for x in 'ab':
-            r[x] = PCounterWithResolution()
-            t1.commit()
-        cluster.neoctl.setNumReplicas(1)
-        self.tic()
-        s0, s1 = cluster.sortStorageList()
-        t1, c1 = cluster.getTransaction()
-        r = c1.root()
-        r['a'].value += 1
-        r['b'].value += 2
-        with cluster.newClient(1) as db, ConnectionFilter() as f:
-            delayReplication = f.delayAnswerFetchObjects()
-            delayStore = f.delayAnswerStoreObject(lambda conn:
-                conn.uuid == cluster.client.uuid and
-                self.getConnectionApp(conn) is s0)
-            delayDeadlock = f.delayNotifyDeadlock()
-            delayRebase = f.delayAnswerRebaseObject(lambda conn:
-                # to first process the one from s0
+        ob = c1.root()[''] = PCounterWithResolution()
+        t1.commit()
+        ob.value += 1
+        t2, c2 = cluster.getTransaction()
+        ob = c2.root()['']
+        ob.value += 2
+        t2.commit()
+        def resolve(orig, *args):
+            f.remove(d)
+            return orig(*args)
+        with ConnectionFilter() as f, \
+             Patch(PCounterWithResolution, _p_resolveConflict=resolve):
+            f.delayAskFetchTransactions()
+            d = f.delayAnswerStoreObject(lambda conn:
                 self.getConnectionApp(conn) is s1)
-            cluster.neoctl.tweakPartitionTable()
+            s1.start()
             self.tic()
-            t2, c2 = cluster.getTransaction(db)
-            r = c2.root()
-            r['a'].value += 3 # for a first conflict on t1/s1
-            t2.commit()
-            r['b'].value += 4 # for a deadlock on t1/s0
-            r['a'].value += 5 # for a second conflict on t1/s0
-            def t1_b(*args, **kw):
-                self.tic() # make sure t2/b will be processed before t1/b
-                yield 0
-            def t1_resolve(*args, **kw):
-                f.remove(delayReplication)
-                self.tic()
-                yield 1
-                f.remove(delayStore)
-                self.tic()
-                f.remove(delayDeadlock)
-            def t2_vote(*args, **kw):
-                yield 0
-                # From now own, prefer reading from s0,
-                # in case that packets from s1 are blocked by the filter.
-                no_read.append(s1.uuid)
-            def t1_end(*args, **kw):
-                yield 0
-                f.remove(delayRebase)
-            commit2 = self.newPausedThread(t2.commit)
-            no_read = []
-            with cluster.client.extraCellSortKey(
-                    lambda cell: cell.getUUID() in no_read), \
-                 self.thread_switcher((commit2,),
-                (1, 1, 0, 0, t1_b, t1_resolve, 0, 0, 0, 0, 1, t2_vote, t1_end),
-                ('tpc_begin', 'tpc_begin', 2, 1, 2, 1, 1,
-                 'AskRebaseTransaction', 'AskRebaseTransaction',
-                 'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
-                 'AskStoreTransaction')) as end:
-                t1.commit()
-                commit2.join()
-        t1.begin()
-        r = c1.root()
-        self.assertEqual(r['a'].value, 9)
-        self.assertEqual(r['b'].value, 6)
-        t1 = end.pop(0)
-        self.assertEqual(t1.pop(), 'AskStoreTransaction')
-        self.assertEqual(sorted(t1), [1, 2])
-        self.assertFalse(end)
-        self.assertPartitionTable(cluster, 'UU|UU')
+            t1.commit()
+        t2.begin()
+        self.tic()
+        self.assertEqual(ob.value, 3)
+        self.assertPartitionTable(cluster, 'UU')
 
     @with_cluster(start_cluster=0, storage_count=2, replicas=1)
     def testLocklessWriteDuringConflictResolution(self, cluster):
@@ -2651,39 +2419,35 @@ class Test(NEOThreadedTest):
         work in itself, the code was hazardous and the client can't easily
         discard such "positive" answers, or process them early enough.
 
-        The scenario focuses on transaction t1 (storing oid 1)
+        The scenario focuses on transaction t2 (storing oid 1)
         and node s1 (initially replicating the only partition):
-        1. t1 stores: conflict on s0, lockless write on s1
-        2. t2 stores: locked on s0, lockless write on s1
-        3. t1 resolves: deadlock on s0, packet to s1 delayed
-        4. t2 commits: on s1, a single lockless write remains and the storage
-           node notifies the master that it is UP_TO_DATE
-        5. s1 receives the second store from t1: answer delayed
-        6. t2 begins a new transaction
-        7. t1 resolves the deadlock: conflict on s0, s1 asks to rebase
-        8. t2 stores and vote
-        9. s0 down
-        10. while t2 finishes, t1 starts solving the conflict and due to the
-            way packets are processed, it proceeds as follows:
-          a. answer in step 5 is received but not processed
-          b. data asked, but not for the last serial
-             (so there will be yet another conflict to solve)
-          c. new data is stored: client waiting for s1
-          d. answer in step 5 is processed
+        1. t2 stores: conflict on s0, lockless write on s1
+        2. t1 stores: locked on s0, lockless write on s1
+        3. t2 resolves: waiting for write-lock on s0, packet to s1 delayed
+        4. Partition 0 replicated. Multiple lockless writes block notification
+           to master.
+        5. t1 commits: t2 conflicts on s0, a single lockless write remains
+           on s1, and s1 notifies the master that it is UP_TO_DATE
+        6. s1 receives the second store from t2: answer delayed
+        7. while t2 is resolving the conflict: answer from s1 processed, s0 down
+        8. conflict on s1
+        9. t2 resolves a last time and votes
 
         What happened before:
-        4. t1 still has the lock
-        5. locked ("Transaction storing more than once")
-        10d. store considered successful, and the data won't be there anymore
-             for the actual conflict
-        -> assertion failure
+        5. t1 still has the lock
+        6. locked ("Transaction storing more than once")
+        9. t2 already processed a successful store from s1 and crashes
+           (KeyError in Transaction.written)
 
         Now that the storage nodes discards lockless writes that actually
         conflict:
-        4. t1 does not have the lock anymore
-        5. conflict
-        10d. ignored (conflict already resolved)
-        -> transaction aborted normally
+        5. t1 does not have the lock anymore
+        6. conflict
+        9. just after vote, t2 aborts because the only storage node that's
+           RUNNING from the beginning got lockless writes (note that the client
+           currently tracks them as a list of partitions: if it was a list
+           of oids, it could finish the transaction because oid 1 ended up
+           being stored normally)
         """
         s0, s1 = cluster.storage_list
         cluster.start(storage_list=(s0,))
@@ -2692,13 +2456,14 @@ class Test(NEOThreadedTest):
         t1.commit()
         x1.value += 1
         with cluster.newClient(1) as db, ConnectionFilter() as f:
+            client = db.storage.app
             delayReplication = f.delayAnswerFetchObjects()
             delayed = []
             delayStore = f.delayAskStoreObject(lambda conn:
                 conn.uuid in delayed and
-                self.getConnectionApp(conn) is cluster.client)
+                self.getConnectionApp(conn) is client)
             delayStored = f.delayAnswerStoreObject(lambda conn:
-                conn.uuid == cluster.client.uuid and
+                conn.uuid == client.uuid and
                 self.getConnectionApp(conn).uuid in delayed)
             def load(orig, oid, at_tid, before_tid):
                 if delayed:
@@ -2716,38 +2481,36 @@ class Test(NEOThreadedTest):
             t2, c2 = cluster.getTransaction(db)
             x2 = c2.root()['']
             x2.value += 2
-            t2.commit()
-            x2.value += 4
-            def tic1(*args, **kw):
-                yield 1
+            t1.commit()
+            x1.value += 4
+            def tic2(*args, **kw):
+                yield 0
                 self.tic()
-            def t1_resolve(*args, **kw):
+            def t2_resolve(*args, **kw):
                 delayed.append(s1.uuid)
                 f.remove(delayReplication)
                 self.tic()
-                yield 1
-                self.tic()
-            def t2_begin(*args, **kw):
-                f.remove(delayStore)
                 yield 0
-            @self.newPausedThread
-            def commit2():
-                t2.commit()
-                x2.value += 8
-                t2.commit()
-            with Patch(cluster.client, _loadFromStorage=load) as p, \
+                self.tic()
+            commit2 = self.newPausedThread(t2.commit)
+            with Patch(client, _loadFromStorage=load) as p, \
                  self.thread_switcher((commit2,),
-                (1, 0, tic1, 0, t1_resolve, 1, t2_begin, 0, 1, 1, 0),
-                ('tpc_begin', 'tpc_begin', 1, 1, 1, 'AskStoreTransaction',
-                 'tpc_begin', 'AskRebaseTransaction', 'AskRebaseTransaction',
-                 1, 'AskStoreTransaction')) as end:
+                    (1, 1, tic2, 1, t2_resolve, 1, 1, 1),
+                    ('tpc_begin', 'tpc_begin', 1, 1, 1, 'AskStoreTransaction',
+                     1, 'AskStoreTransaction')) as end:
+                t1.commit()
+                f.remove(delayStore)
                 self.assertRaisesRegexp(NEOStorageError,
                                         '^partition 0 not fully write-locked$',
-                                        t1.commit)
-                commit2.join()
-        t1.begin()
-        self.assertEqual(x1.value, 14)
+                                        commit2.join)
+            t2.begin()
+            self.assertEqual(x2.value, 5)
         self.assertPartitionTable(cluster, 'OU')
+        self.assertEqual(end, {1: [
+            'AskVoteTransaction', # no such packet sent in reality
+                # (the fact that it appears here is only an artefact
+                #  between implementation detail and thread_switcher)
+            'tpc_abort']})
 
     @with_cluster(partitions=2, storage_count=2)
     def testUnstore(self, cluster):
@@ -2802,132 +2565,6 @@ class Test(NEOThreadedTest):
         self.assertPartitionTable(cluster, 'UU|UU')
         self.assertEqual(end, {0: [2, 2, 'AskStoreTransaction']})
         self.assertFalse(s1.dm.getOrphanList())
-
-    @with_cluster(storage_count=2, partitions=2)
-    def testDeadlockAvoidanceBeforeInvolvingAnotherNode(self, cluster):
-        t1, c1 = cluster.getTransaction()
-        r = c1.root()
-        for x in 'abc':
-            r[x] = PCounterWithResolution()
-            t1.commit()
-        r['a'].value += 1
-        r['c'].value += 2
-        r['b'].value += 3
-        t2, c2 = cluster.getTransaction()
-        r = c2.root()
-        r['c'].value += 4
-        r['a'].value += 5
-        r['b'].value += 6
-        t = self.newPausedThread(t2.commit)
-        def t1_b(*args, **kw):
-            yield 1
-            self.tic()
-        with self.thread_switcher((t,), (1, 0, 1, 0, t1_b, 0, 0, 0, 1),
-            ('tpc_begin', 'tpc_begin', 1, 3, 3, 1, 'AskRebaseTransaction',
-             2, 'AnswerRebaseTransaction')) as end:
-            t1.commit()
-            t.join()
-        t2.begin()
-        self.assertEqual([6, 9, 6], [r[x].value for x in 'abc'])
-        self.assertEqual([2, 2], map(end.pop(1).count,
-            ['AskRebaseTransaction', 'AnswerRebaseTransaction']))
-        # Rarely, there's an extra deadlock for t1:
-        # 0: ['AnswerRebaseTransaction', 'AskRebaseTransaction',
-        #     'AskRebaseTransaction', 'AnswerRebaseTransaction',
-        #     'AnswerRebaseTransaction', 2, 3, 1,
-        #     'AskStoreTransaction', 'VoteTransaction']
-        self.assertEqual(end.pop(0)[0], 'AnswerRebaseTransaction')
-        self.assertFalse(end)
-
-    @with_cluster()
-    def testDelayedStoreOrdering(self, cluster):
-        """
-        By processing delayed stores (EventQueue) in the order of their locking
-        tid, we minimize the number deadlocks. Here, we trigger a first
-        deadlock, so that the delayed check for t1 is reordered after that of
-        t3.
-        """
-        t1, c1 = cluster.getTransaction()
-        r = c1.root()
-        for x in 'abcd':
-            r[x] = PCounter()
-            t1.commit()
-        r['a'].value += 1
-        self.readCurrent(r['d'])
-        t2, c2 = cluster.getTransaction()
-        r = c2.root()
-        r['b'].value += 1
-        self.readCurrent(r['d'])
-        t3, c3 = cluster.getTransaction()
-        r = c3.root()
-        r['c'].value += 1
-        self.readCurrent(r['d'])
-        threads = map(self.newPausedThread, (t2.commit, t3.commit))
-        with self.thread_switcher(threads, (1, 2, 0, 1, 2, 1, 0, 2, 0, 1, 2),
-            ('tpc_begin', 'tpc_begin', 'tpc_begin', 1, 2, 3, 4, 4, 4,
-             'AskRebaseTransaction', 'AskStoreTransaction')) as end:
-            t1.commit()
-            for t in threads:
-                t.join()
-        self.assertEqual(end, {
-            0: ['AnswerRebaseTransaction', 'AskStoreTransaction'],
-            2: ['AskStoreTransaction']})
-
-    @with_cluster(replicas=1)
-    def testConflictAfterDeadlockWithSlowReplica1(self, cluster,
-                                                  slow_rebase=False):
-        t1, c1 = cluster.getTransaction()
-        r = c1.root()
-        for x in 'ab':
-            r[x] = PCounterWithResolution()
-            t1.commit()
-        r['a'].value += 1
-        r['b'].value += 2
-        s1 = cluster.storage_list[1]
-        with cluster.newClient(1) as db, \
-             (s1.filterConnection(cluster.client) if slow_rebase else
-              cluster.client.filterConnection(s1)) as f, \
-             cluster.client.extraCellSortKey(lambda cell:
-                cell.getUUID() == s1.uuid):
-            t2, c2 = cluster.getTransaction(db)
-            r = c2.root()
-            r['a'].value += 3
-            self.readCurrent(r['b'])
-            t = self.newPausedThread(t2.commit)
-            def tic_t1(*args, **kw):
-                yield 0
-                self.tic()
-            def tic_t2(*args, **kw):
-                yield 1
-                self.tic()
-            def load(orig, *args, **kw):
-                f.remove(delayStore)
-                return orig(*args, **kw)
-            order = [tic_t2, 0, tic_t2, 1, tic_t1, 0, 0, 0, 1, tic_t1, 0]
-            def t1_resolve(*args, **kw):
-                yield
-                f.remove(delay)
-            if slow_rebase:
-                order.append(t1_resolve)
-                delay = f.delayAnswerRebaseObject()
-            else:
-                order[-1] = t1_resolve
-                delay = f.delayAskStoreObject()
-            with self.thread_switcher((t,), order,
-                ('tpc_begin', 'tpc_begin', 1, 1, 2, 2, 'AskRebaseTransaction',
-                'AskRebaseTransaction', 'AnswerRebaseTransaction',
-                'AskStoreTransaction')) as end:
-                t1.commit()
-                t.join()
-            self.assertNotIn(delay, f)
-            t2.begin()
-            end[0].sort(key=str)
-            self.assertEqual(end, {0: [1, 'AnswerRebaseTransaction',
-                                       'AskStoreTransaction']})
-            self.assertEqual([4, 2], [r[x].value for x in 'ab'])
-
-    def testConflictAfterDeadlockWithSlowReplica2(self):
-        self.testConflictAfterDeadlockWithSlowReplica1(True)
 
     @with_cluster(start_cluster=0, master_count=3)
     def testElection(self, cluster):

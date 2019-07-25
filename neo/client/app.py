@@ -524,59 +524,37 @@ class Application(ThreadedApplication):
         while 1:
             # We iterate over conflict_dict, and clear it,
             # because new items may be added by calls to _store.
-            # This is also done atomically, to avoid race conditions
-            # with PrimaryNotificationsHandler.notifyDeadlock
             try:
                 oid, serial = pop_conflict()
             except KeyError:
                 return
+            data, old_serial, _ = data_dict.pop(oid)
+            if data is CHECKED_SERIAL:
+                raise ReadConflictError(oid=oid,
+                    serials=(serial, old_serial))
+            # TODO: data can be None if a conflict happens during undo
+            if data:
+                txn_context.data_size -= len(data)
+            if self.last_tid < serial:
+                self.sync() # possible late invalidation (very rare)
             try:
-                data, old_serial, _ = data_dict.pop(oid)
-            except KeyError:
-                assert oid is None, (oid, serial)
-                # Storage refused us from taking object lock, to avoid a
-                # possible deadlock. TID is actually used for some kind of
-                # "locking priority": when a higher value has the lock,
-                # this means we stored objects "too late", and we would
-                # otherwise cause a deadlock.
-                # To recover, we must ask storages to release locks we
-                # hold (to let possibly-competing transactions acquire
-                # them), and requeue our already-sent store requests.
-                ttid = txn_context.ttid
-                logging.info('Deadlock avoidance triggered for TXN %s'
-                  ' with new locking TID %s', dump(ttid), dump(serial))
-                txn_context.locking_tid = serial
-                packet = Packets.AskRebaseTransaction(ttid, serial)
-                for uuid in txn_context.conn_dict:
-                    self._askStorageForWrite(txn_context, uuid, packet)
-            else:
-                if data is CHECKED_SERIAL:
-                    raise ReadConflictError(oid=oid,
-                        serials=(serial, old_serial))
-                # TODO: data can be None if a conflict happens during undo
-                if data:
-                    txn_context.data_size -= len(data)
-                if self.last_tid < serial:
-                    self.sync() # possible late invalidation (very rare)
-                try:
-                    data = tryToResolveConflict(oid, serial, old_serial, data)
-                except ConflictError:
-                    logging.info(
-                        'Conflict resolution failed for %s@%s with %s',
-                        dump(oid), dump(old_serial), dump(serial))
-                    # With recent ZODB, get_pickle_metadata (from ZODB.utils)
-                    # does not support empty values, so do not pass 'data'
-                    # in this case.
-                    raise ConflictError(oid=oid, serials=(serial, old_serial),
-                                        data=data or None)
-                else:
-                    logging.info(
-                        'Conflict resolution succeeded for %s@%s with %s',
-                        dump(oid), dump(old_serial), dump(serial))
-                    # Mark this conflict as resolved
-                    resolved_dict[oid] = serial
-                    # Try to store again
-                    self._store(txn_context, oid, serial, data)
+                data = tryToResolveConflict(oid, serial, old_serial, data)
+            except ConflictError:
+                logging.info(
+                    'Conflict resolution failed for %s@%s with %s',
+                    dump(oid), dump(old_serial), dump(serial))
+                # With recent ZODB, get_pickle_metadata (from ZODB.utils)
+                # does not support empty values, so do not pass 'data'
+                # in this case.
+                raise ConflictError(oid=oid, serials=(serial, old_serial),
+                                    data=data or None)
+            logging.info(
+                'Conflict resolution succeeded for %s@%s with %s',
+                dump(oid), dump(old_serial), dump(serial))
+            # Mark this conflict as resolved
+            resolved_dict[oid] = serial
+            # Try to store again
+            self._store(txn_context, oid, serial, data)
 
     def _askStorageForWrite(self, txn_context, uuid, packet):
           conn = txn_context.conn_dict[uuid]
@@ -609,6 +587,7 @@ class Application(ThreadedApplication):
         """Store current transaction."""
         txn_context = self._txn_container.get(transaction)
         self.waitStoreResponses(txn_context)
+        txn_context.stored = True
         ttid = txn_context.ttid
         ext = transaction._extension
         ext = dumps(ext, _protocol) if ext else ''
@@ -640,10 +619,8 @@ class Application(ThreadedApplication):
                         if not (uuid in failed or uuid in uuid_set):
                             break
                     else:
-                        # Very unlikely. Instead of raising, we could recover
-                        # the transaction by doing something similar to
-                        # deadlock avoidance; that would be done before voting.
-                        # But it's not worth the complexity.
+                        # Very unlikely. Trying to recover
+                        # is not worth the complexity.
                         raise NEOStorageError(
                             'partition %s not fully write-locked' % offset)
             failed = [uuid for uuid, running in failed.iteritems() if running]

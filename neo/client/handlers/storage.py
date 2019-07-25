@@ -28,10 +28,23 @@ from ..transactions import Transaction
 from ..exception import NEOStorageError, NEOStorageNotFoundError
 from ..exception import NEOStorageReadRetry, NEOStorageDoesNotExistError
 
+@apply
+class _DeadlockPacket(object):
+
+    handler_method_name = 'notifyDeadlock'
+    _args = ()
+    getId = int
+
 class StorageEventHandler(MTEventHandler):
 
     def _acceptIdentification(*args):
         pass
+
+    def notifyDeadlock(self, conn, ttid, oid):
+        for txn_context in self.app.txn_contexts():
+            if txn_context.ttid == ttid:
+                txn_context.queue.put((conn, _DeadlockPacket, {'oid': oid}))
+                break
 
 class StorageBootstrapHandler(AnswerBaseHandler):
     """ Handler used when connecting to a storage node """
@@ -72,22 +85,28 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     answerCheckCurrentSerial = answerStoreObject
 
-    def answerRebaseTransaction(self, conn, oid_list):
+    def notifyDeadlock(self, conn, oid):
+        # To avoid a possible deadlock, storage nodes are waiting for our
+        # lock to be cancelled, so that a transaction that started earlier
+        # can complete. This is done by acquiring the lock again.
         txn_context = self.app.getHandlerData()
+        if txn_context.stored:
+            return
         ttid = txn_context.ttid
-        queue = txn_context.queue
+        logging.info('Deadlock avoidance triggered for %s:%s',
+            dump(oid), dump(ttid))
+        assert conn.getUUID() not in txn_context.data_dict.get(oid, ((),))[-1]
         try:
-            for oid in oid_list:
-                # We could have an extra parameter to tell the storage if we
-                # still have the data, and in this case revert what was done
-                # in Transaction.written. This would save bandwidth in case of
-                # conflict.
-                conn.ask(Packets.AskRebaseObject(ttid, oid),
-                         queue=queue, oid=oid)
+            # We could have an extra parameter to tell the storage if we
+            # still have the data, and in this case revert what was done
+            # in Transaction.written. This would save bandwidth in case of
+            # conflict.
+            conn.ask(Packets.AskRelockObject(ttid, oid),
+                     queue=txn_context.queue, oid=oid)
         except ConnectionClosed:
             txn_context.conn_dict[conn.getUUID()] = None
 
-    def answerRebaseObject(self, conn, conflict, oid):
+    def answerRelockObject(self, conn, conflict, oid):
         if conflict:
             txn_context = self.app.getHandlerData()
             serial, conflict, data = conflict
@@ -105,7 +124,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 assert oid in txn_context.data_dict
                 if serial <= txn_context.conflict_dict.get(oid, ''):
                     # Another node already reported this conflict or a newer,
-                    # by answering to this rebase or to the previous store.
+                    # by answering to this relock or to the previous store.
                     return
                 # A node has not answered yet to a previous store. Do not wait
                 # it to report the conflict because it may fail before.
@@ -119,8 +138,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
                     compression, checksum, data = data
                     if checksum != makeChecksum(data):
                         raise NEOStorageError(
-                            'wrong checksum while getting back data for'
-                            ' object %s during rebase of transaction %s'
+                            'wrong checksum while getting back data for %s:%s'
+                            ' (deadlock avoidance)'
                             % (dump(oid), dump(txn_context.ttid)))
                     data = decompress_list[compression](data)
                     size = len(data)

@@ -322,8 +322,8 @@ class EventQueue(object):
 
     # Stable sort when 2 keys are equal.
     # XXX: Is it really useful to keep events with same key ordered
-    #      chronologically ? The caller could use more specific keys. For
-    #      write-locks (by the storage node), the locking tid seems enough.
+    #      chronologically ? The caller could use more specific keys.
+    #      For write-locks (by the storage node), the ttid seems enough.
     sortQueuedEvents = (lambda key=itemgetter(0): lambda self:
         self._event_queue.sort(key=key))()
 
@@ -333,14 +333,6 @@ class EventQueue(object):
             _DelayedConnectionEvent(func, conn, args)))
         if key is not None:
             self.sortQueuedEvents()
-
-    def sortAndExecuteQueuedEvents(self):
-        if self._executing_event < 0:
-            self.sortQueuedEvents()
-            self.executeQueuedEvents()
-        else:
-            # We can't sort events when they're being processed.
-            self._executing_event = 1
 
     def executeQueuedEvents(self):
         # Not reentrant. When processing a queued event, calling this method
@@ -369,10 +361,6 @@ class EventQueue(object):
                     while done:
                         del queue[done.pop()]
                 self._executing_event = 0
-                # What sortAndExecuteQueuedEvents could not do immediately
-                # is done here:
-                if event[0] is not None:
-                    self.sortQueuedEvents()
             self._executing_event = -1
 
     def logQueuedEvents(self):

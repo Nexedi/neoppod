@@ -68,9 +68,6 @@ class StorageServiceHandler(BaseServiceHandler):
         conn.answer(p)
         app.pt.updatable(conn.getUUID(), offset_list)
 
-    def notifyDeadlock(self, conn, *args):
-        self.app.tm.deadlock(conn.getUUID(), *args)
-
     def answerInformationLocked(self, conn, ttid):
         self.app.tm.lock(ttid, conn.getUUID())
 

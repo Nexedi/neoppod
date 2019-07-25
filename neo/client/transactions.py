@@ -22,19 +22,12 @@ from neo.lib.protocol import Packets
 from neo.lib.util import dump
 from .exception import NEOStorageError
 
-@apply
-class _WakeupPacket(object):
-
-    handler_method_name = 'pong'
-    _args = ()
-    getId = int
-
 class Transaction(object):
 
     cache_size = 0  # size of data in cache_dict
     data_size = 0   # size of data in data_dict
     error = None
-    locking_tid = None
+    stored = False
     voted = False
     ttid = None     # XXX: useless, except for testBackupReadOnlyAccess
     lockless_dict = None                    # {partition: {uuid}}
@@ -55,15 +48,12 @@ class Transaction(object):
 
     def __repr__(self):
         error = self.error
-        return ("<%s ttid=%s locking_tid=%s voted=%u"
+        return ("<%s ttid=%s voted=%u"
                 " #queue=%s #writing=%s #written=%s%s>") % (
             self.__class__.__name__,
-            dump(self.ttid), dump(self.locking_tid), self.voted,
+            dump(self.ttid), self.voted,
             len(self.queue._queue), len(self.data_dict), len(self.cache_dict),
             ' error=%r' % error if error else '')
-
-    def wakeup(self, conn):
-        self.queue.put((conn, _WakeupPacket, {}))
 
     def write(self, app, packet, object_id, **kw):
         uuid_list = []
@@ -78,14 +68,6 @@ class Transaction(object):
                     conn = conn_dict[uuid]
                 except KeyError:
                     conn = conn_dict[uuid] = app.getStorageConnection(node)
-                    if self.locking_tid and 'oid' in kw:
-                        # A deadlock happened but this node is not aware of it.
-                        # Tell it to write-lock with the same locking tid as
-                        # for the other nodes. The condition on kw is to
-                        # distinguish whether we're writing an oid or
-                        # transaction metadata.
-                        conn.ask(Packets.AskRebaseTransaction(
-                            self.ttid, self.locking_tid), queue=self.queue)
                 conn.ask(packet, queue=self.queue, **kw)
                 uuid_list.append(uuid)
             except AttributeError:
@@ -128,8 +110,8 @@ class Transaction(object):
                 lockless = self.lockless_dict = defaultdict(set)
             lockless[app.pt.getPartition(oid)].add(uuid)
             if oid in self.conflict_dict:
-                # In the case of a rebase, uuid_list may not contain the id
-                # of the node reporting a conflict.
+                # In case of deadlock avoidance, uuid_list may not contain the
+                # id of the node reporting a conflict.
                 return
         if uuid_list:
             return

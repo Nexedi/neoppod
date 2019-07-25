@@ -19,15 +19,13 @@ from time import time
 from struct import pack, unpack
 from neo.lib import logging
 from neo.lib.handler import DelayEvent, EventQueue
-from neo.lib.protocol import Packets, ProtocolError, uuid_str, \
-    ZERO_OID, ZERO_TID
+from neo.lib.protocol import ProtocolError, uuid_str, ZERO_OID, ZERO_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
 class Transaction(object):
     """
         A pending transaction
     """
-    locking_tid = ZERO_TID
     _tid = None
     _msg_id = None
     _oid_list = None
@@ -291,19 +289,6 @@ class TransactionManager(EventQueue):
         txn = self._ttid_dict[tid] = Transaction(node, storage_readiness, tid)
         logging.debug('Begin %s', txn)
         return tid
-
-    def deadlock(self, storage_id, ttid, locking_tid):
-        try:
-            txn = self._ttid_dict[ttid]
-        except KeyError:
-            return
-        if txn.locking_tid <= locking_tid:
-            client = txn.getNode()
-            txn.locking_tid = locking_tid = self._nextTID()
-            logging.info('Deadlock avoidance triggered by %s for %s:'
-                ' new locking tid for TXN %s is %s', uuid_str(storage_id),
-                uuid_str(client.getUUID()), dump(ttid), dump(locking_tid))
-            client.send(Packets.NotifyDeadlock(ttid, locking_tid))
 
     def vote(self, app, ttid, uuid_list):
         """

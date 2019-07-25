@@ -20,7 +20,7 @@ from msgpack import packb
 
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes.
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 # By encoding the handshake packet with msgpack, the whole NEO stream can be
 # decoded with msgpack. The first byte is 0x92, which is different from TLS
 # Handshake (0x16).
@@ -532,28 +532,17 @@ class Packets(dict):
         """)
 
     NotifyDeadlock = notify("""
-        Ask master to generate a new TTID that will be used by the client to
-        solve a deadlock by rebasing the transaction on top of concurrent
-        changes.
+        A client acquired a write-lock before another one that has a smaller
+        TTID, leading to a possible deadlock. In order to solve it, this asks
+        the client with the greatest TTID to lock again if it can't vote.
 
-        :nodes: S -> M -> C
+        :nodes: S -> C
         """)
 
-    AskRebaseTransaction, AnswerRebaseTransaction = request("""
-        Rebase a transaction to solve a deadlock.
+    AskRelockObject, AnswerRelockObject = request("""
+        Relock an object change to solve a deadlock.
 
         :nodes: C -> S
-        """)
-
-    AskRebaseObject, AnswerRebaseObject = request("""
-        Rebase an object change to solve a deadlock.
-
-        :nodes: C -> S
-
-        XXX: It is a request packet to simplify the implementation. For more
-             efficiency, this should be turned into a notification, and the
-             RebaseTransaction should answered once all objects are rebased
-             (so that the client can still wait on something).
         """, data_path=(1, 0, 2, 0))
 
     AskStoreObject, AnswerStoreObject = request("""

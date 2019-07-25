@@ -149,13 +149,6 @@ class PrimaryNotificationsHandler(MTEventHandler):
                 if node and node.isConnected():
                     node.getConnection().close()
 
-    def notifyDeadlock(self, conn, ttid, locking_tid):
-        for txn_context in self.app.txn_contexts():
-            if txn_context.ttid == ttid:
-                txn_context.conflict_dict[None] = locking_tid
-                txn_context.wakeup(conn)
-                break
-
 class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
 

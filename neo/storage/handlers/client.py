@@ -133,25 +133,23 @@ class ClientOperationHandler(BaseHandler):
                 compression, checksum, data, data_serial, ttid, time.time()),
             *e.args)
 
-    def askRebaseTransaction(self, conn, *args):
-        conn.answer(Packets.AnswerRebaseTransaction(
-            self.app.tm.rebase(conn, *args)))
-
-    def askRebaseObject(self, conn, ttid, oid):
+    def askRelockObject(self, conn, ttid, oid):
         try:
-            self._askRebaseObject(conn, ttid, oid, None)
+            self.app.tm.relockObject(ttid, oid, True)
         except DelayEvent, e:
             # locked by a previous transaction, retry later
-            self.app.tm.queueEvent(self._askRebaseObject,
+            self.app.tm.queueEvent(self._askRelockObject,
                 conn, (ttid, oid, time.time()), *e.args)
+        else:
+            conn.answer(Packets.AnswerRelockObject(None))
 
-    def _askRebaseObject(self, conn, ttid, oid, request_time):
-        conflict = self.app.tm.rebaseObject(ttid, oid)
+    def _askRelockObject(self, conn, ttid, oid, request_time):
+        conflict = self.app.tm.relockObject(ttid, oid, False)
         if request_time and SLOW_STORE is not None:
             duration = time.time() - request_time
             if duration > SLOW_STORE:
-                logging.info('RebaseObject delay: %.02fs', duration)
-        conn.answer(Packets.AnswerRebaseObject(conflict))
+                logging.info('RelockObject delay: %.02fs', duration)
+        conn.answer(Packets.AnswerRelockObject(conflict))
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         conn.answer(Packets.AnswerTIDsFrom(self.app.dm.getReplicationTIDList(
@@ -251,8 +249,7 @@ class ClientReadOnlyOperationHandler(ClientOperationHandler):
     askVoteTransaction      = _readOnly
     askStoreObject          = _readOnly
     askFinalTID             = _readOnly
-    askRebaseObject         = _readOnly
-    askRebaseTransaction    = _readOnly
+    askRelockObject         = _readOnly
     # takes write lock & is only used when going to commit
     askCheckCurrentSerial   = _readOnly
 
