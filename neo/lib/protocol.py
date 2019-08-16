@@ -312,6 +312,8 @@ class Packet(object):
 
 class PacketRegistryFactory(dict):
 
+    _next_code = 0
+
     def __call__(self, name, base, d):
         for k, v in d.items():
             if isinstance(v, type) and issubclass(v, Packet):
@@ -323,10 +325,9 @@ class PacketRegistryFactory(dict):
     def register(self, doc, ignore_when_closed=None, request=False, error=False,
                        _base=(Packet,), **kw):
         """ Register a packet in the packet registry """
-        code = len(self)
-        if doc is None:
-            self[code] = None
-            return # None registered only to skip a code number (for compatibility)
+        code = self._next_code
+        assert code < RESPONSE_MASK
+        self._next_code = code + 1
         if error and not request:
             assert not code
             code = RESPONSE_MASK
