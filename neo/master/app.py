@@ -182,12 +182,15 @@ class Application(BaseApplication):
             self.playPrimaryRole()
             self.playSecondaryRole()
 
-    def getNodeInformationDict(self, node_list):
+    def getNodeInformationGetter(self, node_list):
         node_dict = defaultdict(list)
+        admin_dict = defaultdict(list)
         # group modified nodes by destination node type
         for node in node_list:
             node_info = node.asTuple()
             if node.isAdmin():
+                for backup in node.extra.get('backup', ()):
+                    admin_dict[backup].append(node_info)
                 continue
             node_dict[NodeTypes.ADMIN].append(node_info)
             node_dict[NodeTypes.STORAGE].append(node_info)
@@ -197,18 +200,27 @@ class Application(BaseApplication):
             if node.isStorage():
                 continue
             node_dict[NodeTypes.MASTER].append(node_info)
-        return node_dict
+        def getNodeListFor(node):
+            node_list = node_dict.get(node.getType())
+            if node.isClient():
+                admin_list = admin_dict.get(node.extra.get('backup'))
+                if admin_list:
+                    if node_list:
+                        return node_list + admin_list
+                    return admin_list
+            return node_list
+        return getNodeListFor
 
     def broadcastNodesInformation(self, node_list):
         """
           Broadcast changes for a set a nodes
           Send only one packet per connection to reduce bandwidth
         """
-        node_dict = self.getNodeInformationDict(node_list)
+        getNodeListFor = self.getNodeInformationGetter(node_list)
         now = monotonic_time()
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
-            node_list = node_dict.get(node.getType())
+            node_list = getNodeListFor(node)
             # We don't skip pending storage nodes because we don't send them
             # the full list of nodes when they're added, and it's also quite
             # useful to notify them about new masters.

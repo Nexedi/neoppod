@@ -216,3 +216,9 @@ class NeoCTL(BaseApplication):
         conn.send(Packets.FlushLog())
         while conn.pending():
             self.em.poll(1)
+
+    def getMonitorInformation(self):
+        response = self.__ask(Packets.AskMonitorInformation())
+        if response[0] != Packets.AnswerMonitorInformation:
+            raise RuntimeError(response)
+        return response[1:]

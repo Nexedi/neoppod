@@ -228,7 +228,7 @@ class Application(ThreadedApplication):
                         node=node,
                         dispatcher=self.dispatcher)
                 p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                    self.uuid, None, self.name, None, (), ())
+                    self.uuid, None, self.name, None, {})
                 try:
                     ask(conn, p, handler=handler)
                 except ConnectionClosed:
@@ -270,7 +270,7 @@ class Application(ThreadedApplication):
         conn = MTClientConnection(self, self.storage_event_handler, node,
                                   dispatcher=self.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
-            self.uuid, None, self.name, self.id_timestamp, (), ())
+            self.uuid, None, self.name, self.id_timestamp, {})
         try:
             self._ask(conn, p, handler=self.storage_bootstrap_handler)
         except ConnectionClosed:

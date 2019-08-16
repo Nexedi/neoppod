@@ -16,7 +16,7 @@
 
 from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import ZERO_TID
+from neo.lib.protocol import NodeTypes, NodeStates, Packets, ZERO_TID
 from neo.lib.pt import PartitionTable
 
 class BackupHandler(EventHandler):
@@ -35,6 +35,13 @@ class BackupHandler(EventHandler):
 
     def notifyPartitionChanges(self, conn, ptid, num_replicas, cell_list):
         self.app.pt.update(ptid, num_replicas, cell_list, self.app.nm)
+
+    def notifyNodeInformation(self, conn, timestamp, node_list):
+        super(BackupHandler, self).notifyNodeInformation(
+            conn, timestamp, node_list)
+        for node_type, addr, _, state, _ in node_list:
+            if node_type == NodeTypes.ADMIN and state == NodeStates.RUNNING:
+                self.app.notifyUpstreamAdmin(addr)
 
     def answerLastTransaction(self, conn, tid):
         app = self.app

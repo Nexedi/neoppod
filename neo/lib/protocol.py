@@ -20,7 +20,7 @@ from msgpack import packb
 
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes.
-PROTOCOL_VERSION = 0
+PROTOCOL_VERSION = 1
 # By encoding the handshake packet with msgpack, the whole NEO stream can be
 # decoded with msgpack. The first byte is 0x92, which is different from TLS
 # Handshake (0x16).
@@ -312,6 +312,8 @@ class Packet(object):
 
 class PacketRegistryFactory(dict):
 
+    _next_code = 0
+
     def __call__(self, name, base, d):
         for k, v in d.items():
             if isinstance(v, type) and issubclass(v, Packet):
@@ -323,10 +325,9 @@ class PacketRegistryFactory(dict):
     def register(self, doc, ignore_when_closed=None, request=False, error=False,
                        _base=(Packet,), **kw):
         """ Register a packet in the packet registry """
-        code = len(self)
-        if doc is None:
-            self[code] = None
-            return # None registered only to skip a code number (for compatibility)
+        code = self._next_code
+        assert code < RESPONSE_MASK
+        self._next_code = code + 1
         if error and not request:
             assert not code
             code = RESPONSE_MASK
@@ -824,6 +825,18 @@ class Packets(dict):
         Request all nodes to flush their logs.
 
         :nodes: ctl -> A -> M -> *
+        """)
+
+    AskMonitorInformation, AnswerMonitorInformation = request("""
+        :nodes: ctl -> A
+        """)
+
+    NotifyMonitorInformation = notify("""
+        :nodes: A -> A
+        """)
+
+    NotifyUpstreamAdmin = notify("""
+        :nodes: M -> A
         """)
 
     del notify, request

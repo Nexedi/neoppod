@@ -39,7 +39,8 @@ nextafter()
 
 TID_LOW_OVERFLOW = 2**32
 TID_LOW_MAX = TID_LOW_OVERFLOW - 1
-SECOND_PER_TID_LOW = 60.0 / TID_LOW_OVERFLOW
+SECOND_FROM_UINT32 = 60. / TID_LOW_OVERFLOW
+MICRO_FROM_UINT32 = 1e6 / TID_LOW_OVERFLOW
 TID_CHUNK_RULES = (
     (-1900, 0),
     (-1, 12),
@@ -52,7 +53,7 @@ def tidFromTime(tm):
     gmt = gmtime(tm)
     return packTID(
         (gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour, gmt.tm_min),
-        int((gmt.tm_sec + (tm - int(tm))) / SECOND_PER_TID_LOW))
+        int((gmt.tm_sec + (tm - int(tm))) / SECOND_FROM_UINT32))
 
 def packTID(higher, lower):
     """
@@ -95,15 +96,10 @@ def unpackTID(ptid):
     higher.reverse()
     return (tuple(higher), lower)
 
-def timeStringFromTID(ptid):
-    """
-    Return a string in the format "yyyy-mm-dd hh:mm:ss.ssssss" from a TID
-    """
-    higher, lower = unpackTID(ptid)
-    seconds = lower * SECOND_PER_TID_LOW
-
-    return '%04d-%02d-%02d %02d:%02d:%09.6f' % (higher[0], higher[1], higher[2],
-                                                higher[3], higher[4], seconds)
+def datetimeFromTID(tid):
+    higher, lower = unpackTID(tid)
+    seconds, lower = divmod(lower * 60, TID_LOW_OVERFLOW)
+    return datetime(*(higher + (seconds, int(lower * MICRO_FROM_UINT32))))
 
 def addTID(ptid, offset):
     """

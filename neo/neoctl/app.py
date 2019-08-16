@@ -14,11 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
+import json, sys
 from .neoctl import NeoCTL, NotReadyException
 from neo.lib.node import NodeManager
 from neo.lib.pt import PartitionTable
-from neo.lib.util import p64, u64, tidFromTime, timeStringFromTID
+from neo.lib.util import p64, u64, datetimeFromTID, tidFromTime
 from neo.lib.protocol import uuid_str, formatNodeList, \
     ClusterStates, NodeStates, NodeTypes, UUID_NAMESPACES, ZERO_TID
 
@@ -29,6 +29,7 @@ action_dict = {
         'node': 'getNodeList',
         'cluster': 'getClusterState',
         'primary': 'getPrimary',
+        'summary': 'getSummary',
     },
     'set': {
         'cluster': 'setClusterState',
@@ -100,12 +101,12 @@ class TerminalNeoCTL(object):
         if backup_tid:
             ltid = self.neoctl.getLastTransaction()
             r = "backup_tid = 0x%x (%s)" % (u64(backup_tid),
-                                            timeStringFromTID(backup_tid))
+                                            datetimeFromTID(backup_tid))
         else:
             loid, ltid = self.neoctl.getLastIds()
             r = "last_oid = 0x%x" % (u64(loid))
         return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %s" % \
-                                    (u64(ltid), timeStringFromTID(ltid), ptid)
+                                    (u64(ltid), datetimeFromTID(ltid), ptid)
 
     def getPartitionRowList(self, params):
         """
@@ -158,6 +159,21 @@ class TerminalNeoCTL(object):
         """
         assert len(params) == 1
         return self.neoctl.setClusterState(self.asClusterState(params[0]))
+
+    def getSummary(self, params):
+        """
+          Get a summary of the health of this cluster and backups.
+          The first line reports severities: it is a commented json dump of
+            {severity: [backup_name | null]}
+          where severity is either "warning" or "problem"
+            and null refers to this cluster
+        """
+        assert len(params) == 0
+        warning, problem, summary = self.neoctl.getMonitorInformation()
+        return "# %s\n%s" % (json.dumps({k: v for k, v in zip(
+            ('warning', 'problem'),
+            (warning, problem),
+            ) if v}), summary)
 
     def setNumReplicas(self, params):
         """

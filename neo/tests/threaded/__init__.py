@@ -20,6 +20,7 @@ import os, random, select, socket, sys, tempfile
 import thread, threading, time, traceback, weakref
 from collections import deque
 from contextlib import contextmanager
+from email import message_from_string
 from itertools import count
 from functools import partial, wraps
 from zlib import decompress
@@ -301,6 +302,14 @@ class TestSerialized(Serialized):
         return self._epoll.poll(timeout)
 
 
+class FakeSMTP(list):
+
+    close = connect = lambda *_: None
+
+    def sendmail(self, *args):
+        self.append(args)
+
+
 class Node(object):
 
     def getConnectionList(self, *peers):
@@ -421,7 +430,11 @@ class ServerNode(Node):
         self.em.wakeup(thread.exit)
 
 class AdminApplication(ServerNode, neo.admin.app.Application):
-    pass
+
+    def __setattr__(self, name, value):
+        if name == 'smtp':
+            value = FakeSMTP()
+        super(AdminApplication, self).__setattr__(name, value)
 
 class MasterApplication(ServerNode, neo.master.app.Application):
     pass
@@ -691,6 +704,9 @@ class NEOCluster(object):
         self._resource_dict[result] = self
         return result[1]
 
+    def _allocateName(self, _new=lambda: random.randint(0, 100)):
+        return 'neo_%s' % self._allocate('name', _new)
+
     @staticmethod
     def _patch():
         cls = NEOCluster
@@ -717,10 +733,10 @@ class NEOCluster(object):
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
-                       compress=True,
+                       compress=True, backup_count=0,
                        importer=None, autostart=None, dedup=False, name=None):
-        self.name = name or 'neo_%s' % self._allocate('name',
-            lambda: random.randint(0, 100))
+        self.name = name or self._allocateName()
+        self.backup_list = [self._allocateName() for x in xrange(backup_count)]
         self.compress = compress
         self.num_partitions = partitions
         master_list = [MasterApplication.newAddress()
@@ -759,6 +775,9 @@ class NEOCluster(object):
         kw['wait'] = 0
         self.storage_list = [StorageApplication(database=db(x), **kw)
                              for x in db_list]
+        kw['monitor_email'] = self.name,
+        if backup_count:
+            kw['monitor_backup'] = self.backup_list
         self.admin_list = [AdminApplication(**kw)]
 
     def __repr__(self):
@@ -1132,6 +1151,23 @@ class NEOThreadedTest(NeoTestBase):
     def readCurrent(ob):
         ob._p_activate()
         ob._p_jar.readCurrent(ob)
+
+    def assertNoMonitorInformation(self, cluster):
+        self.assertFalse(cluster.admin.smtp)
+
+    def assertMonitor(self, cluster, severity, summary, *backups):
+        msg = message_from_string(cluster.admin.smtp.pop(0)[2])
+        self.assertIn(('OK', 'WARNING', 'PROBLEM')[severity], msg['subject'])
+        msg = msg.get_payload().splitlines()
+        def assertStartsWith(a, b):
+            self.assertTrue(a.startswith(b), (a, b))
+        assertStartsWith(msg.pop(0), summary)
+        expected = {k.name: v for k, v in backups}
+        while msg:
+            self.assertFalse(msg.pop(0))
+            x = expected.pop(msg.pop(0))
+            assertStartsWith(msg.pop(0), '    %s' % x)
+        self.assertFalse(expected)
 
 
 class ThreadId(list):

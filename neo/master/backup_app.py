@@ -99,7 +99,8 @@ class BackupApplication(object):
         pt = app.pt
         while True:
             app.changeClusterState(ClusterStates.STARTING_BACKUP)
-            bootstrap = BootstrapManager(self, NodeTypes.CLIENT)
+            bootstrap = BootstrapManager(self, NodeTypes.CLIENT,
+                                         backup=app.name)
             # {offset -> node}
             self.primary_partition_dict = {}
             # [[tid]]
@@ -367,3 +368,9 @@ class BackupApplication(object):
                     uuid_str(cell.getUUID()), offset,
                     dump(tid), uuid_str(node.getUUID()))
                 cell.getNode().send(p)
+
+    def notifyUpstreamAdmin(self, addr):
+        node_list = self.app.nm.getAdminList(only_identified=True)
+        if node_list:
+            min(node_list, key=lambda node: node.getUUID()).send(
+                Packets.NotifyUpstreamAdmin(addr))

@@ -14,11 +14,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from functools import partial
 import unittest
 import transaction
 from neo.lib.protocol import NodeStates
-
+from neo.neoctl.app import TerminalNeoCTL
 from . import NEOCluster, NEOFunctionalTest
+
+class TerminalNeoCTL(TerminalNeoCTL):
+
+    def __init__(self, cluster):
+        self.neoctl = cluster.neoctl
+
+    def __del__(self):
+        pass
 
 class ClusterTests(NEOFunctionalTest):
 
@@ -118,12 +127,20 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.start()
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(0)
+        # check neoctl cli
+        getSummary = partial(TerminalNeoCTL(self.neo).getSummary, ())
+        ok_empty = '# {}\nRUNNING;' \
+            ' UP_TO_DATE=1; ltid=0000000000000000 (1900-01-01 00:00:00)'
+        self.assertEqual(getSummary(), ok_empty)
         # connect a client a check it's known
         db, conn = self.neo.getZODBConnection()
         self.assertEqual(len(self.neo.getClientlist()), 1)
         # drop the storage, the cluster is no more operational...
         self.neo.getStorageProcessList()[0].stop()
         self.neo.expectClusterRecovering()
+        # check severity returned by the cli
+        self.assertEqual(getSummary(),
+            '# {"problem": [null]}\nRECOVERING; UP_TO_DATE=1; DOWN=1')
         # ...and the client gets disconnected
         self.assertEqual(len(self.neo.getClientlist()), 0)
         # restart storage so that the cluster is operational again
@@ -134,6 +151,9 @@ class ClusterTests(NEOFunctionalTest):
         conn.root()['plop'] = 1
         transaction.commit()
         self.assertEqual(len(self.neo.getClientlist()), 1)
+        summary = getSummary()
+        self.assertTrue(summary.startswith('# {}\nRUNNING;'), summary)
+        self.assertNotEqual(summary, ok_empty)
 
     def testStorageLostDuringRecovery(self):
         """

@@ -52,7 +52,7 @@ class MasterHandler(EventHandler):
         node_list = app.nm.getList()
         node_list.remove(node)
         node_list = ([node.asTuple()] # for id_timestamp
-            + app.getNodeInformationDict(node_list)[node.getType()])
+            + app.getNodeInformationGetter(node_list)(node))
         conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def handlerSwitched(self, conn, new):

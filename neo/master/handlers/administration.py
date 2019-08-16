@@ -58,6 +58,12 @@ class AdministrationHandler(MasterHandler):
     def handlerSwitched(self, conn, new):
         assert new
         super(AdministrationHandler, self).handlerSwitched(conn, new)
+        app = self.app.backup_app
+        if app is not None:
+            for node in app.nm.getAdminList():
+                if node.isRunning():
+                    app.notifyUpstreamAdmin(node.getAddress())
+                    break
 
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByUUID(conn.getUUID())
