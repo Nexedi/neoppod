@@ -26,7 +26,6 @@ import sys
 import tempfile
 import unittest
 import weakref
-import MySQLdb
 import transaction
 
 from contextlib import contextmanager
@@ -141,6 +140,7 @@ def getTempDirectory():
 def setupMySQLdb(db_list, clear_databases=True):
     if mysql_pool:
         return mysql_pool.setup(db_list, clear_databases)
+    import MySQLdb
     from MySQLdb.constants.ER import BAD_DB_ERROR
     user = DB_USER
     password = ''
@@ -178,6 +178,7 @@ class MySQLPool(object):
         self.kill(*self._mysqld_dict)
 
     def setup(self, db_list, clear_databases):
+        import MySQLdb
         start_list = set(db_list).difference(self._mysqld_dict)
         if start_list:
             start_list = sorted(start_list)

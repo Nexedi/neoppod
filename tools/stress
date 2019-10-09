@@ -650,11 +650,14 @@ def main():
             parser.error(
                 '--datadir: meaningless when using an existing MySQL server')
 
+    kw = {'wait': -1}
+    if args.engine:
+        kw['engine'] = args.engine
     kw = dict(db_list=db_list, name='stress',
         partitions=args.partitions, replicas=args.replicas,
         adapter=args.adapter, address_type=args.address_type,
         temp_dir=args.logdir or args.datadir or getTempDirectory(),
-        storage_kw={'engine': args.engine, 'wait': -1})
+        storage_kw=kw)
 
     if args.command == 'run':
         NFQueue.delay = args.delay

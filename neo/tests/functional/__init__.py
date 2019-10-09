@@ -22,7 +22,6 @@ import ZODB
 import socket
 import signal
 import random
-import MySQLdb
 import sqlite3
 import unittest
 import tempfile
