@@ -640,13 +640,14 @@ def main():
     args = parser.parse_args()
 
     db_list = ['stress_neo%s' % x for x in xrange(args.storages)]
-    if args.datadir:
+    if args.datadir or args.logdir:
         if args.adapter == 'SQLite':
-            db_list = [os.path.join(args.datadir, x + '.sqlite')
+            db_list = [os.path.join(args.datadir or getTempDirectory(),
+                                    x + '.sqlite')
                        for x in db_list]
         elif mysql_pool:
-            mysql_pool.__init__(args.datadir)
-        else:
+            mysql_pool.__init__(args.datadir or getTempDirectory())
+        elif args.datadir:
             parser.error(
                 '--datadir: meaningless when using an existing MySQL server')
 
