@@ -45,6 +45,7 @@ class Handler(MasterEventHandler):
 
 class StressApplication(AdminApplication):
 
+    backup_dict = {}
     cluster_state = server = uuid = None
     listening_conn = True
     fault_probability = 1
@@ -64,6 +65,9 @@ class StressApplication(AdminApplication):
 
     def close(self):
         BaseApplication.close(self)
+
+    def updateMonitorInformation(*args, **kw):
+        pass
 
     def run(self):
         visibility = None
