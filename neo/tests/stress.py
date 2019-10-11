@@ -8,7 +8,8 @@ from neo.lib import logging, protocol
 from neo.lib.app import BaseApplication
 from neo.lib.debug import register as registerLiveDebugger
 from neo.lib.exception import PrimaryFailure
-from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
+from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets, \
+    uuid_str
 from neo.admin.app import Application as AdminApplication
 from neo.admin.handler import MasterEventHandler
 
@@ -216,6 +217,9 @@ class StressApplication(AdminApplication):
                     else:
                         self.failing.remove(nid)
             if fw or kill:
+                logging.info('stress(fw=(%s), kill=(%s))',
+                    ','.join(map(uuid_str, fw)),
+                    ','.join(map(uuid_str, kill)))
                 for nid in fw:
                     self.tcpReset(nid)
                 if kill:

@@ -324,6 +324,7 @@ class Application(StressApplication):
         self.fault_probability = fault_probability
         self.restart_ratio = restart_ratio
         self.cluster = cluster = NEOCluster(*args, **kw)
+        logging.setup(os.path.join(cluster.temp_dir, 'stress.log'))
         # Make the firewall also affect connections between storage nodes.
         StorageApplication__init__ = StorageApplication.__init__
         def __init__(self, config):
@@ -591,6 +592,8 @@ def main():
     _('-d', '--datadir', help="(default: same as unit tests)")
     _('-e', '--engine', help="database engine (MySQL only)")
     _('-l', '--logdir', help="(default: same as --datadir)")
+    _('-b', '--backlog', type=int, default=16,
+        help="max size in MiB of logging backlog")
     _('-m', '--masters', type=int, default=1)
     _('-s', '--storages', type=int, default=8)
     _('-p', '--partitions', type=int, default=24)
@@ -638,6 +641,9 @@ def main():
         **kw).add_argument
 
     args = parser.parse_args()
+
+    if args.backlog:
+        logging.backlog(args.backlog<<20)
 
     db_list = ['stress_neo%s' % x for x in xrange(args.storages)]
     if args.datadir or args.logdir:
