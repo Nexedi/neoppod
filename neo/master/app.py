@@ -497,6 +497,9 @@ class Application(BaseApplication):
 
     def shutdown(self):
         """Close all connections and exit"""
+        # BUG: Broken if the cluster was not in RUNNING state.
+        #      For example, storage nodes identifies as RUNNING
+        #      and are told to start operation.
         self.changeClusterState(ClusterStates.STOPPING)
         # Marking a fictional storage node as starting operation blocks any
         # request to start a new transaction. Do this way has 2 advantages:
