@@ -330,6 +330,7 @@ class Application(StressApplication):
         def __init__(self, config):
             dscpPatch(1)
             StorageApplication__init__(self, config)
+        #StorageApplication.__init__  = __init__
 
         if kill_mysqld:
             from neo.scripts import neostorage

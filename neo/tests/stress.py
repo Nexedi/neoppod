@@ -2,6 +2,17 @@
 # implement another tool to stress an existing cluster, which would be filled
 # by a real application.
 
+# XXX: Killing storage nodes out of the control of the master
+#      (tools/stress -r RATIO with RATIO != 0) sometimes causes the cluster to
+#      become non-operational. The race condition is that by the time the
+#      master notices a node is killed, it may finish a transaction for which
+#      the client node got failures with the replica, which gets disconnected.
+#      The code tries to anticipate failures, by assuming a node is down until
+#      it is actually down and again running, but even after a single kill,
+#      long-running commits (e.g deadlock resolution) can cause several
+#      failures+resync in a row for the same node.
+#      The only solution looks like to not abort if it goes to RECOVERY.
+
 import curses, os, random, re, select, threading, time
 from collections import deque
 from neo.lib import logging, protocol
