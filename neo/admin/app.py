@@ -108,6 +108,8 @@ class Application(BaseApplication, Monitor):
 
         hint = ' (the option can be repeated)'
         _ = _.group('admin')
+        _.float('monitor-maxlag', default=float(Backup.max_lag),
+            help='warn if a backup cluster is too late at replicating upstream')
         _('monitor-email', multiple=True,
             help='recipient email for notifications' + hint)
         _('monitor-backup', multiple=True,
@@ -126,8 +128,11 @@ class Application(BaseApplication, Monitor):
         self.name = config['cluster']
         self.server = config['bind']
 
-        self.backup_dict = {x: Backup()
-            for x in config.get('monitor_backup', ())}
+        self.backup_dict = backup_dict = {}
+        max_lag = config.get('monitor_maxlag', Backup.max_lag)
+        for x in config.get('monitor_backup', ()):
+            backup_dict[x] = x = Backup()
+            x.max_lag = max_lag
         self.email_list = config.get('monitor_email', ())
         if self.email_list:
             self.smtp = smtplib.SMTP()
