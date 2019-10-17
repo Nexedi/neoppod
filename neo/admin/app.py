@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import getpass, os, smtplib
+import getpass, os
 from collections import Counter
 from email.mime.text import MIMEText
 from email.utils import formataddr, formatdate
@@ -100,6 +100,8 @@ class Backup(Monitor):
 class Application(BaseApplication, Monitor):
     """The storage node application."""
 
+    from smtplib import SMTP
+
     @classmethod
     def _buildOptionParser(cls):
         _ = cls.option_parser
@@ -116,6 +118,10 @@ class Application(BaseApplication, Monitor):
             help='name of backup cluster to monitor' + hint)
         _('smtp', metavar='HOST[:PORT]',
             help='SMTP for email notifications')
+        _.bool('smtp-tls',
+            help='use STARTTLS')
+        _('smtp-auth', metavar='USER:PASS',
+            help='SMTP credentials')
         _.int('i', 'nid',
             help="specify an NID to use for this process (testing purpose)")
 
@@ -135,8 +141,13 @@ class Application(BaseApplication, Monitor):
             x.max_lag = max_lag
         self.email_list = config.get('monitor_email', ())
         if self.email_list:
-            self.smtp = smtplib.SMTP()
             self.smtp_host = config.get('smtp') or 'localhost'
+            self.smtp_tls = config.get('smtp_tls')
+            if 'smtp_auth' in config:
+                user, pwd = config['smtp_auth'].split(':', 1)
+                self.smtp_login = user, pwd
+            else:
+                self.smtp_login = None
             email_from = os.getenv('EMAIL')
             if not email_from:
               try:
@@ -321,9 +332,13 @@ class Application(BaseApplication, Monitor):
                 msg['Subject'] = 'NEO monitoring: ' + x
                 msg['From'] = self.email_from
                 msg['To'] = ', '.join(email_list)
-                s = self.smtp
+                s = self.SMTP()
                 try:
                     s.connect(self.smtp_host)
+                    if self.smtp_tls:
+                        s.starttls()
+                    if self.smtp_login:
+                        s.login(*self.smtp_login)
                     s.sendmail(None, email_list, msg.as_string())
                 except Exception:
                     x = format_exc()

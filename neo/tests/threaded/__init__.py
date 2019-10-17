@@ -431,10 +431,12 @@ class ServerNode(Node):
 
 class AdminApplication(ServerNode, neo.admin.app.Application):
 
-    def __setattr__(self, name, value):
-        if name == 'smtp':
-            value = FakeSMTP()
-        super(AdminApplication, self).__setattr__(name, value)
+    def SMTP(self):
+        return self.smtp
+
+    @cached_property
+    def smtp(self):
+        return FakeSMTP()
 
 class MasterApplication(ServerNode, neo.master.app.Application):
     pass
