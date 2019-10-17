@@ -82,7 +82,7 @@ class BoolOption(_Option):
         return value
 
     def fromConfigFile(self, cfg, section):
-        return cfg.getboolean(section, self.name)
+        return cfg.getboolean(section, self.name.replace('-', '_'))
 
 class Option(_Option):
 
