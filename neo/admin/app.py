@@ -33,7 +33,7 @@ from neo.lib.logger import INF
 from neo.lib.protocol import \
     CellStates, ClusterStates, Errors, NodeTypes, Packets
 from neo.lib.debug import register as registerLiveDebugger
-from neo.lib.util import add64, datetimeFromTID, dump
+from neo.lib.util import datetimeFromTID, dump
 
 class Monitor(object):
 
@@ -278,9 +278,7 @@ class Application(BaseApplication, Monitor):
             self.em.setTimeout(None, None)
             self._notify(self.operational)
 
-    def _notify(self, ask_ids=True,
-                _askLastTransaction=Packets.AskLastTransaction(),
-                _askRecovery=Packets.AskRecovery()):
+    def _notify(self, ask_ids=True):
         if ask_ids:
             self.askLastIds(self.master_conn)
             self.notifying = notifying = {None}
