@@ -180,7 +180,9 @@ class BackupHandler(EventHandler):
     @monitor
     def connectionClosed(self, name):
         app = self.app
-        app.backup_dict[name] = app.backup_dict[name].__class__()
+        old = app.backup_dict[name]
+        new = app.backup_dict[name] = old.__class__()
+        new.max_lag = old.max_lag
         app.maybeNotify(name)
 
     @monitor
