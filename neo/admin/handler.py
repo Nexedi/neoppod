@@ -213,6 +213,11 @@ class UpstreamAdminHandler(AdminEventHandler):
 
     connectionFailed = connectionClosed
 
+    def connectionCompleted(self, conn):
+        super(UpstreamAdminHandler, self).connectionCompleted(conn)
+        conn.ask(Packets.RequestIdentification(NodeTypes.ADMIN,
+            None, None, self.app.name, None, {}))
+
     def _acceptIdentification(self, node):
         node.send(Packets.NotifyMonitorInformation({
             'cluster_state': self.app.cluster_state,

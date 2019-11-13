@@ -240,10 +240,8 @@ class Application(BaseApplication, Monitor):
 
     def connectToUpstreamAdmin(self):
         if self.listening_conn: # if running
-            conn = self.upstream_admin_conn = ClientConnection(
+            self.upstream_admin_conn = ClientConnection(
                 self, self.upstream_admin_handler, self.upstream_admin)
-            conn.ask(Packets.RequestIdentification(NodeTypes.ADMIN,
-                None, None, self.name, None, {}))
 
     def partitionTableUpdated(self):
         pt = self.pt
