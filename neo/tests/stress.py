@@ -19,12 +19,9 @@ class Handler(MasterEventHandler):
         super(Handler, self).answerClusterState(conn, state)
         self.app.refresh('state')
 
-    def answerPartitionTable(self, *args):
-        super(Handler, self).answerPartitionTable(*args)
-        self.app.refresh('pt')
-
     def sendPartitionTable(self, *args):
-        raise AssertionError
+        super(Handler, self).sendPartitionTable(*args)
+        self.app.refresh('pt')
 
     def notifyPartitionChanges(self, *args):
         super(Handler, self).notifyPartitionChanges(*args)
@@ -50,6 +47,7 @@ class StressApplication(AdminApplication):
 
     cluster_state = server = uuid = None
     listening_conn = True
+    fault_probability = 1
     restart_ratio = float('inf') # no firewall support
     _stress = False
 
@@ -191,7 +189,7 @@ class StressApplication(AdminApplication):
         self.loid = loid
         self.ltid = ltid
         self.em.setTimeout(int(time.time() + 1), self.askLastIDs)
-        if self._stress:
+        if self._stress and random.random() < self.fault_probability:
             node_list = self.nm.getStorageList()
             random.shuffle(node_list)
             fw = []

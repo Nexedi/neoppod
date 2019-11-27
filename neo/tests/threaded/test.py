@@ -42,6 +42,7 @@ from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
+from neo.master.pt import PartitionTable
 from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
@@ -148,6 +149,7 @@ class Test(NEOThreadedTest):
         c.root()[0] = ob = PCounterWithResolution()
         t.commit()
         tids = []
+        c.readCurrent(c.root())
         for x in inc:
             ob.value += x
             t.commit()
@@ -425,6 +427,42 @@ class Test(NEOThreadedTest):
                              [tid3, tid2, tid1, tid0])
 
     @with_cluster()
+    def testSlowConflictResolution(self, cluster):
+        """
+        Check that a slow conflict resolution does not always result in a new
+        conflict because a concurrent client keeps modifying the same object
+        quickly.
+        An idea to fix it is to take the lock before the second attempt to
+        resolve.
+        """
+        t1, c1 = cluster.getTransaction()
+        c1.root()[''] = ob = PCounterWithResolution()
+        t1.commit()
+        l1 = threading.Lock(); l1.acquire()
+        l2 = threading.Lock(); l2.acquire()
+        conflicts = []
+        def _p_resolveConflict(orig, *args):
+            conflicts.append(get_ident())
+            l1.release(); l2.acquire()
+            return orig(*args)
+        with cluster.newClient(1) as db, Patch(PCounterWithResolution,
+                   _p_resolveConflict=_p_resolveConflict):
+            t2, c2 = cluster.getTransaction(db)
+            c2.root()[''].value += 1
+            for i in xrange(10):
+                ob.value += 1
+                t1.commit()
+                if i:
+                    l2.release()
+                else:
+                    t = self.newThread(t2.commit)
+                l1.acquire()
+            l2.release()
+            t.join()
+        with self.expectedFailure(): \
+        self.assertIn(get_ident(), conflicts)
+
+    @with_cluster()
     def testDelayedLoad(self, cluster):
         """
         Check that a storage node delays reads from the database,
@@ -471,6 +509,7 @@ class Test(NEOThreadedTest):
             self.assertFalse(conn.isClosed())
             getCellSortKey = cluster.client.getCellSortKey
             self.assertEqual(getCellSortKey(s0, good), 0)
+            cluster.neoctl.killNode(s0.getUUID())
             cluster.neoctl.dropNode(s0.getUUID())
             self.assertEqual([s1], cluster.client.nm.getStorageList())
             self.assertTrue(conn.isClosed())
@@ -776,6 +815,7 @@ class Test(NEOThreadedTest):
             checkNodeState(NodeStates.RUNNING)
             self.assertEqual([], cluster.getOutdatedCells())
             # drop one
+            cluster.neoctl.killNode(s1.uuid)
             cluster.neoctl.dropNode(s1.uuid)
             checkNodeState(None)
             self.tic() # Let node state update reach remaining storage
@@ -1123,6 +1163,10 @@ class Test(NEOThreadedTest):
                 # Check that the storage hasn't answered to the store,
                 # which means that a lock is still taken for r['x'] by t2.
                 self.tic()
+                try:
+                    txn = txn.data(c1)
+                except (AttributeError, KeyError): # BBB: ZODB < 5
+                    pass
                 txn_context = cluster.client._txn_container.get(txn)
                 empty = txn_context.queue.empty()
                 ll()
@@ -1202,7 +1246,7 @@ class Test(NEOThreadedTest):
             # Also check that the master reset the last oid to a correct value.
             t.begin()
             self.assertEqual(1, u64(c.root()['x']._p_oid))
-            self.assertFalse(cluster.client.new_oid_list)
+            self.assertFalse(cluster.client.new_oids)
             self.assertEqual(2, u64(cluster.client.new_oid()))
 
     @with_cluster()
@@ -1371,7 +1415,7 @@ class Test(NEOThreadedTest):
             del conn._queue[:] # XXX
             conn.close()
         if 1:
-            with Patch(cluster.master.pt, make=make), \
+            with Patch(PartitionTable, make=make), \
                  Patch(InitializationHandler,
                        askPartitionTable=askPartitionTable) as p:
                 cluster.start()
@@ -1562,7 +1606,7 @@ class Test(NEOThreadedTest):
                 bad.append(s.getDataLockInfo())
                 s.dm.commit()
             def check(dry_run, expected):
-                cluster.neoctl.repair(node_list, dry_run)
+                cluster.neoctl.repair(node_list, bool(dry_run))
                 for e, s in zip(expected, cluster.storage_list):
                     while 1:
                         self.tic()
@@ -1902,18 +1946,7 @@ class Test(NEOThreadedTest):
                     x.value += 1
                     c2.root()['x'].value += 2
                     TransactionalResource(t1, 1, tpc_begin=begin1)
-                    # BUG: Very rarely, getConnectionList returns more that 1
-                    #      connection ("too many values to unpack"), which is
-                    #       a mystery and impossible to reproduce:
-                    #      - 1st time: v1.8.1 on a test machine (no SSL)
-                    #      - last: current revision on my laptop (SSL),
-                    #              at the first iteration of this loop
-                    _sm = list(s1.getConnectionList(cluster.master))
-                    try:
-                        s1m, = _sm
-                    except ValueError:
-                        self.fail((_sm, list(
-                            s1.getConnectionList(cluster.master))))
+                    s1m, = s1.getConnectionList(cluster.master)
                     try:
                         s1.em.removeReader(s1m)
                         with ConnectionFilter() as f, \
@@ -1979,7 +2012,7 @@ class Test(NEOThreadedTest):
                     except threading.ThreadError:
                         l[j].acquire()
                         threads[j-1].start()
-                    if x != 'StoreTransaction':
+                    if x != 'AskStoreTransaction':
                         try:
                             l[i].acquire()
                         except IndexError:
@@ -2056,15 +2089,16 @@ class Test(NEOThreadedTest):
         x = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
             (1, 1, 0, 1, 2, 2, 2, 2, 0, 1, 2, 1, 0, 0, 1, 0, 0, 1),
             ('tpc_begin', 'tpc_begin', 1, 2, 3, 'tpc_begin', 1, 2, 4, 3, 4,
-             'StoreTransaction', 'RebaseTransaction', 'RebaseTransaction',
-             'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
-             'RebaseTransaction', 'AnswerRebaseTransaction'),
+             'AskStoreTransaction', 'AskRebaseTransaction',
+             'AskRebaseTransaction', 'AnswerRebaseTransaction',
+             'AnswerRebaseTransaction', 'AskRebaseTransaction',
+             'AnswerRebaseTransaction'),
             [4, 6, 2, 6])
         try:
             x[1].remove(1)
         except ValueError:
             pass
-        self.assertEqual(x, {0: [2, 'StoreTransaction'], 1: ['tpc_abort']})
+        self.assertEqual(x, {0: [2, 'AskStoreTransaction'], 1: ['tpc_abort']})
 
     def testCascadedDeadlockAvoidanceWithOneStorage2(self):
         def changes(r1, r2, r3):
@@ -2087,8 +2121,8 @@ class Test(NEOThreadedTest):
                 (0, 1, 1, 0, 1, 2, 2, 2, 2, 0, 1, 2, 1,
                  0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1),
                 ('tpc_begin', 1, 'tpc_begin', 1, 2, 3, 'tpc_begin',
-                 2, 3, 4, 3, 4, 'StoreTransaction', 'RebaseTransaction',
-                 'RebaseTransaction', 'AnswerRebaseTransaction'),
+                 2, 3, 4, 3, 4, 'AskStoreTransaction', 'AskRebaseTransaction',
+                 'AskRebaseTransaction', 'AnswerRebaseTransaction'),
                 [1, 7, 9, 0])
         x[0].sort(key=str)
         try:
@@ -2097,8 +2131,8 @@ class Test(NEOThreadedTest):
             pass
         self.assertEqual(x, {
             0: [2, 3, 'AnswerRebaseTransaction',
-                'RebaseTransaction', 'StoreTransaction'],
-            1: ['AnswerRebaseTransaction','RebaseTransaction',
+                'AskRebaseTransaction', 'AskStoreTransaction'],
+            1: ['AnswerRebaseTransaction','AskRebaseTransaction',
                 'AnswerRebaseTransaction', 'tpc_abort'],
         })
 
@@ -2131,7 +2165,7 @@ class Test(NEOThreadedTest):
         end = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
             (0, 1, 1, 0, 1, 1, 0, 0, 2, 2, 2, 2, 1, vote_t2, tic_t1),
             ('tpc_begin', 1) * 2, [3, 0, 0, 0], None)
-        self.assertLessEqual(2, end[0].count('RebaseTransaction'))
+        self.assertLessEqual(2, end[0].count('AskRebaseTransaction'))
 
     def testFailedConflictOnBigValueDuringDeadlockAvoidance(self):
         def changes(r1, r2, r3):
@@ -2147,10 +2181,10 @@ class Test(NEOThreadedTest):
             x = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
                 (1, 1, 1, 2, 2, 2, 1, 2, 2, 0, 0, 1, 1, 1, 0),
                 ('tpc_begin', 'tpc_begin', 1, 2, 'tpc_begin', 1, 3, 3, 4,
-                'StoreTransaction', 2, 4, 'RebaseTransaction',
+                'AskStoreTransaction', 2, 4, 'AskRebaseTransaction',
                 'AnswerRebaseTransaction', 'tpc_abort'),
                 [5, 1, 0, 2], POSException.ConflictError)
-        self.assertEqual(x, {0: ['StoreTransaction']})
+        self.assertEqual(x, {0: ['AskStoreTransaction']})
 
     @with_cluster(replicas=1, partitions=4)
     def testNotifyReplicated(self, cluster):
@@ -2237,7 +2271,7 @@ class Test(NEOThreadedTest):
         def delayConflict(conn, packet):
             app = self.getConnectionApp(conn)
             if (isinstance(packet, Packets.AnswerStoreObject)
-                and packet.decode()[0]):
+                and packet._args[0]):
                 conn, = cluster.client.getConnectionList(app)
                 kw = conn._handlers._pending[0][0][packet._id][1]
                 return 1 == u64(kw['oid']) and delay_conflict[app.uuid].pop()
@@ -2255,8 +2289,9 @@ class Test(NEOThreadedTest):
              self.thread_switcher(threads,
                 (1, 2, 3, 0, 1, 0, 2, t3_c, 1, 3, 2, t3_resolve, 0, 0, 0,
                  t1_rebase, 2, t3_b, 3, t4_d, 0, 2, 2),
-                ('tpc_begin', 'tpc_begin', 'tpc_begin', 'tpc_begin', 2, 1, 1,
-                 3, 3, 4, 4, 3, 1, 'RebaseTransaction', 'RebaseTransaction',
+                ('tpc_begin', 'tpc_begin', 'tpc_begin', 'tpc_begin',
+                 2, 1, 1, 3, 3, 4, 4, 3, 1,
+                 'AskRebaseTransaction', 'AskRebaseTransaction',
                  'AnswerRebaseTransaction', 'AnswerRebaseTransaction', 2
                  )) as end:
             delay = f.delayAskFetchTransactions()
@@ -2268,11 +2303,11 @@ class Test(NEOThreadedTest):
         t4.begin()
         self.assertEqual([15, 11, 13, 16], [r[x].value for x in 'abcd'])
         self.assertEqual([2, 2], map(end.pop(2).count,
-            ['RebaseTransaction', 'AnswerRebaseTransaction']))
+            ['AskRebaseTransaction', 'AnswerRebaseTransaction']))
         self.assertEqual(end, {
-            0: [1, 'StoreTransaction'],
-            1: ['StoreTransaction'],
-            3: [4, 'StoreTransaction'],
+            0: [1, 'AskStoreTransaction'],
+            1: ['AskStoreTransaction'],
+            3: [4, 'AskStoreTransaction'],
         })
         self.assertFalse(s1.dm.getOrphanList())
 
@@ -2308,7 +2343,8 @@ class Test(NEOThreadedTest):
              self.thread_switcher((thread,),
                  (1, 0, 1, 1, t2_b, 0, 0, 1, t2_vote, 0, 0),
                  ('tpc_begin', 'tpc_begin', 1, 1, 2, 2,
-                  'RebaseTransaction', 'RebaseTransaction', 'StoreTransaction',
+                  'AskRebaseTransaction', 'AskRebaseTransaction',
+                  'AskStoreTransaction',
                   'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
                   )) as end:
             delay = f.delayAskFetchTransactions()
@@ -2361,15 +2397,20 @@ class Test(NEOThreadedTest):
                     # Check that the storage hasn't answered to the store,
                     # which means that a lock is still taken for r[''] by t1.
                     self.tic()
+                    try:
+                        txn = txn.data(c3)
+                    except (AttributeError, KeyError): # BBB: ZODB < 5
+                        pass
                     txn_context = db.storage.app._txn_container.get(txn)
                     raise Abort(txn_context.queue.empty())
                 TransactionalResource(t3, 1, commit=t3_commit)
                 with self.thread_switcher((commit23,),
                     (1, 1, 0, 0, t1_rebase, 0, 0, 0, 1, 1, 1, 1, 0),
                     ('tpc_begin', 'tpc_begin', 0, 1, 0,
-                      'RebaseTransaction', 'RebaseTransaction',
-                      'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
-                      'StoreTransaction', 'tpc_begin', 1, 'tpc_abort')) as end:
+                     'AskRebaseTransaction', 'AskRebaseTransaction',
+                     'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
+                     'AskStoreTransaction', 'tpc_begin', 1, 'tpc_abort',
+                     )) as end:
                     self.assertRaises(POSException.ConflictError, t1.commit)
                     commit23.join()
         self.assertEqual(end, {0: ['tpc_abort']})
@@ -2407,8 +2448,8 @@ class Test(NEOThreadedTest):
         for x in 'ab':
             r[x] = PCounterWithResolution()
             t1.commit()
-        cluster.stop(replicas=1)
-        cluster.start()
+        cluster.neoctl.setNumReplicas(1)
+        self.tic()
         s0, s1 = cluster.sortStorageList()
         t1, c1 = cluster.getTransaction()
         r = c1.root()
@@ -2456,9 +2497,9 @@ class Test(NEOThreadedTest):
                  self.thread_switcher((commit2,),
                 (1, 1, 0, 0, t1_b, t1_resolve, 0, 0, 0, 0, 1, t2_vote, t1_end),
                 ('tpc_begin', 'tpc_begin', 2, 1, 2, 1, 1,
-                 'RebaseTransaction', 'RebaseTransaction',
+                 'AskRebaseTransaction', 'AskRebaseTransaction',
                  'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
-                 'StoreTransaction')) as end:
+                 'AskStoreTransaction')) as end:
                 t1.commit()
                 commit2.join()
         t1.begin()
@@ -2466,7 +2507,7 @@ class Test(NEOThreadedTest):
         self.assertEqual(r['a'].value, 9)
         self.assertEqual(r['b'].value, 6)
         t1 = end.pop(0)
-        self.assertEqual(t1.pop(), 'StoreTransaction')
+        self.assertEqual(t1.pop(), 'AskStoreTransaction')
         self.assertEqual(sorted(t1), [1, 2])
         self.assertFalse(end)
         self.assertPartitionTable(cluster, 'UU|UU')
@@ -2568,9 +2609,9 @@ class Test(NEOThreadedTest):
             with Patch(cluster.client, _loadFromStorage=load) as p, \
                  self.thread_switcher((commit2,),
                 (1, 0, tic1, 0, t1_resolve, 1, t2_begin, 0, 1, 1, 0),
-                ('tpc_begin', 'tpc_begin', 1, 1, 1, 'StoreTransaction',
-                 'tpc_begin', 'RebaseTransaction', 'RebaseTransaction', 1,
-                 'StoreTransaction')) as end:
+                ('tpc_begin', 'tpc_begin', 1, 1, 1, 'AskStoreTransaction',
+                 'tpc_begin', 'AskRebaseTransaction', 'AskRebaseTransaction',
+                 1, 'AskStoreTransaction')) as end:
                 self.assertRaisesRegexp(NEOStorageError,
                                         '^partition 0 not fully write-locked$',
                                         t1.commit)
@@ -2592,8 +2633,8 @@ class Test(NEOThreadedTest):
         for x in 'ab':
             r[x] = PCounterWithResolution()
             t1.commit()
-        cluster.stop(replicas=1)
-        cluster.start()
+        cluster.neoctl.setNumReplicas(1)
+        self.tic()
         s0, s1 = cluster.sortStorageList()
         t1, c1 = cluster.getTransaction()
         r = c1.root()
@@ -2623,13 +2664,14 @@ class Test(NEOThreadedTest):
                 f.remove(delayFinish)
             with self.thread_switcher((commit2,),
                 (1, 0, 0, 1, t2_b, 0, t1_resolve),
-                ('tpc_begin', 'tpc_begin', 0, 2, 2, 'StoreTransaction')) as end:
+                ('tpc_begin', 'tpc_begin', 0, 2, 2, 'AskStoreTransaction')
+                ) as end:
                 t1.commit()
                 commit2.join()
         t1.begin()
         self.assertEqual(c1.root()['b'].value, 6)
         self.assertPartitionTable(cluster, 'UU|UU')
-        self.assertEqual(end, {0: [2, 2, 'StoreTransaction']})
+        self.assertEqual(end, {0: [2, 2, 'AskStoreTransaction']})
         self.assertFalse(s1.dm.getOrphanList())
 
     @with_cluster(storage_count=2, partitions=2)
@@ -2652,19 +2694,19 @@ class Test(NEOThreadedTest):
             yield 1
             self.tic()
         with self.thread_switcher((t,), (1, 0, 1, 0, t1_b, 0, 0, 0, 1),
-            ('tpc_begin', 'tpc_begin', 1, 3, 3, 1, 'RebaseTransaction',
+            ('tpc_begin', 'tpc_begin', 1, 3, 3, 1, 'AskRebaseTransaction',
              2, 'AnswerRebaseTransaction')) as end:
             t1.commit()
             t.join()
         t2.begin()
         self.assertEqual([6, 9, 6], [r[x].value for x in 'abc'])
         self.assertEqual([2, 2], map(end.pop(1).count,
-            ['RebaseTransaction', 'AnswerRebaseTransaction']))
+            ['AskRebaseTransaction', 'AnswerRebaseTransaction']))
         # Rarely, there's an extra deadlock for t1:
-        # 0: ['AnswerRebaseTransaction', 'RebaseTransaction',
-        #     'RebaseTransaction', 'AnswerRebaseTransaction',
+        # 0: ['AnswerRebaseTransaction', 'AskRebaseTransaction',
+        #     'AskRebaseTransaction', 'AnswerRebaseTransaction',
         #     'AnswerRebaseTransaction', 2, 3, 1,
-        #     'StoreTransaction', 'VoteTransaction']
+        #     'AskStoreTransaction', 'VoteTransaction']
         self.assertEqual(end.pop(0)[0], 'AnswerRebaseTransaction')
         self.assertFalse(end)
 
@@ -2694,13 +2736,13 @@ class Test(NEOThreadedTest):
         threads = map(self.newPausedThread, (t2.commit, t3.commit))
         with self.thread_switcher(threads, (1, 2, 0, 1, 2, 1, 0, 2, 0, 1, 2),
             ('tpc_begin', 'tpc_begin', 'tpc_begin', 1, 2, 3, 4, 4, 4,
-             'RebaseTransaction', 'StoreTransaction')) as end:
+             'AskRebaseTransaction', 'AskStoreTransaction')) as end:
             t1.commit()
             for t in threads:
                 t.join()
         self.assertEqual(end, {
-            0: ['AnswerRebaseTransaction', 'StoreTransaction'],
-            2: ['StoreTransaction']})
+            0: ['AnswerRebaseTransaction', 'AskStoreTransaction'],
+            2: ['AskStoreTransaction']})
 
     @with_cluster(replicas=1)
     def testConflictAfterDeadlockWithSlowReplica1(self, cluster,
@@ -2743,16 +2785,16 @@ class Test(NEOThreadedTest):
                 order[-1] = t1_resolve
                 delay = f.delayAskStoreObject()
             with self.thread_switcher((t,), order,
-                ('tpc_begin', 'tpc_begin', 1, 1, 2, 2, 'RebaseTransaction',
-                'RebaseTransaction', 'AnswerRebaseTransaction',
-                'StoreTransaction')) as end:
+                ('tpc_begin', 'tpc_begin', 1, 1, 2, 2, 'AskRebaseTransaction',
+                'AskRebaseTransaction', 'AnswerRebaseTransaction',
+                'AskStoreTransaction')) as end:
                 t1.commit()
                 t.join()
             self.assertNotIn(delay, f)
             t2.begin()
             end[0].sort(key=str)
             self.assertEqual(end, {0: [1, 'AnswerRebaseTransaction',
-                                       'StoreTransaction']})
+                                       'AskStoreTransaction']})
             self.assertEqual([4, 2], [r[x].value for x in 'ab'])
 
     def testConflictAfterDeadlockWithSlowReplica2(self):
@@ -2803,7 +2845,7 @@ class Test(NEOThreadedTest):
             with ConnectionFilter() as f:
                 f.add(lambda conn, packet:
                     isinstance(packet, Packets.RequestIdentification)
-                    and packet.decode()[0] == NodeTypes.STORAGE)
+                    and packet._args[0] == NodeTypes.STORAGE)
                 self.tic()
                 m2.start()
                 self.tic()
@@ -2843,7 +2885,7 @@ class Test(NEOThreadedTest):
         with ConnectionFilter() as f:
             f.add(lambda conn, packet:
                 isinstance(packet, Packets.RequestIdentification)
-                and packet.decode()[0] == NodeTypes.MASTER)
+                and packet._args[0] == NodeTypes.MASTER)
             cluster.start(recovering=True)
             neoctl = cluster.neoctl
             getClusterState = neoctl.getClusterState
@@ -2894,9 +2936,9 @@ class Test(NEOThreadedTest):
             dm = s.dm
             dm.commit()
             dump_dict[s.uuid] = dm.dump()
-            dm.erase()
             with open(path % (s.getAdapter(), s.uuid)) as f:
                 dm.restore(f.read())
+            dm.setConfiguration('partitions', None) # XXX: see dm._migrate4
         with NEOCluster(storage_count=3, partitions=3, replicas=1,
                         name=self._testMethodName) as cluster:
             s1, s2, s3 = cluster.storage_list

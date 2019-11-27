@@ -26,22 +26,9 @@ from . import DatabaseFailure
 
 READABLE = CellStates.UP_TO_DATE, CellStates.FEEDING
 
-def lazymethod(func):
-    def getter(self):
-        cls = self.__class__
-        name = func.__name__
-        assert name not in cls.__dict__
-        setattr(cls, name, func(self))
-        return getattr(self, name)
-    return property(getter, doc=func.__doc__)
-
 def fallback(func):
-    def warn(self):
-        logging.info("Fallback to generic/slow implementation of %s."
-            " It should be overridden by backend storage (%s).",
-            func.__name__, self.__class__.__name__)
-        return func
-    return lazymethod(wraps(func)(warn))
+    setattr(Fallback, func.__name__, func)
+    return abstract(func)
 
 def splitOIDField(tid, oids):
     if len(oids) % 8:
@@ -50,6 +37,9 @@ def splitOIDField(tid, oids):
     return [oids[i:i+8] for i in xrange(0, len(oids), 8)]
 
 class CreationUndone(Exception):
+    pass
+
+class Fallback(object):
     pass
 
 class DatabaseManager(object):
@@ -102,25 +92,24 @@ class DatabaseManager(object):
         finally:
             db.close()
 
+    _cached_attr_list = (
+        '_readable_set', '_getPartition', '_getReadablePartition')
+
     def __getattr__(self, attr):
-        if attr in ('_readable_set', '_getPartition', '_getReadablePartition'):
+        if attr in self._cached_attr_list:
             self._updateReadable()
         return self.__getattribute__(attr)
-
-    def _partitionTableChanged(self):
-        try:
-            del (self._readable_set,
-                 self._getPartition,
-                 self._getReadablePartition)
-        except AttributeError:
-            pass
 
     def __enter__(self):
         assert not self.LOCK, "not a secondary connection"
         # XXX: All config caching should be done in this class,
         #      rather than in backend classes.
         self._config.clear()
-        self._partitionTableChanged()
+        try:
+            for attr in self._cached_attr_list:
+                delattr(self, attr)
+        except AttributeError:
+            pass
 
     def __exit__(self, t, v, tb):
         if v is None:
@@ -179,6 +168,10 @@ class DatabaseManager(object):
     @abstract
     def erase(self):
         """"""
+
+    def restore(self, dump): # for tests
+        self.erase()
+        self._restore(dump)
 
     def _setup(self, dedup=False):
         """To be overridden by the backend to set up a database
@@ -271,6 +264,18 @@ class DatabaseManager(object):
     def _setConfiguration(self, key, value):
         """"""
 
+    def _changePartitionTable(self, cell_list, reset=False):
+        """Change a part of a partition table. The list of cells is
+        a tuple of tuples, each of which consists of an offset (row ID),
+        the NID of a storage node, and a cell state. If reset is True,
+        existing data is first thrown away.
+        """
+
+    def _getPartitionTable(self):
+        """Return a whole partition table as a sequence of rows. Each row
+        is again a tuple of an offset (row ID), the NID of a storage
+        node, and a cell state."""
+
     def getUUID(self):
         """
             Load a NID from a database.
@@ -279,26 +284,19 @@ class DatabaseManager(object):
         if nid is not None:
             return int(nid)
 
+    @requires(_changePartitionTable, _getPartitionTable)
     def setUUID(self, nid):
         """
             Store a NID into a database.
         """
-        self.setConfiguration('nid', str(nid))
-
-    def getNumPartitions(self):
-        """
-            Load the number of partitions from a database.
-        """
-        n = self.getConfiguration('partitions')
-        if n is not None:
-            return int(n)
-
-    def setNumPartitions(self, num_partitions):
-        """
-            Store the number of partitions into a database.
-        """
-        self.setConfiguration('partitions', num_partitions)
-        self._partitionTableChanged()
+        old_nid = self.getUUID()
+        if nid != old_nid:
+            if old_nid:
+                self._changePartitionTable((offset, x, tid)
+                    for offset, x, tid in self._getPartitionTable()
+                    if x == old_nid
+                    for x, tid in ((x, None), (nid, tid)))
+            self.setConfiguration('nid', str(nid))
 
     def getNumReplicas(self):
         """
@@ -307,12 +305,6 @@ class DatabaseManager(object):
         n = self.getConfiguration('replicas')
         if n is not None:
             return int(n)
-
-    def setNumReplicas(self, num_replicas):
-        """
-            Store the number of replicas into a database.
-        """
-        self.setConfiguration('replicas', num_replicas)
 
     def getName(self):
         """
@@ -374,8 +366,9 @@ class DatabaseManager(object):
 
         tids are in unpacked format.
         """
-        if self.getNumPartitions():
-            return max(map(self._getLastTID, self._readable_set))
+        x = self._readable_set
+        if x:
+            return max(self._getLastTID(x, max_tid) for x in x)
 
     def _getLastIDs(self, partition):
         """Return max(tid) & max(oid) for objects of given partition
@@ -395,7 +388,7 @@ class DatabaseManager(object):
         x = self._readable_set
         if x:
             tid, oid = zip(*map(self._getLastIDs, x))
-            tid = max(self.getLastTID(None), max(tid))
+            tid = max(self.getLastTID(), max(tid))
             oid = max(oid)
             return (None if tid is None else util.p64(tid),
                     None if oid is None else util.p64(oid))
@@ -490,6 +483,7 @@ class DatabaseManager(object):
                 None if data_serial is None else util.p64(data_serial))
 
     @fallback
+    @requires(_getObject)
     def _fetchObject(self, oid, tid):
         """Specialized version of _getObject, for replication"""
         r = self._getObject(oid, tid)
@@ -511,13 +505,8 @@ class DatabaseManager(object):
             return (util.p64(serial), compression, checksum, data,
                 None if data_serial is None else util.p64(data_serial))
 
-    def _getPartitionTable(self):
-        """Return a whole partition table as a sequence of rows. Each row
-        is again a tuple of an offset (row ID), the NID of a storage
-        node, and a cell state."""
-
     @requires(_getPartitionTable)
-    def _iterAssignedCells(self):
+    def iterAssignedCells(self):
         my_nid = self.getUUID()
         return ((offset, tid) for offset, nid, tid in self._getPartitionTable()
                               if my_nid == nid)
@@ -537,24 +526,19 @@ class DatabaseManager(object):
         finally:
             readable_set.remove(offset)
 
-    def _changePartitionTable(self, cell_list, reset=False):
-        """Change a part of a partition table. The list of cells is
-        a tuple of tuples, each of which consists of an offset (row ID),
-        the NID of a storage node, and a cell state. If reset is True,
-        existing data is first thrown away.
-        """
-
     def _getDataLastId(self, partition):
         """
         """
 
-    @requires(_getDataLastId)
-    def _updateReadable(self):
-        try:
-            readable_set = self.__dict__['_readable_set']
-        except KeyError:
+    def _getMaxPartition(self):
+        """
+        """
+
+    @requires(_getDataLastId, _getMaxPartition)
+    def _updateReadable(self, reset=True):
+        if reset:
             readable_set = self._readable_set = set()
-            np = self.getNumPartitions()
+            np = 1 + self._getMaxPartition()
             def _getPartition(x, np=np):
                 return x % np
             def _getReadablePartition(x, np=np, r=readable_set):
@@ -569,14 +553,15 @@ class DatabaseManager(object):
                 i = self._getDataLastId(p)
                 d.append(p << 48 if i is None else i + 1)
         else:
+            readable_set = self._readable_set
             readable_set.clear()
-        readable_set.update(x[0] for x in self._iterAssignedCells()
+        readable_set.update(x[0] for x in self.iterAssignedCells()
                                  if -x[1] in READABLE)
 
     @requires(_changePartitionTable, _getLastIDs, _getLastTID)
-    def changePartitionTable(self, ptid, cell_list, reset=False):
+    def changePartitionTable(self, ptid, num_replicas, cell_list, reset=False):
         my_nid = self.getUUID()
-        pt = dict(self._iterAssignedCells())
+        pt = dict(self.iterAssignedCells())
         # In backup mode, the last transactions of a readable cell may be
         # incomplete.
         backup_tid = self.getBackupTID()
@@ -595,13 +580,14 @@ class DatabaseManager(object):
                 outofdate_tid(offset)))
             for offset, nid, state in cell_list]
         self._changePartitionTable(cell_list, reset)
-        self._updateReadable()
+        self._updateReadable(reset)
         assert isinstance(ptid, (int, long)), ptid
         self._setConfiguration('ptid', str(ptid))
+        self._setConfiguration('replicas', str(num_replicas))
 
     @requires(_changePartitionTable)
     def updateCellTID(self, partition, tid):
-        t, = (t for p, t in self._iterAssignedCells() if p == partition)
+        t, = (t for p, t in self.iterAssignedCells() if p == partition)
         if t < 0:
             return
         tid = util.u64(tid)
@@ -623,7 +609,7 @@ class DatabaseManager(object):
             next_tid = util.u64(backup_tid)
             if next_tid:
                 next_tid += 1
-        for offset, tid in self._iterAssignedCells():
+        for offset, tid in self.iterAssignedCells():
             if tid >= 0: # OUT_OF_DATE
                 yield offset, p64(tid and tid + 1)
             elif -tid in READABLE:
@@ -743,6 +729,7 @@ class DatabaseManager(object):
             return self._pruneData(data_id_list)
 
     @fallback
+    @requires(_getObject)
     def _getDataTID(self, oid, tid=None, before_tid=None):
         """
         Return a 2-tuple:
@@ -809,6 +796,9 @@ class DatabaseManager(object):
                               oid, current_tid)
                 return current_tid, current_tid
             return current_tid, tid
+        found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
+        if found_undone_tid is None:
+            return
         if transaction_object:
             try:
                 current_tid = current_data_tid = u64(transaction_object[2])
@@ -818,8 +808,6 @@ class DatabaseManager(object):
             current_tid, current_data_tid = getDataTID(before_tid=ltid)
             if current_tid is None:
                 return None, None, False
-        found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
-        assert found_undone_tid is not None, (oid, undone_tid)
         is_current = undone_data_tid in (current_data_tid, tid)
         # Load object data as it was before given transaction.
         # It can be None, in which case it means we are undoing object
@@ -865,7 +853,7 @@ class DatabaseManager(object):
             assert tid, tid
             cell_list = []
             my_nid = self.getUUID()
-            for partition, state in self._iterAssignedCells():
+            for partition, state in self.iterAssignedCells():
                 if state > tid:
                     cell_list.append((partition, my_nid, tid))
                 self._deleteRange(partition, tid)

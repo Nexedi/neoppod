@@ -26,7 +26,7 @@ class BootstrapManager(EventHandler):
     Manage the bootstrap stage, lookup for the primary master then connect to it
     """
 
-    def __init__(self, app, node_type, server=None, devpath=()):
+    def __init__(self, app, node_type, server=None, devpath=(), new_nid=()):
         """
         Manage the bootstrap stage of a non-master node, it lookup for the
         primary master node, connect to it then returns when the master node
@@ -34,9 +34,8 @@ class BootstrapManager(EventHandler):
         """
         self.server = server
         self.devpath = devpath
+        self.new_nid = new_nid
         self.node_type = node_type
-        self.num_replicas = None
-        self.num_partitions = None
         app.nm.reset()
 
     uuid = property(lambda self: self.app.uuid)
@@ -44,7 +43,7 @@ class BootstrapManager(EventHandler):
     def connectionCompleted(self, conn):
         EventHandler.connectionCompleted(self, conn)
         conn.ask(Packets.RequestIdentification(self.node_type, self.uuid,
-            self.server, self.app.name, self.devpath, None))
+            self.server, self.app.name, None, self.devpath, self.new_nid))
 
     def connectionFailed(self, conn):
         EventHandler.connectionFailed(self, conn)
@@ -53,10 +52,8 @@ class BootstrapManager(EventHandler):
     def connectionLost(self, conn, new_state):
         self.current = None
 
-    def _acceptIdentification(self, node, num_partitions, num_replicas):
+    def _acceptIdentification(self, node):
         assert self.current is node, (self.current, node)
-        self.num_partitions = num_partitions
-        self.num_replicas = num_replicas
 
     def getPrimaryConnection(self):
         """
@@ -73,8 +70,7 @@ class BootstrapManager(EventHandler):
             try:
                 while self.current:
                     if self.current.isIdentified():
-                        return (self.current, self.current.getConnection(),
-                            self.num_partitions, self.num_replicas)
+                        return self.current, self.current.getConnection()
                     poll(1)
             except PrimaryElected, e:
                 if self.current:

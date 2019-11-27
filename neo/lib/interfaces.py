@@ -74,7 +74,7 @@ def implements(obj, ignore=()):
         assert not wrong_signature, wrong_signature
     return obj
 
-def _set_code(func):
+def _stub(func):
     args, varargs, varkw, _ = inspect.getargspec(func)
     if varargs:
         args.append("*" + varargs)
@@ -82,16 +82,25 @@ def _set_code(func):
         args.append("**" + varkw)
     exec "def %s(%s): raise NotImplementedError\nf = %s" % (
         func.__name__, ",".join(args), func.__name__)
-    func.func_code = f.func_code
+    return f
 
 def abstract(func):
-    _set_code(func)
-    func.__abstract__ = 1
-    return func
+    f = _stub(func)
+    f.__abstract__ = 1
+    f.__defaults__ = func.__defaults__
+    f.__doc__ = func.__doc__
+    return f
 
 def requires(*args):
     for func in args:
-        _set_code(func)
+        # Tolerate useless abstract decoration on required method (e.g. it
+        # simplifies the implementation of a fallback decorator), but remove
+        # marker since it does not need to be implemented if it's required
+        # by a method that is overridden.
+        try:
+            del func.__abstract__
+        except AttributeError:
+            func.__code__ = _stub(func).__code__
     def decorator(func):
         func.__requires__ = args
         return func

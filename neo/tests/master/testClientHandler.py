@@ -30,8 +30,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         config = self.getMasterConfiguration(master_number=1, replicas=1)
         self.app = Application(config)
         self.app.em.close()
-        self.app.pt.clear()
-        self.app.pt.setID(1)
         self.app.em = Mock()
         self.app.loid = '\0' * 8
         self.app.tm.setLastTID('\0' * 8)
@@ -73,7 +71,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         self.service.askPack(conn, tid)
         self.checkNoPacketSent(conn)
-        ptid = self.checkAskPacket(storage_conn, Packets.AskPack).decode()[0]
+        ptid = self.checkAskPacket(storage_conn, Packets.AskPack)._args[0]
         self.assertEqual(ptid, tid)
         self.assertTrue(self.app.packing[0] is conn)
         self.assertEqual(self.app.packing[1], peer_id)
@@ -85,7 +83,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         self.service.askPack(conn, tid)
         self.checkNoPacketSent(storage_conn)
-        status = self.checkAnswerPacket(conn, Packets.AnswerPack).decode()[0]
+        status = self.checkAnswerPacket(conn, Packets.AnswerPack)._args[0]
         self.assertFalse(status)
 
 if __name__ == '__main__':

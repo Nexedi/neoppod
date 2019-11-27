@@ -53,7 +53,7 @@ class ClientOperationHandler(BaseHandler):
             p = Errors.TidNotFound('%s does not exist' % dump(tid))
         else:
             p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
-                    t[4], t[0])
+                    bool(t[4]), t[0])
         conn.answer(p)
 
     def getEventQueue(self):
@@ -183,12 +183,13 @@ class ClientOperationHandler(BaseHandler):
         getObjectFromTransaction = app.tm.getObjectFromTransaction
         object_tid_dict = {}
         for oid in oid_list:
-            current_serial, undo_serial, is_current = findUndoTID(oid, ttid,
+            r = findUndoTID(oid, ttid,
                 ltid, undone_tid, getObjectFromTransaction(ttid, oid))
-            if current_serial is None:
-                p = Errors.OidNotFound(dump(oid))
-                break
-            object_tid_dict[oid] = (current_serial, undo_serial, is_current)
+            if r:
+                if not r[0]:
+                    p = Errors.OidNotFound(dump(oid))
+                    break
+                object_tid_dict[oid] = r
         else:
             p = Packets.AnswerObjectUndoSerial(object_tid_dict)
         conn.answer(p)

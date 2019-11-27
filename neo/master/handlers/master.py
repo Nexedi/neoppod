@@ -23,6 +23,9 @@ from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 class SecondaryHandler(MasterHandler):
     """Handler used by primary to handle secondary masters"""
 
+    def handlerSwitched(self, conn, new):
+        pass
+
     def _connectionLost(self, conn):
         app = self.app
         node = app.nm.getByUUID(conn.getUUID())
@@ -30,21 +33,20 @@ class SecondaryHandler(MasterHandler):
         app.broadcastNodesInformation([node])
 
 
-class ElectionHandler(MasterHandler):
+class ElectionHandler(SecondaryHandler):
     """Handler used by primary to handle secondary masters during election"""
 
-    def connectionCompleted(self, conn, new=None):
-        if new is None:
-            super(ElectionHandler, self).connectionCompleted(conn)
-            app = self.app
-            conn.ask(Packets.RequestIdentification(NodeTypes.MASTER,
-                app.uuid, app.server, app.name, (), app.election))
+    def connectionCompleted(self, conn):
+        super(ElectionHandler, self).connectionCompleted(conn)
+        app = self.app
+        conn.ask(Packets.RequestIdentification(NodeTypes.MASTER,
+            app.uuid, app.server, app.name, app.election, (), ()))
 
     def connectionFailed(self, conn):
         super(ElectionHandler, self).connectionFailed(conn)
         self.connectionLost(conn)
 
-    def _acceptIdentification(self, node, *args):
+    def _acceptIdentification(self, node):
         raise PrimaryElected(node)
 
     def _connectionLost(self, *args):
@@ -66,7 +68,7 @@ class ElectionHandler(MasterHandler):
 class PrimaryHandler(ElectionHandler):
     """Handler used by secondaries to handle primary master"""
 
-    def _acceptIdentification(self, node, num_partitions, num_replicas):
+    def _acceptIdentification(self, node):
         assert self.app.primary_master is node, (self.app.primary_master, node)
 
     def _connectionLost(self, conn):

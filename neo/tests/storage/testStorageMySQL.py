@@ -22,7 +22,7 @@ from MySQLdb.constants.ER import UNKNOWN_STORAGE_ENGINE
 from ..mock import Mock
 from neo.lib.protocol import ZERO_OID
 from neo.lib.util import p64
-from .. import DB_PREFIX, DB_SOCKET, DB_USER, Patch
+from .. import DB_PREFIX, DB_USER, Patch, setupMySQLdb
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager
@@ -46,8 +46,8 @@ class StorageMySQLdbTests(StorageDBTests):
     engine = None
 
     def _test_lockDatabase_open(self):
-        self.prepareDatabase(number=1, prefix=DB_PREFIX)
-        database = '%s@%s0%s' % (DB_USER, DB_PREFIX, DB_SOCKET)
+        self.prepareDatabase(1)
+        database = self.db_template(0)
         return MySQLDatabaseManager(database, self.engine)
 
     def getDB(self, reset=0):

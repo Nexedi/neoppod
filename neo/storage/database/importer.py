@@ -33,7 +33,7 @@ from ZODB.FileStorage import FileStorage
 
 from ..app import option_defaults
 from . import buildDatabaseManager, DatabaseFailure
-from .manager import DatabaseManager
+from .manager import DatabaseManager, Fallback
 from neo.lib import compress, logging, patch, util
 from neo.lib.interfaces import implements
 from neo.lib.protocol import BackendNotImplemented, MAX_TID
@@ -216,7 +216,7 @@ class ZODB(object):
         self._connect = _connect
         config = section.config
         if 'read_only' in config.getSectionAttributes():
-            has_next_oid = config.read_only = hasattr(self, 'next_oid')
+            has_next_oid = config.read_only = 'next_oid' in self.__dict__
             if not has_next_oid:
                 import gc
                 # This will reopen read-only as soon as we know the last oid.
@@ -378,8 +378,8 @@ class ImporterDatabaseManager(DatabaseManager):
         conf = self._conf
         db = self.db = buildDatabaseManager(conf['adapter'],
             (conf['database'], conf.get('engine'), conf['wait']))
-        for x in """getConfiguration _setConfiguration setNumPartitions
-                    query erase getPartitionTable _iterAssignedCells
+        for x in """getConfiguration _setConfiguration _getMaxPartition
+                    query erase getPartitionTable iterAssignedCells
                     updateCellTID getUnfinishedTIDDict dropUnfinishedData
                     abortTransaction storeTransaction lockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit
@@ -396,8 +396,15 @@ class ImporterDatabaseManager(DatabaseManager):
                 self._writeback.committed()
         self.commit = db.commit = commit
 
-    def _updateReadable(self):
+    def _updateReadable(*_):
         raise AssertionError
+
+    def setUUID(self, nid):
+        old_nid = self.getUUID()
+        if old_nid:
+            assert old_nid == nid, (old_nid, nid)
+        else:
+            self.setConfiguration('nid', str(nid))
 
     def changePartitionTable(self, *args, **kw):
         self.db.changePartitionTable(*args, **kw)
@@ -413,7 +420,7 @@ class ImporterDatabaseManager(DatabaseManager):
         if self._writeback:
             self._writeback.close()
         self.db.close()
-        if isinstance(self.zodb, list): # _setup called
+        if isinstance(self.zodb, tuple): # _setup called
             for zodb in self.zodb:
                 zodb.close()
 
@@ -436,9 +443,13 @@ class ImporterDatabaseManager(DatabaseManager):
         self.zodb_ltid = max(x.ltid for x in self.zodb)
         zodb = self.zodb[-1]
         self.zodb_loid = zodb.shift_oid + zodb.next_oid - 1
-        self.zodb_tid = self.db.getLastTID(self.zodb_ltid) or 0
-        if callable(self._import):
-            self._import = self._import()
+        self.zodb_tid = self._getMaxPartition() is not None and \
+            self.db.getLastTID(self.zodb_ltid) or 0
+        if callable(self._import): # XXX: why ?
+            if self.zodb_tid == self.zodb_ltid:
+                self._finished()
+            else:
+                self._import = self._import()
 
     def doOperation(self, app):
         if self._import:
@@ -498,12 +509,19 @@ class ImporterDatabaseManager(DatabaseManager):
         if process:
             process.join()
         self.commit()
+        self._finished()
+
+    def _finished(self):
         logging.warning("All data are imported. You should change"
             " your configuration to use the native backend and restart.")
         self._import = None
         for x in """getObject getReplicationTIDList getReplicationObjectList
+                    _fetchObject _getDataTID getLastObjectTID
                  """.split():
             setattr(self, x, getattr(self.db, x))
+        for zodb in self.zodb:
+            zodb.close()
+        self.zodb = None
 
     def _iter_zodb(self, zodb_list):
         util.setproctitle('neostorage: import')
@@ -555,6 +573,19 @@ class ImporterDatabaseManager(DatabaseManager):
         tid, oid = self.db.getLastIDs()
         return (max(tid, util.p64(self.zodb_ltid)),
                 max(oid, util.p64(self.zodb_loid)))
+
+    def _getObject(self, oid, tid=None, before_tid=None):
+        p64 = util.p64
+        r = self.getObject(p64(oid),
+            None if tid is None else p64(tid),
+            None if before_tid is None else p64(before_tid))
+        if r:
+            serial, next_serial, compression, checksum, data, data_serial = r
+            u64 = util.u64
+            return (u64(serial),
+                    next_serial and u64(next_serial),
+                    compression, checksum, data,
+                    data_serial and u64(data_serial))
 
     def getObject(self, oid, tid=None, before_tid=None):
         u64 = util.u64
@@ -623,7 +654,11 @@ class ImporterDatabaseManager(DatabaseManager):
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         # Even if everything is imported, we can't truncate below
         # because it would import again if we restart with this backend.
-        if min_tid < self.zodb_ltid:
+        # This is also incompatible with writeback, because ZODB has
+        # no API to truncate.
+        if min_tid < self.zodb_ltid or self._writeback:
+            # XXX: That's late to fail. The master should ask storage nodes
+            #      whether truncation is possible before going further.
             raise NotImplementedError
         self.db._deleteRange(partition, min_tid, max_tid)
 
@@ -667,6 +702,12 @@ class ImporterDatabaseManager(DatabaseManager):
                                                    length, partition)
         return r
 
+    def _fetchObject(*_):
+        raise AssertionError
+
+    getLastObjectTID = Fallback.getLastObjectTID.__func__
+    _getDataTID = Fallback._getDataTID.__func__
+
     def getObjectHistory(self, *args, **kw):
         raise BackendNotImplemented(self.getObjectHistory)
 
@@ -678,6 +719,7 @@ class WriteBack(object):
 
     _changed = False
     _process = None
+    chunk_size = 100
 
     def __init__(self, db, storage):
         self._db = db
@@ -705,7 +747,7 @@ class WriteBack(object):
                 self._event = Event()
                 self._idle = Event()
                 self._stop = Event()
-                self._np = self._db.getNumPartitions()
+                self._np = 1 + self._db._getMaxPartition()
                 self._db = cPickle.dumps(self._db, 2)
                 self._process = Process(target=self._run)
                 self._process.daemon = True
@@ -737,7 +779,6 @@ class WriteBack(object):
     def iterator(self):
         db = self._db
         np = self._np
-        chunk_size = max(2, 1000 // np)
         offset_list = xrange(np)
         while 1:
             with db:
@@ -748,23 +789,26 @@ class WriteBack(object):
                 if np == len(db._readable_set):
                     while 1:
                         tid_list = []
-                        loop = False
+                        max_tid = MAX_TID
                         for offset in offset_list:
                             x = db.getReplicationTIDList(
-                                self.min_tid, MAX_TID, chunk_size, offset)
+                                self.min_tid, max_tid, self.chunk_size, offset)
                             tid_list += x
-                            if len(x) == chunk_size:
-                                loop = True
-                        if tid_list:
-                            tid_list.sort()
-                            for tid in tid_list:
-                                if self._stop.is_set():
-                                    return
-                                yield TransactionRecord(db, tid)
+                            if len(x) == self.chunk_size:
+                                max_tid = x[-1]
+                        if not tid_list:
+                            break
+                        tid_list.sort()
+                        for tid in tid_list:
+                            if self._stop.is_set():
+                                return
+                            yield TransactionRecord(db, tid)
+                            if tid == max_tid:
+                                break
+                        else:
                             self.min_tid = util.add64(tid, 1)
-                            if loop:
-                                continue
-                        break
+                            break
+                        self.min_tid = util.add64(tid, 1)
             if not self._event.is_set():
                 self._idle.set()
                 self._event.wait()
@@ -785,7 +829,10 @@ class TransactionRecord(BaseStorage.TransactionRecord):
     def __iter__(self):
         tid = self.tid
         for oid in self._oid_list:
-            _, compression, _, data, data_tid = self._db.fetchObject(oid, tid)
+            r = self._db.fetchObject(oid, tid)
+            if r is None: # checkCurrentSerialInTransaction
+                continue
+            _, compression, _, data, data_tid = r
             if data is not None:
                 data = compress.decompress_list[compression](data)
             yield BaseStorage.DataRecord(oid, tid, data, data_tid)

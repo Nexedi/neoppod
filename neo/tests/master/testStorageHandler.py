@@ -18,8 +18,8 @@ import unittest
 from ..mock import Mock
 from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeTypes, Packets
-from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.app import Application
+from neo.master.handlers.storage import StorageServiceHandler
 
 class MasterStorageHandlerTests(NeoUnitTestBase):
 
@@ -29,7 +29,6 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         config = self.getMasterConfiguration(master_number=1, replicas=1)
         self.app = Application(config)
         self.app.em.close()
-        self.app.pt.clear()
         self.app.em = Mock()
         self.service = StorageServiceHandler(self.app)
 
@@ -73,7 +72,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.service.answerPack(conn2, False)
         packet = self.checkNotifyPacket(client_conn, Packets.AnswerPack)
         # TODO: verify packet peer id
-        self.assertTrue(packet.decode()[0])
+        self.assertTrue(packet._args[0])
         self.assertEqual(self.app.packing, None)
 
 if __name__ == '__main__':

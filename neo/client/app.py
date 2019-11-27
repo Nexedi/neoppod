@@ -18,6 +18,7 @@ import heapq
 import random
 import time
 from collections import defaultdict
+
 try:
     from ZODB._compat import dumps, loads, _protocol
 except ImportError:
@@ -76,11 +77,11 @@ class Application(ThreadedApplication):
         self.primary_master_node = None
         self.trying_master_node = None
 
-        # no self-assigned UUID, primary master will supply us one
+        # no self-assigned NID, primary master will supply us one
         self._cache = ClientCache() if cache_size is None else \
                       ClientCache(max_size=cache_size)
         self._loading = defaultdict(lambda: (Lock(), []))
-        self.new_oid_list = ()
+        self.new_oids = ()
         self.last_oid = '\0' * 8
         self.storage_event_handler = storage.StorageEventHandler(self)
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
@@ -181,7 +182,7 @@ class Application(ThreadedApplication):
             with self._connecting_to_master_node:
                 result = self.master_conn
                 if result is None:
-                    self.new_oid_list = ()
+                    self.new_oids = ()
                     result = self.master_conn = self._connectToPrimaryNode()
         return result
 
@@ -220,8 +221,8 @@ class Application(ThreadedApplication):
                         self.notifications_handler,
                         node=node,
                         dispatcher=self.dispatcher)
-                p = Packets.RequestIdentification(
-                    NodeTypes.CLIENT, self.uuid, None, self.name, (), None)
+                p = Packets.RequestIdentification(NodeTypes.CLIENT,
+                    self.uuid, None, self.name, None, (), ())
                 try:
                     ask(conn, p, handler=handler)
                 except ConnectionClosed:
@@ -238,7 +239,6 @@ class Application(ThreadedApplication):
                 # operational. Might raise ConnectionClosed so that the new
                 # primary can be looked-up again.
                 logging.info('Initializing from master')
-                ask(conn, Packets.AskPartitionTable(), handler=handler)
                 ask(conn, Packets.AskLastTransaction(), handler=handler)
                 if self.pt.operational():
                     break
@@ -264,7 +264,7 @@ class Application(ThreadedApplication):
         conn = MTClientConnection(self, self.storage_event_handler, node,
                                   dispatcher=self.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
-            self.uuid, None, self.name, (), self.id_timestamp)
+            self.uuid, None, self.name, self.id_timestamp, (), ())
         try:
             self._ask(conn, p, handler=self.storage_bootstrap_handler)
         except ConnectionClosed:
@@ -306,15 +306,19 @@ class Application(ThreadedApplication):
         """Get a new OID."""
         self._oid_lock_acquire()
         try:
-            if not self.new_oid_list:
+            for oid in self.new_oids:
+                break
+            else:
                 # Get new oid list from master node
                 # we manage a list of oid here to prevent
                 # from asking too many time new oid one by one
                 # from master node
                 self._askPrimary(Packets.AskNewOIDs(100))
-                if not self.new_oid_list:
+                for oid in self.new_oids:
+                    break
+                else:
                     raise NEOStorageError('new_oid failed')
-            self.last_oid = oid = self.new_oid_list.pop()
+            self.last_oid = oid
             return oid
         finally:
             self._oid_lock_release()
@@ -611,7 +615,7 @@ class Application(ThreadedApplication):
         # user and description are cast to str in case they're unicode.
         # BBB: This is not required anymore with recent ZODB.
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
-            str(transaction.description), ext, txn_context.cache_dict)
+            str(transaction.description), ext, list(txn_context.cache_dict))
         queue = txn_context.queue
         conn_dict = txn_context.conn_dict
         # Ask in parallel all involved storage nodes to commit object metadata.
@@ -696,7 +700,7 @@ class Application(ThreadedApplication):
         else:
             try:
                 notify(Packets.AbortTransaction(txn_context.ttid,
-                                                txn_context.conn_dict))
+                    list(txn_context.conn_dict)))
             except ConnectionClosed:
                 pass
         # We don't need to flush queue, as it won't be reused by future
@@ -731,7 +735,8 @@ class Application(ThreadedApplication):
         for oid in checked_list:
             del cache_dict[oid]
         ttid = txn_context.ttid
-        p = Packets.AskFinishTransaction(ttid, cache_dict, checked_list)
+        p = Packets.AskFinishTransaction(ttid, list(cache_dict),
+                                         checked_list)
         try:
             tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
             assert tid
@@ -765,17 +770,11 @@ class Application(ThreadedApplication):
     def undo(self, undone_tid, txn):
         txn_context = self._txn_container.get(txn)
         txn_info, txn_ext = self._getTransactionInformation(undone_tid)
-        txn_oid_list = txn_info['oids']
 
         # Regroup objects per partition, to ask a minimum set of storage.
-        partition_oid_dict = {}
-        for oid in txn_oid_list:
-            partition = self.pt.getPartition(oid)
-            try:
-                oid_list = partition_oid_dict[partition]
-            except KeyError:
-                oid_list = partition_oid_dict[partition] = []
-            oid_list.append(oid)
+        partition_oid_dict = defaultdict(list)
+        for oid in txn_info['oids']:
+            partition_oid_dict[self.pt.getPartition(oid)].append(oid)
 
         # Ask storage the undo serial (serial at which object's previous data
         # is)
@@ -817,8 +816,8 @@ class Application(ThreadedApplication):
                 raise UndoError('non-undoable transaction')
 
         # Send undo data to all storage nodes.
-        for oid in txn_oid_list:
-            current_serial, undo_serial, is_current = undo_object_tid_dict[oid]
+        for oid, (current_serial, undo_serial, is_current) in \
+                undo_object_tid_dict.iteritems():
             if is_current:
                 data = None
             else:
@@ -852,7 +851,7 @@ class Application(ThreadedApplication):
             self._store(txn_context, oid, current_serial, data, undo_serial)
 
         self.waitStoreResponses(txn_context)
-        return None, txn_oid_list
+        return None, list(undo_object_tid_dict)
 
     def _getTransactionInformation(self, tid):
         return self._askStorageForRead(tid,
@@ -933,9 +932,9 @@ class Application(ThreadedApplication):
         for serial, size in self._askStorageForRead(oid, packet):
                 txn_info, txn_ext = self._getTransactionInformation(serial)
                 # create history dict
-                txn_info.pop('id')
-                txn_info.pop('oids')
-                txn_info.pop('packed')
+                del txn_info['id']
+                del txn_info['oids']
+                del txn_info['packed']
                 txn_info['tid'] = serial
                 txn_info['version'] = ''
                 txn_info['size'] = size

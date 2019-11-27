@@ -53,7 +53,7 @@ extras_require = {
     'master': [],
     'storage-sqlite': [],
     'storage-mysqldb': ['mysqlclient'],
-    'storage-importer': zodb_require + ['msgpack>=0.5.6', 'setproctitle'],
+    'storage-importer': zodb_require + ['setproctitle'],
 }
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
     'neoppod[%s]' % ', '.join(extras_require)]
@@ -78,7 +78,7 @@ else:
 
 setup(
     name = 'neoppod',
-    version = '1.11',
+    version = '1.12.0',
     description = __doc__.strip(),
     author = 'Nexedi SA',
     author_email = 'neo-dev@erp5.org',
@@ -108,6 +108,7 @@ setup(
         ],
     },
     install_requires = [
+        'msgpack>=0.5.6',
         'python-dateutil', # neolog --from
         ],
     extras_require = extras_require,

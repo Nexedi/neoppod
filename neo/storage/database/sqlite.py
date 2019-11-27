@@ -79,6 +79,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
+        self.conn.text_factory = str
         self.lock(self.db)
         if self.UNSAFE:
             q = self.query
@@ -143,6 +144,12 @@ class SQLiteDatabaseManager(DatabaseManager):
             " WHEN 0 THEN -1"  # UP_TO_DATE
             " WHEN 2 THEN -2"  # FEEDING
             " ELSE 1-state END")
+
+    # Let's wait for a more important change to clean up,
+    # so that users can still downgrade.
+    if 0:
+      def _migrate4(self, schema_dict, index_dict):
+        self._setConfiguration('partitions', None)
 
     def _setup(self, dedup=False):
         # BBB: SQLite has transactional DDL but before Python 3.6,
@@ -264,6 +271,9 @@ class SQLiteDatabaseManager(DatabaseManager):
             q("DELETE FROM config WHERE name=?", (key,))
         else:
             q("REPLACE INTO config VALUES (?,?)", (key, str(value)))
+
+    def _getMaxPartition(self):
+        return self.query("SELECT MAX(`partition`) FROM pt").next()[0]
 
     def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
@@ -451,8 +461,12 @@ class SQLiteDatabaseManager(DatabaseManager):
         return r
 
     def loadData(self, data_id):
-        return self.query("SELECT compression, hash, value"
-                          " FROM data WHERE id=?", (data_id,)).fetchone()
+        compression, checksum, data = self.query(
+            "SELECT compression, hash, value  FROM data WHERE id=?",
+            (data_id,)).fetchone()
+        if checksum:
+            return compression, str(checksum), str(data)
+        return compression, checksum, data
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         partition = self._getReadablePartition(oid)
@@ -712,5 +726,5 @@ class SQLiteDatabaseManager(DatabaseManager):
         main[-1:-1] = data
         return '\n'.join(main) + '\n'
 
-    def restore(self, sql):
+    def _restore(self, sql):
         self.conn.executescript(sql)

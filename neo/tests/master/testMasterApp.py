@@ -26,7 +26,6 @@ class MasterAppTests(NeoUnitTestBase):
         # create an application object
         config = self.getMasterConfiguration()
         self.app = Application(config)
-        self.app.pt.clear()
 
     def _tearDown(self, success):
         self.app.close()

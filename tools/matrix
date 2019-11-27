@@ -129,7 +129,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
             finally:
                 zodb.stop()
             # Clear DB if no error happened.
-            zodb.setupDB()
+            zodb.resetDB()
             return end - start
         except:
             traceback.print_exc()

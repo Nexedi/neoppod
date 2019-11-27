@@ -486,7 +486,7 @@ class NodeManager(EventQueue):
             # For the first notification, we receive a full list of nodes from
             # the master. Remove all unknown nodes from a previous connection.
             for node in self._node_set.difference(added_list):
-                if app.pt.dropNode(node):
+                if not node.isStorage() or app.pt.dropNode(node):
                     self.remove(node)
         self.log()
         self.executeQueuedEvents()
