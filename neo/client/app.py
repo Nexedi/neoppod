@@ -80,7 +80,7 @@ class Application(ThreadedApplication):
         # no self-assigned NID, primary master will supply us one
         self._cache = ClientCache() if cache_size is None else \
                       ClientCache(max_size=cache_size)
-        self._loading_oid = None
+        self._loading = defaultdict(lambda: (Lock(), []))
         self.new_oids = ()
         self.last_oid = '\0' * 8
         self.storage_event_handler = storage.StorageEventHandler(self)
@@ -91,19 +91,13 @@ class Application(ThreadedApplication):
         self.notifications_handler = master.PrimaryNotificationsHandler( self)
         self._txn_container = TransactionContainer()
         # Lock definition :
-        # _load_lock is used to make loading and storing atomic
-        lock = Lock()
-        self._load_lock_acquire = lock.acquire
-        self._load_lock_release = lock.release
         # _oid_lock is used in order to not call multiple oid
         # generation at the same time
         lock = Lock()
         self._oid_lock_acquire = lock.acquire
         self._oid_lock_release = lock.release
-        lock = Lock()
         # _cache_lock is used for the client cache
-        self._cache_lock_acquire = lock.acquire
-        self._cache_lock_release = lock.release
+        self._cache_lock = Lock()
         # _connecting_to_master_node is used to prevent simultaneous master
         # node connection attempts
         self._connecting_to_master_node = Lock()
@@ -402,21 +396,32 @@ class Application(ThreadedApplication):
         """
         # TODO:
         # - rename parameters (here? and in handlers & packet definitions)
-
-        acquire = self._cache_lock_acquire
-        release = self._cache_lock_release
-        # XXX: Consider using a more fine-grained lock.
-        self._load_lock_acquire()
+        acquired = False
+        lock = self._cache_lock
         try:
-            acquire()
-            try:
-                result = self._loadFromCache(oid, tid, before_tid)
-                if result:
-                    return result
-                self._loading_oid = oid
-                self._loading_invalidated = []
-            finally:
-                release()
+            while 1:
+                with lock:
+                    if tid:
+                        result = self._cache.load(oid, tid + '*')
+                        assert not result or result[1] == tid
+                    else:
+                        result = self._cache.load(oid, before_tid)
+                    if result:
+                        return result
+                    load_lock = self._loading[oid][0]
+                    acquired = load_lock.acquire(0)
+                # Several concurrent cache misses for the same oid are probably
+                # for the same tid so we use a per-oid lock to avoid asking the
+                # same data to the storage node.
+                if acquired:
+                    # The first thread does load from storage,
+                    # and fills cache with the response.
+                    break
+                # The other threads wait for the first one to complete and
+                # loop, possibly resulting in a new cache miss if a different
+                # tid is actually wanted or if the data was too big.
+                with load_lock:
+                    pass
             # While the cache lock is released, an arbitrary number of
             # invalidations may be processed, for this oid or not. And at this
             # precise moment, if both tid and before_tid are None (which is
@@ -432,20 +437,24 @@ class Application(ThreadedApplication):
                 # we got from master.
                 before_tid = p64(u64(self.last_tid) + 1)
             data, tid, next_tid, _ = self._loadFromStorage(oid, tid, before_tid)
-            acquire()
-            try:
-                if self._loading_oid:
+            with lock:
+                loading = self._loading.pop(oid, None)
+                if loading:
+                    assert loading[0] is load_lock
                     if not next_tid:
-                        for t in self._loading_invalidated:
+                        for t in loading[1]:
                             if tid < t:
                                 next_tid = t
                                 break
                     self._cache.store(oid, data, tid, next_tid)
                 # Else, we just reconnected to the master.
-            finally:
-                release()
-        finally:
-            self._load_lock_release()
+                load_lock.release()
+        except:
+            if acquired:
+                with lock:
+                    self._loading.pop(oid, None)
+                    load_lock.release()
+            raise
         return data, tid, next_tid
 
     def _loadFromStorage(self, oid, at_tid, before_tid):
@@ -463,16 +472,6 @@ class Application(ThreadedApplication):
         return self._askStorageForRead(oid,
             Packets.AskObject(oid, at_tid, before_tid),
             askStorage)
-
-    def _loadFromCache(self, oid, at_tid=None, before_tid=None):
-        """
-        Load from local cache, return None if not found.
-        """
-        if at_tid:
-            result = self._cache.load(oid, at_tid + '*')
-            assert not result or result[1] == at_tid
-            return result
-        return self._cache.load(oid, before_tid)
 
     def tpc_begin(self, storage, transaction, tid=None, status=' '):
         """Begin a new transaction."""
@@ -729,29 +728,23 @@ class Application(ThreadedApplication):
         txn_container = self._txn_container
         if not txn_container.get(transaction).voted:
             self.tpc_vote(transaction)
-        checked_list = []
-        self._load_lock_acquire()
+        txn_context = txn_container.pop(transaction)
+        cache_dict = txn_context.cache_dict
+        checked_list = [oid for oid, data  in cache_dict.iteritems()
+                            if data is CHECKED_SERIAL]
+        for oid in checked_list:
+            del cache_dict[oid]
+        ttid = txn_context.ttid
+        p = Packets.AskFinishTransaction(ttid, list(cache_dict),
+                                         checked_list)
         try:
-            # Call finish on master
-            txn_context = txn_container.pop(transaction)
-            cache_dict = txn_context.cache_dict
-            checked_list = [oid for oid, data  in cache_dict.iteritems()
-                                if data is CHECKED_SERIAL]
-            for oid in checked_list:
-                del cache_dict[oid]
-            ttid = txn_context.ttid
-            p = Packets.AskFinishTransaction(ttid, list(cache_dict),
-                                             checked_list)
-            try:
-                tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
-                assert tid
-            except ConnectionClosed:
-                tid = self._getFinalTID(ttid)
-                if not tid:
-                    raise
-            return tid
-        finally:
-            self._load_lock_release()
+            tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
+            assert tid
+        except ConnectionClosed:
+            tid = self._getFinalTID(ttid)
+            if not tid:
+                raise
+        return tid
 
     def _getFinalTID(self, ttid):
         try:
@@ -991,11 +984,8 @@ class Application(ThreadedApplication):
         # It should not be otherwise required (clients should be free to load
         # old data as long as it is available in cache, event if it was pruned
         # by a pack), so don't bother invalidating on other clients.
-        self._cache_lock_acquire()
-        try:
+        with self._cache_lock:
             self._cache.clear()
-        finally:
-            self._cache_lock_release()
 
     def getLastTID(self, oid):
         return self.load(oid)[1]
