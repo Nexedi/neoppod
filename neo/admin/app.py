@@ -240,8 +240,13 @@ class Application(BaseApplication, Monitor):
 
     def connectToUpstreamAdmin(self):
         if self.listening_conn: # if running
-            self.upstream_admin_conn = ClientConnection(
-                self, self.upstream_admin_handler, self.upstream_admin)
+            self.upstream_admin_conn = None
+            while True:
+                conn = ClientConnection(
+                    self, self.upstream_admin_handler, self.upstream_admin)
+                if not conn.isClosed():
+                    break
+            self.upstream_admin_conn = conn
 
     def partitionTableUpdated(self):
         pt = self.pt
