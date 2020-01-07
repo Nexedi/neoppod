@@ -62,8 +62,6 @@ class ClientTests(NEOFunctionalTest):
         NEOFunctionalTest._tearDown(self, success)
 
     def __setup(self):
-        # start cluster
-        self.neo.setupDB()
         self.neo.start()
         self.neo.expectClusterRunning()
         self.db = ZODB.DB(self.neo.getZODBStorage())

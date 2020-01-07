@@ -42,6 +42,7 @@ from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
+from neo.master.pt import PartitionTable
 from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
@@ -471,6 +472,7 @@ class Test(NEOThreadedTest):
             self.assertFalse(conn.isClosed())
             getCellSortKey = cluster.client.getCellSortKey
             self.assertEqual(getCellSortKey(s0, good), 0)
+            cluster.neoctl.killNode(s0.getUUID())
             cluster.neoctl.dropNode(s0.getUUID())
             self.assertEqual([s1], cluster.client.nm.getStorageList())
             self.assertTrue(conn.isClosed())
@@ -776,6 +778,7 @@ class Test(NEOThreadedTest):
             checkNodeState(NodeStates.RUNNING)
             self.assertEqual([], cluster.getOutdatedCells())
             # drop one
+            cluster.neoctl.killNode(s1.uuid)
             cluster.neoctl.dropNode(s1.uuid)
             checkNodeState(None)
             self.tic() # Let node state update reach remaining storage
@@ -1123,6 +1126,10 @@ class Test(NEOThreadedTest):
                 # Check that the storage hasn't answered to the store,
                 # which means that a lock is still taken for r['x'] by t2.
                 self.tic()
+                try:
+                    txn = txn.data(c1)
+                except (AttributeError, KeyError): # BBB: ZODB < 5
+                    pass
                 txn_context = cluster.client._txn_container.get(txn)
                 empty = txn_context.queue.empty()
                 ll()
@@ -1371,7 +1378,7 @@ class Test(NEOThreadedTest):
             del conn._queue[:] # XXX
             conn.close()
         if 1:
-            with Patch(cluster.master.pt, make=make), \
+            with Patch(PartitionTable, make=make), \
                  Patch(InitializationHandler,
                        askPartitionTable=askPartitionTable) as p:
                 cluster.start()
@@ -1902,18 +1909,7 @@ class Test(NEOThreadedTest):
                     x.value += 1
                     c2.root()['x'].value += 2
                     TransactionalResource(t1, 1, tpc_begin=begin1)
-                    # BUG: Very rarely, getConnectionList returns more that 1
-                    #      connection ("too many values to unpack"), which is
-                    #       a mystery and impossible to reproduce:
-                    #      - 1st time: v1.8.1 on a test machine (no SSL)
-                    #      - last: current revision on my laptop (SSL),
-                    #              at the first iteration of this loop
-                    _sm = list(s1.getConnectionList(cluster.master))
-                    try:
-                        s1m, = _sm
-                    except ValueError:
-                        self.fail((_sm, list(
-                            s1.getConnectionList(cluster.master))))
+                    s1m, = s1.getConnectionList(cluster.master)
                     try:
                         s1.em.removeReader(s1m)
                         with ConnectionFilter() as f, \
@@ -2361,6 +2357,10 @@ class Test(NEOThreadedTest):
                     # Check that the storage hasn't answered to the store,
                     # which means that a lock is still taken for r[''] by t1.
                     self.tic()
+                    try:
+                        txn = txn.data(c3)
+                    except (AttributeError, KeyError): # BBB: ZODB < 5
+                        pass
                     txn_context = db.storage.app._txn_container.get(txn)
                     raise Abort(txn_context.queue.empty())
                 TransactionalResource(t3, 1, commit=t3_commit)
@@ -2407,8 +2407,8 @@ class Test(NEOThreadedTest):
         for x in 'ab':
             r[x] = PCounterWithResolution()
             t1.commit()
-        cluster.stop(replicas=1)
-        cluster.start()
+        cluster.neoctl.setNumReplicas(1)
+        self.tic()
         s0, s1 = cluster.sortStorageList()
         t1, c1 = cluster.getTransaction()
         r = c1.root()
@@ -2592,8 +2592,8 @@ class Test(NEOThreadedTest):
         for x in 'ab':
             r[x] = PCounterWithResolution()
             t1.commit()
-        cluster.stop(replicas=1)
-        cluster.start()
+        cluster.neoctl.setNumReplicas(1)
+        self.tic()
         s0, s1 = cluster.sortStorageList()
         t1, c1 = cluster.getTransaction()
         r = c1.root()
@@ -2894,9 +2894,9 @@ class Test(NEOThreadedTest):
             dm = s.dm
             dm.commit()
             dump_dict[s.uuid] = dm.dump()
-            dm.erase()
             with open(path % (s.getAdapter(), s.uuid)) as f:
                 dm.restore(f.read())
+            dm.setConfiguration('partitions', None) # XXX: see dm._migrate4
         with NEOCluster(storage_count=3, partitions=3, replicas=1,
                         name=self._testMethodName) as cluster:
             s1, s2, s3 = cluster.storage_list

@@ -21,7 +21,6 @@ from neo.lib.exception import PrimaryFailure
 from .handler import AdminEventHandler, MasterEventHandler, \
     MasterRequestEventHandler
 from neo.lib.bootstrap import BootstrapManager
-from neo.lib.pt import PartitionTable
 from neo.lib.protocol import ClusterStates, Errors, NodeTypes, Packets
 from neo.lib.debug import register as registerLiveDebugger
 
@@ -36,8 +35,8 @@ class Application(BaseApplication):
         cls.addCommonServerOptions('admin', '127.0.0.1:9999')
 
         _ = _.group('admin')
-        _.int('u', 'uuid',
-            help="specify an UUID to use for this process (testing purpose)")
+        _.int('i', 'nid',
+            help="specify an NID to use for this process (testing purpose)")
 
     def __init__(self, config):
         super(Application, self).__init__(
@@ -53,7 +52,7 @@ class Application(BaseApplication):
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
-        self.uuid = config.get('uuid')
+        self.uuid = config.get('nid')
         logging.node(self.name, self.uuid)
         self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)
@@ -66,7 +65,6 @@ class Application(BaseApplication):
         super(Application, self).close()
 
     def reset(self):
-        self.bootstrapped = False
         self.master_conn = None
         self.master_node = None
 
@@ -117,40 +115,20 @@ class Application(BaseApplication):
         self.cluster_state = None
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, NodeTypes.ADMIN, self.server)
-        self.master_node, self.master_conn, num_partitions, num_replicas = \
-            bootstrap.getPrimaryConnection()
-
-        if self.pt is None:
-            self.pt = PartitionTable(num_partitions, num_replicas)
-        elif self.pt.getPartitions() != num_partitions:
-            # XXX: shouldn't we recover instead of raising ?
-            raise RuntimeError('the number of partitions is inconsistent')
-        elif self.pt.getReplicas() != num_replicas:
-            # XXX: shouldn't we recover instead of raising ?
-            raise RuntimeError('the number of replicas is inconsistent')
+        self.master_node, self.master_conn = bootstrap.getPrimaryConnection()
 
         # passive handler
         self.master_conn.setHandler(self.master_event_handler)
         self.master_conn.ask(Packets.AskClusterState())
-        self.master_conn.ask(Packets.AskPartitionTable())
 
     def sendPartitionTable(self, conn, min_offset, max_offset, uuid):
-        # we have a pt
-        self.pt.log()
-        row_list = []
+        pt = self.pt
         if max_offset == 0:
-            max_offset = self.pt.getPartitions()
+            max_offset = pt.getPartitions()
         try:
-            for offset in xrange(min_offset, max_offset):
-                row = []
-                try:
-                    for cell in self.pt.getCellList(offset):
-                        if uuid is None or cell.getUUID() == uuid:
-                            row.append((cell.getUUID(), cell.getState()))
-                except TypeError:
-                    pass
-                row_list.append((offset, row))
+            row_list = map(pt.getRow, xrange(min_offset, max_offset))
         except IndexError:
             conn.send(Errors.ProtocolError('invalid partition table offset'))
         else:
-            conn.answer(Packets.AnswerPartitionList(self.pt.getID(), row_list))
+            conn.answer(Packets.AnswerPartitionList(
+                pt.getID(), pt.getReplicas(), row_list))

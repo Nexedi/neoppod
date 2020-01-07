@@ -117,9 +117,11 @@ class MySQLDatabaseManager(DatabaseManager):
         return super(MySQLDatabaseManager, self).__getattr__(attr)
 
     def _tryConnect(self):
-        kwd = {'db' : self.db, 'user' : self.user}
-        if self.passwd is not None:
-            kwd['passwd'] = self.passwd
+        kwd = {'db' : self.db}
+        if self.user:
+            kwd['user'] = self.user
+            if self.passwd is not None:
+                kwd['passwd'] = self.passwd
         if self.socket:
             kwd['unix_socket'] = os.path.expanduser(self.socket)
         logging.info('connecting to MySQL on the database %s with user %s',
@@ -198,6 +200,7 @@ class MySQLDatabaseManager(DatabaseManager):
             self._connect()
 
     def _commit(self):
+        # XXX: Should we translate OperationalError into MysqlError ?
         self.conn.commit()
         self._active = 0
 
@@ -270,6 +273,12 @@ class MySQLDatabaseManager(DatabaseManager):
             " ELSE 1-state"
             " END as tid")
 
+    # Let's wait for a more important change to clean up,
+    # so that users can still downgrade.
+    if 0:
+      def _migrate4(self, schema_dict):
+        self._setConfiguration('partitions', None)
+
     def _setup(self, dedup=False):
         self._config.clear()
         q = self.query
@@ -295,6 +304,12 @@ class MySQLDatabaseManager(DatabaseManager):
             p += """ PARTITION BY LIST (`partition`) (
                 PARTITION dummy VALUES IN (NULL))"""
 
+        if engine == "RocksDB":
+            cf = lambda name, rev=False: " COMMENT '%scf_neo_%s'" % (
+                'rev:' if rev else '', name)
+        else:
+            cf = lambda *_: ''
+
         # The table "trans" stores information on committed transactions.
         schema_dict['trans'] =  """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
@@ -305,8 +320,8 @@ class MySQLDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL,
-                 PRIMARY KEY (`partition`, tid)
-             ) ENGINE=""" + p
+                 PRIMARY KEY (`partition`, tid){}
+             ) ENGINE={}""".format(cf('append_meta'), p)
 
         # The table "obj" stores committed object metadata.
         schema_dict['obj'] = """CREATE TABLE %s (
@@ -315,10 +330,11 @@ class MySQLDatabaseManager(DatabaseManager):
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (`partition`, oid, tid),
-                 KEY tid (`partition`, tid, oid),
-                 KEY (data_id)
-             ) ENGINE=""" + p
+                 PRIMARY KEY (`partition`, oid, tid){},
+                 KEY tid (`partition`, tid, oid){},
+                 KEY (data_id){}
+             ) ENGINE={}""".format(cf('obj_pk', True),
+                 cf('append_meta'), cf('append_meta'), p)
 
         if engine == "TokuDB":
             engine += " compression='tokudb_uncompressed'"
@@ -326,18 +342,21 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "data" stores object data.
         # We'd like to have partial index on 'hash' column (e.g. hash(4))
         # but 'UNIQUE' constraint would not work as expected.
-        schema_dict['data'] = """CREATE TABLE %%s (
-                 id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+        schema_dict['data'] = """CREATE TABLE %s (
+                 id BIGINT UNSIGNED NOT NULL,
                  hash BINARY(20) NOT NULL,
                  compression TINYINT UNSIGNED NULL,
-                 value MEDIUMBLOB NOT NULL%s
-             ) ENGINE=%s""" % (""",
-                 UNIQUE (hash, compression)""" if dedup else "", engine)
+                 value MEDIUMBLOB NOT NULL,
+                 PRIMARY KEY (id){}{}
+             ) ENGINE={}""".format(cf('append'), """,
+                 UNIQUE (hash, compression)""" + cf('no_comp') if dedup else "",
+                 engine)
 
         schema_dict['bigdata'] = """CREATE TABLE %s (
-                 id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                 value MEDIUMBLOB NOT NULL
-             ) ENGINE=""" + engine
+                 id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                 value MEDIUMBLOB NOT NULL,
+                 PRIMARY KEY (id){}
+             ) ENGINE={}""".format(cf('append'), p)
 
         # The table "ttrans" stores information on uncommitted transactions.
         schema_dict['ttrans'] = """CREATE TABLE %s (
@@ -348,8 +367,9 @@ class MySQLDatabaseManager(DatabaseManager):
                  user BLOB NOT NULL,
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
-                 ttid BIGINT UNSIGNED NOT NULL
-             ) ENGINE=""" + engine
+                 ttid BIGINT UNSIGNED NOT NULL,
+                 PRIMARY KEY (ttid){}
+             ) ENGINE={}""".format(cf('no_comp'), p)
 
         # The table "tobj" stores uncommitted object metadata.
         schema_dict['tobj'] = """CREATE TABLE %s (
@@ -358,8 +378,8 @@ class MySQLDatabaseManager(DatabaseManager):
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (tid, oid)
-             ) ENGINE=""" + engine
+                 PRIMARY KEY (tid, oid){}
+             ) ENGINE={}""".format(cf('no_comp'), p)
 
         if self.nonempty('config') is None:
             q(schema_dict.pop('config') % 'config')
@@ -406,6 +426,9 @@ class MySQLDatabaseManager(DatabaseManager):
                 raise
             q("ALTER TABLE config MODIFY value VARBINARY(%s) NULL" % len(value))
             q(sql)
+
+    def _getMaxPartition(self):
+        return self.query("SELECT MAX(`partition`) FROM pt")[0][0]
 
     def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
@@ -965,7 +988,7 @@ class MySQLDatabaseManager(DatabaseManager):
         cmd += self._cmdline()
         return subprocess.check_output(cmd)
 
-    def restore(self, sql):
+    def _restore(self, sql):
         import subprocess
         cmd = ['mysql']
         cmd += self._cmdline()

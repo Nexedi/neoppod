@@ -40,7 +40,7 @@ from neo.lib.util import cached_property, parseMasterList, p64
 from neo.master.recovery import  RecoveryManager
 from .. import (getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch,
-    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER)
+    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX)
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
@@ -304,7 +304,13 @@ class TestSerialized(Serialized):
 class Node(object):
 
     def getConnectionList(self, *peers):
-        addr = lambda c: c and (c.addr if c.is_server else c.getAddress())
+        def addr(c):
+            # Do not identify only by source address because 2 TCP connections
+            # can have same source host:port to different destinations.
+            if c:
+                a = c.addr
+                b = c.getAddress()
+                return (b, a) if c.is_server else (ServerNode.resolv(a), b)
         addr_set = {addr(c.connector) for peer in peers
             for c in peer.em.connection_dict.itervalues()
             if isinstance(c, Connection)}
@@ -377,7 +383,10 @@ class ServerNode(Node):
         assert not self.is_alive()
         init_args = self._init_args
         init_args['reset'] = False
-        assert set(kw).issubset(init_args), (kw, init_args)
+        if __debug__:
+            x = set(kw).difference(init_args)
+            assert not x or x.issubset(self.option_parser.getOptionDict()), (
+                kw, init_args)
         init_args.update(kw)
         self.close()
         self.__init__(**init_args)
@@ -708,7 +717,7 @@ class NEOCluster(object):
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
-                       db_user=DB_USER, db_password='', compress=True,
+                       compress=True,
                        importer=None, autostart=None, dedup=False, name=None):
         self.name = name or 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
@@ -735,21 +744,20 @@ class NEOCluster(object):
             db_list = ['%s%u' % (DB_PREFIX, self._allocate('db', index))
                        for _ in xrange(storage_count)]
         if adapter == 'MySQL':
-            setupMySQLdb(db_list, db_user, db_password, clear_databases)
-            db = '%s:%s@%%s%s' % (db_user, db_password, DB_SOCKET)
+            db = setupMySQLdb(db_list, clear_databases)
         elif adapter == 'SQLite':
-            db = os.path.join(getTempDirectory(), '%s.sqlite')
+            db = os.path.join(getTempDirectory(), '%s.sqlite').__mod__
         else:
             assert False, adapter
         if importer:
             cfg = ImporterConfigParser(adapter, **importer)
-            cfg.set("neo", "database", db % tuple(db_list))
-            db = os.path.join(getTempDirectory(), '%s.conf')
-            with open(db % tuple(db_list), "w") as f:
+            cfg.set("neo", "database", db(*db_list))
+            db = os.path.join(getTempDirectory(), '%s.conf').__mod__
+            with open(db(*db_list), "w") as f:
                 cfg.write(f)
             kw["adapter"] = "Importer"
         kw['wait'] = 0
-        self.storage_list = [StorageApplication(database=db % x, **kw)
+        self.storage_list = [StorageApplication(database=db(x), **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
 
@@ -805,7 +813,7 @@ class NEOCluster(object):
             master_list = self.master_list
         if storage_list is None:
             storage_list = self.storage_list
-        def answerPartitionTable(release, orig, *args):
+        def sendPartitionTable(release, orig, *args):
             orig(*args)
             release()
         def dispatch(release, orig, handler, *args):
@@ -821,7 +829,7 @@ class NEOCluster(object):
             if state in expected_state:
                 release()
         with Serialized.until(MasterEventHandler,
-                answerPartitionTable=answerPartitionTable) as tic1, \
+                sendPartitionTable=sendPartitionTable) as tic1, \
              Serialized.until(RecoveryManager, dispatch=dispatch) as tic2, \
              Serialized.until(MasterEventHandler,
                 notifyClusterInformation=notifyClusterInformation) as tic3:
@@ -846,9 +854,13 @@ class NEOCluster(object):
         expected_state = (NodeStates.PENDING
             if state == ClusterStates.RECOVERING
             else NodeStates.RUNNING)
-        for node in self.storage_list if storage_list is None else storage_list:
+        for node, expected_state in (
+                storage_list if isinstance(storage_list, dict) else
+                dict.fromkeys(self.storage_list if storage_list is None else
+                              storage_list, expected_state)
+                ).iteritems():
             state = self.getNodeState(node)
-            assert state == expected_state, (repr(node), state)
+            assert state == expected_state, (repr(node), state, expected_state)
 
     def stop(self, clear_database=False, __print_exc=traceback.print_exc, **kw):
         if self.started:
@@ -922,7 +934,7 @@ class NEOCluster(object):
     def startCluster(self):
         try:
             self.neoctl.startCluster()
-        except RuntimeError:
+        except SystemExit:
             Serialized.tic()
             if self.neoctl.getClusterState() not in (
                       ClusterStates.BACKINGUP,
@@ -1001,18 +1013,18 @@ class NEOCluster(object):
         """Sort storages so that storage_list[i] has partition i for all i"""
         pt = [{x.getUUID() for x in x}
             for x in self.primary_master.pt.partition_list]
+        n = len(self.storage_list)
         r = []
         x = [iter(pt[0])]
-        try:
-            while 1:
-                try:
-                    r.append(next(x[-1]))
-                except StopIteration:
-                    del r[-1], x[-1]
-                else:
-                    x.append(iter(pt[len(r)].difference(r)))
-        except IndexError:
-            assert len(r) == len(self.storage_list)
+        while 1:
+            try:
+                r.append(next(x[-1]))
+            except StopIteration:
+                del r[-1], x[-1]
+            else:
+                if len(r) == n:
+                    break
+                x.append(iter(pt[len(r)].difference(r)))
         x = {x.uuid: x for x in self.storage_list}
         self.storage_list[:] = (x[r] for r in r)
         return self.storage_list
