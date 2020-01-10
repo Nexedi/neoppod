@@ -1128,11 +1128,12 @@ class ReplicationTests(NEOThreadedTest):
         # S -> Sb link stops working during [cutoff, recover) test iterations
         cutoff  = 4
         recover = 7
+        loop = 10
         def delayReplication(conn, packet):
             return isinstance(packet, Packets.AnswerFetchTransactions)
 
         with ConnectionFilter() as f:
-            for i in xrange(10):
+            for i in xrange(loop):
                 if i == cutoff:
                     f.add(delayReplication)
                 if i == recover:
@@ -1201,6 +1202,14 @@ class ReplicationTests(NEOThreadedTest):
                 # tpc_vote first checks whether there were store replies -
                 # thus not ReadOnlyError
                 self.assertRaises(NEOStorageError, Zb.tpc_vote, txn)
+
+                if i == loop // 2:
+                    # Check that we survive a disconnection from upstream
+                    # when we are serving clients. The client must be
+                    # disconnected before leaving BACKINGUP state.
+                    conn, = U.master.getConnectionList(B.master)
+                    conn.close()
+                    self.tic()
 
                 # close storage because client app is otherwise shared in
                 # threaded tests and we need to refresh last_tid on next run

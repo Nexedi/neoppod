@@ -136,6 +136,8 @@ class BackupApplication(object):
                         del self.pt
                     except AttributeError:
                         pass
+                    for node in app.nm.getClientList(True):
+                        node.getConnection().close()
             except StateChangedException, e:
                 if e.args[0] != ClusterStates.STOPPING_BACKUP:
                     raise
