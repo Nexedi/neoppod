@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -38,10 +38,9 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xerr"
+	"lab.nexedi.com/kirr/go123/xsync"
 	"lab.nexedi.com/kirr/neo/go/internal/log"
 	"lab.nexedi.com/kirr/neo/go/internal/task"
 
@@ -323,14 +322,14 @@ func zwrk(ctx context.Context, url string, nwrk int, h hasher, bench, check stri
 	// benchmark parallel loads
 	defer task.Runningf(&ctx, "zwrk-%d/bench", nwrk)(&err)
 	r := testing.Benchmark(func (b *testing.B) {
-		wg, ctx := errgroup.WithContext(ctx)
+		wg := xsync.NewWorkGroup(ctx)
 		var n int64
 
 		for i := 0; i < nwrk; i++ {
 			stor := storv[i]
 			oid  := zodb.Oid(0)
 
-			wg.Go(func() error {
+			wg.Go(func(ctx context.Context) error {
 				for {
 					n := atomic.AddInt64(&n, +1)
 					if n >= int64(b.N) {
@@ -383,10 +382,10 @@ func zwrkPreconnect(ctx context.Context, url string, at zodb.Tid, nwrk int) (_ [
 	defer task.Runningf(&ctx, "zwrk-%d/preconnect", nwrk)(&err)
 	storv := make([]zodb.IStorage, nwrk)
 
-	wg, ctx := errgroup.WithContext(ctx)
+	wg := xsync.NewWorkGroup(ctx)
 	for i := 0; i < nwrk; i++ {
 		i := i
-		wg.Go(func() error {
+		wg.Go(func(ctx context.Context) error {
 			// open storage without caching - we need to take
 			// latency of every request into account, and a cache
 			// could be inhibiting (e.g. making significantly
