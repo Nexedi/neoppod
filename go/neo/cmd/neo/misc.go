@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -28,11 +28,10 @@ import (
 	"io"
 	"fmt"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/soheilhy/cmux"
 
 	"lab.nexedi.com/kirr/go123/xnet"
+	"lab.nexedi.com/kirr/go123/xsync"
 	"lab.nexedi.com/kirr/neo/go/internal/log"
 
 
@@ -75,23 +74,23 @@ func listenAndServe(ctx context.Context, net xnet.Networker, laddr string, serve
 	httpL := mux.Match(cmux.HTTP1(), cmux.HTTP2()) // XXX verify http2 works
 	miscL := mux.Match(cmux.Any())
 
-	wg, ctx := errgroup.WithContext(ctx)
+	wg := xsync.NewWorkGroup(ctx)
 
-	wg.Go(func() error {
+	wg.Go(func(ctx context.Context) error {
 		// XXX shutdown serve on ctx cancel
 		return mux.Serve()
 	})
 
-	wg.Go(func() error {
+	wg.Go(func(ctx context.Context) error {
 		return serve(ctx, neoL)
 	})
 
-	wg.Go(func() error {
+	wg.Go(func(ctx context.Context) error {
 		// XXX shutdown http on ctx cancel
 		return http.Serve(httpL, nil)
 	})
 
-	wg.Go(func() error {
+	wg.Go(func(ctx context.Context) error {
 		// XXX shutdown on ctx cancel
 		for {
 			conn, err := miscL.Accept()
