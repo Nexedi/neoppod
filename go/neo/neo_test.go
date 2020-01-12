@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -43,6 +43,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/go123/xnet/pipenet"
+	"lab.nexedi.com/kirr/go123/xsync"
 
 	"time"
 )
@@ -60,17 +61,17 @@ func TestMasterStorage(t0 *testing.T) {
 	C := t.NewClient("c", "m:1")
 
 	// start nodes		XXX move starting to TestCluster?
-	gwg, gctx := errgroup.WithContext(bg)
+	gwg := xsync.NewWorkGroup(bg)
 	//defer xwait(gwg)	XXX not yet correctly stopped on context cancel
 
-	gwg.Go(func() error {
-		return M.Run(gctx)
+	gwg.Go(func(ctx context.Context) error {
+		return M.Run(ctx)
 	})
-	gwg.Go(func() error {
-		return S.Run(gctx)
+	gwg.Go(func(ctx context.Context) error {
+		return S.Run(ctx)
 	})
-	gwg.Go(func() error {
-		return C.run(gctx)
+	gwg.Go(func(ctx context.Context) error {
+		return C.run(ctx)
 	})
 
 	tM  := t.Checker("m")
