@@ -1,5 +1,5 @@
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -29,9 +29,9 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 
 	"lab.nexedi.com/kirr/go123/exc"
+	"lab.nexedi.com/kirr/go123/xsync"
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
@@ -65,14 +65,14 @@ func TestWatch(t *testing.T) {
 	stor, err := zodb.Open(bg, tfs, &zodb.OpenOptions{ReadOnly: true}); X(err)
 
 	// spawn plain and verbose watchers
-	ctx0, cancel := context.WithCancel(bg)
-	wg, ctx := errgroup.WithContext(ctx0)
+	ctx, cancel := context.WithCancel(bg)
+	wg := xsync.NewWorkGroup(ctx)
 
 	// gowatch spawns Watch(verbose) and returns expectf() func that is
 	// connected to verify Watch output.
 	gowatch := func(verbose bool) /*expectf*/func(format string, argv ...interface{}) {
 		pr, pw := io.Pipe()
-		wg.Go(func() error {
+		wg.Go(func(ctx context.Context) error {
 			return Watch(ctx, stor, pw, verbose)
 		})
 
