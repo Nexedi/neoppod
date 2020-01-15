@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -97,9 +97,8 @@ type RecordError struct {
 	Err    error  // actual error
 }
 
-func (e *RecordError) Cause() error {
-	return e.Err
-}
+func (e *RecordError) Cause() error  { return e.Err }
+func (e *RecordError) Unwrap() error { return e.Err }
 
 func (e *RecordError) Error() string {
 	// XXX omit path: when .Err already contains it (e.g. when it is os.PathError)?

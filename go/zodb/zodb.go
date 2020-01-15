@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2019  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -316,9 +316,8 @@ func (e *OpError) Error() string {
 	return s
 }
 
-func (e *OpError) Cause() error {
-	return e.Err
-}
+func (e *OpError) Cause() error  { return e.Err }
+func (e *OpError) Unwrap() error { return e.Err }
 
 
 // IStorage is the interface provided by opened ZODB storage.

@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -1283,8 +1283,10 @@ func (e *ConnError) Error() string {
 	return fmt.Sprintf("%s .%d: %s: %s", e.Link, e.ConnId, e.Op, e.Err)
 }
 
-func (e *LinkError) Cause() error { return e.Err }
-func (e *ConnError) Cause() error { return e.Err }
+func (e *LinkError) Cause()  error { return e.Err }
+func (e *LinkError) Unwrap() error { return e.Err }
+func (e *ConnError) Cause()  error { return e.Err }
+func (e *ConnError) Unwrap() error { return e.Err }
 
 func (nl *NodeLink) err(op string, e error) error {
 	if e == nil {
