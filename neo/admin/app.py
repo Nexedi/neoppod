@@ -69,11 +69,21 @@ class Monitor(object):
             ) if summary else str(self.cluster_state)
         if self.down:
             summary += '; DOWN=%s' % self.down
-        if self.operational:
-            backup = self.cluster_state == ClusterStates.BACKINGUP
-            tid = self.backup_tid if backup else self.ltid
+        while self.operational: # not a loop
+            if self.cluster_state == ClusterStates.BACKINGUP:
+                try:
+                    tid = self.backup_tid
+                except AttributeError:
+                    # Possible race when a backup cluster has just switched to
+                    # BACKINGUP state, whereas the next call to app._notify
+                    # will be with ask_ids=False, which means that backup_tid
+                    # will be unknown for this cluster.
+                    break
+            else:
+                tid = self.ltid
+                upstream = None
             x = datetimeFromTID(tid)
-            if upstream and backup:
+            if upstream:
                 lag = (upstream[0] - x).total_seconds()
                 if lag or tid >= upstream[1]:
                     lagging = self.max_lag < lag
