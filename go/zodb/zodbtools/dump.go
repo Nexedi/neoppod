@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2019  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -71,8 +71,6 @@ import (
 type dumper struct {
 	W          io.Writer
 	HashOnly   bool		// whether to dump only hashes of data without content
-
-	afterFirst bool // true after first transaction has been dumped
 
 	buf xfmt.Buffer // reusable data buffer for formatting
 }
@@ -152,15 +150,8 @@ func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.
 
 	var datai *zodb.DataInfo
 
-	// LF in-between txn records
-	vskip := "\n"
-	if !d.afterFirst {
-		vskip = ""
-		d.afterFirst = true
-	}
-
-	_, err = fmt.Fprintf(d.W, "%stxn %s %q\nuser %q\ndescription %q\nextension %q\n",
-			vskip, txni.Tid, string(txni.Status), txni.User, txni.Description, txni.Extension)
+	_, err = fmt.Fprintf(d.W, "txn %s %q\nuser %q\ndescription %q\nextension %q\n",
+			txni.Tid, string(txni.Status), txni.User, txni.Description, txni.Extension)
 	if err != nil {
 		return err
 	}
@@ -170,18 +161,19 @@ func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.
 		datai, err = dataIter.NextData(ctx)
 		if err != nil {
 			if err == io.EOF {
-				err = nil	// XXX -> okEOF ?
+				break
 			}
 
-			break
+			return err
 		}
 
 		err = d.DumpData(datai)
 		if err != nil {
-			break
+			return err
 		}
 	}
 
+	_, err = d.W.Write(_LF)
 	return err
 }
 

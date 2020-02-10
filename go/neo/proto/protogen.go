@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -145,7 +145,11 @@ func (li *localImporter) Import(path string) (*types.Package, error) {
 
 // importer instance - only 1 so that for 2 top-level packages same dependent
 // packages are not reimported several times.
-var localImporterObj = &localImporter{importer.Default()}
+//
+// don't use importer.Default - this importer uses only binaries for installed
+// packages, which might a) get stale wrt sources, or b) be completely missing.
+// https://github.com/golang/go/issues/11415
+var localImporterObj = &localImporter{importer.For("source", nil)}
 
 func loadPkg(pkgPath string, sources ...string) *types.Package {
 	var filev []*ast.File

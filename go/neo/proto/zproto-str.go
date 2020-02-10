@@ -4,6 +4,24 @@ package proto
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[ACK-0]
+	_ = x[NOT_READY-1]
+	_ = x[OID_NOT_FOUND-2]
+	_ = x[TID_NOT_FOUND-3]
+	_ = x[OID_DOES_NOT_EXIST-4]
+	_ = x[PROTOCOL_ERROR-5]
+	_ = x[REPLICATION_ERROR-6]
+	_ = x[CHECKING_ERROR-7]
+	_ = x[BACKEND_NOT_IMPLEMENTED-8]
+	_ = x[NON_READABLE_CELL-9]
+	_ = x[READ_ONLY_ACCESS-10]
+	_ = x[INCOMPLETE_TRANSACTION-11]
+}
+
 const _ErrorCode_name = "ACKNOT_READYOID_NOT_FOUNDTID_NOT_FOUNDOID_DOES_NOT_EXISTPROTOCOL_ERRORREPLICATION_ERRORCHECKING_ERRORBACKEND_NOT_IMPLEMENTEDNON_READABLE_CELLREAD_ONLY_ACCESSINCOMPLETE_TRANSACTION"
 
 var _ErrorCode_index = [...]uint8{0, 3, 12, 25, 38, 56, 70, 87, 101, 124, 141, 157, 179}
@@ -13,6 +31,18 @@ func (i ErrorCode) String() string {
 		return "ErrorCode(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _ErrorCode_name[_ErrorCode_index[i]:_ErrorCode_index[i+1]]
+}
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[ClusterRecovering-0]
+	_ = x[ClusterVerifying-1]
+	_ = x[ClusterRunning-2]
+	_ = x[ClusterStopping-3]
+	_ = x[STARTING_BACKUP-4]
+	_ = x[BACKINGUP-5]
+	_ = x[STOPPING_BACKUP-6]
 }
 
 const _ClusterState_name = "ClusterRecoveringClusterVerifyingClusterRunningClusterStoppingSTARTING_BACKUPBACKINGUPSTOPPING_BACKUP"
@@ -25,6 +55,15 @@ func (i ClusterState) String() string {
 	}
 	return _ClusterState_name[_ClusterState_index[i]:_ClusterState_index[i+1]]
 }
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[MASTER-0]
+	_ = x[STORAGE-1]
+	_ = x[CLIENT-2]
+	_ = x[ADMIN-3]
+}
 
 const _NodeType_name = "MASTERSTORAGECLIENTADMIN"
 
@@ -36,6 +75,15 @@ func (i NodeType) String() string {
 	}
 	return _NodeType_name[_NodeType_index[i]:_NodeType_index[i+1]]
 }
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[UNKNOWN-0]
+	_ = x[DOWN-1]
+	_ = x[RUNNING-2]
+	_ = x[PENDING-3]
+}
 
 const _NodeState_name = "UNKNOWNDOWNRUNNINGPENDING"
 
@@ -46,6 +94,16 @@ func (i NodeState) String() string {
 		return "NodeState(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _NodeState_name[_NodeState_index[i]:_NodeState_index[i+1]]
+}
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[UP_TO_DATE-0]
+	_ = x[OUT_OF_DATE-1]
+	_ = x[FEEDING-2]
+	_ = x[DISCARDED-3]
+	_ = x[CORRUPTED-4]
 }
 
 const _CellState_name = "UP_TO_DATEOUT_OF_DATEFEEDINGDISCARDEDCORRUPTED"
