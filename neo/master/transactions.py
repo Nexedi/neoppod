@@ -321,17 +321,17 @@ class TransactionManager(EventQueue):
                 # No way to commit this transaction because there are
                 # non-replicated storage nodes with failed stores.
                 return False
-            failed = failed.copy()
+            all_failed = failed.copy()
             for t in self._ttid_dict.itervalues():
-                failed |= t._failed
-            if not operational(failed):
+                all_failed |= t._failed
+            if not operational(all_failed):
                 # Other transactions were voted and unless they're aborted,
                 # we won't be able to finish this one, because that would make
                 # the cluster non-operational. Let's tell the caller to retry
                 # later.
                 raise DelayEvent
             # Allow the client to finish the transaction,
-            # even if it will disconnect storage nodes.
+            # even if this will disconnect storage nodes.
             txn._failed = failed
         return True
 
