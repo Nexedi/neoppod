@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-# Copyright (C) 2017-2019  Nexedi SA and Contributors.
+# Copyright (C) 2017-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -22,7 +22,8 @@
 
 from ZODB.FileStorage import FileStorage
 from ZODB import DB
-from zodbtools.test.gen_testdata import gen_testdb, precommit
+from ZODB.Connection import TransactionMetaData
+from zodbtools.test.gen_testdata import gen_testdb, precommit, run_with_zodb3py2_compat
 from os import stat, remove
 from shutil import copyfile
 from golang.gcompat import qq
@@ -142,17 +143,20 @@ def main():
     # prepare file with voted (not fully committed) tail
     voted = "testdata/1voted.fs"
     copyfile(outfs, voted)
-    vstor = FileStorage(voted)
-    vdb   = DB(vstor)
-    vconn = vdb.open()
-    vroot = vconn.root()
-    vroot._p_activate() # to know its current serial
+    def _():
+        vstor = FileStorage(voted)
+        vdb   = DB(vstor)
+        vconn = vdb.open()
+        vroot = vconn.root()
+        vroot._p_activate() # to know its current serial
 
-    txn = precommit(u"author", u"description", {'aaa': 'bbb'})
-    vstor.tpc_begin(txn)
-    vstor.store(vroot._p_oid, vroot._p_serial, '000 data 000', '', txn)
-    vstor.tpc_vote(txn)
-    # NO tpc_finish here so that status remain 'c' (voted) instead of ' ' (committed)
+        txn = precommit(u"author", u"description", {'aaa': 'bbb'})
+        txn_stormeta = TransactionMetaData(txn.user, txn.description, txn.extension)
+        vstor.tpc_begin(txn_stormeta)
+        vstor.store(vroot._p_oid, vroot._p_serial, '000 data 000', '', txn_stormeta)
+        vstor.tpc_vote(txn_stormeta)
+        # NO tpc_finish here so that status remain 'c' (voted) instead of ' ' (committed)
+    run_with_zodb3py2_compat(_)
 
     st = stat(outfs)
     l  = st.st_size

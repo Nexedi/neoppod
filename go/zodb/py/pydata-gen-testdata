@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-# Copyright (C) 2017-2018  Nexedi SA and Contributors.
+# Copyright (C) 2017-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -20,11 +20,14 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """generate reference pickle objects encoding for tests"""
 
-from ZODB.tests import testSerialize
 from ZODB import serialize
+from zodbtools.test.gen_testdata import run_with_zodb3py2_compat
 from golang.gcompat import qq
 
-def main():
+def main2():
+    # import ZODB.tests at runtime after ZODB.X._protocol is patched
+    from ZODB.tests import testSerialize
+
     # dump to go what to expect
     with open("ztestdata_pydata_test.go", "w") as f:
         def emit(v):
@@ -51,6 +54,9 @@ def main():
             emit("\t},")
         emit('\t{"aaa", "?.?"},') # invalid
         emit("}")
+
+def main():
+    run_with_zodb3py2_compat(main2)
 
 if __name__ == '__main__':
     main()
