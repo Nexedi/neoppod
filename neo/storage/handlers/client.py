@@ -34,7 +34,7 @@ class ClientOperationHandler(BaseHandler):
         app = self.app
         if app.operational:
             # Even if in most cases, abortFor is called from both this method
-            # and BaseMasterHandler.notifyPartitionChanges (especially since
+            # and BaseMasterHandler.notifyNodeInformation (especially since
             # storage nodes disconnects unknown clients on their own), these 2
             # handlers also cover distinct scenarios, so neither of them is
             # redundant:
