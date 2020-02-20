@@ -50,7 +50,7 @@ class Transaction(object):
         self.conflict_dict = {}             # {oid: serial}
         # resolved conflicts
         self.resolved_dict = {}             # {oid: serial}
-        # involved storage nodes; connection is None is connection was lost
+        # involved storage nodes; connection is None if connection was lost
         self.conn_dict = {}                 # {node_id: connection}
 
     def __repr__(self):

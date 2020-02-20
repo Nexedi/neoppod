@@ -674,7 +674,7 @@ class Application(ThreadedApplication):
         txn_context = self._txn_container.pop(transaction)
         if txn_context is None:
             return
-        # We want that the involved nodes abort a transaction after any
+        # We want the involved nodes to abort a transaction after any
         # other packet sent by the client for this transaction. IOW, if we
         # already have a connection with a storage node, potentially with
         # a pending write, aborting only via the master may lead to a race
@@ -703,9 +703,8 @@ class Application(ThreadedApplication):
                     list(txn_context.conn_dict)))
             except ConnectionClosed:
                 pass
-        # We don't need to flush queue, as it won't be reused by future
-        # transactions (deleted on next line & indexed by transaction object
-        # instance).
+        # No need to flush queue, as it will be destroyed on return,
+        # along with txn_context.
         self.dispatcher.forget_queue(txn_context.queue, flush_queue=False)
 
     def tpc_finish(self, transaction, f=None):

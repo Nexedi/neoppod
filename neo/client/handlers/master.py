@@ -68,11 +68,10 @@ class PrimaryNotificationsHandler(MTEventHandler):
     def answerTransactionFinished(self, conn, _, tid, callback, cache_dict):
         app = self.app
         app.last_tid = tid
-        # Update cache
         cache = app._cache
+        invalidate = cache.invalidate
+        loading_get = app._loading.get
         with app._cache_lock:
-            invalidate = app._cache.invalidate
-            loading_get = app._loading.get
             for oid, data in cache_dict.iteritems():
                 # Update ex-latest value in cache
                 invalidate(oid, tid)
