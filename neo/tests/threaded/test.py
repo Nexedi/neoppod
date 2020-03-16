@@ -29,7 +29,7 @@ from ZODB import DB, POSException
 from ZODB.DB import TransactionalUndo
 from neo.storage.transactions import TransactionManager, ConflictError
 from neo.lib.connection import ConnectionClosed, \
-    ServerConnection, MTClientConnection
+    ClientConnection, ServerConnection, MTClientConnection
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
@@ -2964,6 +2964,21 @@ class Test(NEOThreadedTest):
             cluster.stop()
             for i, s in zip(nid_list, cluster.storage_list):
                 self.assertMultiLineEqual(s.dm.dump(), dump_dict[i])
+
+    def testProtocolVersionMismatch(self):
+        def ConnectorClass(cls, conn, *args):
+            connector = cls(*args)
+            x = connector.queued[0]
+            connector.queued[0] = x[:-1] + chr(ord(x[-1]) ^ 1)
+            return connector
+        with Patch(ClientConnection, ConnectorClass=ConnectorClass), \
+             self.getLoopbackConnection() as conn:
+            for _ in xrange(9):
+                if conn.isClosed():
+                    break
+                conn.em.poll(1)
+            else:
+                self.fail('%r not closed' % conn)
 
 
 if __name__ == "__main__":

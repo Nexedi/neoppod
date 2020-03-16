@@ -63,7 +63,7 @@ Which has in turn other consequences:
   received yet a notification from the master).
 - Writes must be accepted blindly (i.e. without taking a write-lock) when a
   storage node lacks the data to check for conflicts. This is possible because
-  1 up-to-date cell (for each partition) is enough to do these checks.
+  1 readable cell (for each partition) is enough to do these checks.
 - Because the client can not reliably know if a storage node is expected to
   receive a transaction in full, all writes must succeed.
 - Even if the replication is finished, we have to wait that we don't have any
