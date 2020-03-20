@@ -19,6 +19,7 @@ import getpass, os
 from collections import Counter
 from email.mime.text import MIMEText
 from email.utils import formataddr, formatdate
+from socket import getfqdn
 from time import time
 from traceback import format_exc
 from neo.lib import logging
@@ -161,7 +162,7 @@ class Application(BaseApplication, Monitor):
             email_from = os.getenv('EMAIL')
             if not email_from:
               try:
-                email_from = getpass.getuser()
+                email_from = '%s@%s' % (getpass.getuser(), getfqdn())
               except Exception:
                 email_from = None
             self.email_from = formataddr(("NEO " + self.name, email_from))
