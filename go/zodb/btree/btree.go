@@ -1,15 +1,15 @@
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 
 // Package btree provides B⁺ Trees for ZODB.
 //
-// It is modelled and data compatible with BTree/py package:
+// It is modelled after and is data compatible with BTree/py package:
 //
 //	http://btrees.readthedocs.io
 //	https://github.com/zopefoundation/BTrees
 //
 // A B⁺ tree consists of nodes. Only leaf tree nodes point to data.
-// Intermediate tree nodes contains keys and pointer to next-level tree nodes.
+// Intermediate tree nodes contains keys and pointers to next-level tree nodes.
 //
 // A well-balanced B⁺ tree always have uniform depth - that is the path to any
 // leaf node from the tree root is the same. However historically ZODB/py does

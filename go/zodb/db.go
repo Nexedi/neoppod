@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -310,7 +310,7 @@ type hwaiter struct {
 //
 // Must be called db.mu released.
 func (db *DB) headWait(ctx context.Context, at Tid) (err error) {
-	defer xerr.Contextf(&err, "wait head ≥ %s", at)
+	defer xerr.Contextf(&err, "wait head ≥ @%s", at)
 
 	// precheck if db is already down -> error even if at is under coverage
 	if ready(db.down) {
