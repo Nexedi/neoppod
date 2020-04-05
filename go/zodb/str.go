@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -81,6 +81,15 @@ func (xid Xid) XFmtString(b xfmt.Buffer) xfmt.Buffer {
 	b .V(xid.At) .C(':') .V(xid.Oid)
 }
 */
+
+// String formats events into human-readable form.
+func (e *EventError) String() string {
+	return "error: " + e.Err.Error()
+}
+
+func (e *EventCommit) String() string {
+	return fmt.Sprintf("commit @%s δ: %s", e.Tid, e.Changev)
+}
 
 
 // parseHex64 decodes 16-character-wide hex-encoded string into uint64.
