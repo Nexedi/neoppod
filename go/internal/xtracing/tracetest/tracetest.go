@@ -348,6 +348,10 @@ func (d *EventDispatcher) Dispatch(event interface{}) {
 	// to make sure there is indeed no different orderings possible on the
 	// stream, rerun the test N(event-on-stream) times, and during i'th run
 	// delay i'th event.
+	//
+	// TODO See also on this topic:
+	// http://www.1024cores.net/home/relacy-race-detector
+	// http://www.1024cores.net/home/relacy-race-detector/rrd-introduction
 
 
 	// TODO timeout: deadlock? (print all-in-flight events on timout)
