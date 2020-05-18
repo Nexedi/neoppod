@@ -30,7 +30,6 @@ from neo.lib.exception import PrimaryFailure
 from .handler import AdminEventHandler, BackupHandler, MasterEventHandler, \
     UpstreamAdminHandler, NOT_CONNECTED_MESSAGE
 from neo.lib.bootstrap import BootstrapManager
-from neo.lib.logger import INF
 from neo.lib.protocol import \
     CellStates, ClusterStates, Errors, NodeTypes, Packets
 from neo.lib.debug import register as registerLiveDebugger
@@ -167,7 +166,6 @@ class Application(BaseApplication, Monitor):
                 email_from = None
             self.email_from = formataddr(("NEO " + self.name, email_from))
         self.smtp_exc = None
-        self.smtp_retry = INF
         self.notifying = set()
 
         logging.debug('IP address is %s, port is %d', *self.server)
@@ -321,10 +319,9 @@ class Application(BaseApplication, Monitor):
                     backup.monitor_changed = False
                     changed.add(name)
             body = '\n'.join(body)
-        if changed or self.smtp_retry < time():
-            logging.debug('monitor notification')
-            email_list = self.email_list
-            while email_list: # not a loop
+        email_list = self.email_list
+        while email_list: # not a loop
+            if changed or self.smtp_exc:
                 msg = MIMEText(body + (self.smtp_exc or ''))
                 msg['Date'] = formatdate()
                 clusters, x = severity[1:]
@@ -359,18 +356,18 @@ class Application(BaseApplication, Monitor):
                         self.smtp_exc = (
                             "\n\nA notification could not be sent at %s:\n\n%s"
                             % (msg['Date'], x))
-                    retry = self.smtp_retry = time() + 600
                 else:
                     self.smtp_exc = None
-                    self.smtp_retry = INF
+                    # The timeout is only to check whether a backup cluster is
+                    # lagging and for that, the main cluster and at least one
+                    # backup cluster must be operational. Else, remain passive.
                     if not (self.operational and any(monitor.operational
                             for monitor in self.backup_dict.itervalues())):
                         break
-                    retry = time() + 600
                 finally:
                     s.close()
-                self.em.setTimeout(retry, self._notify)
-                break
+            self.em.setTimeout(time() + 600, self._notify)
+            break
         neoctl = self.asking_monitor_information
         if neoctl:
             del severity[my_severity][0]
