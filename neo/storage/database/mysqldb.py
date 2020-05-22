@@ -781,11 +781,19 @@ class MySQLDatabaseManager(DatabaseManager):
         if max_tid is not None:
             sql += " AND tid <= %d" % max_tid
         q = self.query
-        q("DELETE FROM trans" + sql)
+        if q("SELECT 1 FROM trans%s LIMIT 1" % sql):
+            q("DELETE FROM trans" + sql)
+        else:
+            logging.info("Nothing to truncate in trans for partition %s",
+                         partition)
         sql = " FROM obj" + sql
         data_id_list = [x for x, in q(
             "SELECT DISTINCT data_id%s AND data_id IS NOT NULL" % sql)]
-        q("DELETE" + sql)
+        if q("SELECT 1%s LIMIT 1" % sql):
+            q("DELETE" + sql)
+        else:
+            logging.info("Nothing to truncate in obj for partition %s",
+                         partition)
         self._pruneData(data_id_list)
 
     def getTransaction(self, tid, all = False):
