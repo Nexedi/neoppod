@@ -13,16 +13,20 @@ import sys
 
 def app_set():
     try:
-        return sys.modules['neo.lib.threaded_app'].app_set
+        app_set = sys.modules['neo.lib.threaded_app'].app_set
     except KeyError:
-        f = sys._getframe(4)
-        try:
-            while f.f_code.co_name != 'run' or \
-                  f.f_locals.get('self').__class__.__name__ != 'Application':
-                f = f.f_back
-            return f.f_locals['self'],
-        except AttributeError:
-            return ()
+        pass
+    else:
+        if app_set:
+            return app_set
+    f = sys._getframe(4)
+    try:
+        while f.f_code.co_name != 'run' or \
+              f.f_locals.get('self').__class__.__name__ != 'Application':
+            f = f.f_back
+        return f.f_locals['self'],
+    except AttributeError:
+        return ()
 
 def defer(task):
     def wrapper():
