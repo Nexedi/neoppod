@@ -61,10 +61,11 @@ class Transaction(object):
         return set()
 
     def __repr__(self):
-        return "<%s(%s, tid=%s, age=%.2fs) at 0x%x>" % (
+        return "<%s(%s, %s, age=%.2fs) at 0x%x>" % (
             self.__class__.__name__,
             uuid_str(self.uuid),
-            dump(self.tid),
+            'tid=' + dump(self.tid) if self.tid else
+            'voted' if self.voted else 'not voted',
             time() - self._birth,
             id(self))
 
