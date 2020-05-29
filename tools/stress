@@ -47,7 +47,8 @@ NFT_TEMPLATE = """\
             policy accept
             meta l4proto tcp %s dscp 1 mark 1 counter reject with tcp reset
         }
-    }"""
+    }
+"""
 
 SocketConnector.KEEPALIVE = 5, 1, 1
 
@@ -400,7 +401,7 @@ class Application(StressApplication):
             p.start()
         ruleset = NFT_TEMPLATE % (nft_family, self._nft_table,
             nft_family, '\n            '.join(queue), nft_family)
-        p = subprocess.Popen(('nft', '-f', '-'), stdin=subprocess.PIPE,
+        p = subprocess.Popen(('nft', '-f', '/dev/stdin'), stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         err = p.communicate(ruleset)[0].rstrip()
         if p.poll():
