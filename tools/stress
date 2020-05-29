@@ -594,7 +594,9 @@ def main():
     _('-e', '--engine', help="database engine (MySQL only)")
     _('-l', '--logdir', help="(default: same as --datadir)")
     _('-b', '--backlog', type=int, default=16,
-        help="max size in MiB of logging backlog")
+        help="max size in MiB of logging backlog (the content is flushed to"
+             " log files only on WARNING or higher severity), -1 to send to"
+             " log files unconditionally")
     _('-m', '--masters', type=int, default=1)
     _('-s', '--storages', type=int, default=8)
     _('-p', '--partitions', type=int, default=24)
@@ -644,7 +646,7 @@ def main():
     args = parser.parse_args()
 
     if args.backlog:
-        logging.backlog(args.backlog<<20)
+        logging.backlog(None if args.backlog < 0 else args.backlog<<20)
 
     db_list = ['stress_neo%s' % x for x in xrange(args.storages)]
     if args.datadir or args.logdir:
