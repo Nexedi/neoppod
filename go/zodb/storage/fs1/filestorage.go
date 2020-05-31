@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -591,6 +591,7 @@ mainloop:
 		fs.syncMu.Unlock()
 
 		// check f size, to see whether there could be any updates.
+		// XXX /tmp/δBTail491926614/1.fs: watcher: stat /tmp/δBTail491926614/1.fs: use of closed file
 		fi, err := f.Stat()
 		if err != nil {
 			return err
