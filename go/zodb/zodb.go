@@ -328,7 +328,7 @@ type IStorage interface {
 	Loader
 	Iterator
 
-	// similar to IStorage
+	// similar to IStorageDriver
 
 	// Sync syncs to storage and updates current view of it.
 	//

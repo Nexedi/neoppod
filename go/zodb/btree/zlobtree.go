@@ -197,6 +197,8 @@ func (t *LOBTree) VGet(ctx context.Context, key int64, visit func(node LONode)) 
 			return key < t.data[j].key
 		})
 
+		// FIXME panic index out of range (empty T without children;
+		// logically incorrect, but Restructure generated it once)
 		child := t.data[i].child
 		t.PDeactivate()
 		err = child.PActivate(ctx)

@@ -151,6 +151,7 @@ func TestBTree(t *testing.T) {
 
 		obj := xobj.(bmapping)
 
+		// XXX also verify all keys without value -> !ok
 		for _, kv := range tt.itemv {
 			value, ok, err := obj.Get(ctx, kv.key)
 			if err != nil {
