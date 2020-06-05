@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2006-2019  Nexedi SA
 #
@@ -67,7 +68,6 @@ class PrimaryNotificationsHandler(MTEventHandler):
 
     def answerTransactionFinished(self, conn, _, tid, callback, cache_dict):
         app = self.app
-        app.last_tid = tid
         cache = app._cache
         invalidate = cache.invalidate
         loading_get = app._loading.get
@@ -83,6 +83,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
                     cache.store(oid, data, tid, None)
             if callback is not None:
                 callback(tid)
+            app.last_tid = tid # see comment in invalidateObjects
 
     def connectionClosed(self, conn):
         app = self.app
@@ -110,7 +111,6 @@ class PrimaryNotificationsHandler(MTEventHandler):
         app = self.app
         if app.ignore_invalidations:
             return
-        app.last_tid = tid
         with app._cache_lock:
             invalidate = app._cache.invalidate
             loading_get = app._loading.get
@@ -122,6 +122,13 @@ class PrimaryNotificationsHandler(MTEventHandler):
             db = app.getDB()
             if db is not None:
                 db.invalidate(tid, oid_list)
+            # ZODB<5: Update before releasing the lock so that app.load
+            #         asks the last serial (with respect to already processed
+            #         invalidations by Connection._setstate).
+            # ZODB≥5: Update after db.invalidate because the MVCC
+            #         adapter starts at the greatest TID between
+            #         IStorage.lastTransaction and processed invalidations.
+            app.last_tid = tid
 
     def sendPartitionTable(self, conn, ptid, num_replicas, row_list):
         pt = self.app.pt = object.__new__(PartitionTable)
