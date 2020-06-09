@@ -341,7 +341,7 @@ type IStorage interface {
 	// Head returns ID of last committed transaction.
 	//
 	// Returned head is ID of last committed transaction as observed from
-	// some time _before_ Head call was made. In particular for
+	// some time _before_ Head call returns. In particular for
 	// client-sever case, Head can return cached view of storage that was
 	// learned some time ago.
 	//
