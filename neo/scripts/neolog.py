@@ -35,6 +35,14 @@ else:
 
 comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat', zst=zstdcat)
 
+color_dict = dict(
+    DEBUG=34,         # darkblue
+    INFO=32,          # darkgreen
+    WARNING=33,       # brown
+    ERROR=31,         # darkred
+    CRITICAL='31;01', # red
+)
+
 class Log(object):
 
     _log_date = _packet_date = 0
@@ -208,7 +216,7 @@ class Log(object):
         except StopIteration:
             self._next_protocol = float('inf')
 
-    def _emit(self, date, name, levelname, msg_list):
+    def _emit(self, date, name, levelname, msg_list, color=False):
         if not name:
             name = self._default_name
         if self._node_list and name not in self._node_list:
@@ -218,10 +226,17 @@ class Log(object):
             d = int(date)
             prefix = '%s.%04u ' % (time.strftime(prefix, time.localtime(d)),
                                    int((date - d) * 10000))
-        prefix += ('%-9s %-10s ' % (levelname, name) if self._node_column else
-                   '%-9s ' % levelname)
-        for msg in msg_list:
-            print prefix + msg
+        if not color:
+            prefix += '%-9s ' % levelname
+        if self._node_column:
+            prefix += '%-10s ' % name
+        if color and levelname != 'PACKET':
+            x = '\x1b[%sm%s%%s\x1b[39;49;0m' % (color_dict[levelname], prefix)
+            for msg in msg_list:
+                print x % msg
+        else:
+            for msg in msg_list:
+                print prefix + msg
 
     def _packet(self, date, name, cluster, nid, msg_id, code, peer, body):
         self._packet_date = date
@@ -273,7 +288,7 @@ class Log(object):
             return tuple(args)
 
 
-def emit_many(log_list):
+def emit_many(log_list, color=False):
     log_list = [(log, iter(log).next) for log in log_list]
     for x in log_list: # try to start all transactions at the same time
         x[1]()
@@ -294,7 +309,7 @@ def emit_many(log_list):
                 next_date = float('inf')
             try:
                 while event[0] <= next_date:
-                    emit(*event)
+                    emit(*event, color=color)
                     event = next()
             except IOError, e:
                 if e.errno == errno.EPIPE:
@@ -313,6 +328,8 @@ def main():
         help='decode body of packets')
     _('-A', '--decompress', action="store_true",
         help='decompress data when decode body of packets (implies --all)')
+    _('-c', '--color', action="store_true",
+        help='color lines according to severity, remove severity column')
     _('-d', '--date', metavar='FORMAT',
         help='custom date format, according to strftime(3)')
     _('-f', '--follow', action="store_true",
@@ -369,14 +386,14 @@ def main():
         try:
             pid_list = args.flush or ()
             while True:
-                emit_many(log_list)
+                emit_many(log_list, args.color)
                 for pid in pid_list:
                     os.kill(pid, signal.SIGRTMIN)
                 time.sleep(args.sleep_interval)
         except KeyboardInterrupt:
             pass
     else:
-        emit_many(log_list)
+        emit_many(log_list, args.color)
 
 if __name__ == "__main__":
     main()
