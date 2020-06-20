@@ -257,6 +257,9 @@ func (obj *Persistent) PDeactivate() {
 	if obj.state >= CHANGED {
 		return
 	}
+	if obj.oid == InvalidOid { // newly created not-yet committed object	// TODO tests
+		return
+	}
 
 	// TODO try to keep some pool of object in live state so that there is
 	// no constant load/unload on object access. XXX  -> MRU cache?
