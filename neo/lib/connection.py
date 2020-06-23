@@ -17,13 +17,24 @@
 from functools import wraps
 from time import time
 import msgpack
-from msgpack.exceptions import UnpackValueError
+from msgpack.exceptions import OutOfData, UnpackValueError
 
 from . import attributeTracker, logging
 from .connector import ConnectorException, ConnectorDelayedConnection
 from .locking import RLock
 from .protocol import uuid_str, Errors, PacketMalformedError, Packets, \
     Unpacker
+
+try:
+    msgpack.Unpacker().read_bytes(1)
+except OutOfData: # fallback implementation
+    # monkey-patch for upstream issues 259 & 352
+    def read_bytes(self, n):
+        ret = self._read(min(n, len(self._buffer) - self._buff_i))
+        self._consume()
+        return ret
+    msgpack.Unpacker.read_bytes = read_bytes
+    del read_bytes
 
 @apply
 class dummy_read_buffer(msgpack.Unpacker):

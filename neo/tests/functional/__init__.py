@@ -55,6 +55,26 @@ command_dict = {
 DELAY_SAFETY_MARGIN = 10
 MAX_START_TIME = 30
 
+PYPY_EXECUTABLE = os.getenv('NEO_PYPY')
+if PYPY_EXECUTABLE:
+    import neo, msgpack
+    PYPY_TEMPLATE = """\
+import os, signal, sys
+def sigusr2(*_):
+    os.close(%r)
+    os.kill(os.getpid(), signal.SIGSTOP)
+signal.signal(signal.SIGUSR2, sigusr2)
+os.close(%r)
+os.write(%r, '\\0')
+sys.path.append({!r}); import msgpack; del sys.path[-1]
+sys.path.insert(0, {!r}); import neo; del sys.path[0]
+from neo.lib import logging
+logging.default_root_handler.handle = lambda record: None
+logging.backlog(%s, %s)
+from neo.scripts.%s import main
+main()
+""".format(os.path.dirname(*msgpack.__path__), os.path.dirname(*neo.__path__))
+
 class NodeProcessError(Exception):
     pass
 
@@ -174,6 +194,13 @@ class Process(object):
                     from coverage import Coverage
                     coverage = Coverage(coverage_data_path)
                     coverage.start()
+                elif PYPY_EXECUTABLE and command == 'neomaster':
+                    os.execlp(PYPY_EXECUTABLE, PYPY_EXECUTABLE, '-c',
+                        PYPY_TEMPLATE % (
+                            w, self._coverage_fd, w,
+                            logging._max_size, logging._max_packet,
+                            command),
+                        *args)
                 # XXX: Sometimes, the handler is not called immediately.
                 #      The process is stuck at an unknown place and the test
                 #      never ends. strace unlocks:
@@ -186,7 +213,7 @@ class Process(object):
                 os.close(self._coverage_fd)
                 os.write(w, '\0')
                 sys.argv = [command] + args
-                setproctitle(self.command)
+                setproctitle(command)
                 for on_fork in self.on_fork:
                     on_fork()
                 self.run()

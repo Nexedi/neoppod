@@ -318,6 +318,9 @@ class TestRunner(BenchmarkRunner):
                  " passed.")
         parser.epilog = """
 Environment Variables:
+  NEO_PYPY                    PyPy executable to run master nodes in functional
+                              tests (and also in zodb tests depending on
+                              NEO_TEST_ZODB_FUNCTIONAL).
   NEO_TESTS_ADAPTER           Default is SQLite for threaded clusters,
                               MySQL otherwise.
 

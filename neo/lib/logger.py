@@ -167,7 +167,11 @@ class NEOLogger(Logger):
                 q("PRAGMA synchronous = OFF")
             if 1: # Not only when logging everything,
                   # but also for interoperability with logrotate.
-                q("PRAGMA journal_mode = MEMORY")
+                # Close the returned cursor to work around the following
+                # OperationalError with PyPy:
+                #   cannot commit transaction - SQL statements in progress
+                # XXX: Is it enough?
+                q("PRAGMA journal_mode = MEMORY").close()
             for t, columns in (('log', (
                                   "level INTEGER NOT NULL",
                                   "pathname TEXT",
