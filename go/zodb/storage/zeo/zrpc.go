@@ -74,6 +74,7 @@ type zLink struct {
 
 	ver      string // protocol version in use (without "Z" or "M" prefix)
 	encoding byte   // protocol encoding in use ('Z' or 'M')
+	// XXX ^^^ better -> codec inteface{ pktEncode, pktDecode } ?
 }
 
 // (called after handshake)
@@ -172,12 +173,15 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	return nil
 }
 
+// tuple corresponds to py tuple.
+type tuple []interface{}
+
 // msg represents 1 message.
 type msg struct {
 	msgid  int64
 	flags  msgFlags
 	method string
-	arg    interface{} // can be e.g. (arg1, arg2, ...)
+	arg    interface{} // can be e.g. tuple(arg1, arg2, ...)
 }
 
 type msgFlags int64
@@ -195,6 +199,15 @@ func (zl *zLink) pktDecode(pkb *pktBuf) (msg, error) {
 	switch zl.encoding {
 	case 'Z': return pktDecodeZ(pkb)
 	case 'M': return pktDecodeM(pkb)
+	default:  panic("bug")
+	}
+}
+
+// pktEncode encodes message into raw packet.
+func (zl *zLink) pktEncode(m msg) *pktBuf {
+	switch zl.encoding {
+	case 'Z': return pktEncodeZ(m)
+	case 'M': return pktEncodeM(m)
 	default:  panic("bug")
 	}
 }
@@ -237,8 +250,31 @@ func pktDecodeZ(pkb *pktBuf) (msg, error) {
 	return m, nil
 }
 
+// pktEncodeZ encodes message into raw Z (pickle) packet.
+func pktEncodeZ(m msg) *pktBuf {
+	pkb := allocPkb()
+	p := pickle.NewEncoder(pkb)
+
+	// tuple -> pickle.Tuple
+	arg := m.arg
+	tup, ok := arg.(tuple)
+	if ok {
+		arg = pickle.Tuple(tup)
+	}
+
+	err := p.Encode(pickle.Tuple{m.msgid, m.flags, m.method, arg})
+	if err != nil {
+		panic(err) // all our types are expected to be supported by pickle
+	}
+	return pkb
+}
+
 // pktDecodeM decodes raw M (msgpack) packet into message.
 func pktDecodeM(pkb *pktBuf) (msg, error) {
+	panic("TODO")
+}
+
+func pktEncodeM(m msg) *pktBuf {
 	panic("TODO")
 }
 
@@ -268,15 +304,24 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 	zl.callMu.Unlock()
 
 	// (msgid, async, method, argv)
+	pkb := zl.pktEncode(msg{
+			msgid:  callID,
+			flags:  0,	// XXX was false
+			method: method,
+			arg:    tuple(argv),
+	})
+
+/*
 	pkb := allocPkb()
 	p := pickle.NewEncoder(pkb)
 	err := p.Encode(pickle.Tuple{callID, false, method, pickle.Tuple(argv)})
 	if err != nil {
 		panic(err) // all our types are expected to be supported by pickle
 	}
+*/
 
 	// ok, pkt is ready to go
-	err = zl.sendPkt(pkb) // XXX ctx cancel
+	err := zl.sendPkt(pkb) // XXX ctx cancel
 	if err != nil {
 		return msg{}, err
 	}
