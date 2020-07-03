@@ -72,7 +72,8 @@ type zLink struct {
 	down1    sync.Once
 	errClose error		// error got from .link.Close()
 
-	ver string // protocol verision in use (without "Z" or "M" prefix)
+	ver      string // protocol version in use (without "Z" or "M" prefix)
+	encoding byte   // protocol encoding in use ('Z' or 'M')
 }
 
 // (called after handshake)
@@ -136,7 +137,7 @@ func (zl *zLink) serveRecv() {
 // serveRecv1 handles 1 incoming packet.
 func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	// decode packet
-	m, err := pktDecode(pkb)
+	m, err := zl.pktDecode(pkb)
 	if err != nil {
 		return err
 	}
@@ -189,8 +190,17 @@ func derrf(format string, argv ...interface{}) error {
 	return fmt.Errorf("decode: "+format, argv...)
 }
 
-// pktDecode decodes raw packet into message
-func pktDecode(pkb *pktBuf) (msg, error) {
+// pktDecode decodes raw packet into message.
+func (zl *zLink) pktDecode(pkb *pktBuf) (msg, error) {
+	switch zl.encoding {
+	case 'Z': return pktDecodeZ(pkb)
+	case 'M': return pktDecodeM(pkb)
+	default:  panic("bug")
+	}
+}
+
+// pktDecodeZ decodes raw Z (pickle) packet into message.
+func pktDecodeZ(pkb *pktBuf) (msg, error) {
 	var m msg
 	// must be (msgid, False|0, ".reply", res)
 	d := pickle.NewDecoder(bytes.NewReader(pkb.Payload()))
@@ -225,6 +235,11 @@ func pktDecode(pkb *pktBuf) (msg, error) {
 
 	m.arg = tpkt[3]
 	return m, nil
+}
+
+// pktDecodeM decodes raw M (msgpack) packet into message.
+func pktDecodeM(pkb *pktBuf) (msg, error) {
+	panic("TODO")
 }
 
 
