@@ -48,7 +48,7 @@ func StartZEOPySrv(fs1path string) (_ *ZEOPySrv, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	z := &ZEOPySrv{fs1path: fs1path, cancel: cancel}
-	z.pysrv = exec.CommandContext(ctx, "python", "-m", "ZEO.runzeo", "-f", fs1path, "-a", "XXX")
+	z.pysrv = exec.CommandContext(ctx, "python", "-m", "ZEO.runzeo", "-f", fs1path, "-a", z.zaddr())
 	z.pysrv.Stdin = nil
 	z.pysrv.Stdout = os.Stdout
 	z.pysrv.Stderr = os.Stderr
@@ -59,6 +59,11 @@ func StartZEOPySrv(fs1path string) (_ *ZEOPySrv, err error) {
 	}
 
 	return z, nil
+}
+
+// zaddr returns address of unix socket to access spawned ZEO server.
+func (z *ZEOPySrv) zaddr() string {
+	return z.fs1path + ".zeosock"
 }
 
 func (z *ZEOPySrv) Close() (err error) {
@@ -82,7 +87,7 @@ func TestWatch(t *testing.T) {
 		err := zpy.Close(); X(err)
 	}()
 
-	xtesting.DrvTestWatch(t, fs1path, openByURL)
+	xtesting.DrvTestWatch(t, zpy.zaddr(), openByURL)
 }
 
 
