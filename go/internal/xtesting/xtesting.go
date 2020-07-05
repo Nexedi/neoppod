@@ -135,10 +135,10 @@ func ZPyCommitRaw(zurl string, at zodb.Tid, objv ...ZRawObject) (_ zodb.Tid, err
 // XXX + ZPyCommitSrv ?
 
 
-// ---- storage driver tests ----
+// ---- tests for storage drivers ----
 
-// TestDrvWatch verifies that storage driver watcher can observe commits done from outside.
-func TestDrvWatch(t *testing.T, zurl string, drvOpen zodb.DriverOpener) {
+// DrvTestWatch verifies that storage driver watcher can observe commits done from outside.
+func DrvTestWatch(t *testing.T, zurl string, drvOpen zodb.DriverOpener) {
 	t.Helper()
 	X := func(err error) {
 		if err != nil {
