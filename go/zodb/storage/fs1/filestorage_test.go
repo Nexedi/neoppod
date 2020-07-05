@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -350,6 +350,7 @@ func BenchmarkIterate(b *testing.B) {
 	b.StopTimer()
 }
 
+/*
 // b is syntatic sugar for byte literals.
 //
 // e.g.
@@ -358,9 +359,13 @@ func BenchmarkIterate(b *testing.B) {
 func b(data string) []byte {
 	return []byte(data)
 }
+*/
 
 // TestWatch verifies that watcher can observe commits done from outside.
 func TestWatch(t *testing.T) {
+	workdir := xworkdir(t)
+	xtesting.TestDrvWatch(t, workdir + "/t.fs", openByURL)
+/*
 	X := exc.Raiseif
 
 	xtesting.NeedPy(t, "zodbtools")
@@ -454,6 +459,7 @@ func TestWatch(t *testing.T) {
 	if ok {
 		t.Fatalf("watch after close -> %v;  want closed", e)
 	}
+*/
 }
 
 // TestOpenRecovery verifies how Open handles data file with not-finished voted

@@ -73,14 +73,8 @@ func RegisterDriver(scheme string, opener DriverOpener) {
 	driverRegistry[scheme] = opener
 }
 
-// Open opens ZODB storage by URL.
-//
-// Only URL schemes registered to zodb package are handled.
-// Users should import in storage packages they use or zodb/wks package to
-// get support for well-known storages.
-//
-// Storage authors should register their storages with RegisterStorage.
-func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) {
+// XXX
+func openDriver(ctx context.Context, zurl string, opt *DriverOptions) (_ IStorageDriver, at0 Tid, _ error) {
 	// no scheme -> file://
 	if !strings.Contains(zurl, "://") {
 		zurl = "file://" + zurl
@@ -88,7 +82,7 @@ func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) 
 
 	u, err := url.Parse(zurl)
 	if err != nil {
-		return nil, err
+		return nil, InvalidTid, err
 	}
 
 	// XXX commonly handle some options from url -> opt?
@@ -97,16 +91,32 @@ func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) 
 
 	opener, ok := driverRegistry[u.Scheme]
 	if !ok {
-		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
+		return nil, InvalidTid, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
 	}
 
+	storDriver, at0, err := opener(ctx, u, opt)
+	if err != nil {
+		return nil, InvalidTid, err
+	}
+
+	return storDriver, at0, nil
+}
+
+// Open opens ZODB storage by URL.
+//
+// Only URL schemes registered to zodb package are handled.
+// Users should import in storage packages they use or zodb/wks package to
+// get support for well-known storages.
+//
+// Storage authors should register their storages with RegisterStorage.
+func Open(ctx context.Context, zurl string, opt *OpenOptions) (IStorage, error) {
 	drvWatchq := make(chan Event)
 	drvOpt := &DriverOptions{
 		ReadOnly: opt.ReadOnly,
 		Watchq:   drvWatchq,
 	}
 
-	storDriver, at0, err := opener(ctx, u, drvOpt)
+	storDriver, at0, err := openDriver(ctx, zurl, drvOpt)
 	if err != nil {
 		return nil, err
 	}
