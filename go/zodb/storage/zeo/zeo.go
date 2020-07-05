@@ -334,7 +334,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	// for now we pretend as if the database is not changing.
 	// TODO watcher(when implementing): filter-out first < at0 messages.
 	if opt.Watchq != nil {
-		log.Print("zeo: FIXME: watchq support not implemented - there" +
+		log.Print("zeo: FIXME: watchq support not implemented - there " +
 			  "won't be notifications about database changes")
 	}
 
