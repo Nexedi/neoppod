@@ -31,7 +31,8 @@ import (
 	"net"
 	"sync"
 
-	pickle "github.com/kisielk/og-rek"
+	msgpack "github.com/shamaton/msgpack"
+	pickle  "github.com/kisielk/og-rek"
 
 	"github.com/someonegg/gocontainer/rbuf"
 	"lab.nexedi.com/kirr/go123/xbytes"
@@ -246,9 +247,20 @@ func pktDecodeZ(pkb *pktBuf) (msg, error) {
 		return m, derrf(".%d: method: got %T; expected str", m.msgid, tpkt[2])
 	}
 
-	m.arg = tpkt[3]
+	m.arg = tpkt[3]	// XXX pickle.Tuple -> tuple
 	return m, nil
 }
+
+// pktDecodeM decodes raw M (msgpack) packet into message.
+func pktDecodeM(pkb *pktBuf) (msg, error) {
+	var m msg
+	err := msgpack.DecodeStructAsArray(pkb.Payload(), &m)
+	if err != nil {
+		return m, err
+	}
+	return m, nil
+}
+
 
 // pktEncodeZ encodes message into raw Z (pickle) packet.
 func pktEncodeZ(m msg) *pktBuf {
@@ -269,13 +281,15 @@ func pktEncodeZ(m msg) *pktBuf {
 	return pkb
 }
 
-// pktDecodeM decodes raw M (msgpack) packet into message.
-func pktDecodeM(pkb *pktBuf) (msg, error) {
-	panic("TODO")
-}
-
+// pktEncodeM encodes message into raw M (msgpack) packet.
 func pktEncodeM(m msg) *pktBuf {
-	panic("TODO")
+	pkb := allocPkb()
+	data, err := msgpack.EncodeStructAsArray(m)
+	if err != nil {
+		panic(err) // all our types are expected to be supported by msgpack
+	}
+	pkb.Write(data) // XXX extra copy
+	return pkb
 }
 
 

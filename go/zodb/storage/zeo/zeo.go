@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -205,6 +205,8 @@ func (r rpc) excError(exc string, argv []interface{}) error {
 // zeo5Error decodes arg of reply with msgExcept flag set and returns
 // corresponding error.
 func (r rpc) zeo5Error(arg interface{}) error {
+	// XXX check r.zl.encoding == 'Z' before using pickles?
+
 	// ('type', (arg1, arg2, arg3, ...))
 	texc, ok := arg.(pickle.Tuple)
 	if !ok || len(texc) != 2 {
@@ -225,6 +227,8 @@ func (r rpc) zeo5Error(arg interface{}) error {
 //
 // nil is returned if arg does not represent an exception.
 func (r rpc) zeo4Error(arg interface{}) error {
+	// XXX check r.zl.encoding == 'Z' before using pickles?
+
 	// (exc_class, exc_inst), e.g.
 	// ogórek.Tuple{
 	//         ogórek.Class{Module:"ZODB.POSException", Name:"POSKeyError"},
