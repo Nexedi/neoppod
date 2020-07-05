@@ -70,7 +70,11 @@ func (z *ZEOPySrv) Close() (err error) {
 	defer xerr.Contextf(&err, "stopzeo %s", z.fs1path)
 
 	z.cancel()
-	return z.pysrv.Wait()
+	err = z.pysrv.Wait()
+	if _, ok := err.(*exec.ExitError); ok {
+		err = nil // ignore exit statue - it is always !0 on kill
+	}
+	return err
 }
 
 
