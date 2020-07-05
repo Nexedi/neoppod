@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -42,6 +43,8 @@ type ZEOPySrv struct {
 	pysrv   *exec.Cmd	// spawned `runzeo -f fs1path`
 	fs1path string
 	cancel  func()		// to stop pysrv
+	done    chan struct{}	// ready after Wait completes
+	errExit error		// error from Wait
 }
 
 
@@ -50,7 +53,7 @@ func StartZEOPySrv(fs1path string) (_ *ZEOPySrv, err error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	z := &ZEOPySrv{fs1path: fs1path, cancel: cancel}
+	z := &ZEOPySrv{fs1path: fs1path, cancel: cancel, done: make(chan struct{})}
 	z.pysrv = exec.CommandContext(ctx, "python", "-m", "ZEO.runzeo", "-f", fs1path, "-a", z.zaddr())
 	z.pysrv.Stdin = nil
 	z.pysrv.Stdout = os.Stdout
@@ -59,6 +62,37 @@ func StartZEOPySrv(fs1path string) (_ *ZEOPySrv, err error) {
 	err = z.pysrv.Start()
 	if err != nil {
 		return nil, err
+	}
+	go func() {
+		z.errExit = z.pysrv.Wait()
+		close(z.done)
+	}()
+	defer func() {
+		if err != nil {
+			z.Close()
+		}
+	}()
+
+	// wait till spawned ZEO is ready to serve clients
+	for {
+		select {
+		default:
+		case <-z.done:
+			return nil, z.errExit
+		}
+
+		_, err := os.Stat(z.zaddr())
+		if err == nil {
+			break // ZEO socket appeared
+		}
+		if os.IsNotExist(err) {
+			err = nil // not yet
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		time.Sleep(100*time.Millisecond)
 	}
 
 	return z, nil
@@ -73,7 +107,8 @@ func (z *ZEOPySrv) Close() (err error) {
 	defer xerr.Contextf(&err, "stopzeo %s", z.fs1path)
 
 	z.cancel()
-	err = z.pysrv.Wait()
+	<-z.done
+	err = z.errExit
 	if _, ok := err.(*exec.ExitError); ok {
 		err = nil // ignore exit statue - it is always !0 on kill
 	}
