@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -147,6 +148,63 @@ type objState struct {
 type Txn struct {
 	Header *zodb.TxnInfo
 	Data   []*zodb.DataInfo
+}
+
+// LoadDB loads whole content of a ZODB database.
+// it returns full history of all transactions with committed data.
+func LoadDB(zurl string) (_ []Txn, err error) {
+	xerr.Contextf(&err, "loaddb %s", zurl)
+	ctx := context.Background()
+	zstor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err2 := zstor.Close()
+		if err == nil {
+			err = err2
+		}
+	}()
+
+	txnv := []Txn{}
+	it := zstor.Iterate(ctx, 0, zodb.TidMax)
+	for {
+		txni, dataIt, err := it.NextTxn(ctx)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		txn := &Txn{Header: &zodb.TxnInfo{
+			// clone (txni stays valid only until next iteration)
+			Tid:         txni.Tid,
+			Status:      txni.Status,
+			User:        bcopy(txni.User),
+			Description: bcopy(txni.Description),
+			Extension:   bcopy(txni.Extension),
+		}}
+
+		for {
+			datai, err := dataIt.NextData(ctx)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return nil, err
+			}
+
+			txn.Data = append(txn.Data, &zodb.DataInfo{
+				// clone (datai stays valid only until next iteration)
+				Oid:         datai.Oid,
+				Tid:         datai.Tid,
+				Data:        bcopy(datai.Data),
+				DataTidHint: datai.DataTidHint,
+			})
+		}
+	}
+
+	return txnv, nil
 }
 
 // checkLoad verifies that zdrv.Load(xid) returns expected result
@@ -347,4 +405,11 @@ func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
 //	b("hello")
 func b(data string) []byte {
 	return []byte(data)
+}
+
+// bcopy makes a clone of byte slice.
+func bcopy(data []byte) []byte {
+	d2 := make([]byte, len(data))
+	copy(d2, data)
+	return d2
 }

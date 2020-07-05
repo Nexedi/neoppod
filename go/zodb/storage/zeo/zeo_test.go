@@ -22,11 +22,14 @@ package zeo
 import (
 	"context"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"os/exec"
 	"testing"
 
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -78,14 +81,43 @@ func (z *ZEOPySrv) Close() (err error) {
 }
 
 
-func TestWatch(t *testing.T) {
+// --------
+
+func TestLoad(t *testing.T) {
 	X := exc.Raiseif
-	xtesting.NeedPy(t, "ZEO") // XXX +msgpack?
+	needZEOpy(t)
 
 	work := xtempdir(t)
 	defer os.RemoveAll(work)
-
 	fs1path := work + "/1.fs"
+
+	// copy ../fs1/testdata/1.fs -> fs1path
+	data, err := ioutil.ReadFile("../fs1/testdata/1.fs");	X(err)
+	err = ioutil.WriteFile(fs1path, data, 0644);		X(err)
+
+	txnvOk, err := xtesting.LoadDB(fs1path); X(err)
+
+	zpy, err := StartZEOPySrv(fs1path); X(err)
+	defer func() {
+		err := zpy.Close(); X(err)
+	}()
+
+	z, _, err := zeoOpen(zpy.zaddr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
+	defer func() {
+		err := z.Close(); X(err)
+	}()
+
+	xtesting.DrvTestLoad(t, z, txnvOk)
+}
+
+func TestWatch(t *testing.T) {
+	X := exc.Raiseif
+	needZEOpy(t)
+
+	work := xtempdir(t)
+	defer os.RemoveAll(work)
+	fs1path := work + "/1.fs"
+
 	zpy, err := StartZEOPySrv(fs1path); X(err)
 	defer func() {
 		err := zpy.Close(); X(err)
@@ -95,6 +127,21 @@ func TestWatch(t *testing.T) {
 }
 
 
+func zeoOpen(zurl string, opt *zodb.DriverOptions) (_ *zeo, at0 zodb.Tid, err error) {
+	defer xerr.Contextf(&err, "openzeo %s", zurl)
+	u, err := url.Parse(zurl)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	z, at0, err := openByURL(context.Background(), u, opt)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return z.(*zeo), at0, nil
+}
+
 func xtempdir(t *testing.T) string {
 	t.Helper()
 	tmpd, err := ioutil.TempDir("", "zeo")
@@ -102,4 +149,9 @@ func xtempdir(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return tmpd
+}
+
+
+func needZEOpy(t *testing.T) {
+	xtesting.NeedPy(t, "ZEO") // XXX +msgpack?
 }
