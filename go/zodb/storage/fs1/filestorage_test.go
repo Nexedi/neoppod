@@ -58,6 +58,7 @@ func (txe *txnEntry) Data() []byte {
 	return data
 }
 
+/*
 // state of an object in the database for some particular revision
 type objState struct {
 	tid  zodb.Tid
@@ -109,6 +110,7 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect objState) {
 		}
 	}
 }
+*/
 
 func xfsopen(t testing.TB, path string) (*FileStorage, zodb.Tid) {
 	t.Helper()
@@ -128,6 +130,27 @@ func TestLoad(t *testing.T) {
 	fs, _ := xfsopen(t, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
+	txnv := []xtesting.Txn{}
+	for _, dbe := range _1fs_dbEntryv {
+		txn := xtesting.Txn{Header: &zodb.TxnInfo{
+			Tid: dbe.Header.Tid,
+
+		}}
+		for _, txe := range dbe.Entryv {
+			data := &zodb.DataInfo{
+				Oid:         txe.Header.Oid,
+				Tid:         txn.Header.Tid,
+				Data:        txe.Data(),
+				DataTidHint: txe.DataTidHint,
+			}
+			txn.Data = append(txn.Data, data)
+		}
+		txnv = append(txnv, txn)
+	}
+
+	xtesting.DrvTestLoad(t, fs, txnv)
+
+/*
 	// current knowledge of what was "before" for an oid as we scan over
 	// data base entries
 	before := map[zodb.Oid]objState{}
@@ -160,6 +183,7 @@ func TestLoad(t *testing.T) {
 		xid := zodb.Xid{zodb.TidMax, oid}
 		checkLoad(t, fs, xid, expect)
 	}
+*/
 }
 
 // iterate tidMin..tidMax and expect db entries in expectv
@@ -273,6 +297,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 	}
 }
 
+// TODO -> xtesting
 func TestIterate(t *testing.T) {
 	fs, _ := xfsopen(t, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
@@ -309,6 +334,7 @@ func TestIterate(t *testing.T) {
 	testIterate(t, fs, 0, zodb.TidMax, _1fs_dbEntryv[:])
 }
 
+// TODO -> xtesting
 func BenchmarkIterate(b *testing.B) {
 	fs, _ := xfsopen(b, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
