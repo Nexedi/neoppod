@@ -87,7 +87,7 @@ func TestWatch(t *testing.T) {
 		err := zpy.Close(); X(err)
 	}()
 
-	xtesting.DrvTestWatch(t, zpy.zaddr(), openByURL)
+	xtesting.DrvTestWatch(t, "zeo://" + zpy.zaddr(), openByURL)
 }
 
 
