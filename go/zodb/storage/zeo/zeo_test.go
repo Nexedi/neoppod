@@ -70,6 +70,7 @@ func StartZEOPySrv(fs1path string, opt ZEOPyOptions) (_ *ZEOPySrv, err error) {
 
 	z := &ZEOPySrv{fs1path: fs1path, cancel: cancel, done: make(chan struct{})}
 	z.pysrv = exec.CommandContext(ctx, "python", "-m", "ZEO.runzeo", "-f", fs1path, "-a", z.Addr())
+	z.opt = opt
 	msgpack := ""
 	if opt.msgpack {
 		msgpack = "y"
