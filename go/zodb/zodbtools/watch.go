@@ -1,5 +1,5 @@
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -153,14 +153,21 @@ func watchMain(argv []string) {
 	zurl := argv[0]
 
 	ctx := context.Background()
+	err := func() (err error) {
+		stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err2 := stor.Close()
+			if err == nil {
+				err = err2
+			}
+		}()
 
-	stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
-	if err != nil {
-		prog.Fatal(err)
-	}
-	// TODO defer stor.Close()
+		return Watch(ctx, stor, os.Stdout, verbose)
+	}()
 
-	err = Watch(ctx, stor, os.Stdout, verbose)
 	if err != nil {
 		prog.Fatal(err)
 	}
