@@ -233,13 +233,13 @@ func TestHandshake(t *testing.T) {
 func TestLoad(t *testing.T) {
 	X := exc.Raiseif
 
-	fs1data := "../fs1/testdata/1.fs"
-	txnvOk, err := xtesting.LoadDB(fs1data); X(err)
+	data := "../fs1/testdata/1.fs"
+	txnvOk, err := xtesting.LoadDB(data); X(err)
 
 	withZEO(t, func(t *testing.T, z *zeo) {
 		xtesting.DrvTestLoad(t, z, txnvOk)
 	}, tOptions{
-		Preload: fs1data,
+		Preload: data,
 	})
 }
 
