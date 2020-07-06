@@ -75,7 +75,6 @@ type zLink struct {
 
 	ver      string // protocol version in use (without "Z" or "M" prefix)
 	encoding byte   // protocol encoding in use ('Z' or 'M')
-	// XXX ^^^ better -> codec inteface{ pktEncode, pktDecode } ?
 }
 
 // (called after handshake)
