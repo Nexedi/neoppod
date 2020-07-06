@@ -256,20 +256,27 @@ func dumpMain(argv []string) {
 		tidRange = argv[1]
 	}
 
-	tidMin, tidMax, err := zodb.ParseTidRange(tidRange)
-	if err != nil {
-		prog.Fatal(err)
-	}
-
 	ctx := context.Background()
+	err := func() (err error) {
+		tidMin, tidMax, err := zodb.ParseTidRange(tidRange)
+		if err != nil {
+			return err
+		}
 
-	stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
-	if err != nil {
-		prog.Fatal(err)
-	}
-	// TODO defer stor.Close()
+		stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err2 := stor.Close()
+			if err == nil {
+				err = err2
+			}
+		}()
 
-	err = Dump(ctx, os.Stdout, stor, tidMin, tidMax, hashOnly)
+		return Dump(ctx, os.Stdout, stor, tidMin, tidMax, hashOnly)
+	}()
+
 	if err != nil {
 		prog.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -127,14 +127,21 @@ func infoMain(argv []string) {
 	zurl := argv[0]
 
 	ctx := context.Background()
+	err := func() (err error) {
+		stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err2 := stor.Close()
+			if err == nil {
+				err = err2
+			}
+		}()
 
-	stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
-	if err != nil {
-		prog.Fatal(err)
-	}
-	// TODO defer stor.Close()
+		return Info(ctx, os.Stdout, stor, argv[1:])
+	}()
 
-	err = Info(ctx, os.Stdout, stor, argv[1:])
 	if err != nil {
 		prog.Fatal(err)
 	}

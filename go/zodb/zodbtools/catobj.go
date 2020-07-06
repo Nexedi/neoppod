@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -125,25 +125,37 @@ func catobjMain(argv []string) {
 	}
 
 	ctx := context.Background()
+	err := func() (err error) {
+		stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err2 := stor.Close()
+			if err == nil {
+				err = err2
+			}
+		}()
 
-	stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
+		catobj := func(xid zodb.Xid) error {
+			if raw {
+				return Catobj(ctx, os.Stdout, stor, xid)
+			} else {
+				return Dumpobj(ctx, os.Stdout, stor, xid, hashOnly)
+			}
+		}
+
+		for _, xid := range xidv {
+			err = catobj(xid)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}()
+
 	if err != nil {
 		prog.Fatal(err)
-	}
-	// TODO defer stor.Close()
-
-	catobj := func(xid zodb.Xid) error {
-		if raw {
-			return Catobj(ctx, os.Stdout, stor, xid)
-		} else {
-			return Dumpobj(ctx, os.Stdout, stor, xid, hashOnly)
-		}
-	}
-
-	for _, xid := range xidv {
-		err = catobj(xid)
-		if err != nil {
-			prog.Fatal(err)
-		}
 	}
 }

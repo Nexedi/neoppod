@@ -152,23 +152,23 @@ func watchMain(argv []string) {
 	}
 	zurl := argv[0]
 
-	err := watchMain_(context.Background(), zurl, verbose)
+	ctx := context.Background()
+	err := func() (err error) {
+		stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err2 := stor.Close()
+			if err == nil {
+				err = err2
+			}
+		}()
+
+		return Watch(ctx, stor, os.Stdout, verbose)
+	}()
+
 	if err != nil {
 		prog.Fatal(err)
 	}
-}
-
-func watchMain_(ctx context.Context, zurl string, verbose bool) (err error) {
-	stor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err2 := stor.Close()
-		if err == nil {
-			err = err2
-		}
-	}()
-
-	return Watch(ctx, stor, os.Stdout, verbose)
 }
