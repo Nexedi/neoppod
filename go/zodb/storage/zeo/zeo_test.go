@@ -144,26 +144,6 @@ func (z *ZEOPySrv) Encoding() byte {
 
 // ----------------
 
-/*
-// withZEOPySrv spawns new ZEO/py server and runs f in that environment.
-func withZEOPySrv(t *testing.T, opt ZEOPyOptions, f func(zpy *ZEOPySrv)) {
-	X := mkFatalIf(t)
-	t.Helper()
-	needZEOpy(t)
-
-	work := xtempdir(t)
-	defer os.RemoveAll(work)
-	fs1path := work + "/1.fs"
-
-	zpy, err := StartZEOPySrv(fs1path, opt); X(err)
-	defer func() {
-		err := zpy.Close(); X(err)
-	}()
-
-	f(zpy)
-}
-*/
-
 // tOptions represents options for testing.
 type tOptions struct {
 	Preload string // preload database from this location
@@ -200,7 +180,6 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 		// ZEO/py
 		t.Run(fmt.Sprintf("py/msgpack=%v", msgpack), func(t *testing.T) {
 			needZEOpy(t)
-
 			withFS1(t, func(fs1path string) {
 				X := mkFatalIf(t)
 
@@ -211,12 +190,6 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 
 				f(t, zpy)
 			})
-
-/*
-			withZEOPySrv(t, ZEOPyOptions{msgpack: msgpack}, func(zpy *ZEOPySrv) {
-				f(t, zpy)
-			})
-*/
 		})
 
 		// TODO ZEO/go
