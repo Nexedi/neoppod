@@ -163,6 +163,7 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 
 	// withFS1 runs f under environment with new FileStorage database.
 	withFS1 := func(t *testing.T, f func(fs1path string)) {
+		t.Helper()
 		X := mkFatalIf(t)
 		work := xtempdir(t)
 		defer os.RemoveAll(work)
@@ -179,6 +180,7 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 	for _, msgpack := range []bool{false, true} {
 		// ZEO/py
 		t.Run(fmt.Sprintf("py/msgpack=%v", msgpack), func(t *testing.T) {
+			t.Helper()
 			needZEOpy(t)
 			withFS1(t, func(fs1path string) {
 				X := mkFatalIf(t)
@@ -194,6 +196,21 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 
 		// TODO ZEO/go
 	}
+}
+
+// withZEO tests f on all kinds of ZEO servers connected to by ZEO client.
+func withZEO(t *testing.T, f func(t *testing.T, zdrv *zeo), optv ...tOptions) {
+	t.Helper()
+	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
+		t.Helper()
+		X := mkFatalIf(t)
+		zdrv, _, err := zeoOpen(zsrv.Addr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
+		defer func() {
+			err := zdrv.Close(); X(err)
+		}()
+
+		f(t, zdrv)
+	}, optv...)
 }
 
 func TestHandshake(t *testing.T) {
@@ -219,14 +236,8 @@ func TestLoad(t *testing.T) {
 	fs1data := "../fs1/testdata/1.fs"
 	txnvOk, err := xtesting.LoadDB(fs1data); X(err)
 
-	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
-		z, _, err := zeoOpen(zsrv.Addr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
-		defer func() {
-			err := z.Close(); X(err)
-		}()
-
+	withZEO(t, func(t *testing.T, z *zeo) {
 		xtesting.DrvTestLoad(t, z, txnvOk)
-
 	}, tOptions{
 		Preload: fs1data,
 	})
