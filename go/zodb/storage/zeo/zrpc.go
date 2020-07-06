@@ -260,10 +260,42 @@ func pktDecodeZ(pkb *pktBuf) (msg, error) {
 // pktDecodeM decodes raw M (msgpack) packet into message.
 func pktDecodeM(pkb *pktBuf) (msg, error) {
 	var m msg
-	err := msgpack.DecodeStructAsArray(pkb.Payload(), &m)
+	//err := msgpack.DecodeStructAsArray(pkb.Payload(), &m)
+	var tpkt tuple
+	err := msgpack.Decode(pkb.Payload(), &tpkt)
 	if err != nil {
 		return m, err
 	}
+
+	if len(tpkt) != 4 {
+		return m, derrf("len(msg-tuple)=%d; expected 4", len(tpkt))
+	}
+	var ok bool
+	m.msgid, ok = tpkt[0].(int64)	// XXX can be int8, uint8, int16, ...
+	if !ok {
+		return m, derrf("msgid: got %T; expected int", tpkt[0])
+	}
+
+	flags, ok := tpkt[1].(int64)
+	if !ok {
+		bflags, ok := tpkt[1].(bool)
+		if !ok {
+			return m, derrf("flags: got %T; expected int|bool", tpkt[1])
+		}
+
+		if bflags {
+			flags = 1
+		} // else: flags is already = 0
+	}
+	// XXX check flags are in range?
+	m.flags = msgFlags(flags)
+
+	m.method, ok = tpkt[2].(string)
+	if !ok {
+		return m, derrf(".%d: method: got %T; expected str", m.msgid, tpkt[2])
+	}
+
+	m.arg = tpkt[3]	// XXX []interface{} -> tuple
 	return m, nil
 }
 
