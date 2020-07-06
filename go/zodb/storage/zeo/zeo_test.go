@@ -21,6 +21,7 @@ package zeo
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -34,6 +35,7 @@ import (
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
+	"lab.nexedi.com/kirr/go123/xnet"
 )
 
 // ZEOPySrv represents running ZEO/py server.
@@ -47,14 +49,23 @@ type ZEOPySrv struct {
 	errExit error		// error from Wait
 }
 
+type ZEOPyOptions struct {
+	msgpack bool // whether to advertise msgpack
+}
 
-func StartZEOPySrv(fs1path string) (_ *ZEOPySrv, err error) {
+// StartZEOPySrv starts ZEO/py server for FileStorage database located at fs1path.
+func StartZEOPySrv(fs1path string, opt ZEOPyOptions) (_ *ZEOPySrv, err error) {
 	defer xerr.Contextf(&err, "startzeo %s", fs1path)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	z := &ZEOPySrv{fs1path: fs1path, cancel: cancel, done: make(chan struct{})}
 	z.pysrv = exec.CommandContext(ctx, "python", "-m", "ZEO.runzeo", "-f", fs1path, "-a", z.zaddr())
+	msgpack := ""
+	if opt.msgpack {
+		msgpack = "y"
+	}
+	z.pysrv.Env = append(os.Environ(), "ZEO_MSGPACK="+msgpack)
 	z.pysrv.Stdin = nil
 	z.pysrv.Stdout = os.Stdout
 	z.pysrv.Stderr = os.Stderr
@@ -118,6 +129,46 @@ func (z *ZEOPySrv) Close() (err error) {
 
 // --------
 
+// withZEOPySrv spawns new ZEO/py server and runs f in that environment.
+func withZEOPySrv(t *testing.T, opt ZEOPyOptions, f func(zpy *ZEOPySrv)) {
+	X := mkFatalIf(t)
+	t.Helper()
+	needZEOpy(t)
+
+	work := xtempdir(t)
+	defer os.RemoveAll(work)
+	fs1path := work + "/1.fs"
+
+	zpy, err := StartZEOPySrv(fs1path, opt); X(err)
+	defer func() {
+		err := zpy.Close(); X(err)
+	}()
+
+	f(zpy)
+}
+
+func TestHandshake(t *testing.T) {
+	X := mkFatalIf(t)
+	for _, msgpack := range []bool{false, true} {
+		t.Run(fmt.Sprintf("msgpack=%v", msgpack), func(t *testing.T) {
+			withZEOPySrv(t, ZEOPyOptions{msgpack: msgpack}, func(zpy *ZEOPySrv) {
+				ctx := context.Background()
+				net := xnet.NetPlain("unix")
+				zlink, err := dialZLink(ctx, net, zpy.zaddr()); X(err)
+				defer func() {
+					err := zlink.Close(); X(err)
+				}()
+
+				ewant := byte('Z')
+				if msgpack { ewant = byte('M') }
+				if zlink.encoding != ewant {
+					t.Fatalf("handshake: encoding=%c  ; want %c", zlink.encoding, ewant)
+				}
+			})
+		})
+	}
+}
+
 func TestLoad(t *testing.T) {
 	X := exc.Raiseif
 	needZEOpy(t)
@@ -132,7 +183,7 @@ func TestLoad(t *testing.T) {
 
 	txnvOk, err := xtesting.LoadDB(fs1path); X(err)
 
-	zpy, err := StartZEOPySrv(fs1path); X(err)
+	zpy, err := StartZEOPySrv(fs1path, ZEOPyOptions{}); X(err)
 	defer func() {
 		err := zpy.Close(); X(err)
 	}()
@@ -153,7 +204,7 @@ func TestWatch(t *testing.T) {
 	defer os.RemoveAll(work)
 	fs1path := work + "/1.fs"
 
-	zpy, err := StartZEOPySrv(fs1path); X(err)
+	zpy, err := StartZEOPySrv(fs1path, ZEOPyOptions{}); X(err)
 	defer func() {
 		err := zpy.Close(); X(err)
 	}()
@@ -186,6 +237,13 @@ func xtempdir(t *testing.T) string {
 	return tmpd
 }
 
+func mkFatalIf(t *testing.T) func(error) {
+	return func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
 func needZEOpy(t *testing.T) {
 	xtesting.NeedPy(t, "ZEO") // XXX +msgpack?
