@@ -327,19 +327,10 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 	// (msgid, async, method, argv)
 	pkb := zl.pktEncode(msg{
 			msgid:  callID,
-			flags:  0,	// XXX was false
+			flags:  0,
 			method: method,
 			arg:    tuple(argv),
 	})
-
-/*
-	pkb := allocPkb()
-	p := pickle.NewEncoder(pkb)
-	err := p.Encode(pickle.Tuple{callID, false, method, pickle.Tuple(argv)})
-	if err != nil {
-		panic(err) // all our types are expected to be supported by pickle
-	}
-*/
 
 	// ok, pkt is ready to go
 	err := zl.sendPkt(pkb) // XXX ctx cancel
