@@ -192,7 +192,7 @@ func newConnection(db *DB, at Tid) *Connection {
 
 // DB returns database handle under which the connection was opened.
 func (conn *Connection) DB() *DB {
-	conn.checkLive("db") // XXX needed?
+	conn.checkLive("db")
 	return conn.db
 }
 
