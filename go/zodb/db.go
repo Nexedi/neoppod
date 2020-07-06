@@ -166,6 +166,10 @@ func (db *DB) Close() error {
 	return nil
 }
 
+// Storage returns storage this database handle was created for.
+func (db *DB) Storage() IStorage {
+	return db.stor
+}
 
 // ConnOptions describes options to DB.Open .
 type ConnOptions struct {
