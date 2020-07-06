@@ -82,7 +82,7 @@
 //
 //	obj.xxx // use object.
 //	if ... {
-//		obj.PModify() // let persistency layer know we are going to modifiy the object.
+//		obj.PModify() // let persistency layer know we are going to modify the object.
 //		obj.xxx++     // change the object.
 //	}
 //

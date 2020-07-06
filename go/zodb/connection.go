@@ -254,7 +254,7 @@ func (cache *LiveCache) setNew(oid Oid, obj IPersistent) {
 		// XXX assert .objtab[oid] == nil ?
 	} else {
 		cache.objtab[oid] = weak.NewRef(obj)
-		// XXX asseer .pinned[oid] == nil ?
+		// XXX assert .pinned[oid] == nil ?
 	}
 }
 
