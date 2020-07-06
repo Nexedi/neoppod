@@ -221,19 +221,9 @@ func TestLoad(t *testing.T) {
 }
 
 func TestWatch(t *testing.T) {
-	X := exc.Raiseif
-	needZEOpy(t)
-
-	work := xtempdir(t)
-	defer os.RemoveAll(work)
-	fs1path := work + "/1.fs"
-
-	zpy, err := StartZEOPySrv(fs1path, ZEOPyOptions{}); X(err)
-	defer func() {
-		err := zpy.Close(); X(err)
-	}()
-
-	xtesting.DrvTestWatch(t, "zeo://" + zpy.Addr(), openByURL)
+	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
+		xtesting.DrvTestWatch(t, "zeo://" + zsrv.Addr(), openByURL)
+	})
 }
 
 
