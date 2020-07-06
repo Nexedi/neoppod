@@ -144,6 +144,7 @@ func (z *ZEOPySrv) Encoding() byte {
 
 // ----------------
 
+/*
 // withZEOPySrv spawns new ZEO/py server and runs f in that environment.
 func withZEOPySrv(t *testing.T, opt ZEOPyOptions, f func(zpy *ZEOPySrv)) {
 	X := mkFatalIf(t)
@@ -161,15 +162,61 @@ func withZEOPySrv(t *testing.T, opt ZEOPyOptions, f func(zpy *ZEOPySrv)) {
 
 	f(zpy)
 }
+*/
 
-// withZEOSrv runs f under all kind of ZEO servers.
-func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv)) {
+// tOptions represents options for testing.
+type tOptions struct {
+	Preload string // preload database from this location
+}
+
+// withZEOSrv tests f with all kind of ZEO servers.
+func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOptions) {
+	t.Helper()
+
+	opt := tOptions{}
+	if len(optv) > 1 {
+		panic("multiple tOptions not allowed")
+	}
+	if len(optv) == 1 {
+		opt = optv[0]
+	}
+
+	// withFS1 runs f under environment with new FileStorage database.
+	withFS1 := func(t *testing.T, f func(fs1path string)) {
+		X := mkFatalIf(t)
+		work := xtempdir(t)
+		defer os.RemoveAll(work)
+		fs1path := work + "/1.fs"
+
+		if opt.Preload != "" {
+			data, err := ioutil.ReadFile(opt.Preload); X(err)
+			err = ioutil.WriteFile(fs1path, data, 0644); X(err)
+		}
+
+		f(fs1path)
+	}
+
 	for _, msgpack := range []bool{false, true} {
 		// ZEO/py
 		t.Run(fmt.Sprintf("py/msgpack=%v", msgpack), func(t *testing.T) {
+			needZEOpy(t)
+
+			withFS1(t, func(fs1path string) {
+				X := mkFatalIf(t)
+
+				zpy, err := StartZEOPySrv(fs1path, ZEOPyOptions{msgpack: msgpack}); X(err)
+				defer func() {
+					err := zpy.Close(); X(err)
+				}()
+
+				f(t, zpy)
+			})
+
+/*
 			withZEOPySrv(t, ZEOPyOptions{msgpack: msgpack}, func(zpy *ZEOPySrv) {
 				f(t, zpy)
 			})
+*/
 		})
 
 		// TODO ZEO/go
@@ -218,6 +265,19 @@ func TestLoad(t *testing.T) {
 	}()
 
 	xtesting.DrvTestLoad(t, z, txnvOk)
+
+
+	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
+		z, _, err := zeoOpen(zpy.Addr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
+		defer func() {
+			err := z.Close(); X(err)
+		}()
+
+		xtesting.DrvTestLoad(t, z, txnvOk)
+
+	}, tOptions{
+		Preload: "../fs1/testdata/1.fs",
+	})
 }
 
 func TestWatch(t *testing.T) {
