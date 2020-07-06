@@ -215,33 +215,12 @@ func TestHandshake(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	X := exc.Raiseif
-	needZEOpy(t)
 
-	work := xtempdir(t)
-	defer os.RemoveAll(work)
-	fs1path := work + "/1.fs"
-
-	// copy ../fs1/testdata/1.fs -> fs1path
-	data, err := ioutil.ReadFile("../fs1/testdata/1.fs");	X(err)
-	err = ioutil.WriteFile(fs1path, data, 0644);		X(err)
-
-	txnvOk, err := xtesting.LoadDB(fs1path); X(err)
-
-	zpy, err := StartZEOPySrv(fs1path, ZEOPyOptions{}); X(err)
-	defer func() {
-		err := zpy.Close(); X(err)
-	}()
-
-	z, _, err := zeoOpen(zpy.Addr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
-	defer func() {
-		err := z.Close(); X(err)
-	}()
-
-	xtesting.DrvTestLoad(t, z, txnvOk)
-
+	preload := "../fs1/testdata/1.fs"
+	txnvOk, err := xtesting.LoadDB(preload); X(err)
 
 	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
-		z, _, err := zeoOpen(zpy.Addr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
+		z, _, err := zeoOpen(zsrv.Addr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
 		defer func() {
 			err := z.Close(); X(err)
 		}()
@@ -249,7 +228,7 @@ func TestLoad(t *testing.T) {
 		xtesting.DrvTestLoad(t, z, txnvOk)
 
 	}, tOptions{
-		Preload: "../fs1/testdata/1.fs",
+		Preload: preload,
 	})
 }
 
