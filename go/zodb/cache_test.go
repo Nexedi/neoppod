@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -655,7 +655,7 @@ func benchLoad(b *testing.B, l Loader, worksize int) {
 	benchLoadN(b, b.N, l, worksize)
 }
 
-// worker for benchLoad, with n overridding b.N
+// worker for benchLoad, with n overriding b.N
 func benchLoadN(b *testing.B, n int, l Loader, worksize int) {
 	ctx := context.Background()
 
