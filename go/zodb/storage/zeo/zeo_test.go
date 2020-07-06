@@ -216,8 +216,8 @@ func TestHandshake(t *testing.T) {
 func TestLoad(t *testing.T) {
 	X := exc.Raiseif
 
-	preload := "../fs1/testdata/1.fs"
-	txnvOk, err := xtesting.LoadDB(preload); X(err)
+	fs1data := "../fs1/testdata/1.fs"
+	txnvOk, err := xtesting.LoadDB(fs1data); X(err)
 
 	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
 		z, _, err := zeoOpen(zsrv.Addr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
@@ -228,7 +228,7 @@ func TestLoad(t *testing.T) {
 		xtesting.DrvTestLoad(t, z, txnvOk)
 
 	}, tOptions{
-		Preload: preload,
+		Preload: fs1data,
 	})
 }
 
