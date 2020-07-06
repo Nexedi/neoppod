@@ -523,6 +523,8 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 	wg.Go(func(ctx context.Context) error {
 		// server first announces its preferred protocol
 		// it is e.g. "M5", "Z5", "Z4", "Z3101", ...
+		//
+		// first letter is preferred encoding: 'M' (msgpack), or 'Z' (pickles).
 		pkb, err := zl.recvPkt()
 		if err != nil {
 			return fmt.Errorf("rx: %s", err)
@@ -534,9 +536,9 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 			return fmt.Errorf("rx: invalid peer handshake: %q", proto)
 		}
 
-		// even if server announced it prefers 'M' (msgpack) it will
-		// accept 'Z' (pickles) as encoding. We always use 'Z'.
-		//
+		// use wire encoding preferred by server
+		encoding := proto[0]
+
 		// extract peer version from protocol string and choose actual
 		// version to use as min(peer, mybest)
 		ver := proto[1:]
@@ -560,14 +562,14 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 		// version selected - now send it back to server as
 		// corresponding handshake reply.
 		pkb = allocPkb()
-		pkb.WriteString("Z" + ver)
+		pkb.WriteString(fmt.Sprintf("%c%s", encoding, ver))
 		err = zl.sendPkt(pkb)
 		if err != nil {
 			return fmt.Errorf("tx: %s", err)
 		}
 
 		zl.ver = ver
-		zl.encoding = 'Z' // XXX hardcoded
+		zl.encoding = encoding
 		close(hok)
 		return nil
 	})
