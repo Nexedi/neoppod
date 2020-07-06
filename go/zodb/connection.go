@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -188,6 +188,12 @@ func newConnection(db *DB, at Tid) *Connection {
 			objtab: make(map[Oid]*weak.Ref),
 		},
 	}
+}
+
+// DB returns database handle under which the connection was opened.
+func (conn *Connection) DB() *DB {
+	conn.checkLive("db")
+	return conn.db
 }
 
 // At returns database state corresponding to the connection.
