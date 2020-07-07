@@ -52,6 +52,7 @@ type zeo struct {
 }
 
 
+// Sync implements zodb.IStorageDriver.
 func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 	defer func() {
 		if err != nil {
@@ -73,6 +74,7 @@ func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 	return head, nil
 }
 
+// Load implements zodb.IStorageDriver.
 func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	// defer func() ...
 	buf, serial, err := z._Load(ctx, xid)
@@ -106,6 +108,7 @@ func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, erro
 	return &mem.Buf{Data: mem.Bytes(data)}, serial, nil
 }
 
+// Iterates implements zodb.IStorageDriver.
 func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	panic("TODO")
 }

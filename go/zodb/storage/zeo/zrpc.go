@@ -141,7 +141,6 @@ func (zl *zLink) serveRecv() {
 
 // serveRecv1 handles 1 incoming packet.
 func (zl *zLink) serveRecv1(pkb *pktBuf) error {
-	fmt.Printf("RXgo: %q\n", pkb.Payload())
 	// decode packet
 	m, err := zl.pktDecode(pkb)
 	if err != nil {

@@ -177,7 +177,7 @@ func LoadDB(zurl string) (_ []Txn, err error) {
 			}
 			return nil, err
 		}
-		txn := &Txn{Header: &zodb.TxnInfo{
+		txn := Txn{Header: &zodb.TxnInfo{
 			// clone (txni stays valid only until next iteration)
 			Tid:         txni.Tid,
 			Status:      txni.Status,
@@ -203,6 +203,8 @@ func LoadDB(zurl string) (_ []Txn, err error) {
 				DataTidHint: datai.DataTidHint,
 			})
 		}
+
+		txnv = append(txnv, txn)
 	}
 
 	return txnv, nil
