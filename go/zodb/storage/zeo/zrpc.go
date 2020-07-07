@@ -417,7 +417,7 @@ func pktEncodeZ(m msg) *pktBuf {
 // pktEncodeM encodes message into raw M (msgpack) packet.
 func pktEncodeM(m msg) *pktBuf {
 	pkb := allocPkb()
-	// XXX better use msgp.Append for msgid, flags, method ?
+	// XXX better use msgp.Append for msgid, flags, method (but not arg) ?
 	data, err := msgpack.Encode(tuple{m.msgid, m.flags, m.method, m.arg})
 	if err != nil {
 		panic(err) // all our types are expected to be supported by msgpack
