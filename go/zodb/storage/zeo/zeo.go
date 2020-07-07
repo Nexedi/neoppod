@@ -39,7 +39,7 @@ import (
 )
 
 type zeo struct {
-	srv *zLink
+	srv *zLink	// XXX rename -> link?
 
 	// state we get from server by way of server notifications.
 	mu      sync.Mutex
@@ -65,7 +65,7 @@ func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 		return zodb.InvalidTid, err
 	}
 
-	head, ok := tidUnpack(xhead)
+	head, ok := z.srv.tidUnpack(xhead)
 	if !ok {
 		return zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xhead)
 	}
@@ -96,7 +96,7 @@ func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, erro
 	}
 
 	data, ok1 := res[0].(string)
-	serial, ok2 := tidUnpack(res[1])
+	serial, ok2 := z.srv.tidUnpack(res[1])
 	// next_serial (res[2]) - just ignore
 
 	if !(ok1 && ok2) {
@@ -188,7 +188,7 @@ func (r rpc) excError(exc string, argv []interface{}) error {
 			return r.ereplyf("poskeyerror: got %#v; expect 1-tuple", argv...)
 		}
 
-		oid, ok := oidUnpack(argv[0])
+		oid, ok := r.zl.oidUnpack(argv[0])
 		if !ok {
 			return r.ereplyf("poskeyerror: got (%v); expect (oid)", argv[0])
 		}
@@ -368,7 +368,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		}
 	}
 
-	lastTid, ok := tidUnpack(xlastTid) // XXX -> xlastTid -> scan
+	lastTid, ok := zl.tidUnpack(xlastTid) // XXX -> xlastTid -> scan
 	if !ok {
 		return nil, zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xlastTid)
 	}
@@ -423,13 +423,31 @@ func init() {
 // ---- oid/tid packing ----
 
 // xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
-func xuint64Unpack(xv interface{}) (uint64, bool) {
-	v, err := pickletools.Xstrbytes8(xv)
-	if err != nil {
-		return 0, false
+func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
+	switch zl.encoding {
+	default:
+		panic("bug")
+
+	case 'Z':
+		v, err := pickletools.Xstrbytes8(xv)
+		if err != nil {
+			return 0, false
+		}
+		return v, true
+
+	case 'M':
+		switch v := xv.(type) {
+		default:
+			return 0, false
+
+		case []byte:
+			if len(v) != 8 {
+				return 0, false
+			}
+			return binary.BigEndian.Uint64(v), true
+		}
 	}
 
-	return v, true
 }
 
 // xuint64Pack packs v into big-endian 8-byte string
@@ -449,12 +467,12 @@ func oidPack(oid zodb.Oid) string {
 	return xuint64Pack(uint64(oid))
 }
 
-func tidUnpack(xv interface{}) (zodb.Tid, bool) {
-	v, ok := xuint64Unpack(xv)
+func (zl *zLink) tidUnpack(xv interface{}) (zodb.Tid, bool) {
+	v, ok := zl.xuint64Unpack(xv)
 	return zodb.Tid(v), ok
 }
 
-func oidUnpack(xv interface{}) (zodb.Oid, bool) {
-	v, ok := xuint64Unpack(xv)
+func (zl *zLink) oidUnpack(xv interface{}) (zodb.Oid, bool) {
+	v, ok := zl.xuint64Unpack(xv)
 	return zodb.Oid(v), ok
 }
