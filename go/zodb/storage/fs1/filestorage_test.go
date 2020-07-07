@@ -76,6 +76,9 @@ func TestLoad(t *testing.T) {
 	fs, _ := xfsopen(t, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
+	// NOTE don't use xtesting.LoadDBHistory here - it is itself tested
+	// with the assumption that fs1.Load and fs1.Iterate works correctly.
+	// Use what testdata generator gave use with what to expect.
 	txnv := []xtesting.Txn{}
 	for _, dbe := range _1fs_dbEntryv {
 		txn := xtesting.Txn{Header: &zodb.TxnInfo{

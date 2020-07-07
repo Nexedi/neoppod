@@ -163,7 +163,7 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 	// withFS1 runs f under environment with new FileStorage database.
 	withFS1 := func(t *testing.T, f func(fs1path string)) {
 		t.Helper()
-		X := mkFatalIf(t)
+		X := xtesting.FatalIf(t)
 		work := xtempdir(t)
 		defer os.RemoveAll(work)
 		fs1path := work + "/1.fs"
@@ -186,7 +186,7 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 			}
 			xtesting.NeedPy(t, needpy...)
 			withFS1(t, func(fs1path string) {
-				X := mkFatalIf(t)
+				X := xtesting.FatalIf(t)
 
 				zpy, err := StartZEOPySrv(fs1path, ZEOPyOptions{msgpack: msgpack}); X(err)
 				defer func() {
@@ -206,7 +206,7 @@ func withZEO(t *testing.T, f func(t *testing.T, zdrv *zeo), optv ...tOptions) {
 	t.Helper()
 	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
 		t.Helper()
-		X := mkFatalIf(t)
+		X := xtesting.FatalIf(t)
 		zdrv, _, err := zeoOpen(zsrv.Addr(), &zodb.DriverOptions{ReadOnly: true}); X(err)
 		defer func() {
 			err := zdrv.Close(); X(err)
@@ -217,7 +217,7 @@ func withZEO(t *testing.T, f func(t *testing.T, zdrv *zeo), optv ...tOptions) {
 }
 
 func TestHandshake(t *testing.T) {
-	X := mkFatalIf(t)
+	X := xtesting.FatalIf(t)
 	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
 		ctx := context.Background()
 		net := xnet.NetPlain("unix")
@@ -237,7 +237,7 @@ func TestLoad(t *testing.T) {
 	X := exc.Raiseif
 
 	data := "../fs1/testdata/1.fs"
-	txnvOk, err := xtesting.LoadDB(data); X(err)
+	txnvOk, err := xtesting.LoadDBHistory(data); X(err)
 
 	withZEO(t, func(t *testing.T, z *zeo) {
 		xtesting.DrvTestLoad(t, z, txnvOk)
@@ -275,12 +275,4 @@ func xtempdir(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return tmpd
-}
-
-func mkFatalIf(t *testing.T) func(error) {
-	return func(err error) {
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
 }

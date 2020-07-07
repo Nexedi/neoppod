@@ -150,11 +150,11 @@ type Txn struct {
 	Data   []*zodb.DataInfo
 }
 
-// LoadDB loads whole content of a ZODB database.
+// LoadDBHistory loads whole content of a ZODB database.
 //
 // it returns full history of all transactions with committed data.
-func LoadDB(zurl string) (_ []Txn, err error) {
-	xerr.Contextf(&err, "loaddb %s", zurl)
+func LoadDBHistory(zurl string) (_ []Txn, err error) {
+	xerr.Contextf(&err, "loadDBHistory %s", zurl)
 	ctx := context.Background()
 	zstor, err := zodb.Open(ctx, zurl, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
@@ -300,11 +300,7 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
 // DrvTestWatch verifies that storage driver watcher can observe commits done from outside.
 func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
 	t.Helper()
-	X := func(err error) {
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	X := FatalIf(t)
 
 	NeedPy(t, "zodbtools")
 
@@ -400,6 +396,15 @@ func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
 }
 
 
+// FatalIf(t) returns function f(err), which call t.Fatal if err != nil.
+func FatalIf(t *testing.T) func(error) {
+	return func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 
 // b is syntactic sugar for byte literals.
 //
@@ -412,6 +417,9 @@ func b(data string) []byte {
 
 // bcopy makes a clone of byte slice.
 func bcopy(data []byte) []byte {
+	if data == nil {
+		return nil
+	}
 	d2 := make([]byte, len(data))
 	copy(d2, data)
 	return d2
