@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -31,14 +31,13 @@ import (
 	"net"
 	"sync"
 
-	"golang.org/x/sync/errgroup"
-
 	pickle "github.com/kisielk/og-rek"
 
 	"github.com/someonegg/gocontainer/rbuf"
 	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
+	"lab.nexedi.com/kirr/go123/xsync"
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
@@ -428,10 +427,10 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 	// ready when/if handshake tx/rx exchange succeeds
 	hok := make(chan struct{})
 
-	wg, ctx := errgroup.WithContext(ctx)
+	wg := xsync.NewWorkGroup(ctx)
 
 	// rx/tx handshake packet
-	wg.Go(func() error {
+	wg.Go(func(ctx context.Context) error {
 		// server first announces its preferred protocol
 		// it is e.g. "M5", "Z5", "Z4", "Z3101", ...
 		pkb, err := zl.recvPkt()
@@ -482,7 +481,7 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 		return nil
 	})
 
-	wg.Go(func() error {
+	wg.Go(func(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			// either ctx canceled from outside, or it is tx/rx problem.
