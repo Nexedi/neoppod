@@ -79,7 +79,6 @@ func StartZEOPySrv(fs1path string, opt ZEOPyOptions) (_ *ZEOPySrv, err error) {
 	z.pysrv.Stdin = nil
 	z.pysrv.Stdout = os.Stdout
 	z.pysrv.Stderr = os.Stderr
-	// XXX cwd?
 	err = z.pysrv.Start()
 	if err != nil {
 		return nil, err
@@ -146,7 +145,7 @@ func (z *ZEOPySrv) Encoding() byte {
 
 // tOptions represents options for testing.
 type tOptions struct {
-	Preload string // preload database from this location
+	Preload string // preload database with data from this location
 }
 
 // withZEOSrv tests f with all kind of ZEO servers.
