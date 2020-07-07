@@ -132,6 +132,8 @@ func (zl *zLink) serveRecv() {
 		// XXX -> shutdown zlink on error.
 		if err != nil {
 			log.Printf("%s: rx: %s", zl.link.RemoteAddr(), err)
+			zl.shutdown(err)
+			return
 		}
 	}
 }
