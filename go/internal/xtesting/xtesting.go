@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package xtesting provides addons to std package testing.
+// Package xtesting provides infrastructure for ZODB testing.
 package xtesting
 
 import (
@@ -151,6 +151,7 @@ type Txn struct {
 }
 
 // LoadDB loads whole content of a ZODB database.
+//
 // it returns full history of all transactions with committed data.
 func LoadDB(zurl string) (_ []Txn, err error) {
 	xerr.Contextf(&err, "loaddb %s", zurl)
@@ -207,7 +208,7 @@ func LoadDB(zurl string) (_ []Txn, err error) {
 	return txnv, nil
 }
 
-// checkLoad verifies that zdrv.Load(xid) returns expected result
+// checkLoad verifies that zdrv.Load(xid) returns expected result.
 func checkLoad(t *testing.T, zdrv zodb.IStorageDriver, xid zodb.Xid, expect objState) {
 	t.Helper()
 	buf, tid, err := zdrv.Load(context.Background(), xid)
@@ -398,7 +399,7 @@ func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
 
 
 
-// b is syntatic sugar for byte literals.
+// b is syntactic sugar for byte literals.
 //
 // e.g.
 //
