@@ -31,6 +31,7 @@ import (
 	"net"
 	"sync"
 
+	msgp    "github.com/tinylib/msgp/msgp"
 	msgpack "github.com/shamaton/msgpack"
 	pickle  "github.com/kisielk/og-rek"
 
@@ -266,6 +267,82 @@ func pktDecodeZ(pkb *pktBuf) (msg, error) {
 // pktDecodeM decodes raw M (msgpack) packet into message.
 func pktDecodeM(pkb *pktBuf) (msg, error) {
 	var m msg
+	b := pkb.Payload()
+
+	// must be (msgid, False|0, "method", arg)
+	l, b, err := msgp.ReadArrayHeaderBytes(b)
+	if err != nil {
+		return m, derrf("%s", err)
+	}
+	if l != 4 {
+		return m, derrf("len(msg-tuple)=%d; expected 4", l)
+	}
+
+	// msgid
+	v := int64(0)
+	switch t := msgp.NextType(b); t {
+	case msgp.IntType:
+		v, b, err = msgp.ReadInt64Bytes(b)
+	case msgp.UintType:
+		var x uint64
+		x, b, err = msgp.ReadUint64Bytes(b)
+		v = int64(x)
+	default:
+		err = fmt.Errorf("got %s; expected int", t)
+	}
+	if err != nil {
+		return m, derrf("msgid: %s", err)
+	}
+	m.msgid = v
+
+	// flags
+	v = int64(0)
+	switch t := msgp.NextType(b); t {
+	case msgp.BoolType:
+		var x bool
+		x, b, err = msgp.ReadBoolBytes(b)
+		if x { v = 1 }
+	case msgp.IntType:
+		v, b, err = msgp.ReadInt64Bytes(b)
+	case msgp.UintType:
+		var x uint64
+		x, b, err = msgp.ReadUint64Bytes(b)
+		v = int64(x)
+	default:
+		err = fmt.Errorf("got %s; expected int|bool", t)
+	}
+	if err != nil {
+		return m, derrf("flags: %s", err)
+	}
+	// XXX check flags are in range?
+	m.flags = msgFlags(v)
+
+	// method
+	m.method, b, err = msgp.ReadStringBytes(b)
+	if err != nil {
+		return m, derrf(".%d: method: %s", m.msgid, err)
+	}
+
+	// arg
+	// it is interface{} - use shamaton/msgpack since msgp does not handle
+	// arbitrary interfaces well.
+	btail, err := msgp.Skip(b)
+	if err != nil {
+		return m, derrf(".%d: arg: %s", m.msgid, err)
+	}
+	if len(btail) != 0 {
+		return m, derrf(".%d: payload has extra data after message")
+	}
+	err = msgpack.Decode(b, &m.arg)
+	if err != nil {
+		return m, derrf(".%d: arg: %s", m.msgid, err)
+	}
+
+	return m, nil
+
+/*
+	m.msgid, b, err = msgp.
+
 	//err := msgpack.DecodeStructAsArray(pkb.Payload(), &m)
 	var tpkt tuple
 	err := msgpack.Decode(pkb.Payload(), &tpkt)
@@ -303,6 +380,7 @@ func pktDecodeM(pkb *pktBuf) (msg, error) {
 
 	m.arg = tpkt[3]	// XXX []interface{} -> tuple
 	return m, nil
+*/
 }
 
 
