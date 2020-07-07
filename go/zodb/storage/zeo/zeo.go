@@ -455,6 +455,7 @@ func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
 // xuint64Pack packs v into big-endian 8-byte string
 //
 // XXX do we need to emit bytes instead of str?
+// XXX adapt to msgpack?
 func xuint64Pack(v uint64) string {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], v)
