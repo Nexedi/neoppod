@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -301,7 +301,7 @@ func (r rpc) ereplyf(format string, argv ...interface{}) *errorUnexpectedReply {
 
 func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb.IStorageDriver, at0 zodb.Tid, err error) {
 	url := u.String()
-	defer xerr.Contextf(&err, "open %s:", url)
+	defer xerr.Contextf(&err, "open %s", url)
 
 	// zeo://host:port/path?storage=...&...
 	var net  xnet.Networker
