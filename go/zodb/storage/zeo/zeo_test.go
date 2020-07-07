@@ -180,7 +180,11 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 		// ZEO/py
 		t.Run(fmt.Sprintf("py/msgpack=%v", msgpack), func(t *testing.T) {
 			t.Helper()
-			needZEOpy(t)
+			needpy := []string{"ZEO"}
+			if msgpack {
+				needpy = append(needpy, "msgpack")
+			}
+			xtesting.NeedPy(t, needpy...)
 			withFS1(t, func(fs1path string) {
 				X := mkFatalIf(t)
 
@@ -279,8 +283,4 @@ func mkFatalIf(t *testing.T) func(error) {
 			t.Fatal(err)
 		}
 	}
-}
-
-func needZEOpy(t *testing.T) {
-	xtesting.NeedPy(t, "ZEO") // XXX +msgpack?
 }
