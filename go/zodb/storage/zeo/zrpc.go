@@ -129,6 +129,7 @@ func (zl *zLink) serveRecv() {
 		pkb.Free()
 
 		// XXX ratelimit / only incstat?
+		// XXX -> shutdown zlink on error.
 		if err != nil {
 			log.Printf("%s: rx: %s", zl.link.RemoteAddr(), err)
 		}
@@ -166,6 +167,8 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	// XXX currently only async/ no other flags handled
 	f := zl.methTab[m.method]
 	if f == nil {
+		// XXX reply "unknown method" if reply is possible
+		// XXX return error if reply is not possible
 		return fmt.Errorf(".%d: unknown method=%q", m.msgid, m.method)
 	}
 
