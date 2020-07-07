@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"reflect"
@@ -227,4 +228,116 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
 		xid := zodb.Xid{zodb.TidMax, oid}
 		checkLoad(t, zdrv, xid, expect)
 	}
+}
+
+// DrvTestWatch verifies that storage driver watcher can observe commits done from outside.
+func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
+	X := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	NeedPy(t, "zodbtools")
+
+	u, err := url.Parse(zurl); X(err)
+
+	// xcommit commits new transaction into zurl with raw data specified by objv.
+	xcommit := func(at zodb.Tid, objv ...ZRawObject) zodb.Tid {
+		t.Helper()
+		tid, err := ZPyCommitRaw(zurl, at, objv...); X(err)
+		return tid
+	}
+
+	// force database creation & open zurl at go side
+	at := xcommit(0, ZRawObject{0, b("data0")})
+
+	ctx := context.Background()
+	watchq := make(chan zodb.Event)
+	zdrv, at0, err := zdrvOpen(ctx, u, &zodb.DriverOptions{ReadOnly: true, Watchq: watchq})
+	if at0 != at {
+		t.Fatalf("opened @ %s  ; want %s", at0, at)
+	}
+
+	checkHead := func(headOk zodb.Tid) {
+		t.Helper()
+		head, err := zdrv.Sync(ctx); X(err)
+		if head != headOk {
+			t.Fatalf("check head: got %s;  want %s", head, headOk)
+		}
+	}
+
+	checkHead(at)
+
+	checkLoad := func(at zodb.Tid, oid zodb.Oid, dataOk string, serialOk zodb.Tid) {
+		t.Helper()
+		xid := zodb.Xid{at, oid}
+		buf, serial, err := zdrv.Load(ctx, xid); X(err)
+		data := string(buf.XData())
+		if !(data == dataOk && serial == serialOk) {
+			t.Fatalf("check load %s:\nhave: %q %s\nwant: %q %s",
+				xid, data, serial, dataOk, serialOk)
+		}
+	}
+
+	// commit -> check watcher observes what we committed.
+	//
+	// XXX python `import pkg_resources` takes ~ 300ms.
+	// https://github.com/pypa/setuptools/issues/510
+	//
+	// Since pkg_resources are used everywhere (e.g. in zodburi to find all
+	// uri resolvers) this import slowness becomes the major part of time to
+	// run py `zodb commit`.
+	//
+	// if one day it is either fixed, or worked around, we could ↑ 10 to 100.
+	for i := zodb.Oid(1); i <= 10; i++ {
+		data0 := fmt.Sprintf("data0.%d", i)
+		datai := fmt.Sprintf("data%d", i)
+		at = xcommit(at,
+			ZRawObject{0, b(data0)},
+			ZRawObject{i, b(datai)})
+
+		// TODO also test for watcher errors
+		event := <-watchq
+
+		var δ *zodb.EventCommit
+		switch event := event.(type) {
+		default:
+			panic(fmt.Sprintf("unexpected event: %T", event))
+
+		case *zodb.EventError:
+			t.Fatal(event.Err)
+
+		case *zodb.EventCommit:
+			δ = event
+		}
+
+		if objvWant := []zodb.Oid{0, i}; !(δ.Tid == at && reflect.DeepEqual(δ.Changev, objvWant)) {
+			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", δ.Tid, δ.Changev, at, objvWant)
+		}
+
+		checkHead(at)
+
+		// make sure we can load what was committed.
+		checkLoad(at, 0, data0, at)
+		checkLoad(at, i, datai, at)
+	}
+
+	err = zdrv.Close(); X(err)
+
+	e, ok := <-watchq
+	if ok {
+		t.Fatalf("watch after close -> %v;  want closed", e)
+	}
+}
+
+
+
+// b is syntactic sugar for byte literals.
+//
+// e.g.
+//
+//	b("hello")
+func b(data string) []byte {
+	return []byte(data)
 }
