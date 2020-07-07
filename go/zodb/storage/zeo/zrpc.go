@@ -318,10 +318,21 @@ func pktDecodeM(pkb *pktBuf) (msg, error) {
 	m.flags = msgFlags(v)
 
 	// method
-	m.method, b, err = msgp.ReadStringBytes(b)
+	s := ""
+	switch t := msgp.NextType(b); t {
+	case msgp.StrType:
+		s, b, err = msgp.ReadStringBytes(b)
+	case msgp.BinType:
+		var x []byte
+		x, b, err = msgp.ReadBytesZC(b)
+		s = string(x)
+	default:
+		err = fmt.Errorf("got %s; expected str|bin", t)
+	}
 	if err != nil {
 		return m, derrf(".%d: method: %s", m.msgid, err)
 	}
+	m.method = s
 
 	// arg
 	// it is interface{} - use shamaton/msgpack since msgp does not handle
