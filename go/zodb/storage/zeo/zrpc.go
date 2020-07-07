@@ -169,6 +169,7 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	if f == nil {
 		// XXX reply "unknown method" if reply is possible
 		// XXX return error if reply is not possible
+		// XXX (ZEO/py always disconnects on error)
 		return fmt.Errorf(".%d: unknown method=%q", m.msgid, m.method)
 	}
 
