@@ -429,6 +429,7 @@ func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
 		panic("bug")
 
 	case 'Z':
+		// pickles: str|bytes
 		v, err := pickletools.Xstrbytes8(xv)
 		if err != nil {
 			return 0, false
@@ -436,6 +437,7 @@ func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
 		return v, true
 
 	case 'M':
+		// msgpack decodes bytes as []byte (which corresponds to bytearray in pickle)
 		switch v := xv.(type) {
 		default:
 			return 0, false
