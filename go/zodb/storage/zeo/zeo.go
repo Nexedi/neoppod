@@ -86,7 +86,7 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error
 
 func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	rpc := z.rpc("loadBefore")
-	xres, err := rpc.call(ctx, oidPack(xid.Oid), tidPack(xid.At+1)) // XXX at2Before
+	xres, err := rpc.call(ctx, z.srv.oidPack(xid.Oid), z.srv.tidPack(xid.At+1)) // XXX at2Before
 	if err != nil {
 		return nil, 0, err
 	}
@@ -432,7 +432,7 @@ func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
 		panic("bug")
 
 	case 'Z':
-		// pickles: str|bytes
+		// pickle: str|bytes
 		v, err := pickletools.Xstrbytes8(xv)
 		if err != nil {
 			return 0, false
@@ -456,21 +456,30 @@ func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
 }
 
 // xuint64Pack packs v into big-endian 8-byte string
-//
-// XXX do we need to emit bytes instead of str?
-// XXX adapt to msgpack?
-func xuint64Pack(v uint64) string {
+func (zl *zLink) xuint64Pack(v uint64) interface{} {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], v)
-	return mem.String(b[:])
+
+	switch zl.encoding {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: -> str	XXX do we need to emit bytes for py3?
+		return mem.String(b[:])
+
+	case 'M':
+		// msgpack: -> bin
+		return b[:]
+	}
 }
 
-func tidPack(tid zodb.Tid) string {
-	return xuint64Pack(uint64(tid))
+func (zl *zLink) tidPack(tid zodb.Tid) interface{} {
+	return zl.xuint64Pack(uint64(tid))
 }
 
-func oidPack(oid zodb.Oid) string {
-	return xuint64Pack(uint64(oid))
+func (zl *zLink) oidPack(oid zodb.Oid) interface{} {
+	return zl.xuint64Pack(uint64(oid))
 }
 
 func (zl *zLink) tidUnpack(xv interface{}) (zodb.Tid, bool) {
