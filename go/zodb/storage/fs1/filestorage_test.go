@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -58,58 +58,6 @@ func (txe *txnEntry) Data() []byte {
 	return data
 }
 
-// state of an object in the database for some particular revision
-type objState struct {
-	tid  zodb.Tid
-	data []byte // nil if obj was deleted
-}
-
-
-// checkLoad verifies that fs.Load(xid) returns expected result
-func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect objState) {
-	t.Helper()
-	buf, tid, err := fs.Load(context.Background(), xid)
-
-	// deleted obj - it should load with "no data"
-	if expect.data == nil {
-		errOk := &zodb.OpError{
-			URL:  fs.URL(),
-			Op:   "load",
-			Args: xid,
-			Err:  &zodb.NoDataError{Oid: xid.Oid, DeletedAt: expect.tid},
-		}
-		if !reflect.DeepEqual(err, errOk) {
-			t.Errorf("load %v: returned err unexpected: %v  ; want: %v", xid, err, errOk)
-		}
-
-		if tid != 0 {
-			t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
-		}
-
-		if buf != nil {
-			t.Errorf("load %v: returned buf != nil", xid)
-		}
-
-	// regular load
-	} else {
-		if err != nil {
-			t.Errorf("load %v: returned err unexpected: %v  ; want: nil", xid, err)
-		}
-
-		if tid != expect.tid {
-			t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
-		}
-
-		switch {
-		case buf == nil:
-			t.Errorf("load %v: returned buf = nil", xid)
-
-		case !reflect.DeepEqual(buf.Data, expect.data): // NOTE reflect to catch nil != ""
-			t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, buf.Data, expect.data)
-		}
-	}
-}
-
 func xfsopen(t testing.TB, path string) (*FileStorage, zodb.Tid) {
 	t.Helper()
 	return xfsopenopt(t, path, &zodb.DriverOptions{ReadOnly: true})
@@ -128,38 +76,25 @@ func TestLoad(t *testing.T) {
 	fs, _ := xfsopen(t, "testdata/1.fs")
 	defer exc.XRun(fs.Close)
 
-	// current knowledge of what was "before" for an oid as we scan over
-	// data base entries
-	before := map[zodb.Oid]objState{}
-
+	txnv := []xtesting.Txn{}
 	for _, dbe := range _1fs_dbEntryv {
+		txn := xtesting.Txn{Header: &zodb.TxnInfo{
+			Tid: dbe.Header.Tid,
+
+		}}
 		for _, txe := range dbe.Entryv {
-			txh := txe.Header
-
-			// XXX check Load finds data at correct .Pos / etc ?
-
-			// ~ loadSerial
-			xid := zodb.Xid{txh.Tid, txh.Oid}
-			checkLoad(t, fs, xid, objState{txh.Tid, txe.Data()})
-
-			// ~ loadBefore
-			xid = zodb.Xid{txh.Tid - 1, txh.Oid}
-			expect, ok := before[txh.Oid]
-			if ok {
-				checkLoad(t, fs, xid, expect)
+			data := &zodb.DataInfo{
+				Oid:         txe.Header.Oid,
+				Tid:         txn.Header.Tid,
+				Data:        txe.Data(),
+				DataTidHint: txe.DataTidHint,
 			}
-
-			before[txh.Oid] = objState{txh.Tid, txe.Data()}
-
+			txn.Data = append(txn.Data, data)
 		}
+		txnv = append(txnv, txn)
 	}
 
-	// load at ∞ with TidMax
-	// XXX should we get "no such transaction" with at > head? - yes
-	for oid, expect := range before {
-		xid := zodb.Xid{zodb.TidMax, oid}
-		checkLoad(t, fs, xid, expect)
-	}
+	xtesting.DrvTestLoad(t, fs, txnv)
 }
 
 // iterate tidMin..tidMax and expect db entries in expectv
