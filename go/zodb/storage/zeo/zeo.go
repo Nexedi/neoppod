@@ -196,6 +196,7 @@ func (r rpc) excError(exc string, argv []interface{}) error {
 		// XXX POSKeyError does not allow to distinguish whether it is
 		// no object at all or object exists and its data was not found
 		// for tid_before. IOW we cannot translate to zodb.NoDataError
+		// https://github.com/zopefoundation/ZODB/issues/318
 		return &zodb.NoObjectError{Oid: oid}
 	}
 
