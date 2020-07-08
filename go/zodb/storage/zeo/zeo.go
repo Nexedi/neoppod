@@ -92,7 +92,7 @@ func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, erro
 	}
 
 	// (data, serial, next_serial | None)
-	res, ok := xres.(pickle.Tuple)
+	res, ok := z.srv.asTuple(xres)
 	if !ok || len(res) != 3 {
 		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple", xres)
 	}
@@ -422,8 +422,7 @@ func init() {
 	zodb.RegisterDriver("zeo", openByURL)
 }
 
-
-// ---- oid/tid packing ----
+// ---- data conversion with unified interface for Z/M encoding ----
 
 // xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
 func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
@@ -490,4 +489,23 @@ func (zl *zLink) tidUnpack(xv interface{}) (zodb.Tid, bool) {
 func (zl *zLink) oidUnpack(xv interface{}) (zodb.Oid, bool) {
 	v, ok := zl.xuint64Unpack(xv)
 	return zodb.Oid(v), ok
+}
+
+
+// asTuple tries to decode object as tuple. XXX
+func (zl *zLink) asTuple(xt interface{}) (tuple, bool) {
+	switch zl.encoding {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: tuples are represented by picklet.Tuple
+		t, ok := xt.(pickle.Tuple)
+		return tuple(t), ok
+
+	case 'M':
+		// msgpack: tuples are encoded as arrays; decoded as []interface{}
+		t, ok := xt.([]interface{})
+		return tuple(t), ok
+	}
 }
