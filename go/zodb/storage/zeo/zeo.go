@@ -97,7 +97,7 @@ func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, erro
 		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple", xres)
 	}
 
-	data, ok1 := res[0].(string)
+	data, ok1 := z.srv.asBytes(res[0])
 	serial, ok2 := z.srv.tidUnpack(res[1])
 	// next_serial (res[2]) - just ignore
 
@@ -105,7 +105,7 @@ func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, erro
 		return nil, 0, rpc.ereplyf("got (%T, %v, %T); expect (str, tid, .)", res...)
 	}
 
-	return &mem.Buf{Data: mem.Bytes(data)}, serial, nil
+	return &mem.Buf{Data: data}, serial, nil
 }
 
 // Iterates implements zodb.IStorageDriver.
@@ -507,5 +507,26 @@ func (zl *zLink) asTuple(xt interface{}) (tuple, bool) {
 		// msgpack: tuples are encoded as arrays; decoded as []interface{}
 		t, ok := xt.([]interface{})
 		return tuple(t), ok
+	}
+}
+
+// asBytes tries to decode object as raw bytes.
+func (zl *zLink) asBytes(xb interface{}) ([]byte, bool) {
+	switch zl.encoding{
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: str|bytes
+		s, err := pickletools.Xstrbytes(xb)
+		if err != nil {
+			return nil, false
+		}
+		return mem.Bytes(s), true
+
+	case 'M':
+		// msgpack: bin
+		b, ok := xb.([]byte)
+		return b, ok
 	}
 }
