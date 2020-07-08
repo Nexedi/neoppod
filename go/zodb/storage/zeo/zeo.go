@@ -94,7 +94,7 @@ func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, erro
 	// (data, serial, next_serial | None)
 	res, ok := xres.(pickle.Tuple)
 	if !ok || len(res) != 3 {
-		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple", res)
+		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple", xres)
 	}
 
 	data, ok1 := res[0].(string)
