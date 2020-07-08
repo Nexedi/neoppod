@@ -295,6 +295,9 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
 		xid := zodb.Xid{zodb.TidMax, oid}
 		checkLoad(t, zdrv, xid, expect)
 	}
+
+	// XXX verify load of non-existing object
+	// XXX verify load of not-yet-created object
 }
 
 // DrvTestWatch verifies that storage driver watcher can observe commits done from outside.
