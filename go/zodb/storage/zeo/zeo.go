@@ -182,7 +182,7 @@ func (r rpc) call(ctx context.Context, argv ...interface{}) (interface{}, error)
 //
 // well-known exceptions are mapped to corresponding well-known errors - e.g.
 // POSKeyError -> zodb.NoObjectError, and rest are returned wrapper into rpcExcept.
-func (r rpc) excError(exc string, argv []interface{}) error {
+func (r rpc) excError(exc string, argv tuple) error {
 	// translate well-known exceptions
 	switch exc {
 	case "ZODB.POSException.POSKeyError":
@@ -208,16 +208,14 @@ func (r rpc) excError(exc string, argv []interface{}) error {
 // zeo5Error decodes arg of reply with msgExcept flag set and returns
 // corresponding error.
 func (r rpc) zeo5Error(arg interface{}) error {
-	// XXX check r.zl.encoding == 'Z' before using pickles?
-
 	// ('type', (arg1, arg2, arg3, ...))
-	texc, ok := arg.(pickle.Tuple)
+	texc, ok := r.zl.asTuple(arg)
 	if !ok || len(texc) != 2 {
 		return r.ereplyf("except5: got %#v; expect 2-tuple", arg)
 	}
 
-	exc, ok1 := texc[0].(string)
-	argv, ok2 := texc[1].(pickle.Tuple)
+	exc, ok1 := r.zl.asString(texc[0])
+	argv, ok2 := r.zl.asTuple(texc[1])
 	if !(ok1 && ok2) {
 		return r.ereplyf("except5: got (%T, %T); expect (str, tuple)", texc...)
 	}
@@ -286,7 +284,7 @@ func (r rpc) zeo4Error(arg interface{}) error {
 		argv = args
 	}
 
-	return r.excError(exc, argv)
+	return r.excError(exc, tuple(argv)) // XXX don't cast?
 }
 
 // isPyExceptClass returns whether klass represents python exception
@@ -528,5 +526,23 @@ func (zl *zLink) asBytes(xb interface{}) ([]byte, bool) {
 		// msgpack: bin
 		b, ok := xb.([]byte)
 		return b, ok
+	}
+}
+
+// asString tries to decode object as string.
+func (zl *zLink) asString(xs interface{}) (string, bool) {
+	switch zl.encoding{
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: str
+		s, ok := xs.(string)
+		return s, ok
+
+	case 'M':
+		// msgpack: bin XXX ZEO/py sends strings as bin
+		b, ok := xs.([]byte)
+		return string(b), ok
 	}
 }
