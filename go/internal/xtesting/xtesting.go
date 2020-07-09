@@ -160,7 +160,7 @@ func checkLoad(t *testing.T, zdrv zodb.IStorageDriver, xid zodb.Xid, expect objS
 			Err:  &zodb.NoDataError{Oid: xid.Oid, DeletedAt: expect.tid},
 		}
 		if !reflect.DeepEqual(err, errOk) {
-			t.Errorf("load %v: returned err unexpected: %v  ; want: %v", xid, err, errOk)
+			t.Errorf("load %v: returned err unexpected:\nhave: %v\nwant: %v", xid, err, errOk)
 		}
 
 		if tid != 0 {
@@ -174,7 +174,7 @@ func checkLoad(t *testing.T, zdrv zodb.IStorageDriver, xid zodb.Xid, expect objS
 	// regular load
 	} else {
 		if err != nil {
-			t.Errorf("load %v: returned err unexpected: %v  ; want: nil", xid, err)
+			t.Errorf("load %v: returned err unexpected:\nhave: %v\nwant: nil", xid, err)
 		}
 
 		if tid != expect.tid {
