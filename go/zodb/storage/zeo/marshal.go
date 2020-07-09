@@ -290,11 +290,11 @@ func (e encoding) xuint64Pack(v uint64) interface{} {
 	}
 }
 
-func (e encoding) tidPack(tid zodb.Tid) interface{} {
+func (e encoding) Tid(tid zodb.Tid) interface{} {
 	return e.xuint64Pack(uint64(tid))
 }
 
-func (e encoding) oidPack(oid zodb.Oid) interface{} {
+func (e encoding) Oid(oid zodb.Oid) interface{} {
 	return e.xuint64Pack(uint64(oid))
 }
 

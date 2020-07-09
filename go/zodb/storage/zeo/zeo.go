@@ -84,7 +84,7 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error
 func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	rpc := z.rpc("loadBefore")
 	enc := z.link.enc
-	xres, err := rpc.call(ctx, enc.oidPack(xid.Oid), enc.tidPack(xid.At+1)) // XXX at2Before
+	xres, err := rpc.call(ctx, enc.Oid(xid.Oid), enc.Tid(xid.At+1)) // XXX at2Before
 	if err != nil {
 		return nil, 0, err
 	}
