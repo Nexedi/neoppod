@@ -89,7 +89,13 @@ func pktEncodeM(m msg) *pktBuf {
 	// arg
 	// it is interface{} - use shamaton/msgpack since msgp does not handle
 	// arbitrary interfaces well.
-	dataArg, err := msgpack.Encode(m.arg)
+	// XXX shamaton/msgpack encodes tuple(nil) as nil, not empty tuple
+	arg := m.arg
+	tup, ok := arg.(tuple)
+	if ok && tup == nil {
+		arg = tuple{}
+	}
+	dataArg, err := msgpack.Encode(arg)
 	if err != nil {
 		panic(err) // all our types are expected to be supported by msgpack
 	}
