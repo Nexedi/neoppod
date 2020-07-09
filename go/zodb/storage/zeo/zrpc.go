@@ -375,12 +375,12 @@ func pktEncodeZ(m msg) *pktBuf {
 // pktEncodeM encodes message into raw M (msgpack) packet.
 func pktEncodeM(m msg) *pktBuf {
 	pkb := allocPkb()
+
 	data := pkb.data
 	data = msgp.AppendArrayHeader(data, 4)
 	data = msgp.AppendInt64(data,  m.msgid)		// msgid
 	data = msgp.AppendInt64(data,  int64(m.flags))	// flags
 	data = msgp.AppendString(data, m.method)	// method
-
 	// arg
 	// it is interface{} - use shamaton/msgpack since msgp does not handle
 	// arbitrary interfaces well.
