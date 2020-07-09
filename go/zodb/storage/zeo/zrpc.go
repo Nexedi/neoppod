@@ -21,7 +21,6 @@ package zeo
 // RPC calls client<->server
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -31,19 +30,12 @@ import (
 	"net"
 	"sync"
 
-	msgp    "github.com/tinylib/msgp/msgp"
-	msgpack "github.com/shamaton/msgpack"
-	pickle  "github.com/kisielk/og-rek"
-
 	"github.com/someonegg/gocontainer/rbuf"
 	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/go123/xsync"
-	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
-
-const pktHeaderLen = 4
 
 // we can speak this protocol versions
 var protoVersions = []string{
@@ -180,7 +172,7 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	return nil
 }
 
-// tuple corresponds to py tuple.
+// tuple represents py tuple.
 type tuple []interface{}
 
 // msg represents 1 message.
@@ -196,203 +188,6 @@ const (
 	msgAsync  msgFlags = 1 // message does not need a reply
 	msgExcept          = 2 // exception was raised on remote side (ZEO5)
 )
-
-func derrf(format string, argv ...interface{}) error {
-	return fmt.Errorf("decode: "+format, argv...)
-}
-
-// pktDecode decodes raw packet into message.
-func (zl *zLink) pktDecode(pkb *pktBuf) (msg, error) {
-	switch zl.encoding {
-	case 'Z': return pktDecodeZ(pkb)
-	case 'M': return pktDecodeM(pkb)
-	default:  panic("bug")
-	}
-}
-
-// pktEncode encodes message into raw packet.
-func (zl *zLink) pktEncode(m msg) *pktBuf {
-	switch zl.encoding {
-	case 'Z': return pktEncodeZ(m)
-	case 'M': return pktEncodeM(m)
-	default:  panic("bug")
-	}
-}
-
-// pktDecodeZ decodes raw Z (pickle) packet into message.
-func pktDecodeZ(pkb *pktBuf) (msg, error) {
-	var m msg
-	// must be (msgid, False|0, ".reply", res)
-	d := pickle.NewDecoder(bytes.NewReader(pkb.Payload()))
-	xpkt, err := d.Decode()
-	if err != nil {
-		return m, err
-	}
-
-	tpkt, ok := xpkt.(pickle.Tuple) // XXX also list?
-	if !ok {
-		return m, derrf("got %T; expected tuple", xpkt)
-	}
-	if len(tpkt) != 4 {
-		return m, derrf("len(msg-tuple)=%d; expected 4", len(tpkt))
-	}
-	m.msgid, ok = pickletools.Xint64(tpkt[0])
-	if !ok {
-		return m, derrf("msgid: got %T; expected int", tpkt[0])
-	}
-
-	flags, ok := pickletools.Xint64(tpkt[1])
-	if !ok {
-		bflags, ok := tpkt[1].(bool)
-		if !ok {
-			return m, derrf("flags: got %T; expected int|bool", tpkt[1])
-		}
-
-		if bflags {
-			flags = 1
-		} // else: flags is already = 0
-	}
-	// XXX check flags are in range?
-	m.flags = msgFlags(flags)
-
-	m.method, ok = tpkt[2].(string)
-	if !ok {
-		return m, derrf(".%d: method: got %T; expected str", m.msgid, tpkt[2])
-	}
-
-	m.arg = tpkt[3]	// XXX pickle.Tuple -> tuple
-	return m, nil
-}
-
-// pktDecodeM decodes raw M (msgpack) packet into message.
-func pktDecodeM(pkb *pktBuf) (msg, error) {
-	var m msg
-	b := pkb.Payload()
-
-	// must be (msgid, False|0, "method", arg)
-	l, b, err := msgp.ReadArrayHeaderBytes(b)
-	if err != nil {
-		return m, derrf("%s", err)
-	}
-	if l != 4 {
-		return m, derrf("len(msg-tuple)=%d; expected 4", l)
-	}
-
-	// msgid
-	v := int64(0)
-	switch t := msgp.NextType(b); t {
-	case msgp.IntType:
-		v, b, err = msgp.ReadInt64Bytes(b)
-	case msgp.UintType:
-		var x uint64
-		x, b, err = msgp.ReadUint64Bytes(b)
-		v = int64(x)
-	default:
-		err = fmt.Errorf("got %s; expected int", t)
-	}
-	if err != nil {
-		return m, derrf("msgid: %s", err)
-	}
-	m.msgid = v
-
-	// flags
-	v = int64(0)
-	switch t := msgp.NextType(b); t {
-	case msgp.BoolType:
-		var x bool
-		x, b, err = msgp.ReadBoolBytes(b)
-		if x { v = 1 }
-	case msgp.IntType:
-		v, b, err = msgp.ReadInt64Bytes(b)
-	case msgp.UintType:
-		var x uint64
-		x, b, err = msgp.ReadUint64Bytes(b)
-		v = int64(x)
-	default:
-		err = fmt.Errorf("got %s; expected int|bool", t)
-	}
-	if err != nil {
-		return m, derrf("flags: %s", err)
-	}
-	// XXX check flags are in range?
-	m.flags = msgFlags(v)
-
-	// method
-	s := ""
-	switch t := msgp.NextType(b); t {
-	case msgp.StrType:
-		s, b, err = msgp.ReadStringBytes(b)
-	case msgp.BinType:
-		var x []byte
-		x, b, err = msgp.ReadBytesZC(b)
-		s = string(x)
-	default:
-		err = fmt.Errorf("got %s; expected str|bin", t)
-	}
-	if err != nil {
-		return m, derrf(".%d: method: %s", m.msgid, err)
-	}
-	m.method = s
-
-	// arg
-	// it is interface{} - use shamaton/msgpack since msgp does not handle
-	// arbitrary interfaces well.
-	btail, err := msgp.Skip(b)
-	if err != nil {
-		return m, derrf(".%d: arg: %s", m.msgid, err)
-	}
-	if len(btail) != 0 {
-		return m, derrf(".%d: payload has extra data after message")
-	}
-	err = msgpack.Decode(b, &m.arg)
-	if err != nil {
-		return m, derrf(".%d: arg: %s", m.msgid, err)
-	}
-
-	return m, nil
-}
-
-
-// pktEncodeZ encodes message into raw Z (pickle) packet.
-func pktEncodeZ(m msg) *pktBuf {
-	pkb := allocPkb()
-	p := pickle.NewEncoder(pkb)
-
-	// tuple -> pickle.Tuple
-	arg := m.arg
-	tup, ok := arg.(tuple)
-	if ok {
-		arg = pickle.Tuple(tup)
-	}
-
-	err := p.Encode(pickle.Tuple{m.msgid, m.flags, m.method, arg})
-	if err != nil {
-		panic(err) // all our types are expected to be supported by pickle
-	}
-	return pkb
-}
-
-// pktEncodeM encodes message into raw M (msgpack) packet.
-func pktEncodeM(m msg) *pktBuf {
-	pkb := allocPkb()
-
-	data := pkb.data
-	data = msgp.AppendArrayHeader(data, 4)
-	data = msgp.AppendInt64(data,  m.msgid)		// msgid
-	data = msgp.AppendInt64(data,  int64(m.flags))	// flags
-	data = msgp.AppendString(data, m.method)	// method
-	// arg
-	// it is interface{} - use shamaton/msgpack since msgp does not handle
-	// arbitrary interfaces well.
-	dataArg, err := msgpack.Encode(m.arg)
-	if err != nil {
-		panic(err) // all our types are expected to be supported by msgpack
-	}
-	data = append(data, dataArg...)
-
-	pkb.data = data
-	return pkb
-}
 
 
 // Call makes 1 RPC call to server, waits for reply and returns it.
@@ -455,6 +250,9 @@ func (zl *zLink) RegisterMethod(method string, f func(arg interface{})) {
 }
 
 // ---- raw IO ----
+
+// packet = {size(u32), data}
+const pktHeaderLen = 4
 
 // pktBuf is buffer with packet data.
 //

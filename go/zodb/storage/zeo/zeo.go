@@ -22,7 +22,6 @@ package zeo
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"log"
 	"net/url"
@@ -35,7 +34,6 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
-	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
 type zeo struct {
@@ -418,137 +416,4 @@ func (z *zeo) URL() string {
 
 func init() {
 	zodb.RegisterDriver("zeo", openByURL)
-}
-
-// ---- data conversion with unified interface for Z/M encoding ----
-
-// xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
-func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
-	switch zl.encoding {
-	default:
-		panic("bug")
-
-	case 'Z':
-		// pickle: str|bytes
-		v, err := pickletools.Xstrbytes8(xv)
-		if err != nil {
-			return 0, false
-		}
-		return v, true
-
-	case 'M':
-		// msgpack decodes bytes as []byte (which corresponds to bytearray in pickle)
-		switch v := xv.(type) {
-		default:
-			return 0, false
-
-		case []byte:
-			if len(v) != 8 {
-				return 0, false
-			}
-			return binary.BigEndian.Uint64(v), true
-		}
-	}
-
-}
-
-// xuint64Pack packs v into big-endian 8-byte string
-func (zl *zLink) xuint64Pack(v uint64) interface{} {
-	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], v)
-
-	switch zl.encoding {
-	default:
-		panic("bug")
-
-	case 'Z':
-		// pickle: -> str	XXX do we need to emit bytes for py3?  -> TODO yes, after switch to protocol=3
-		return mem.String(b[:])
-
-	case 'M':
-		// msgpack: -> bin
-		return b[:]
-	}
-}
-
-func (zl *zLink) tidPack(tid zodb.Tid) interface{} {
-	return zl.xuint64Pack(uint64(tid))
-}
-
-func (zl *zLink) oidPack(oid zodb.Oid) interface{} {
-	return zl.xuint64Pack(uint64(oid))
-}
-
-func (zl *zLink) tidUnpack(xv interface{}) (zodb.Tid, bool) {
-	v, ok := zl.xuint64Unpack(xv)
-	return zodb.Tid(v), ok
-}
-
-func (zl *zLink) oidUnpack(xv interface{}) (zodb.Oid, bool) {
-	v, ok := zl.xuint64Unpack(xv)
-	return zodb.Oid(v), ok
-}
-
-
-// asTuple tries to decode object as tuple. XXX
-func (zl *zLink) asTuple(xt interface{}) (tuple, bool) {
-	switch zl.encoding {
-	default:
-		panic("bug")
-
-	case 'Z':
-		// pickle: tuples are represented by picklet.Tuple
-		t, ok := xt.(pickle.Tuple)
-		return tuple(t), ok
-
-	case 'M':
-		// msgpack: tuples are encoded as arrays; decoded as []interface{}
-		t, ok := xt.([]interface{})
-		return tuple(t), ok
-	}
-}
-
-// asBytes tries to decode object as raw bytes.
-func (zl *zLink) asBytes(xb interface{}) ([]byte, bool) {
-	switch zl.encoding{
-	default:
-		panic("bug")
-
-	case 'Z':
-		// pickle: str|bytes
-		s, err := pickletools.Xstrbytes(xb)
-		if err != nil {
-			return nil, false
-		}
-		return mem.Bytes(s), true
-
-	case 'M':
-		// msgpack: bin
-		b, ok := xb.([]byte)
-		return b, ok
-	}
-}
-
-// asString tries to decode object as string.
-func (zl *zLink) asString(xs interface{}) (string, bool) {
-	switch zl.encoding{
-	default:
-		panic("bug")
-
-	case 'Z':
-		// pickle: str
-		s, ok := xs.(string)
-		return s, ok
-
-	case 'M':
-		// msgpack: bin(from py2) | str(from py3)
-		switch s := xs.(type) {
-		case []byte:
-			return string(s), true
-		case string:
-			return s, true
-		default:
-			return "", false
-		}
-	}
 }
