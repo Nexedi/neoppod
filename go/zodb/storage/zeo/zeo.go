@@ -462,7 +462,7 @@ func (zl *zLink) xuint64Pack(v uint64) interface{} {
 		panic("bug")
 
 	case 'Z':
-		// pickle: -> str	XXX do we need to emit bytes for py3?
+		// pickle: -> str	XXX do we need to emit bytes for py3?  -> TODO yes, after switch to protocol=3
 		return mem.String(b[:])
 
 	case 'M':
@@ -541,8 +541,14 @@ func (zl *zLink) asString(xs interface{}) (string, bool) {
 		return s, ok
 
 	case 'M':
-		// msgpack: bin XXX ZEO/py sends strings as bin
-		b, ok := xs.([]byte)
-		return string(b), ok
+		// msgpack: bin(from py2) | str(from py3)
+		switch s := xs.(type) {
+		case []byte:
+			return string(s), true
+		case string:
+			return s, true
+		default:
+			return "", false
+		}
 	}
 }
