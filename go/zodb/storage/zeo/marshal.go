@@ -35,11 +35,13 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
+type encoding byte // Z - pickles, M - msgpack
+
 // ---- message encode/decode ----
 
 // pktEncode encodes message into raw packet.
-func (zl *zLink) pktEncode(m msg) *pktBuf {
-	switch zl.encoding {
+func (e encoding) pktEncode(m msg) *pktBuf {
+	switch e {
 	case 'Z': return pktEncodeZ(m)
 	case 'M': return pktEncodeM(m)
 	default:  panic("bug")
@@ -47,8 +49,8 @@ func (zl *zLink) pktEncode(m msg) *pktBuf {
 }
 
 // pktDecode decodes raw packet into message.
-func (zl *zLink) pktDecode(pkb *pktBuf) (msg, error) {
-	switch zl.encoding {
+func (e encoding) pktDecode(pkb *pktBuf) (msg, error) {
+	switch e {
 	case 'Z': return pktDecodeZ(pkb)
 	case 'M': return pktDecodeM(pkb)
 	default:  panic("bug")
@@ -240,8 +242,8 @@ func derrf(format string, argv ...interface{}) error {
 // ---- encode/decode for data types ----
 
 // xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
-func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
-	switch zl.encoding {
+func (e encoding) xuint64Unpack(xv interface{}) (uint64, bool) {
+	switch e {
 	default:
 		panic("bug")
 
@@ -270,11 +272,11 @@ func (zl *zLink) xuint64Unpack(xv interface{}) (uint64, bool) {
 }
 
 // xuint64Pack packs v into big-endian 8-byte string
-func (zl *zLink) xuint64Pack(v uint64) interface{} {
+func (e encoding) xuint64Pack(v uint64) interface{} {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], v)
 
-	switch zl.encoding {
+	switch e {
 	default:
 		panic("bug")
 
@@ -288,28 +290,28 @@ func (zl *zLink) xuint64Pack(v uint64) interface{} {
 	}
 }
 
-func (zl *zLink) tidPack(tid zodb.Tid) interface{} {
-	return zl.xuint64Pack(uint64(tid))
+func (e encoding) tidPack(tid zodb.Tid) interface{} {
+	return e.xuint64Pack(uint64(tid))
 }
 
-func (zl *zLink) oidPack(oid zodb.Oid) interface{} {
-	return zl.xuint64Pack(uint64(oid))
+func (e encoding) oidPack(oid zodb.Oid) interface{} {
+	return e.xuint64Pack(uint64(oid))
 }
 
-func (zl *zLink) tidUnpack(xv interface{}) (zodb.Tid, bool) {
-	v, ok := zl.xuint64Unpack(xv)
+func (e encoding) asTid(xv interface{}) (zodb.Tid, bool) {
+	v, ok := e.xuint64Unpack(xv)
 	return zodb.Tid(v), ok
 }
 
-func (zl *zLink) oidUnpack(xv interface{}) (zodb.Oid, bool) {
-	v, ok := zl.xuint64Unpack(xv)
+func (e encoding) asOid(xv interface{}) (zodb.Oid, bool) {
+	v, ok := e.xuint64Unpack(xv)
 	return zodb.Oid(v), ok
 }
 
 
 // asTuple tries to decode object as tuple. XXX
-func (zl *zLink) asTuple(xt interface{}) (tuple, bool) {
-	switch zl.encoding {
+func (e encoding) asTuple(xt interface{}) (tuple, bool) {
+	switch e {
 	default:
 		panic("bug")
 
@@ -326,8 +328,8 @@ func (zl *zLink) asTuple(xt interface{}) (tuple, bool) {
 }
 
 // asBytes tries to decode object as raw bytes.
-func (zl *zLink) asBytes(xb interface{}) ([]byte, bool) {
-	switch zl.encoding{
+func (e encoding) asBytes(xb interface{}) ([]byte, bool) {
+	switch e {
 	default:
 		panic("bug")
 
@@ -347,8 +349,8 @@ func (zl *zLink) asBytes(xb interface{}) ([]byte, bool) {
 }
 
 // asString tries to decode object as string.
-func (zl *zLink) asString(xs interface{}) (string, bool) {
-	switch zl.encoding{
+func (e encoding) asString(xs interface{}) (string, bool) {
+	switch e {
 	default:
 		panic("bug")
 

@@ -36,7 +36,7 @@ import (
 )
 
 type zeo struct {
-	srv *zLink	// XXX rename -> link?
+	link *zLink
 
 	// driver client <- watcher: database commits | errors.
 	watchq  chan<- zodb.Event
@@ -63,7 +63,7 @@ func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 		return zodb.InvalidTid, err
 	}
 
-	head, ok := z.srv.tidUnpack(xhead)
+	head, ok := z.link.enc.asTid(xhead)
 	if !ok {
 		return zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xhead)
 	}
@@ -83,19 +83,20 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error
 
 func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	rpc := z.rpc("loadBefore")
-	xres, err := rpc.call(ctx, z.srv.oidPack(xid.Oid), z.srv.tidPack(xid.At+1)) // XXX at2Before
+	enc := z.link.enc
+	xres, err := rpc.call(ctx, enc.oidPack(xid.Oid), enc.tidPack(xid.At+1)) // XXX at2Before
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// (data, serial, next_serial | None)
-	res, ok := z.srv.asTuple(xres)
+	res, ok := enc.asTuple(xres)
 	if !ok || len(res) != 3 {
 		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple", xres)
 	}
 
-	data, ok1 := z.srv.asBytes(res[0])
-	serial, ok2 := z.srv.tidUnpack(res[1])
+	data, ok1 := enc.asBytes(res[0])
+	serial, ok2 := enc.asTid(res[1])
 	// next_serial (res[2]) - just ignore
 
 	if !(ok1 && ok2) {
@@ -115,20 +116,21 @@ func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIte
 func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
 	defer xerr.Context(&err, "invalidateTransaction")
 
-	t, ok := z.srv.asTuple(arg)
+	enc := z.link.enc
+	t, ok := enc.asTuple(arg)
 	if !ok || len(t) != 2 {
 		return fmt.Errorf("got %#v; expect 2-tuple", arg)
 	}
 
 	// (tid, oidv)
-	tid, ok1 := z.srv.tidUnpack(t[0])
-	xoidt, ok2 := z.srv.asTuple(t[1])
+	tid, ok1 := enc.asTid(t[0])
+	xoidt, ok2 := enc.asTuple(t[1])
 	if !(ok1 && ok2) {
 		return fmt.Errorf("got (%T, %T); expect (tid, []oid)", t...)
 	}
 	oidv := []zodb.Oid{}
 	for _, xoid := range xoidt {
-		oid, ok := z.srv.oidUnpack(xoid)
+		oid, ok := enc.asOid(xoid)
 		if !ok {
 			return fmt.Errorf("non-oid %#v in oidv", xoid)
 		}
@@ -187,7 +189,7 @@ func ereplyf(addr, method, format string, argv ...interface{}) *errorUnexpectedR
 
 // rpc returns rpc object handy to make calls/create errors
 func (z *zeo) rpc(method string) rpc {
-	return rpc{zl: z.srv, method: method}
+	return rpc{zl: z.link, method: method}
 }
 
 type rpc struct {
@@ -242,7 +244,7 @@ func (r rpc) excError(exc string, argv tuple) error {
 			return r.ereplyf("poskeyerror: got %#v; expect 1-tuple", argv...)
 		}
 
-		oid, ok := r.zl.oidUnpack(argv[0])
+		oid, ok := r.zl.enc.asOid(argv[0])
 		if !ok {
 			return r.ereplyf("poskeyerror: got (%v); expect (oid)", argv[0])
 		}
@@ -259,14 +261,15 @@ func (r rpc) excError(exc string, argv tuple) error {
 // zeo5Error decodes arg of reply with msgExcept flag set and returns
 // corresponding error.
 func (r rpc) zeo5Error(arg interface{}) error {
+	enc := r.zl.enc
 	// ('type', (arg1, arg2, arg3, ...))
-	texc, ok := r.zl.asTuple(arg)
+	texc, ok := enc.asTuple(arg)
 	if !ok || len(texc) != 2 {
 		return r.ereplyf("except5: got %#v; expect 2-tuple", arg)
 	}
 
-	exc, ok1 := r.zl.asString(texc[0])
-	argv, ok2 := r.zl.asTuple(texc[1])
+	exc, ok1 := enc.asString(texc[0])
+	argv, ok2 := enc.asTuple(texc[1])
 	if !(ok1 && ok2) {
 		return r.ereplyf("except5: got (%T, %T); expect (str, tuple)", texc...)
 	}
@@ -382,7 +385,19 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		return nil, zodb.InvalidTid, fmt.Errorf("TODO write mode not implemented")
 	}
 
-	zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable {invalidateTransaction tid, oidv} -> ...
+	z := &zeo{watchq: opt.Watchq, url: url}
+
+	//zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable {invalidateTransaction tid, oidv} -> ...
+	zl, err := dialZLink(ctx, net, addr,
+	/*
+		// notifyTab
+		map[string]func(interface{})error {
+			"invalidateTransaction": z.invalidateTransaction,
+		},
+		// serveTab
+		nil,
+	*/
+	)
 	if err != nil {
 		return nil, zodb.InvalidTid, err
 	}
@@ -394,7 +409,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	}()
 
 
-	z := &zeo{srv: zl, watchq: opt.Watchq, url: url}
+	z.link = zl
 
 	rpc := z.rpc("register")
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
@@ -404,7 +419,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 
 	// register returns last_tid in ZEO5 but nothing earlier.
 	// if so we have to retrieve last_tid in another RPC.
-	if z.srv.ver < "5" {
+	if z.link.ver < "5" {
 		rpc = z.rpc("lastTransaction")
 		xlastTid, err = rpc.call(ctx)
 		if err != nil {
@@ -412,7 +427,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		}
 	}
 
-	lastTid, ok := zl.tidUnpack(xlastTid)
+	lastTid, ok := zl.enc.asTid(xlastTid)
 	if !ok {
 		return nil, zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xlastTid)
 	}
@@ -458,7 +473,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 }
 
 func (z *zeo) Close() error {
-	err := z.srv.Close()
+	err := z.link.Close()
 	if z.watchq != nil {
 		close(z.watchq)
 	}

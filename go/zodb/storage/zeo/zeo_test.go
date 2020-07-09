@@ -43,7 +43,7 @@ type ZEOSrv interface {
 	Addr() string // unix-socket address of the server
 	Close() error
 
-	Encoding() byte // encoding used on the wire - 'M' or 'Z'
+	Encoding() encoding // encoding used on the wire - 'M' or 'Z'
 }
 
 // ZEOPySrv represents running ZEO/py server.
@@ -134,10 +134,10 @@ func (z *ZEOPySrv) Close() (err error) {
 	return err
 }
 
-func (z *ZEOPySrv) Encoding() byte {
-	encoding := byte('Z')
-	if z.opt.msgpack { encoding = byte('M') }
-	return encoding
+func (z *ZEOPySrv) Encoding() encoding {
+	enc := encoding('Z')
+	if z.opt.msgpack { enc = encoding('M') }
+	return enc
 }
 
 
@@ -227,8 +227,8 @@ func TestHandshake(t *testing.T) {
 		}()
 
 		ewant := zsrv.Encoding()
-		if zlink.encoding != ewant {
-			t.Fatalf("handshake: encoding=%c  ; want %c", zlink.encoding, ewant)
+		if zlink.enc != ewant {
+			t.Fatalf("handshake: encoding=%c  ; want %c", zlink.enc, ewant)
 		}
 	})
 }

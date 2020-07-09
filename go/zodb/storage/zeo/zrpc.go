@@ -73,8 +73,8 @@ type zLink struct {
 	down1     sync.Once
 	errClose  error		// error got from .link.Close()
 
-	ver      string // protocol version in use (without "Z" or "M" prefix)
-	encoding byte   // protocol encoding in use ('Z' or 'M')
+	ver string   // protocol version in use (without "Z" or "M" prefix)
+	enc encoding // protocol encoding in use ('Z' or 'M')
 }
 
 // (called after handshake)
@@ -120,7 +120,7 @@ func (zl *zLink) Close() error {
 
 
 // serveRecv handles receives from underlying link and dispatches them to calls
-// waiting results.
+// waiting for results, to notify and serve handlers .
 func (zl *zLink) serveRecv() {
 	defer zl.serveWg.Done()
 	for {
@@ -143,7 +143,7 @@ func (zl *zLink) serveRecv() {
 // serveRecv1 handles 1 incoming packet.
 func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	// decode packet
-	m, err := zl.pktDecode(pkb)
+	m, err := zl.enc.pktDecode(pkb)
 	if err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 	zl.callMu.Unlock()
 
 	// (msgid, async, method, argv)
-	pkb := zl.pktEncode(msg{
+	pkb := zl.enc.pktEncode(msg{
 			msgid:  callID,
 			flags:  0,
 			method: method,
@@ -279,7 +279,7 @@ func (zl *zLink) reply(msgid int64, res interface{}) (err error) {
 		}
 	}()
 
-	pkb := zl.pktEncode(msg{
+	pkb := zl.enc.pktEncode(msg{
 		msgid:  msgid,
 		flags:  msgAsync,
 		method: ".reply",
@@ -480,7 +480,7 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 		}
 
 		// use wire encoding preferred by server
-		encoding := proto[0]
+		enc := encoding(proto[0])
 
 		// extract peer version from protocol string and choose actual
 		// version to use as min(peer, mybest)
@@ -505,14 +505,14 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 		// version selected - now send it back to server as
 		// corresponding handshake reply.
 		pkb = allocPkb()
-		pkb.WriteString(fmt.Sprintf("%c%s", encoding, ver))
+		pkb.WriteString(fmt.Sprintf("%c%s", enc, ver))
 		err = zl.sendPkt(pkb)
 		if err != nil {
 			return fmt.Errorf("tx: %s", err)
 		}
 
 		zl.ver = ver
-		zl.encoding = encoding
+		zl.enc = enc
 		close(hok)
 		return nil
 	})
