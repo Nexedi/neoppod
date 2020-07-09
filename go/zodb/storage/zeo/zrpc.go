@@ -60,11 +60,18 @@ type zLink struct {
 	callID  int64              // ID for next call; incremented at every call
 
 	// methods peer can invoke
-	methTab map[string]func(interface{})
+	// methods are served in parallel
+	serveTab map[string]func(context.Context, interface{})interface{}
+	// notifications peer can send
+	// notifications are invoked in order
+	notifyTab map[string]func(interface{})
 
-	serveWg	 sync.WaitGroup	// for serveRecv
-	down1    sync.Once
-	errClose error		// error got from .link.Close()
+	serveWg	    sync.WaitGroup  // for serveRecv and serveTab spawned from it
+	serveCtx    context.Context // serveTab handlers are called with this ctx
+	serveCancel func()          // to cancel serveCtx
+
+	down1     sync.Once
+	errClose  error		// error got from .link.Close()
 
 	ver      string // protocol version in use (without "Z" or "M" prefix)
 	encoding byte   // protocol encoding in use ('Z' or 'M')
@@ -82,7 +89,12 @@ var errLinkClosed = errors.New("zlink is closed")
 // shutdown shuts zlink down and sets error (XXX) which
 func (zl *zLink) shutdown(err error) {
 	zl.down1.Do(func() {
-		// XXX what with err?
+		if err != nil {
+			log.Printf("%s: %s", zl.link.RemoteAddr(), err)
+			// XXX what else to do with err?
+		}
+
+		zl.serveCancel()
 		zl.errClose = zl.link.Close()
 
 		// notify call waiters
@@ -120,11 +132,7 @@ func (zl *zLink) serveRecv() {
 
 		err = zl.serveRecv1(pkb)
 		pkb.Free()
-
-		// XXX ratelimit / only incstat?
-		// XXX -> shutdown zlink on error.
 		if err != nil {
-			log.Printf("%s: rx: %s", zl.link.RemoteAddr(), err)
 			zl.shutdown(err)
 			return
 		}
@@ -139,8 +147,7 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 		return err
 	}
 
-	// "invalidateTransaction", tid, oidv
-
+	// message is reply
 	if m.method == ".reply" {
 		// lookup call by msgid and dispatch result to waiter
 		zl.callMu.Lock()
@@ -158,17 +165,42 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 		return nil
 	}
 
+	// message is notification
+	if m.flags & msgAsync != 0 {
+		// notifications go in-order
+		f := zl.notifyTab[m.method]
+		if f == nil {
+			return fmt.Errorf(".%d: unknown notification %q", m.msgid, m.method)
+		}
 
-	// XXX currently only async/ no other flags handled
-	f := zl.methTab[m.method]
-	if f == nil {
-		// XXX reply "unknown method" if reply is possible
-		// XXX return error if reply is not possible
-		// XXX (ZEO/py always disconnects on error)
-		return fmt.Errorf(".%d: unknown method=%q", m.msgid, m.method)
+		f(m.arg)
+		return nil
 	}
 
-	f(m.arg)
+	// message is call
+	// calls are served in parallel
+	f := zl.serveTab[m.method]
+	if f == nil {
+		// disconnect on call to unknown method
+		err = fmt.Errorf("unknown method %q", m.method)
+		// XXX error -> exception
+		zl.reply(m.msgid, err) // ignore error
+		return fmt.Errorf(".%d: %s", m.msgid, err)
+	}
+	zl.serveWg.Add(1)
+	go func() {
+		defer zl.serveWg.Done()
+		res := f(zl.serveCtx, m.arg)
+
+		// XXX error -> exception
+
+		// send result back
+		err := zl.reply(m.msgid, res)
+		if err != nil {
+			zl.shutdown(err)
+		}
+	}()
+
 	return nil
 }
 
@@ -191,16 +223,13 @@ const (
 
 
 // Call makes 1 RPC call to server, waits for reply and returns it.
-func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, _ error) {
-	// defer func() ...
-	reply, err := zl._call(ctx, method, argv...)
-	if err != nil {
-		err = fmt.Errorf("%s: call %s: %s", zl.link.RemoteAddr(), method, err)
-	}
-	return reply, err
-}
+func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%s: call %s: %s", zl.link.RemoteAddr(), method, err)
+		}
+	}()
 
-func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) (reply msg, _ error) {
 	rxc := make(chan msg, 1) // reply will go here
 
 	// register our call
@@ -223,7 +252,7 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 	})
 
 	// ok, pkt is ready to go
-	err := zl.sendPkt(pkb) // XXX ctx cancel
+	err = zl.sendPkt(pkb) // XXX ctx cancel
 	if err != nil {
 		return msg{}, err
 	}
@@ -240,6 +269,23 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 	}
 
 	return reply, nil
+}
+
+func (zl *zLink) reply(msgid int64, res interface{}) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%s: .%d reply: %s", zl.link.RemoteAddr(), msgid, err)
+		}
+	}()
+
+	pkb := zl.pktEncode(msg{
+		msgid:  msgid,
+		flags:  msgAsync,
+		method: ".reply",
+		arg:    res,
+	})
+
+	return zl.sendPkt(pkb)
 }
 
 // RegisterMethod registers f to be called when remote	XXX
