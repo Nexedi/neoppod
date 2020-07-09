@@ -50,6 +50,7 @@ var protoVersions = []string{
 // zLink provides service to make and receive RPC requests.
 //
 // create zLink via dialZLink or handshake.
+// once link is created .StartServe must be called on it.
 type zLink struct {
 	link  net.Conn		// underlying network
 	rxbuf rbuf.RingBuf	// buffer for reading from link
@@ -60,11 +61,12 @@ type zLink struct {
 	callID  int64              // ID for next call; incremented at every call
 
 	// methods peer can invoke
+	serveReady chan struct{} // ready after serveTab and notifyTab are initialized by user
 	// methods are served in parallel
 	serveTab map[string]func(context.Context, interface{})interface{}
 	// notifications peer can send
 	// notifications are invoked in order
-	notifyTab map[string]func(interface{})
+	notifyTab map[string]func(interface{}) error
 
 	serveWg	    sync.WaitGroup  // for serveRecv and serveTab spawned from it
 	serveCtx    context.Context // serveTab handlers are called with this ctx
@@ -83,6 +85,15 @@ func (zl *zLink) start() {
 	zl.serveCtx, zl.serveCancel = context.WithCancel(context.Background())
 	zl.serveWg.Add(1)
 	go zl.serveRecv()
+}
+
+func (zl *zLink) StartServe(
+	notifyTab map[string]func(interface{}) error,
+	serveTab  map[string]func(context.Context, interface{}) interface{},
+) {
+	zl.serveTab  = serveTab
+	zl.notifyTab = notifyTab
+	close(zl.serveReady)
 }
 
 var errLinkClosed = errors.New("zlink is closed")
@@ -165,6 +176,10 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 		rxc <- m
 		return nil
 	}
+
+	// message is notification or call
+	// wait until user called StartServe on us
+	<-zl.serveReady
 
 	// message is notification
 	if m.flags & msgAsync != 0 {
@@ -455,7 +470,7 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 
 	// create raw zlink since we need to do the handshake as ZEO message exchange,
 	// but don't start serve goroutines yet.
-	zl := &zLink{link: conn}
+	zl := &zLink{link: conn, serveReady: make(chan struct{})}
 
 	// ready when/if handshake tx/rx exchange succeeds
 	hok := make(chan struct{})

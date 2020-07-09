@@ -385,19 +385,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		return nil, zodb.InvalidTid, fmt.Errorf("TODO write mode not implemented")
 	}
 
-	z := &zeo{watchq: opt.Watchq, url: url}
-
-	//zl, err := dialZLink(ctx, net, addr)	// XXX + methodTable {invalidateTransaction tid, oidv} -> ...
-	zl, err := dialZLink(ctx, net, addr,
-	/*
-		// notifyTab
-		map[string]func(interface{})error {
-			"invalidateTransaction": z.invalidateTransaction,
-		},
-		// serveTab
-		nil,
-	*/
-	)
+	zl, err := dialZLink(ctx, net, addr)
 	if err != nil {
 		return nil, zodb.InvalidTid, err
 	}
@@ -409,7 +397,15 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	}()
 
 
-	z.link = zl
+	z := &zeo{link: zl, watchq: opt.Watchq, url: url}
+	zl.StartServe(
+		// notifyTab
+		map[string]func(interface{})error {
+			"invalidateTransaction": z.invalidateTransaction,
+		},
+		// serveTab
+		nil,
+	)
 
 	rpc := z.rpc("register")
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
