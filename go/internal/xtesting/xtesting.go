@@ -232,11 +232,7 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
 
 // DrvTestWatch verifies that storage driver watcher can observe commits done from outside.
 func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
-	X := func(err error) {
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	X := FatalIf(t)
 
 	NeedPy(t, "zodbtools")
 
@@ -331,6 +327,15 @@ func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
 	}
 }
 
+
+// FatalIf(t) returns function f(err), which call t.Fatal if err != nil.
+func FatalIf(t *testing.T) func(error) {
+	return func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
 
 // b is syntactic sugar for byte literals.
