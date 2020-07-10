@@ -307,14 +307,6 @@ func (zl *zLink) reply(msgid int64, res interface{}) (err error) {
 	return zl.sendPkt(pkb)
 }
 
-/*
-// RegisterMethod registers f to be called when remote	XXX
-// FIXME -> provide methodTable to dial, so that it is available right from start without any race
-func (zl *zLink) RegisterMethod(method string, f func(arg interface{})) {
-	// XXX only "async" (without reply)
-	// XXX
-}
-*/
 
 // ---- raw IO ----
 
