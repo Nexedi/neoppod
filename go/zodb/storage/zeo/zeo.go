@@ -468,7 +468,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 
 func (z *zeo) Close() error {
 	err := z.link.Close()
-	if z.watchq != nil {
+	if z.watchq != nil {	// XXX -> into zlink.shutdown instead? (so it is closed after link is closed)?
 		close(z.watchq)
 	}
 	return err

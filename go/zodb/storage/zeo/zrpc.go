@@ -72,8 +72,8 @@ type zLink struct {
 	serveCtx    context.Context // serveTab handlers are called with this ctx
 	serveCancel func()          // to cancel serveCtx
 
-	down1     sync.Once
-	errClose  error		// error got from .link.Close()
+	down1    sync.Once
+	errClose error		// error got from .link.Close()
 
 	ver string   // protocol version in use (without "Z" or "M" prefix)
 	enc encoding // protocol encoding in use ('Z' or 'M')
@@ -87,6 +87,11 @@ func (zl *zLink) start() {
 	go zl.serveRecv()
 }
 
+// StartServe starts serving calls from remote peer according to notifyTab and serveTab.
+//
+// XXX it would be better for zLink to instead provide .Recv() to receive
+// peer's requests and then serve is just loop over Recv and decide what to do
+// with messages.
 func (zl *zLink) StartServe(
 	notifyTab map[string]func(interface{}) error,
 	serveTab  map[string]func(context.Context, interface{}) interface{},
@@ -119,6 +124,7 @@ func (zl *zLink) shutdown(err error) {
 			rxc <- msg{arg: nil} // notify link was closed	XXX ok? or err explicitly?
 		}
 
+		// XXX if err != nil -> watchq <- zodb.EventError{err}
 		// XXX close watcher
 	})
 }
