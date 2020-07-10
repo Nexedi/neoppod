@@ -63,14 +63,15 @@ func pktEncodeZ(m msg) *pktBuf {
 	pkb := allocPkb()
 	p := pickle.NewEncoder(pkb)
 
-	// tuple -> pickle.Tuple
+/*
+	// tuple -> pickle.Tuple	XXX needed? (should be produced by enc.Tuple)
 	arg := m.arg
 	tup, ok := arg.(tuple)
 	if ok {
 		arg = pickle.Tuple(tup)
 	}
-
-	err := p.Encode(pickle.Tuple{m.msgid, m.flags, m.method, arg})
+*/
+	err := p.Encode(pickle.Tuple{m.msgid, m.flags, m.method, m.arg})
 	if err != nil {
 		panic(err) // all our types are expected to be supported by pickle
 	}
