@@ -35,6 +35,8 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
+// zeo provides ZEO client.
+// It implements zodb.IStorageDriver.
 type zeo struct {
 	link *zLink
 

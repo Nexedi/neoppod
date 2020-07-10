@@ -273,7 +273,7 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 			msgid:  callID,
 			flags:  0,
 			method: method,
-			arg:    tuple(argv),
+			arg:    tuple(argv), // XXX zl.enc.Tuple(argv...)
 	})
 
 	// ok, pkt is ready to go
