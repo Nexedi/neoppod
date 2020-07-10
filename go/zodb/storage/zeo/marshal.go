@@ -90,6 +90,7 @@ func pktEncodeM(m msg) *pktBuf {
 	// it is interface{} - use shamaton/msgpack since msgp does not handle
 	// arbitrary interfaces well.
 	// XXX shamaton/msgpack encodes tuple(nil) as nil, not empty tuple
+	// XXX move to zLink.Call?
 	arg := m.arg
 	tup, ok := arg.(tuple)
 	if ok && tup == nil {
@@ -322,12 +323,18 @@ func (e encoding) asTuple(xt interface{}) (tuple, bool) {
 		panic("bug")
 
 	case 'Z':
-		// pickle: tuples are represented by picklet.Tuple
-		t, ok := xt.(pickle.Tuple)
-		return tuple(t), ok
+		// pickle: tuples are represented by pickle.Tuple; lists as []interface{}
+		switch t := xt.(type) {
+		case pickle.Tuple:
+			return tuple(t), true
+		case []interface{}:
+			return tuple(t), true
+		default:
+			return tuple(nil), false
+		}
 
 	case 'M':
-		// msgpack: tuples are encoded as arrays; decoded as []interface{}
+		// msgpack: tuples/lists are encoded as arrays; decoded as []interface{}
 		t, ok := xt.([]interface{})
 		return tuple(t), ok
 	}

@@ -114,8 +114,6 @@ func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIte
 
 // invalidateTransaction receives invalidations from server
 func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
-	defer xerr.Context(&err, "invalidateTransaction")
-
 	enc := z.link.enc
 	t, ok := enc.asTuple(arg)
 	if !ok || len(t) != 2 {

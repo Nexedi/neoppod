@@ -189,7 +189,10 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 			return fmt.Errorf(".%d: unknown notification %q", m.msgid, m.method)
 		}
 
-		f(m.arg)
+		err := f(m.arg)
+		if err != nil {
+			return fmt.Errorf(".%d: %s: %s", m.msgid, m.method, err)
+		}
 		return nil
 	}
 

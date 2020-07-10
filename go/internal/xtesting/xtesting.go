@@ -259,8 +259,6 @@ func checkLoad(t *testing.T, zdrv zodb.IStorageDriver, xid zodb.Xid, expect objS
 //
 // txnvOk is what data to expect to be in the database.
 func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
-	t.Helper()
-
 	// current knowledge of what was "before" for an oid as we scan over
 	// data base entries
 	before := map[zodb.Oid]objState{}
@@ -302,7 +300,6 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
 
 // DrvTestWatch verifies that storage driver watcher can observe commits done from outside.
 func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
-	t.Helper()
 	X := FatalIf(t)
 
 	NeedPy(t, "zodbtools")
