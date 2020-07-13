@@ -229,23 +229,6 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	return nil
 }
 
-// tuple represents py tuple.
-type tuple []interface{}
-
-// msg represents 1 message.
-type msg struct {
-	msgid  int64
-	flags  msgFlags
-	method string
-	arg    interface{} // can be e.g. tuple(arg1, arg2, ...)
-}
-
-type msgFlags int64
-const (
-	msgAsync  msgFlags = 1 // message does not need a reply
-	msgExcept          = 2 // exception was raised on remote side (ZEO5)
-)
-
 
 // Call makes 1 RPC call to server, waits for reply and returns it.
 func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, err error) {
@@ -273,7 +256,7 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 			msgid:  callID,
 			flags:  0,
 			method: method,
-			arg:    tuple(argv), // XXX zl.enc.Tuple(argv...)
+			arg:    zl.enc.Tuple(argv),
 	})
 
 	// ok, pkt is ready to go
