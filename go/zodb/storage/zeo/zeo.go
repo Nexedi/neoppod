@@ -338,7 +338,7 @@ func (r rpc) zeo4Error(arg interface{}) error {
 		argv = args
 	}
 
-	return r.excError(exc, tuple(argv)) // XXX don't cast?
+	return r.excError(exc, tuple(argv)) // XXX don't cast?	XXX
 }
 
 // isPyExceptClass returns whether klass represents python exception

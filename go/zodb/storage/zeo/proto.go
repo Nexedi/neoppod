@@ -48,7 +48,7 @@ type msg struct {
 	msgid  int64
 	flags  msgFlags
 	method string
-	arg    interface{} // can be e.g. tuple(arg1, arg2, ...)
+	arg    interface{} // can be e.g. (arg1, arg2, ...)
 }
 
 type msgFlags int64
@@ -85,15 +85,6 @@ func (e encoding) pktDecode(pkb *pktBuf) (msg, error) {
 func pktEncodeZ(m msg) *pktBuf {
 	pkb := allocPkb()
 	p := pickle.NewEncoder(pkb)
-
-/*
-	// tuple -> pickle.Tuple	XXX needed? (should be produced by enc.Tuple)
-	arg := m.arg
-	tup, ok := arg.(tuple)
-	if ok {
-		arg = pickle.Tuple(tup)
-	}
-*/
 	err := p.Encode(pickle.Tuple{m.msgid, m.flags, m.method, m.arg})
 	if err != nil {
 		panic(err) // all our types are expected to be supported by pickle
@@ -113,16 +104,6 @@ func pktEncodeM(m msg) *pktBuf {
 	// arg
 	// it is interface{} - use shamaton/msgpack since msgp does not handle
 	// arbitrary interfaces well.
-/*
-	// XXX shamaton/msgpack encodes tuple(nil) as nil, not empty tuple
-	// XXX move to zLink.Call?
-	arg := m.arg
-	tup, ok := arg.(tuple)
-	if ok && tup == nil {
-		arg = tuple{}
-	}
-	dataArg, err := msgpack.Encode(arg)
-*/
 	dataArg, err := msgpack.Encode(m.arg)
 	if err != nil {
 		panic(err) // all our types are expected to be supported by msgpack
@@ -275,6 +256,55 @@ func derrf(format string, argv ...interface{}) error {
 
 // ---- retrieve/put objects from/into msg.arg ----
 
+// tuple represents py tuple.
+type tuple []interface{}
+
+// Tuple converts t into corresponding object appropriate for encoding e.
+func (e encoding) Tuple(t tuple) interface{} {
+	switch e {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: -> pickle.Tuple
+		return pickle.Tuple(t)
+
+	case 'M':
+		// msgpack: -> leave as tuple
+		// However shamaton/msgpack encodes tuple(nil) as nil, not empty tuple
+		// so nil -> tuple{}
+		if t == nil {
+			t = tuple{}
+		}
+		return t
+	}
+}
+
+// asTuple tries to retrieve tuple from corresponding object decoded via encoding e.
+func (e encoding) asTuple(xt interface{}) (tuple, bool) {
+	switch e {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: tuples are represented by pickle.Tuple; lists as []interface{}
+		switch t := xt.(type) {
+		case pickle.Tuple:
+			return tuple(t), true
+		case []interface{}:
+			return tuple(t), true
+		default:
+			return tuple(nil), false
+		}
+
+	case 'M':
+		// msgpack: tuples/lists are encoded as arrays; decoded as []interface{}
+		t, ok := xt.([]interface{})
+		return tuple(t), ok
+	}
+}
+
+
 // xuint64Unpack tries to retrieve packed 8-byte string as bigendian uint64.
 func (e encoding) xuint64Unpack(xv interface{}) (uint64, bool) {
 	switch e {
@@ -346,54 +376,6 @@ func (e encoding) asOid(xv interface{}) (zodb.Oid, bool) {
 	return zodb.Oid(v), ok
 }
 
-
-// tuple represents py tuple.
-type tuple []interface{}
-
-// Tuple converts t into corresponding object appropriate for encoding e.
-func (e encoding) Tuple(t tuple) interface{} {
-	switch e {
-	default:
-		panic("bug")
-
-	case 'Z':
-		// pickle: -> pickle.Tuple
-		return pickle.Tuple(t)
-
-	case 'M':
-		// msgpack: -> leave as tuple
-		// However shamaton/msgpack encodes tuple(nil) as nil, not empty tuple
-		// so nil -> tuple{}
-		if t == nil {
-			t = tuple{}
-		}
-		return t
-	}
-}
-
-// asTuple tries to retrieve tuple from corresponding object decoded via encoding e.
-func (e encoding) asTuple(xt interface{}) (tuple, bool) {
-	switch e {
-	default:
-		panic("bug")
-
-	case 'Z':
-		// pickle: tuples are represented by pickle.Tuple; lists as []interface{}
-		switch t := xt.(type) {
-		case pickle.Tuple:
-			return tuple(t), true
-		case []interface{}:
-			return tuple(t), true
-		default:
-			return tuple(nil), false
-		}
-
-	case 'M':
-		// msgpack: tuples/lists are encoded as arrays; decoded as []interface{}
-		t, ok := xt.([]interface{})
-		return tuple(t), ok
-	}
-}
 
 // asBytes tries to retrieve bytes from corresponding object decoded via encoding e.
 func (e encoding) asBytes(xb interface{}) ([]byte, bool) {
