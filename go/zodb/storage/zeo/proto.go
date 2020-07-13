@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zeo
-// Protocol for exchanging ZEO messages.
+// Protocol for exchanged ZEO messages.
 // On the wire messages are encoded via either pickles or msgpack.
 // Each message is wrapped into packet with be32 header of whole packet size.
 // See https://github.com/zopefoundation/ZEO/blob/5.2.1-20-gcb26281d/doc/protocol.rst for details.
@@ -125,7 +125,7 @@ func pktDecodeZ(pkb *pktBuf) (msg, error) {
 		return m, err
 	}
 
-	tpkt, ok := xpkt.(pickle.Tuple) // XXX also list? -> Z.asTuple(xpkt)
+	tpkt, ok := encoding('Z').asTuple(xpkt)
 	if !ok {
 		return m, derrf("got %T; expected tuple", xpkt)
 	}

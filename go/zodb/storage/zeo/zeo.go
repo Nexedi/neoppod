@@ -200,7 +200,7 @@ type rpc struct {
 // rpcExcept represents generic exception
 type rpcExcept struct {
 	exc  string
-	argv []interface{}
+	argv tuple
 }
 
 func (r *rpcExcept) Error() string {
@@ -282,7 +282,7 @@ func (r rpc) zeo5Error(arg interface{}) error {
 //
 // nil is returned if arg does not represent an exception.
 func (r rpc) zeo4Error(arg interface{}) error {
-	// XXX check r.zl.encoding == 'Z' before using pickles?
+	// XXX check r.zl.encoding == 'Z' before using pickles?	XXX
 
 	// (exc_class, exc_inst), e.g.
 	// ogórek.Tuple{
@@ -297,7 +297,7 @@ func (r rpc) zeo4Error(arg interface{}) error {
 	//                 }
 	//         }
 	// }
-	targ, ok := arg.(pickle.Tuple)
+	targ, ok := arg.(pickle.Tuple)	// XXX -> asTuple
 	if !ok || len(targ) != 2 {
 		return nil
 	}
