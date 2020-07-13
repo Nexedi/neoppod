@@ -47,6 +47,9 @@ type zeo struct {
 	at0     zodb.Tid            // at0 obtained when initially connecting to server
 	eventq0 []*zodb.EventCommit // buffer for initial messeages, until .at0 is initialized
 
+	// becomes ready when serve loop finishes
+	serveWG sync.WaitGroup
+
 	url string // we were opened via this
 }
 
@@ -161,6 +164,22 @@ func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
 		z.watchq <- event
 	}
 	return nil
+}
+
+// flushEventq0 flushes events queued in z.eventq0.
+// must be called under .at0Mu
+func (z *zeo) flushEventq0() {
+	if z.at0 == 0 {
+		panic("flush, but .at0 not yet initialized")
+	}
+	if z.watchq != nil {
+		for _, e := range z.eventq0 {
+			if e.Tid > z.at0 {
+				z.watchq <- e
+			}
+		}
+	}
+	z.eventq0 = nil
 }
 
 // ----------------------------------------
@@ -396,14 +415,33 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 
 
 	z := &zeo{link: zl, watchq: opt.Watchq, url: url}
-	zl.StartServe(
-		// notifyTab
-		map[string]func(interface{})error {
-			"invalidateTransaction": z.invalidateTransaction,
-		},
-		// serveTab
-		nil,
-	)
+
+	// start serve loop on the link
+	z.serveWG.Add(1)
+	go func() {
+		defer z.serveWG.Done()
+		err := zl.Serve(
+			// notifyTab
+			map[string]func(interface{})error {
+				"invalidateTransaction": z.invalidateTransaction,
+			},
+			// serveTab
+			nil,
+		)
+
+		// close .watchq after serve is over
+		z.at0Mu.Lock()
+		defer z.at0Mu.Unlock()
+		if z.at0 != 0 {
+			z.flushEventq0()
+		}
+		if z.watchq != nil {
+			if err != nil {
+				z.watchq <- &zodb.EventError{Err: err}
+			}
+			close(z.watchq)
+		}
+	}()
 
 	rpc := z.rpc("register")
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
@@ -435,14 +473,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	// filter-out first < at0 messages for this reason.
 	z.at0Mu.Lock()
 	z.at0 = lastTid
-	if z.watchq != nil {
-		for _, e := range z.eventq0 {
-			if e.Tid > lastTid {
-				z.watchq <- e
-			}
-		}
-	}
-	z.eventq0 = nil
+	z.flushEventq0()
 	z.at0Mu.Unlock()
 
 
@@ -468,10 +499,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 
 func (z *zeo) Close() error {
 	err := z.link.Close()
-	// XXX move -> after wait for go serve
-	if z.watchq != nil {	// XXX -> into zlink.shutdown instead? (so it is closed after link is closed)?
-		close(z.watchq)
-	}
+	z.serveWG.Wait()
 	return err
 }
 

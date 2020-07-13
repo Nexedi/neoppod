@@ -50,7 +50,7 @@ var protoVersions = []string{
 // zLink provides service to make and receive RPC requests.
 //
 // create zLink via dialZLink or handshake.
-// once link is created .StartServe must be called on it.
+// once link is created .Serve must be called on it.
 type zLink struct {
 	link  net.Conn		// underlying network
 	rxbuf rbuf.RingBuf	// buffer for reading from link
@@ -73,7 +73,7 @@ type zLink struct {
 	serveCancel func()          // to cancel serveCtx
 
 	down1    sync.Once
-	errClose error		// error got from .link.Close()
+	errDown  error		// error with which the link was shut down
 
 	ver string   // protocol version in use (without "Z" or "M" prefix)
 	enc encoding // protocol encoding in use ('Z' or 'M')
@@ -87,36 +87,43 @@ func (zl *zLink) start() {
 	go zl.serveRecv()
 }
 
-// StartServe starts serving calls from remote peer according to notifyTab and serveTab.
+// Serve serves calls from remote peer according to notifyTab and serveTab.
+//
+// Serve returns when zlink becomes down - either on normal Close or on error.
+// On normal Close returned error == nil, otherwise it describes the reason for
+// why zlink was shut down.
 //
 // XXX it would be better for zLink to instead provide .Recv() to receive
 // peer's requests and then serve is just loop over Recv and decide what to do
 // with messages.
-//
-// XXX -> Serve(notifyTab, serveTab) error
-// XXX err  = nil on normal zlink.Close
-// XXX err != nil on zlink.shutdown(err)
-func (zl *zLink) StartServe(
+func (zl *zLink) Serve(
 	notifyTab map[string]func(interface{}) error,
 	serveTab  map[string]func(context.Context, interface{}) interface{},
-) {
+) error {
 	zl.serveTab  = serveTab
 	zl.notifyTab = notifyTab
 	close(zl.serveReady)
+	// wait for zlink to become down and return shutdown error
+	zl.serveWg.Wait()
+	return zl.errDown
 }
 
 var errLinkClosed = errors.New("zlink is closed")
 
-// shutdown shuts zlink down and sets error (XXX) which
+// shutdown shuts zlink down and sets reason why the link was shut down.
 func (zl *zLink) shutdown(err error) {
 	zl.down1.Do(func() {
+		err2 := zl.link.Close()
+		if err == nil {
+			err = err2
+		}
 		if err != nil {
 			log.Printf("%s: %s", zl.link.RemoteAddr(), err)
-			// XXX what else to do with err?
 		}
+		zl.errDown = err
 
 		zl.serveCancel()
-		zl.errClose = zl.link.Close()
+
 
 		// notify call waiters
 		zl.callMu.Lock()
@@ -127,18 +134,13 @@ func (zl *zLink) shutdown(err error) {
 		for _, rxc := range callTab {
 			rxc <- msg{arg: nil} // notify link was closed	XXX ok? or err explicitly?
 		}
-
-		// XXX if err != nil -> watchq <- zodb.EventError{err}
-		// XXX close watcher
-		// XXX -> notifyTab.shutdown?
-		// XXX -> go Serve() -> err -> watchq?	<- yes
 	})
 }
 
 func (zl *zLink) Close() error {
 	zl.shutdown(nil)
 	zl.serveWg.Wait() // wait in case shutdown was called from serveRecv
-	return zl.errClose
+	return zl.errDown
 }
 
 
@@ -190,7 +192,7 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	}
 
 	// message is notification or call
-	// wait until user called StartServe on us
+	// wait until user called Serve on us
 	<-zl.serveReady
 
 	// message is notification
