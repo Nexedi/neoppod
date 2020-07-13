@@ -111,7 +111,7 @@ func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIte
 }
 
 
-// invalidateTransaction receives invalidations from server
+// invalidateTransaction receives invalidations from server.
 func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
 	enc := z.link.enc
 	t, ok := enc.asTuple(arg)
@@ -150,6 +150,7 @@ func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
 	defer z.at0Mu.Unlock()
 
 	// queue initial events until .at0 is initalized after register
+	// queued events will be sent to watchq by zeo ctor after initializing .at0
 	if z.at0 == 0 {
 		z.eventq0 = append(z.eventq0, event)
 		return nil
@@ -467,6 +468,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 
 func (z *zeo) Close() error {
 	err := z.link.Close()
+	// XXX move -> after wait for go serve
 	if z.watchq != nil {	// XXX -> into zlink.shutdown instead? (so it is closed after link is closed)?
 		close(z.watchq)
 	}
