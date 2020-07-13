@@ -74,16 +74,13 @@ func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 }
 
 // Load implements zodb.IStorageDriver.
-func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
-	// defer func() ...
-	buf, serial, err := z._Load(ctx, xid)
-	if err != nil {
-		err = &zodb.OpError{URL: z.URL(), Op: "load", Args: xid, Err: err}
-	}
-	return buf, serial, err
-}
+func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
+	defer func() {
+		if err != nil {
+			err = &zodb.OpError{URL: z.URL(), Op: "load", Args: xid, Err: err}
+		}
+	}()
 
-func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	rpc := z.rpc("loadBefore")
 	enc := z.link.enc
 	xres, err := rpc.call(ctx, enc.Oid(xid.Oid), enc.Tid(xid.At+1)) // XXX at2Before
