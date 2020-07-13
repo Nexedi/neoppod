@@ -92,6 +92,10 @@ func (zl *zLink) start() {
 // XXX it would be better for zLink to instead provide .Recv() to receive
 // peer's requests and then serve is just loop over Recv and decide what to do
 // with messages.
+//
+// XXX -> Serve(notifyTab, serveTab) error
+// XXX err  = nil on normal zlink.Close
+// XXX err != nil on zlink.shutdown(err)
 func (zl *zLink) StartServe(
 	notifyTab map[string]func(interface{}) error,
 	serveTab  map[string]func(context.Context, interface{}) interface{},
@@ -126,6 +130,8 @@ func (zl *zLink) shutdown(err error) {
 
 		// XXX if err != nil -> watchq <- zodb.EventError{err}
 		// XXX close watcher
+		// XXX -> notifyTab.shutdown?
+		// XXX -> go Serve() -> err -> watchq?	<- yes
 	})
 }
 
@@ -279,6 +285,7 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 	return reply, nil
 }
 
+// reply sends reply to a call received with msgid.
 func (zl *zLink) reply(msgid int64, res interface{}) (err error) {
 	defer func() {
 		if err != nil {

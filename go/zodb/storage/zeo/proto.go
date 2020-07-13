@@ -271,8 +271,8 @@ func (e encoding) Tuple(t tuple) interface{} {
 
 	case 'M':
 		// msgpack: -> leave as tuple
-		// However shamaton/msgpack encodes tuple(nil) as nil, not empty tuple
-		// so nil -> tuple{}
+		// However shamaton/msgpack encodes tuple(nil) as nil, not empty tuple,
+		// so nil -> tuple{}.
 		if t == nil {
 			t = tuple{}
 		}
