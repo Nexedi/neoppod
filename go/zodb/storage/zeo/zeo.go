@@ -269,6 +269,7 @@ func (r rpc) excError(exc string, argv tuple) error {
 		// XXX POSKeyError does not allow to distinguish whether it is
 		// no object at all or object exists and its data was not found
 		// for tid_before. IOW we cannot translate to zodb.NoDataError
+		// https://github.com/zopefoundation/ZODB/issues/318
 		return &zodb.NoObjectError{Oid: oid}
 	}
 
@@ -299,7 +300,10 @@ func (r rpc) zeo5Error(arg interface{}) error {
 //
 // nil is returned if arg does not represent an exception.
 func (r rpc) zeo4Error(arg interface{}) error {
-	// XXX check r.zl.encoding == 'Z' before using pickles?	XXX
+	// in msgpack encoding errors are always indicated via msgExcept flag.
+	if r.zl.enc != 'Z' {
+		return nil
+	}
 
 	// (exc_class, exc_inst), e.g.
 	// ogórek.Tuple{
@@ -314,7 +318,7 @@ func (r rpc) zeo4Error(arg interface{}) error {
 	//                 }
 	//         }
 	// }
-	targ, ok := arg.(pickle.Tuple)	// XXX -> asTuple
+	targ, ok := arg.(pickle.Tuple)
 	if !ok || len(targ) != 2 {
 		return nil
 	}
@@ -355,7 +359,7 @@ func (r rpc) zeo4Error(arg interface{}) error {
 		argv = args
 	}
 
-	return r.excError(exc, tuple(argv)) // XXX don't cast?	XXX
+	return r.excError(exc, tuple(argv))
 }
 
 // isPyExceptClass returns whether klass represents python exception

@@ -41,7 +41,7 @@ import (
 var protoVersions = []string{
 	"3101", // last in ZEO3 series
 	"4",    // no longer call load.
-	"5",    // current in ZEO5 series.
+	"5",    // current in ZEO5 series (no serialnos, ...).
 }
 
 
