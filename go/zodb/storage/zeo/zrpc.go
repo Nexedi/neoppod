@@ -45,7 +45,7 @@ var protoVersions = []string{
 }
 
 
-// zLink is ZEO connection between client (local end) and server (remote end).
+// zLink is ZEO connection between client and server.
 //
 // zLink provides service to make and receive RPC requests.
 //
