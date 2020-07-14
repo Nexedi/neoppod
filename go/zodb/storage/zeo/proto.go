@@ -19,7 +19,7 @@
 
 package zeo
 // Protocol for exchanged ZEO messages.
-// On the wire messages are encoded via pickles.
+// On the wire messages are encoded via either pickles or msgpack.
 // Each message is wrapped into packet with be32 header of whole packet size.
 // See https://github.com/zopefoundation/ZEO/blob/5.2.1-20-gcb26281d/doc/protocol.rst for details.
 
@@ -28,6 +28,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	msgp    "github.com/tinylib/msgp/msgp"
+	msgpack "github.com/shamaton/msgpack"
 	pickle  "github.com/kisielk/og-rek"
 
 	"lab.nexedi.com/kirr/go123/mem"
@@ -56,7 +58,7 @@ const (
 )
 
 // encoding represents messages encoding.
-type encoding byte // Z - pickles
+type encoding byte // Z - pickles, M - msgpack
 
 // ---- message encode/decode ↔ packet ----
 
@@ -64,6 +66,7 @@ type encoding byte // Z - pickles
 func (e encoding) pktEncode(m msg) *pktBuf {
 	switch e {
 	case 'Z': return pktEncodeZ(m)
+	case 'M': return pktEncodeM(m)
 	default:  panic("bug")
 	}
 }
@@ -72,6 +75,7 @@ func (e encoding) pktEncode(m msg) *pktBuf {
 func (e encoding) pktDecode(pkb *pktBuf) (msg, error) {
 	switch e {
 	case 'Z': return pktDecodeZ(pkb)
+	case 'M': return pktDecodeM(pkb)
 	default:  panic("bug")
 	}
 }
@@ -87,6 +91,29 @@ func pktEncodeZ(m msg) *pktBuf {
 	}
 	return pkb
 }
+
+// pktEncodeM encodes message into raw M (msgpack) packet.
+func pktEncodeM(m msg) *pktBuf {
+	pkb := allocPkb()
+
+	data := pkb.data
+	data = msgp.AppendArrayHeader(data, 4)
+	data = msgp.AppendInt64(data,  m.msgid)		// msgid
+	data = msgp.AppendInt64(data,  int64(m.flags))	// flags
+	data = msgp.AppendString(data, m.method)	// method
+	// arg
+	// it is interface{} - use shamaton/msgpack since msgp does not handle
+	// arbitrary interfaces well.
+	dataArg, err := msgpack.Encode(m.arg)
+	if err != nil {
+		panic(err) // all our types are expected to be supported by msgpack
+	}
+	data = append(data, dataArg...)
+
+	pkb.data = data
+	return pkb
+}
+
 
 // pktDecodeZ decodes raw Z (pickle) packet into message.
 func pktDecodeZ(pkb *pktBuf) (msg, error) {
@@ -133,6 +160,94 @@ func pktDecodeZ(pkb *pktBuf) (msg, error) {
 	return m, nil
 }
 
+// pktDecodeM decodes raw M (msgpack) packet into message.
+func pktDecodeM(pkb *pktBuf) (msg, error) {
+	var m msg
+	b := pkb.Payload()
+
+	// must be (msgid, False|0, "method", arg)
+	l, b, err := msgp.ReadArrayHeaderBytes(b)
+	if err != nil {
+		return m, derrf("%s", err)
+	}
+	if l != 4 {
+		return m, derrf("len(msg-tuple)=%d; expected 4", l)
+	}
+
+	// msgid
+	v := int64(0)
+	switch t := msgp.NextType(b); t {
+	case msgp.IntType:
+		v, b, err = msgp.ReadInt64Bytes(b)
+	case msgp.UintType:
+		var x uint64
+		x, b, err = msgp.ReadUint64Bytes(b)
+		v = int64(x)
+	default:
+		err = fmt.Errorf("got %s; expected int", t)
+	}
+	if err != nil {
+		return m, derrf("msgid: %s", err)
+	}
+	m.msgid = v
+
+	// flags
+	v = int64(0)
+	switch t := msgp.NextType(b); t {
+	case msgp.BoolType:
+		var x bool
+		x, b, err = msgp.ReadBoolBytes(b)
+		if x { v = 1 }
+	case msgp.IntType:
+		v, b, err = msgp.ReadInt64Bytes(b)
+	case msgp.UintType:
+		var x uint64
+		x, b, err = msgp.ReadUint64Bytes(b)
+		v = int64(x)
+	default:
+		err = fmt.Errorf("got %s; expected int|bool", t)
+	}
+	if err != nil {
+		return m, derrf("flags: %s", err)
+	}
+	// XXX check flags are in range?
+	m.flags = msgFlags(v)
+
+	// method
+	s := ""
+	switch t := msgp.NextType(b); t {
+	case msgp.StrType:
+		s, b, err = msgp.ReadStringBytes(b)
+	case msgp.BinType:
+		var x []byte
+		x, b, err = msgp.ReadBytesZC(b)
+		s = string(x)
+	default:
+		err = fmt.Errorf("got %s; expected str|bin", t)
+	}
+	if err != nil {
+		return m, derrf(".%d: method: %s", m.msgid, err)
+	}
+	m.method = s
+
+	// arg
+	// it is interface{} - use shamaton/msgpack since msgp does not handle
+	// arbitrary interfaces well.
+	btail, err := msgp.Skip(b)
+	if err != nil {
+		return m, derrf(".%d: arg: %s", m.msgid, err)
+	}
+	if len(btail) != 0 {
+		return m, derrf(".%d: payload has extra data after message")
+	}
+	err = msgpack.Decode(b, &m.arg)
+	if err != nil {
+		return m, derrf(".%d: arg: %s", m.msgid, err)
+	}
+
+	return m, nil
+}
+
 
 func derrf(format string, argv ...interface{}) error {
 	return fmt.Errorf("decode: "+format, argv...)
@@ -145,7 +260,7 @@ func derrf(format string, argv ...interface{}) error {
 type tuple []interface{}
 
 // Tuple converts t into corresponding object appropriate for encoding e.
-func (e encoding) Tuple(t tuple) pickle.Tuple {
+func (e encoding) Tuple(t tuple) interface{} {
 	switch e {
 	default:
 		panic("bug")
@@ -153,6 +268,15 @@ func (e encoding) Tuple(t tuple) pickle.Tuple {
 	case 'Z':
 		// pickle: -> pickle.Tuple
 		return pickle.Tuple(t)
+
+	case 'M':
+		// msgpack: -> leave as tuple
+		// However shamaton/msgpack encodes tuple(nil) as nil, not empty tuple,
+		// so nil -> tuple{}.
+		if t == nil {
+			t = tuple{}
+		}
+		return t
 	}
 }
 
@@ -172,6 +296,11 @@ func (e encoding) asTuple(xt interface{}) (tuple, bool) {
 		default:
 			return tuple(nil), false
 		}
+
+	case 'M':
+		// msgpack: tuples/lists are encoded as arrays; decoded as []interface{}
+		t, ok := xt.([]interface{})
+		return tuple(t), ok
 	}
 }
 
@@ -189,11 +318,24 @@ func (e encoding) xuint64Unpack(xv interface{}) (uint64, bool) {
 			return 0, false
 		}
 		return v, true
+
+	case 'M':
+		// msgpack decodes bytes as []byte (which corresponds to bytearray in pickle)
+		switch v := xv.(type) {
+		default:
+			return 0, false
+
+		case []byte:
+			if len(v) != 8 {
+				return 0, false
+			}
+			return binary.BigEndian.Uint64(v), true
+		}
 	}
 }
 
 // xuint64Pack packs v into big-endian 8-byte string
-func (e encoding) xuint64Pack(v uint64) string {
+func (e encoding) xuint64Pack(v uint64) interface{} {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], v)
 
@@ -204,16 +346,20 @@ func (e encoding) xuint64Pack(v uint64) string {
 	case 'Z':
 		// pickle: -> str	XXX do we need to emit bytes instead of str?
 		return mem.String(b[:])
+
+	case 'M':
+		// msgpack: -> bin
+		return b[:]
 	}
 }
 
 // Tid converts tid into corresponding object appropriate for encoding e.
-func (e encoding) Tid(tid zodb.Tid) string {
+func (e encoding) Tid(tid zodb.Tid) interface{} {
 	return e.xuint64Pack(uint64(tid))
 }
 
 // Oid converts oid into corresponding object appropriate for encoding e.
-func (e encoding) Oid(oid zodb.Oid) string {
+func (e encoding) Oid(oid zodb.Oid) interface{} {
 	return e.xuint64Pack(uint64(oid))
 }
 
@@ -243,6 +389,11 @@ func (e encoding) asBytes(xb interface{}) ([]byte, bool) {
 			return nil, false
 		}
 		return mem.Bytes(s), true
+
+	case 'M':
+		// msgpack: bin
+		b, ok := xb.([]byte)
+		return b, ok
 	}
 }
 
@@ -256,5 +407,16 @@ func (e encoding) asString(xs interface{}) (string, bool) {
 		// pickle: str
 		s, ok := xs.(string)
 		return s, ok
+
+	case 'M':
+		// msgpack: bin(from py2) | str(from py3)
+		switch s := xs.(type) {
+		case []byte:
+			return string(s), true
+		case string:
+			return s, true
+		default:
+			return "", false
+		}
 	}
 }

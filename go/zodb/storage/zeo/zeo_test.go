@@ -21,6 +21,7 @@ package zeo
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -41,6 +42,8 @@ import (
 type ZEOSrv interface {
 	Addr() string // unix-socket address of the server
 	Close() error
+
+	Encoding() encoding // encoding used on the wire - 'M' or 'Z'
 }
 
 // ZEOPySrv represents running ZEO/py server.
@@ -56,6 +59,7 @@ type ZEOPySrv struct {
 }
 
 type ZEOPyOptions struct {
+	msgpack bool // whether to advertise msgpack
 }
 
 // StartZEOPySrv starts ZEO/py server for FileStorage database located at fs1path.
@@ -67,6 +71,11 @@ func StartZEOPySrv(fs1path string, opt ZEOPyOptions) (_ *ZEOPySrv, err error) {
 	z := &ZEOPySrv{fs1path: fs1path, cancel: cancel, done: make(chan struct{})}
 	z.pysrv = exec.CommandContext(ctx, "python", "-m", "ZEO.runzeo", "-f", fs1path, "-a", z.Addr())
 	z.opt = opt
+	msgpack := ""
+	if opt.msgpack {
+		msgpack = "y"
+	}
+	z.pysrv.Env = append(os.Environ(), "ZEO_MSGPACK="+msgpack)
 	z.pysrv.Stdin = nil
 	z.pysrv.Stdout = os.Stdout
 	z.pysrv.Stderr = os.Stderr
@@ -125,6 +134,12 @@ func (z *ZEOPySrv) Close() (err error) {
 	return err
 }
 
+func (z *ZEOPySrv) Encoding() encoding {
+	enc := encoding('Z')
+	if z.opt.msgpack { enc = encoding('M') }
+	return enc
+}
+
 
 // ----------------
 
@@ -161,21 +176,27 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 		f(fs1path)
 	}
 
-	// ZEO/py
-	t.Run("py", func(t *testing.T) {
-		t.Helper()
-		xtesting.NeedPy(t, "ZEO")
-		withFS1(t, func(fs1path string) {
-			X := xtesting.FatalIf(t)
+	for _, msgpack := range []bool{false, true} {
+		// ZEO/py
+		t.Run(fmt.Sprintf("py/msgpack=%v", msgpack), func(t *testing.T) {
+			t.Helper()
+			needpy := []string{"ZEO"}
+			if msgpack {
+				needpy = append(needpy, "msgpack")
+			}
+			xtesting.NeedPy(t, needpy...)
+			withFS1(t, func(fs1path string) {
+				X := xtesting.FatalIf(t)
 
-			zpy, err := StartZEOPySrv(fs1path, ZEOPyOptions{}); X(err)
-			defer func() {
-				err := zpy.Close(); X(err)
-			}()
+				zpy, err := StartZEOPySrv(fs1path, ZEOPyOptions{msgpack: msgpack}); X(err)
+				defer func() {
+					err := zpy.Close(); X(err)
+				}()
 
-			f(t, zpy)
+				f(t, zpy)
+			})
 		})
-	})
+	}
 }
 
 // withZEO tests f on all kinds of ZEO servers connected to by ZEO client.
@@ -203,7 +224,10 @@ func TestHandshake(t *testing.T) {
 			err := zlink.Close(); X(err)
 		}()
 
-		// conntected ok
+		ewant := zsrv.Encoding()
+		if zlink.enc != ewant {
+			t.Fatalf("handshake: encoding=%c  ; want %c", zlink.enc, ewant)
+		}
 	})
 }
 

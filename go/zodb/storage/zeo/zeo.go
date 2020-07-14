@@ -223,6 +223,11 @@ func (r rpc) zeo5Error(arg interface{}) error {
 //
 // nil is returned if arg does not represent an exception.
 func (r rpc) zeo4Error(arg interface{}) error {
+	// in non-pickle encodings errors are always indicated via msgExcept flag
+	if r.zlink.enc != 'Z' {
+		return nil
+	}
+
 	// (exc_class, exc_inst), e.g.
 	// ogórek.Tuple{
 	//         ogórek.Class{Module:"ZODB.POSException", Name:"POSKeyError"},
