@@ -19,6 +19,7 @@
 
 package zeo
 // Protocol for exchanged ZEO messages.
+// On the wire messages are encoded via pickles.
 // Each message is wrapped into packet with be32 header of whole packet size.
 // See https://github.com/zopefoundation/ZEO/blob/5.2.1-20-gcb26281d/doc/protocol.rst for details.
 
@@ -35,6 +36,12 @@ import (
 )
 
 // msg represents 1 message.
+// arg is arbitrary argument(s) passed/received along ZEO call or reply.
+//
+// for objects in arg user code has to obtain them via encoding.*Unpack() and
+// set them via encoding.*Pack() methods that
+// convert application-level data into objects properly corresponding to wire
+// encoding of messages.
 type msg struct {
 	msgid  int64
 	flags  msgFlags
@@ -48,10 +55,30 @@ const (
 	msgExcept          = 2 // exception was raised on remote side (ZEO5)
 )
 
+// encoding represents messages encoding.
+type encoding byte // Z - pickles
+
 // ---- message encode/decode ↔ packet ----
 
 // pktEncode encodes message into raw packet.
-func pktEncode(m msg) *pktBuf {
+func (e encoding) pktEncode(m msg) *pktBuf {
+	switch e {
+	case 'Z': return pktEncodeZ(m)
+	default:  panic("bug")
+	}
+}
+
+// pktDecode decodes raw packet into message.
+func (e encoding) pktDecode(pkb *pktBuf) (msg, error) {
+	switch e {
+	case 'Z': return pktDecodeZ(pkb)
+	default:  panic("bug")
+	}
+}
+
+
+// pktEncodeZ encodes message into raw Z (pickle) packet.
+func pktEncodeZ(m msg) *pktBuf {
 	pkb := allocPkb()
 	p := pickle.NewEncoder(pkb)
 	err := p.Encode(pickle.Tuple{m.msgid, m.flags, m.method, m.arg})
@@ -61,8 +88,8 @@ func pktEncode(m msg) *pktBuf {
 	return pkb
 }
 
-// pktDecode decodes raw packet into message.
-func pktDecode(pkb *pktBuf) (msg, error) {
+// pktDecodeZ decodes raw Z (pickle) packet into message.
+func pktDecodeZ(pkb *pktBuf) (msg, error) {
 	var m msg
 	// must be (msgid, False|0, ".reply", res)
 	d := pickle.NewDecoder(bytes.NewReader(pkb.Payload()))
@@ -105,41 +132,53 @@ func derrf(format string, argv ...interface{}) error {
 }
 
 
-// ---- oid/tid packing ----
+// ---- retrieve/put objects from/into msg.arg ----
 
 // xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
-func xuint64Unpack(xv interface{}) (uint64, bool) {
-	v, err := pickletools.Xstrbytes8(xv)
-	if err != nil {
-		return 0, false
-	}
+func (e encoding) xuint64Unpack(xv interface{}) (uint64, bool) {
+	switch e {
+	default:
+		panic("bug")
 
-	return v, true
+	case 'Z':
+		// pickle: str|bytes
+		v, err := pickletools.Xstrbytes8(xv)
+		if err != nil {
+			return 0, false
+		}
+		return v, true
+	}
 }
 
 // xuint64Pack packs v into big-endian 8-byte string
-//
-// XXX do we need to emit bytes instead of str?
-func xuint64Pack(v uint64) string {
+func (e encoding) xuint64Pack(v uint64) string {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], v)
-	return mem.String(b[:])
+
+	switch e {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: -> str	XXX do we need to emit bytes instead of str?
+		return mem.String(b[:])
+	}
 }
 
-func tidPack(tid zodb.Tid) string {
-	return xuint64Pack(uint64(tid))
+func (e encoding) tidPack(tid zodb.Tid) string {
+	return e.xuint64Pack(uint64(tid))
 }
 
-func oidPack(oid zodb.Oid) string {
-	return xuint64Pack(uint64(oid))
+func (e encoding) oidPack(oid zodb.Oid) string {
+	return e.xuint64Pack(uint64(oid))
 }
 
-func tidUnpack(xv interface{}) (zodb.Tid, bool) {
-	v, ok := xuint64Unpack(xv)
+func (e encoding) tidUnpack(xv interface{}) (zodb.Tid, bool) {
+	v, ok := e.xuint64Unpack(xv)
 	return zodb.Tid(v), ok
 }
 
-func oidUnpack(xv interface{}) (zodb.Oid, bool) {
-	v, ok := xuint64Unpack(xv)
+func (e encoding) oidUnpack(xv interface{}) (zodb.Oid, bool) {
+	v, ok := e.xuint64Unpack(xv)
 	return zodb.Oid(v), ok
 }

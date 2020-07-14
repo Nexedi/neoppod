@@ -68,7 +68,8 @@ type zLink struct {
 	down1    sync.Once
 	errDown  error		// error with which the link was shut down
 
-	ver string // protocol verision in use (without "Z" or "M" prefix)
+	ver string   // protocol version in use (without "Z" or "M" prefix)
+	enc encoding // protocol encoding in use (always 'Z')
 }
 
 // (called after handshake)
@@ -135,7 +136,7 @@ func (zl *zLink) serveRecv() {
 // serveRecv1 handles 1 incoming packet.
 func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	// decode packet
-	m, err := pktDecode(pkb)
+	m, err := zl.enc.pktDecode(pkb)
 	if err != nil {
 		return err
 	}
@@ -183,7 +184,7 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 	zl.callMu.Unlock()
 
 	// (msgid, async, method, argv)
-	pkb := pktEncode(msg{
+	pkb := zl.enc.pktEncode(msg{
 			msgid:  callID,
 			flags:  0,
 			method: method,
@@ -389,7 +390,8 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 
 		// even if server announced it prefers 'M' (msgpack) it will
 		// accept 'Z' (pickles) as encoding. We always use 'Z'.
-		//
+		enc := encoding('Z')
+
 		// extract peer version from protocol string and choose actual
 		// version to use as min(peer, mybest)
 		ver := proto[1:]
@@ -413,13 +415,14 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 		// version selected - now send it back to server as
 		// corresponding handshake reply.
 		pkb = allocPkb()
-		pkb.WriteString("Z" + ver)
+		pkb.WriteString(fmt.Sprintf("%c%s", enc, ver))
 		err = zl.sendPkt(pkb)
 		if err != nil {
 			return fmt.Errorf("tx: %s", err)
 		}
 
 		zl.ver = ver
+		zl.enc = enc
 		close(hok)
 		return nil
 	})

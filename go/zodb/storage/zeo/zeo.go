@@ -63,7 +63,7 @@ func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 		return zodb.InvalidTid, err
 	}
 
-	head, ok := tidUnpack(xhead)
+	head, ok := z.link.enc.tidUnpack(xhead)
 	if !ok {
 		return zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xhead)
 	}
@@ -79,7 +79,8 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb
 	}()
 
 	rpc := z.rpc("loadBefore")
-	xres, err := rpc.call(ctx, oidPack(xid.Oid), tidPack(xid.At+1)) // XXX at2Before
+	enc := z.link.enc
+	xres, err := rpc.call(ctx, enc.oidPack(xid.Oid), enc.tidPack(xid.At+1)) // XXX at2Before
 	if err != nil {
 		return nil, 0, err
 	}
@@ -91,7 +92,7 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb
 	}
 
 	data, ok1 := res[0].(string)
-	serial, ok2 := tidUnpack(res[1])
+	serial, ok2 := enc.tidUnpack(res[1])
 	// next_serial (res[2]) - just ignore
 
 	if !(ok1 && ok2) {
@@ -183,7 +184,7 @@ func (r rpc) excError(exc string, argv []interface{}) error {
 			return r.ereplyf("poskeyerror: got %#v; expect 1-tuple", argv...)
 		}
 
-		oid, ok := oidUnpack(argv[0])
+		oid, ok := r.zlink.enc.oidUnpack(argv[0])
 		if !ok {
 			return r.ereplyf("poskeyerror: got (%v); expect (oid)", argv[0])
 		}
@@ -360,7 +361,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		}
 	}
 
-	lastTid, ok := tidUnpack(xlastTid) // XXX -> xlastTid -> scan
+	lastTid, ok := zlink.enc.tidUnpack(xlastTid) // XXX -> xlastTid -> scan
 	if !ok {
 		return nil, zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xlastTid)
 	}
