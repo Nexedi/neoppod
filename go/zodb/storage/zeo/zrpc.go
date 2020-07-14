@@ -145,7 +145,7 @@ func (zl *zLink) Close() error {
 
 
 // serveRecv handles receives from underlying link and dispatches them to calls
-// waiting for results, to notify and serve handlers .
+// waiting for results, to notify and serve handlers.
 func (zl *zLink) serveRecv() {
 	defer zl.serveWg.Done()
 	for {
@@ -216,7 +216,7 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	if f == nil {
 		// disconnect on call to unknown method
 		err = fmt.Errorf("unknown method %q", m.method)
-		// XXX error -> exception
+		// TODO error -> exception
 		zl.reply(m.msgid, err) // ignore error
 		return fmt.Errorf(".%d: %s", m.msgid, err)
 	}
@@ -225,7 +225,7 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 		defer zl.serveWg.Done()
 		res := f(zl.serveCtx, m.arg)
 
-		// XXX error -> exception
+		// TODO error -> exception
 
 		// send result back
 		err := zl.reply(m.msgid, res)
@@ -378,7 +378,7 @@ func (zl *zLink) sendPkt(pkb *pktBuf) error {
 // recvPkt receives 1 raw ZEO packet.
 //
 // the packet returned contains both header and payload.
-// XXX almost dump from NEO.
+// XXX almost dup from NEO.
 func (zl *zLink) recvPkt() (*pktBuf, error) {
 	pkb := allocPkb()
 	data := pkb.data[:cap(pkb.data)]
