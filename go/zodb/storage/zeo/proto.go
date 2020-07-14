@@ -305,7 +305,7 @@ func (e encoding) asTuple(xt interface{}) (tuple, bool) {
 }
 
 
-// xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
+// xuint64Unpack tries to retrieve packed 8-byte string as bigendian uint64.
 func (e encoding) xuint64Unpack(xv interface{}) (uint64, bool) {
 	switch e {
 	default:
@@ -332,9 +332,10 @@ func (e encoding) xuint64Unpack(xv interface{}) (uint64, bool) {
 			return binary.BigEndian.Uint64(v), true
 		}
 	}
+
 }
 
-// xuint64Pack packs v into big-endian 8-byte string
+// xuint64Pack packs v into big-endian 8-byte string.
 func (e encoding) xuint64Pack(v uint64) interface{} {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], v)

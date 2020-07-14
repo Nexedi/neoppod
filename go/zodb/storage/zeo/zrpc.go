@@ -37,13 +37,11 @@ import (
 	"lab.nexedi.com/kirr/go123/xsync"
 )
 
-const pktHeaderLen = 4
-
 // we can speak this protocol versions
 var protoVersions = []string{
 	"3101", // last in ZEO3 series
 	"4",    // no longer call load.
-	"5",    // current in ZEO5 series.
+	"5",    // current in ZEO5 series (no serialnos, ...).
 }
 
 
@@ -309,6 +307,9 @@ func (zl *zLink) reply(msgid int64, res interface{}) (err error) {
 
 // ---- raw IO ----
 
+// packet = {size(u32), data}
+const pktHeaderLen = 4
+
 // pktBuf is buffer with packet data.
 //
 // alloc via allocPkb and free via pkb.Free.
@@ -376,7 +377,7 @@ func (zl *zLink) sendPkt(pkb *pktBuf) error {
 // recvPkt receives 1 raw ZEO packet.
 //
 // the packet returned contains both header and payload.
-// XXX almost dump from NEO.
+// XXX almost dup from NEO.
 func (zl *zLink) recvPkt() (*pktBuf, error) {
 	pkb := allocPkb()
 	data := pkb.data[:cap(pkb.data)]

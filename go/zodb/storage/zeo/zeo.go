@@ -35,6 +35,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
+// zeo provides ZEO client.
 type zeo struct {
 	link *zLink
 
@@ -51,7 +52,11 @@ type zeo struct {
 	url string // we were opened via this
 }
 
+// zeo implements zodb.IStorageDriver.
+var _ zodb.IStorageDriver = (*zeo)(nil)
 
+
+// Sync implements zodb.IStorageDriver.
 func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 	defer func() {
 		if err != nil {
@@ -75,6 +80,7 @@ func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 	return head, nil
 }
 
+// Load implements zodb.IStorageDriver.
 func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
 	defer func() {
 		if err != nil {
@@ -106,6 +112,7 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb
 	return &mem.Buf{Data: data}, serial, nil
 }
 
+// Iterates implements zodb.IStorageDriver.
 func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	panic("TODO")
 }
@@ -204,7 +211,7 @@ func ereplyf(addr, method, format string, argv ...interface{}) *errorUnexpectedR
 	}
 }
 
-// rpc returns rpc object handy to make calls/create errors
+// rpc returns rpc object handy to make calls/create errors.
 func (z *zeo) rpc(method string) rpc {
 	return rpc{zlink: z.link, method: method}
 }
@@ -214,7 +221,7 @@ type rpc struct {
 	method string
 }
 
-// rpcExcept represents generic exception
+// rpcExcept represents generic exception.
 type rpcExcept struct {
 	exc  string
 	argv tuple
@@ -464,7 +471,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		}
 	}
 
-	lastTid, ok := zlink.enc.asTid(xlastTid) // XXX -> xlastTid -> scan
+	lastTid, ok := zlink.enc.asTid(xlastTid)
 	if !ok {
 		return nil, zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xlastTid)
 	}
