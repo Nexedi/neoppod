@@ -30,8 +30,6 @@ import (
 	"net"
 	"sync"
 
-	pickle "github.com/kisielk/og-rek"
-
 	"github.com/someonegg/gocontainer/rbuf"
 	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -188,7 +186,7 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 			msgid:  callID,
 			flags:  0,
 			method: method,
-			arg:    pickle.Tuple(argv),
+			arg:    zl.enc.Tuple(argv),
 	})
 
 	// ok, pkt is ready to go

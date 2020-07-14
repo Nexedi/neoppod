@@ -98,7 +98,7 @@ func pktDecodeZ(pkb *pktBuf) (msg, error) {
 		return m, err
 	}
 
-	tpkt, ok := xpkt.(pickle.Tuple) // XXX also list?
+	tpkt, ok := encoding('Z').asTuple(xpkt)
 	if !ok {
 		return m, derrf("got %T; expected tuple", xpkt)
 	}
@@ -133,6 +133,41 @@ func derrf(format string, argv ...interface{}) error {
 
 
 // ---- retrieve/put objects from/into msg.arg ----
+
+// tuple represents py tuple.
+type tuple []interface{}
+
+// Tuple converts t into corresponding object appropriate for encoding e.
+func (e encoding) Tuple(t tuple) pickle.Tuple {
+	switch e {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: -> pickle.Tuple
+		return pickle.Tuple(t)
+	}
+}
+
+// asTuple tries to retrieve tuple from corresponding object decoded via encoding e.
+func (e encoding) asTuple(xt interface{}) (tuple, bool) {
+	switch e {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: tuples are represented by pickle.Tuple; lists as []interface{}
+		switch t := xt.(type) {
+		case pickle.Tuple:
+			return tuple(t), true
+		case []interface{}:
+			return tuple(t), true
+		default:
+			return tuple(nil), false
+		}
+	}
+}
+
 
 // xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
 func (e encoding) xuint64Unpack(xv interface{}) (uint64, bool) {

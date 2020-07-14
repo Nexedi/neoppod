@@ -86,7 +86,7 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb
 	}
 
 	// (data, serial, next_serial | None)
-	res, ok := xres.(pickle.Tuple)
+	res, ok := enc.asTuple(xres)
 	if !ok || len(res) != 3 {
 		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple", res)
 	}
@@ -140,7 +140,7 @@ type rpc struct {
 // rpcExcept represents generic exception
 type rpcExcept struct {
 	exc  string
-	argv []interface{}
+	argv tuple
 }
 
 func (r *rpcExcept) Error() string {
@@ -175,7 +175,7 @@ func (r rpc) call(ctx context.Context, argv ...interface{}) (interface{}, error)
 //
 // well-known exceptions are mapped to corresponding well-known errors - e.g.
 // POSKeyError -> zodb.NoObjectError, and rest are returned wrapper into rpcExcept.
-func (r rpc) excError(exc string, argv []interface{}) error {
+func (r rpc) excError(exc string, argv tuple) error {
 	// translate well-known exceptions
 	switch exc {
 	case "ZODB.POSException.POSKeyError":
@@ -204,13 +204,13 @@ func (r rpc) excError(exc string, argv []interface{}) error {
 func (r rpc) zeo5Error(arg interface{}) error {
 	enc := r.zlink.enc
 	// ('type', (arg1, arg2, arg3, ...))
-	texc, ok := arg.(pickle.Tuple)
+	texc, ok := enc.asTuple(arg)
 	if !ok || len(texc) != 2 {
 		return r.ereplyf("except5: got %#v; expect 2-tuple", arg)
 	}
 
 	exc, ok1 := enc.asString(texc[0])
-	argv, ok2 := texc[1].(pickle.Tuple)
+	argv, ok2 := enc.asTuple(texc[1])
 	if !(ok1 && ok2) {
 		return r.ereplyf("except5: got (%T, %T); expect (str, tuple)", texc...)
 	}
@@ -277,7 +277,7 @@ func (r rpc) zeo4Error(arg interface{}) error {
 		argv = args
 	}
 
-	return r.excError(exc, argv)
+	return r.excError(exc, tuple(argv))
 }
 
 // isPyExceptClass returns whether klass represents python exception
