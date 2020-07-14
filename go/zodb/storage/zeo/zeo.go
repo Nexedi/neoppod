@@ -36,7 +36,6 @@ import (
 )
 
 // zeo provides ZEO client.
-// It implements zodb.IStorageDriver.
 type zeo struct {
 	link *zLink
 
@@ -52,6 +51,9 @@ type zeo struct {
 
 	url string // we were opened via this
 }
+
+// zeo implements zodb.IStorageDriver.
+var _ zodb.IStorageDriver = (*zeo)(nil)
 
 
 // Sync implements zodb.IStorageDriver.
@@ -73,6 +75,8 @@ func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 		return zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xhead)
 	}
 
+	// no need to verify that head↑ - IStorage.Sync does it.
+	// no need to wait till .watchq is notified till head] - IStorage.Sync does it.
 	return head, nil
 }
 
@@ -116,20 +120,20 @@ func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIte
 
 // invalidateTransaction receives invalidations from server.
 func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
+	// (tid, oidv)
 	enc := z.link.enc
 	t, ok := enc.asTuple(arg)
 	if !ok || len(t) != 2 {
 		return fmt.Errorf("got %#v; expect 2-tuple", arg)
 	}
 
-	// (tid, oidv)
 	tid, ok1 := enc.asTid(t[0])
-	xoidt, ok2 := enc.asTuple(t[1])
+	xoidv, ok2 := enc.asTuple(t[1])
 	if !(ok1 && ok2) {
 		return fmt.Errorf("got (%T, %T); expect (tid, []oid)", t...)
 	}
 	oidv := []zodb.Oid{}
-	for _, xoid := range xoidt {
+	for _, xoid := range xoidv {
 		oid, ok := enc.asOid(xoid)
 		if !ok {
 			return fmt.Errorf("non-oid %#v in oidv", xoid)
@@ -137,6 +141,9 @@ func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
 		oidv = append(oidv, oid)
 	}
 
+	// likely no need to verify for tid↑ because IStorage watcher does it.
+	// However until .at0 is initialized we do not send events to IStorage,
+	// so double check for monotonicity here as well.
 	if tid <= z.head {
 		return fmt.Errorf("bad invalidation from server: tid not ↑: %s -> %s", z.head, tid)
 	}
