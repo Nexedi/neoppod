@@ -112,7 +112,14 @@ func pktDecodeZ(pkb *pktBuf) (msg, error) {
 
 	flags, ok := pickletools.Xint64(tpkt[1])
 	if !ok {
-		return m, derrf("flags: got %T; expected int", tpkt[1])
+		bflags, ok := tpkt[1].(bool)
+		if !ok {
+			return m, derrf("flags: got %T; expected int|bool", tpkt[1])
+		}
+
+		if bflags {
+			flags = 1
+		} // else: flags is already = 0
 	}
 	// XXX check flags are in range?
 	m.flags = msgFlags(flags)
