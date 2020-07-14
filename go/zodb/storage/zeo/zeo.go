@@ -22,7 +22,6 @@ package zeo
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"log"
 	"net/url"
@@ -35,7 +34,6 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
-	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
 type zeo struct {
@@ -411,44 +409,4 @@ func (z *zeo) URL() string {
 
 func init() {
 	zodb.RegisterDriver("zeo", openByURL)
-}
-
-
-// ---- oid/tid packing ----
-
-// xuint64Unpack tries to decode packed 8-byte string as bigendian uint64
-func xuint64Unpack(xv interface{}) (uint64, bool) {
-	v, err := pickletools.Xstrbytes8(xv)
-	if err != nil {
-		return 0, false
-	}
-
-	return v, true
-}
-
-// xuint64Pack packs v into big-endian 8-byte string
-//
-// XXX do we need to emit bytes instead of str?
-func xuint64Pack(v uint64) string {
-	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], v)
-	return mem.String(b[:])
-}
-
-func tidPack(tid zodb.Tid) string {
-	return xuint64Pack(uint64(tid))
-}
-
-func oidPack(oid zodb.Oid) string {
-	return xuint64Pack(uint64(oid))
-}
-
-func tidUnpack(xv interface{}) (zodb.Tid, bool) {
-	v, ok := xuint64Unpack(xv)
-	return zodb.Tid(v), ok
-}
-
-func oidUnpack(xv interface{}) (zodb.Oid, bool) {
-	v, ok := xuint64Unpack(xv)
-	return zodb.Oid(v), ok
 }

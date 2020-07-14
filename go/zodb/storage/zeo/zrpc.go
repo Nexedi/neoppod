@@ -21,7 +21,6 @@ package zeo
 // RPC calls client<->server
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -38,7 +37,6 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/go123/xsync"
-	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
 const pktHeaderLen = 4
@@ -162,63 +160,6 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	rxc <- m
 	return nil
 }
-
-// msg represents 1 message.
-type msg struct {
-	msgid  int64
-	flags  msgFlags
-	method string
-	arg    interface{} // can be e.g. (arg1, arg2, ...)
-}
-
-type msgFlags int64
-const (
-	msgAsync  msgFlags = 1 // message does not need a reply
-	msgExcept          = 2 // exception was raised on remote side (ZEO5)
-)
-
-func derrf(format string, argv ...interface{}) error {
-	return fmt.Errorf("decode: "+format, argv...)
-}
-
-// pktDecode decodes raw packet into message
-func pktDecode(pkb *pktBuf) (msg, error) {
-	var m msg
-	// must be (msgid, False|0, ".reply", res)
-	d := pickle.NewDecoder(bytes.NewReader(pkb.Payload()))
-	xpkt, err := d.Decode()
-	if err != nil {
-		return m, err
-	}
-
-	tpkt, ok := xpkt.(pickle.Tuple) // XXX also list?
-	if !ok {
-		return m, derrf("got %T; expected tuple", xpkt)
-	}
-	if len(tpkt) != 4 {
-		return m, derrf("len(msg-tuple)=%d; expected 4", len(tpkt))
-	}
-	m.msgid, ok = pickletools.Xint64(tpkt[0])
-	if !ok {
-		return m, derrf("msgid: got %T; expected int", tpkt[0])
-	}
-
-	flags, ok := pickletools.Xint64(tpkt[1])
-	if !ok {
-		return m, derrf("flags: got %T; expected int", tpkt[1])
-	}
-	// XXX check flags are in range?
-	m.flags = msgFlags(flags)
-
-	m.method, ok = tpkt[2].(string)
-	if !ok {
-		return m, derrf(".%d: method: got %T; expected str", m.msgid, tpkt[2])
-	}
-
-	m.arg = tpkt[3]
-	return m, nil
-}
-
 
 // Call makes 1 RPC call to server, waits for reply and returns it.
 func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, err error) {
