@@ -44,6 +44,7 @@ type ZEOSrv interface {
 	Close() error
 
 	Encoding() encoding // encoding used on the wire - 'M' or 'Z'
+	Bugs() []string     // list of known server bugs
 }
 
 // ZEOPySrv represents running ZEO/py server.
@@ -56,6 +57,14 @@ type ZEOPySrv struct {
 	cancel  func()		// to stop pysrv
 	done    chan struct{}	// ready after Wait completes
 	errExit error		// error from Wait
+}
+
+func (_ *ZEOPySrv) Bugs() []string {
+	return []string{
+		// ZODB/py does not return serial for loadBefore after object was deleted
+		// https://github.com/zopefoundation/ZODB/issues/318
+		"load:noserial-after-deleted",
+	}
 }
 
 type ZEOPyOptions struct {
@@ -202,7 +211,7 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 }
 
 // withZEO tests f on all kinds of ZEO servers connected to by ZEO client.
-func withZEO(t *testing.T, f func(t *testing.T, zdrv *zeo), optv ...tOptions) {
+func withZEO(t *testing.T, f func(t *testing.T, zsrv ZEOSrv, zdrv *zeo), optv ...tOptions) {
 	t.Helper()
 	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
 		t.Helper()
@@ -212,7 +221,7 @@ func withZEO(t *testing.T, f func(t *testing.T, zdrv *zeo), optv ...tOptions) {
 			err := zdrv.Close(); X(err)
 		}()
 
-		f(t, zdrv)
+		f(t, zsrv, zdrv)
 	}, optv...)
 }
 
@@ -239,8 +248,8 @@ func TestLoad(t *testing.T) {
 	data := "../fs1/testdata/1.fs"
 	txnvOk, err := xtesting.LoadDBHistory(data); X(err)
 
-	withZEO(t, func(t *testing.T, z *zeo) {
-		xtesting.DrvTestLoad(t, z, txnvOk)
+	withZEO(t, func(t *testing.T, zsrv ZEOSrv, z *zeo) {
+		xtesting.DrvTestLoad(t, z, txnvOk, zsrv.Bugs()...)
 	}, tOptions{
 		Preload: data,
 	})
