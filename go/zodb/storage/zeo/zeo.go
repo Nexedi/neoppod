@@ -39,7 +39,7 @@ import (
 )
 
 type zeo struct {
-	srv *zLink
+	link *zLink
 
 	// state we get from server by way of server notifications.
 	mu      sync.Mutex
@@ -130,11 +130,11 @@ func ereplyf(addr, method, format string, argv ...interface{}) *errorUnexpectedR
 
 // rpc returns rpc object handy to make calls/create errors
 func (z *zeo) rpc(method string) rpc {
-	return rpc{zl: z.srv, method: method}
+	return rpc{zlink: z.link, method: method}
 }
 
 type rpc struct {
-	zl     *zLink
+	zlink  *zLink
 	method string
 }
 
@@ -149,12 +149,12 @@ func (r *rpcExcept) Error() string {
 }
 
 func (r rpc) call(ctx context.Context, argv ...interface{}) (interface{}, error) {
-	reply, err := r.zl.Call(ctx, r.method, argv...)
+	reply, err := r.zlink.Call(ctx, r.method, argv...)
 	if err != nil {
 		return nil, err
 	}
 
-	if r.zl.ver >= "5" {
+	if r.zlink.ver >= "5" {
 		// in ZEO5 exceptions are marked via flag
 		if reply.flags & msgExcept != 0 {
 			return nil, r.zeo5Error(reply.arg)
@@ -291,7 +291,7 @@ func isPyExceptClass(klass pickle.Class) bool {
 }
 
 func (r rpc) ereplyf(format string, argv ...interface{}) *errorUnexpectedReply {
-	return ereplyf(r.zl.link.RemoteAddr().String(), r.method, format, argv...)
+	return ereplyf(r.zlink.link.RemoteAddr().String(), r.method, format, argv...)
 }
 
 
@@ -332,19 +332,19 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 			  "won't be notifications about database changes")
 	}
 
-	zl, err := dialZLink(ctx, net, addr)
+	zlink, err := dialZLink(ctx, net, addr)
 	if err != nil {
 		return nil, zodb.InvalidTid, err
 	}
 
 	defer func() {
 		if err != nil {
-			zl.Close()
+			zlink.Close()
 		}
 	}()
 
 
-	z := &zeo{srv: zl, watchq: opt.Watchq, url: url}
+	z := &zeo{link: zlink, watchq: opt.Watchq, url: url}
 
 	rpc := z.rpc("register")
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
@@ -354,7 +354,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 
 	// register returns last_tid in ZEO5 but nothing earlier.
 	// if so we have to retrieve last_tid in another RPC.
-	if z.srv.ver < "5" {
+	if z.link.ver < "5" {
 		rpc = z.rpc("lastTransaction")
 		xlastTid, err = rpc.call(ctx)
 		if err != nil {
@@ -397,7 +397,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 }
 
 func (z *zeo) Close() error {
-	err := z.srv.Close()
+	err := z.link.Close()
 	if z.watchq != nil {
 		close(z.watchq)
 	}
