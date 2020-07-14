@@ -186,3 +186,33 @@ func (e encoding) asOid(xv interface{}) (zodb.Oid, bool) {
 	v, ok := e.xuint64Unpack(xv)
 	return zodb.Oid(v), ok
 }
+
+
+// asBytes tries to retrieve bytes from corresponding object decoded via encoding e.
+func (e encoding) asBytes(xb interface{}) ([]byte, bool) {
+	switch e {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: str|bytes
+		s, err := pickletools.Xstrbytes(xb)
+		if err != nil {
+			return nil, false
+		}
+		return mem.Bytes(s), true
+	}
+}
+
+// asString tries to retrieve string from corresponding object decoded via encoding e.
+func (e encoding) asString(xs interface{}) (string, bool) {
+	switch e {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: str
+		s, ok := xs.(string)
+		return s, ok
+	}
+}

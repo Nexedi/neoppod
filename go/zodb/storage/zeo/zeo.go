@@ -91,7 +91,7 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb
 		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple", res)
 	}
 
-	data, ok1 := res[0].(string)
+	data, ok1 := enc.asBytes(res[0])
 	serial, ok2 := enc.asTid(res[1])
 	// next_serial (res[2]) - just ignore
 
@@ -99,7 +99,7 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb
 		return nil, 0, rpc.ereplyf("got (%T, %v, %T); expect (str, tid, .)", res...)
 	}
 
-	return &mem.Buf{Data: mem.Bytes(data)}, serial, nil
+	return &mem.Buf{Data: data}, serial, nil
 }
 
 func (z *zeo) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
@@ -202,13 +202,14 @@ func (r rpc) excError(exc string, argv []interface{}) error {
 // zeo5Error decodes arg of reply with msgExcept flag set and returns
 // corresponding error.
 func (r rpc) zeo5Error(arg interface{}) error {
+	enc := r.zlink.enc
 	// ('type', (arg1, arg2, arg3, ...))
 	texc, ok := arg.(pickle.Tuple)
 	if !ok || len(texc) != 2 {
 		return r.ereplyf("except5: got %#v; expect 2-tuple", arg)
 	}
 
-	exc, ok1 := texc[0].(string)
+	exc, ok1 := enc.asString(texc[0])
 	argv, ok2 := texc[1].(pickle.Tuple)
 	if !(ok1 && ok2) {
 		return r.ereplyf("except5: got (%T, %T); expect (str, tuple)", texc...)
