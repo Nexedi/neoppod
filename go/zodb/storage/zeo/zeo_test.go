@@ -244,6 +244,12 @@ func TestLoad(t *testing.T) {
 	})
 }
 
+func TestWatch(t *testing.T) {
+	withZEOSrv(t, func(t *testing.T, zsrv ZEOSrv) {
+		xtesting.DrvTestWatch(t, "zeo://" + zsrv.Addr(), openByURL)
+	})
+}
+
 
 func zeoOpen(zurl string, opt *zodb.DriverOptions) (_ *zeo, at0 zodb.Tid, err error) {
 	defer xerr.Contextf(&err, "openzeo %s", zurl)
