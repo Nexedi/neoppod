@@ -40,7 +40,7 @@ import (
 // msg represents 1 message.
 // arg is arbitrary argument(s) passed/received along ZEO call or reply.
 //
-// for objects in arg user code has to be obtain them via encoding.as*() and
+// for objects in arg user code has to obtain them via encoding.as*() and
 // set them via encoding.Tid(), encoding.Oid() and other similar methods that
 // convert application-level data into objects properly corresponding to wire
 // encoding of messages.
