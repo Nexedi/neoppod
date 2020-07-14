@@ -68,7 +68,7 @@ type zLink struct {
 
 	serveWg	 sync.WaitGroup	// for serveRecv
 	down1    sync.Once
-	errClose error		// error got from .link.Close()
+	errDown  error		// error with which the link was shut down
 
 	ver string // protocol verision in use (without "Z" or "M" prefix)
 }
@@ -82,11 +82,17 @@ func (zl *zLink) start() {
 
 var errLinkClosed = errors.New("zlink is closed")
 
-// shutdown shuts zlink down and sets error (XXX) which
+// shutdown shuts zlink down and sets reason of why the link was shut down.
 func (zl *zLink) shutdown(err error) {
 	zl.down1.Do(func() {
-		// XXX what with err?
-		zl.errClose = zl.link.Close()
+		err2 := zl.link.Close()
+		if err == nil {
+			err = err2
+		}
+		if err != nil {
+			log.Printf("%s: %s", zl.link.RemoteAddr(), err)
+		}
+		zl.errDown = err
 
 		// notify call waiters
 		zl.callMu.Lock()
@@ -103,7 +109,7 @@ func (zl *zLink) shutdown(err error) {
 func (zl *zLink) Close() error {
 	zl.shutdown(nil)
 	zl.serveWg.Wait() // wait in case shutdown was called from serveRecv
-	return zl.errClose
+	return zl.errDown
 }
 
 
@@ -121,10 +127,9 @@ func (zl *zLink) serveRecv() {
 
 		err = zl.serveRecv1(pkb)
 		pkb.Free()
-
-		// XXX ratelimit / only incstat?
 		if err != nil {
-			log.Printf("%s: rx: %s", zl.link.RemoteAddr(), err)
+			zl.shutdown(err)
+			return
 		}
 	}
 }
