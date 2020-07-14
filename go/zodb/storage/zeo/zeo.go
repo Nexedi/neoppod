@@ -44,7 +44,7 @@ type zeo struct {
 	head    zodb.Tid            // last invalidation received from server
 	at0Mu   sync.Mutex
 	at0     zodb.Tid            // at0 obtained when initially connecting to server
-	eventq0 []*zodb.EventCommit // buffer for initial messeages, until .at0 is initialized
+	eventq0 []*zodb.EventCommit // buffer for initial messages, until .at0 is initialized
 
 	// becomes ready when serve loop finishes
 	serveWG sync.WaitGroup
@@ -159,7 +159,7 @@ func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
 	z.at0Mu.Lock()
 	defer z.at0Mu.Unlock()
 
-	// queue initial events until .at0 is initalized after register
+	// queue initial events until .at0 is initialized after register
 	// queued events will be sent to watchq by zeo ctor after initializing .at0
 	if z.at0 == 0 {
 		z.eventq0 = append(z.eventq0, event)
