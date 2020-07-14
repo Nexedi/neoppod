@@ -60,12 +60,13 @@ type zLink struct {
 	callTab map[int64]chan msg // msgid -> rxc for that call; nil when closed
 	callID  int64              // ID for next call; incremented at every call
 
+	// ready after serveTab and notifyTab are initialized
+	serveReady chan struct{}
 	// methods peer can invoke
-	serveReady chan struct{} // ready after serveTab and notifyTab are initialized by user
 	// methods are served in parallel
 	serveTab map[string]func(context.Context, interface{})interface{}
 	// notifications peer can send
-	// notifications are invoked in order
+	// notifications are invoked in received order
 	notifyTab map[string]func(interface{}) error
 
 	serveWg	    sync.WaitGroup  // for serveRecv and serveTab spawned from it
@@ -95,11 +96,12 @@ func (zl *zLink) start() {
 //
 // XXX it would be better for zLink to instead provide .Recv() to receive
 // peer's requests and then serve is just loop over Recv and decide what to do
-// with messages.
+// with messages by zlink user, not here.
 func (zl *zLink) Serve(
 	notifyTab map[string]func(interface{}) error,
 	serveTab  map[string]func(context.Context, interface{}) interface{},
 ) error {
+	// initialize serve tabs and indicate that serve is ready
 	zl.serveTab  = serveTab
 	zl.notifyTab = notifyTab
 	close(zl.serveReady)
@@ -110,7 +112,7 @@ func (zl *zLink) Serve(
 
 var errLinkClosed = errors.New("zlink is closed")
 
-// shutdown shuts zlink down and sets reason why the link was shut down.
+// shutdown shuts zlink down and sets reason of why the link was shut down.
 func (zl *zLink) shutdown(err error) {
 	zl.down1.Do(func() {
 		err2 := zl.link.Close()
@@ -121,9 +123,7 @@ func (zl *zLink) shutdown(err error) {
 			log.Printf("%s: %s", zl.link.RemoteAddr(), err)
 		}
 		zl.errDown = err
-
 		zl.serveCancel()
-
 
 		// notify call waiters
 		zl.callMu.Lock()
