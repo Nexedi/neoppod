@@ -237,7 +237,6 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 	return nil
 }
 
-
 // Call makes 1 RPC call to server, waits for reply and returns it.
 func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, err error) {
 	defer func() {
