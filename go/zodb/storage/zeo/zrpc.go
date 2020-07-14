@@ -183,12 +183,12 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 	zl.callMu.Unlock()
 
 	// (msgid, async, method, argv)
-	pkb := allocPkb()
-	p := pickle.NewEncoder(pkb)
-	err = p.Encode(pickle.Tuple{callID, false, method, pickle.Tuple(argv)})
-	if err != nil {
-		panic(err) // all our types are expected to be supported by pickle
-	}
+	pkb := pktEncode(msg{
+			msgid:  callID,
+			flags:  0,
+			method: method,
+			arg:    pickle.Tuple(argv),
+	})
 
 	// ok, pkt is ready to go
 	err = zl.sendPkt(pkb) // XXX ctx cancel

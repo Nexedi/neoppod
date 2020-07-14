@@ -50,6 +50,17 @@ const (
 
 // ---- message encode/decode ↔ packet ----
 
+// pktEncode encodes message into raw packet.
+func pktEncode(m msg) *pktBuf {
+	pkb := allocPkb()
+	p := pickle.NewEncoder(pkb)
+	err := p.Encode(pickle.Tuple{m.msgid, m.flags, m.method, m.arg})
+	if err != nil {
+		panic(err) // all our types are expected to be supported by pickle
+	}
+	return pkb
+}
+
 // pktDecode decodes raw packet into message.
 func pktDecode(pkb *pktBuf) (msg, error) {
 	var m msg
