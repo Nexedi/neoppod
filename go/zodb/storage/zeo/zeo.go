@@ -73,16 +73,13 @@ func (z *zeo) Sync(ctx context.Context) (head zodb.Tid, err error) {
 	return head, nil
 }
 
-func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
-	// defer func() ...
-	buf, serial, err := z._Load(ctx, xid)
-	if err != nil {
-		err = &zodb.OpError{URL: z.URL(), Op: "load", Args: xid, Err: err}
-	}
-	return buf, serial, err
-}
+func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
+	defer func() {
+		if err != nil {
+			err = &zodb.OpError{URL: z.URL(), Op: "load", Args: xid, Err: err}
+		}
+	}()
 
-func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	rpc := z.rpc("loadBefore")
 	xres, err := rpc.call(ctx, oidPack(xid.Oid), tidPack(xid.At+1)) // XXX at2Before
 	if err != nil {

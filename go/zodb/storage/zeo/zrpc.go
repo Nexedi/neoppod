@@ -216,16 +216,13 @@ func pktDecode(pkb *pktBuf) (msg, error) {
 
 
 // Call makes 1 RPC call to server, waits for reply and returns it.
-func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, _ error) {
-	// defer func() ...
-	reply, err := zl._call(ctx, method, argv...)
-	if err != nil {
-		err = fmt.Errorf("%s: call %s: %s", zl.link.RemoteAddr(), method, err)
-	}
-	return reply, err
-}
+func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%s: call %s: %s", zl.link.RemoteAddr(), method, err)
+		}
+	}()
 
-func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) (reply msg, _ error) {
 	rxc := make(chan msg, 1) // reply will go here
 
 	// register our call
@@ -242,7 +239,7 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 	// (msgid, async, method, argv)
 	pkb := allocPkb()
 	p := pickle.NewEncoder(pkb)
-	err := p.Encode(pickle.Tuple{callID, false, method, pickle.Tuple(argv)})
+	err = p.Encode(pickle.Tuple{callID, false, method, pickle.Tuple(argv)})
 	if err != nil {
 		panic(err) // all our types are expected to be supported by pickle
 	}
