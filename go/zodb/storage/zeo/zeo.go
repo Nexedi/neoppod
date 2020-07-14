@@ -46,6 +46,9 @@ type zeo struct {
 	// driver client <- watcher: database commits | errors.
 	watchq chan<- zodb.Event // FIXME stub
 
+	// becomes ready when serve loop finishes
+	serveWG sync.WaitGroup
+
 	url string // we were opened via this
 }
 
@@ -351,6 +354,21 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 
 	z := &zeo{link: zlink, watchq: opt.Watchq, url: url}
 
+	// start serve loop on the link
+	z.serveWG.Add(1)
+	go func() {
+		defer z.serveWG.Done()
+		err := zlink.Serve(
+			// notifyTab
+			nil,
+			// serveTab
+			nil,
+		)
+
+		_ = err
+	}()
+
+	// call register
 	rpc := z.rpc("register")
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
 	if err != nil {
@@ -406,6 +424,7 @@ func (z *zeo) Close() error {
 	if z.watchq != nil {
 		close(z.watchq)
 	}
+	z.serveWG.Wait()
 	return err
 }
 
