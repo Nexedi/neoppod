@@ -211,17 +211,17 @@ func ereplyf(addr, method, format string, argv ...interface{}) *errorUnexpectedR
 	}
 }
 
-// rpc returns rpc object handy to make calls/create errors
+// rpc returns rpc object handy to make calls/create errors.
 func (z *zeo) rpc(method string) rpc {
-	return rpc{zl: z.link, method: method}
+	return rpc{zlink: z.link, method: method}
 }
 
 type rpc struct {
-	zl     *zLink
+	zlink  *zLink
 	method string
 }
 
-// rpcExcept represents generic exception
+// rpcExcept represents generic exception.
 type rpcExcept struct {
 	exc  string
 	argv tuple
@@ -232,12 +232,12 @@ func (r *rpcExcept) Error() string {
 }
 
 func (r rpc) call(ctx context.Context, argv ...interface{}) (interface{}, error) {
-	reply, err := r.zl.Call(ctx, r.method, argv...)
+	reply, err := r.zlink.Call(ctx, r.method, argv...)
 	if err != nil {
 		return nil, err
 	}
 
-	if r.zl.ver >= "5" {
+	if r.zlink.ver >= "5" {
 		// in ZEO5 exceptions are marked via flag
 		if reply.flags & msgExcept != 0 {
 			return nil, r.zeo5Error(reply.arg)
@@ -268,7 +268,7 @@ func (r rpc) excError(exc string, argv tuple) error {
 			return r.ereplyf("poskeyerror: got %#v; expect 1-tuple", argv...)
 		}
 
-		oid, ok := r.zl.enc.asOid(argv[0])
+		oid, ok := r.zlink.enc.asOid(argv[0])
 		if !ok {
 			return r.ereplyf("poskeyerror: got (%v); expect (oid)", argv[0])
 		}
@@ -286,7 +286,7 @@ func (r rpc) excError(exc string, argv tuple) error {
 // zeo5Error decodes arg of reply with msgExcept flag set and returns
 // corresponding error.
 func (r rpc) zeo5Error(arg interface{}) error {
-	enc := r.zl.enc
+	enc := r.zlink.enc
 	// ('type', (arg1, arg2, arg3, ...))
 	texc, ok := enc.asTuple(arg)
 	if !ok || len(texc) != 2 {
@@ -308,7 +308,7 @@ func (r rpc) zeo5Error(arg interface{}) error {
 // nil is returned if arg does not represent an exception.
 func (r rpc) zeo4Error(arg interface{}) error {
 	// in non-pickle encodings errors are always indicated via msgExcept flag
-	if r.zl.enc != 'Z' {
+	if r.zlink.enc != 'Z' {
 		return nil
 	}
 
@@ -380,7 +380,7 @@ func isPyExceptClass(klass pickle.Class) bool {
 }
 
 func (r rpc) ereplyf(format string, argv ...interface{}) *errorUnexpectedReply {
-	return ereplyf(r.zl.link.RemoteAddr().String(), r.method, format, argv...)
+	return ereplyf(r.zlink.link.RemoteAddr().String(), r.method, format, argv...)
 }
 
 
@@ -413,25 +413,25 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		return nil, zodb.InvalidTid, fmt.Errorf("TODO write mode not implemented")
 	}
 
-	zl, err := dialZLink(ctx, net, addr)
+	zlink, err := dialZLink(ctx, net, addr)
 	if err != nil {
 		return nil, zodb.InvalidTid, err
 	}
 
 	defer func() {
 		if err != nil {
-			zl.Close()
+			zlink.Close()
 		}
 	}()
 
 
-	z := &zeo{link: zl, watchq: opt.Watchq, url: url}
+	z := &zeo{link: zlink, watchq: opt.Watchq, url: url}
 
 	// start serve loop on the link
 	z.serveWG.Add(1)
 	go func() {
 		defer z.serveWG.Done()
-		err := zl.Serve(
+		err := zlink.Serve(
 			// notifyTab
 			map[string]func(interface{})error {
 				"invalidateTransaction": z.invalidateTransaction,
@@ -470,7 +470,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		}
 	}
 
-	lastTid, ok := zl.enc.asTid(xlastTid)
+	lastTid, ok := zlink.enc.asTid(xlastTid)
 	if !ok {
 		return nil, zodb.InvalidTid, rpc.ereplyf("got %v; expect tid", xlastTid)
 	}
