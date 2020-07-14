@@ -38,8 +38,8 @@ import (
 // msg represents 1 message.
 // arg is arbitrary argument(s) passed/received along ZEO call or reply.
 //
-// for objects in arg user code has to obtain them via encoding.*Unpack() and
-// set them via encoding.*Pack() methods that
+// for objects in arg user code has to obtain them via encoding.as*() and
+// set them via encoding.Tid(), encoding.Oid() and other similar methods that
 // convert application-level data into objects properly corresponding to wire
 // encoding of messages.
 type msg struct {
@@ -165,20 +165,24 @@ func (e encoding) xuint64Pack(v uint64) string {
 	}
 }
 
-func (e encoding) tidPack(tid zodb.Tid) string {
+// Tid converts tid into corresponding object appropriate for encoding e.
+func (e encoding) Tid(tid zodb.Tid) string {
 	return e.xuint64Pack(uint64(tid))
 }
 
-func (e encoding) oidPack(oid zodb.Oid) string {
+// Oid converts oid into corresponding object appropriate for encoding e.
+func (e encoding) Oid(oid zodb.Oid) string {
 	return e.xuint64Pack(uint64(oid))
 }
 
-func (e encoding) tidUnpack(xv interface{}) (zodb.Tid, bool) {
+// asTid tries to retrieve Tid from corresponding object decoded via encoding e.
+func (e encoding) asTid(xv interface{}) (zodb.Tid, bool) {
 	v, ok := e.xuint64Unpack(xv)
 	return zodb.Tid(v), ok
 }
 
-func (e encoding) oidUnpack(xv interface{}) (zodb.Oid, bool) {
+// asOid tries to retrieve Oid from corresponding object decoded via encoding e.
+func (e encoding) asOid(xv interface{}) (zodb.Oid, bool) {
 	v, ok := e.xuint64Unpack(xv)
 	return zodb.Oid(v), ok
 }
