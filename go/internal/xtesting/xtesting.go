@@ -209,17 +209,22 @@ func LoadDBHistory(zurl string) (_ []Txn, err error) {
 }
 
 // checkLoad verifies that zdrv.Load(xid) returns expected result.
-func checkLoad(t *testing.T, zdrv zodb.IStorageDriver, xid zodb.Xid, expect objState) {
+func checkLoad(t *testing.T, zdrv zodb.IStorageDriver, xid zodb.Xid, expect objState, bugs map[string]bool) {
 	t.Helper()
 	buf, tid, err := zdrv.Load(context.Background(), xid)
 
 	// deleted obj - it should load with "no data"
 	if expect.data == nil {
+		var eNoData error = &zodb.NoDataError{Oid: xid.Oid, DeletedAt: expect.tid}
+		if bugs["load:noserial-after-deleted"] {
+			// https://github.com/zopefoundation/ZODB/issues/318
+			eNoData = &zodb.NoObjectError{Oid: xid.Oid}
+		}
 		errOk := &zodb.OpError{
 			URL:  zdrv.URL(),
 			Op:   "load",
 			Args: xid,
-			Err:  &zodb.NoDataError{Oid: xid.Oid, DeletedAt: expect.tid},
+			Err:  eNoData,
 		}
 		if !reflect.DeepEqual(err, errOk) {
 			t.Errorf("load %v: returned err unexpected:\nhave: %v\nwant: %v", xid, err, errOk)
@@ -256,7 +261,12 @@ func checkLoad(t *testing.T, zdrv zodb.IStorageDriver, xid zodb.Xid, expect objS
 // DrvTestLoad verifies that zdrv implements Load correctly.
 //
 // txnvOk is what data to expect to be in the database.
-func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
+func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn, bugv ...string) {
+	bugs := map[string]bool{}
+	for _, bug := range bugv {
+		bugs[bug] = true
+	}
+
 	// current knowledge of what was "before" for an oid as we scan over
 	// data base entries
 	before := map[zodb.Oid]objState{}
@@ -269,13 +279,13 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
 
 			// ~ loadSerial
 			xid := zodb.Xid{txh.Tid, obj.Oid}
-			checkLoad(t, zdrv, xid, objState{txh.Tid, obj.Data})
+			checkLoad(t, zdrv, xid, objState{txh.Tid, obj.Data}, bugs)
 
 			// ~ loadBefore
 			xid = zodb.Xid{txh.Tid - 1, obj.Oid}
 			expect, ok := before[obj.Oid]
 			if ok {
-				checkLoad(t, zdrv, xid, expect)
+				checkLoad(t, zdrv, xid, expect, bugs)
 			}
 
 			before[obj.Oid] = objState{txh.Tid, obj.Data}
@@ -287,7 +297,7 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn) {
 	// XXX should we get "no such transaction" with at > head? - yes
 	for oid, expect := range before {
 		xid := zodb.Xid{zodb.TidMax, oid}
-		checkLoad(t, zdrv, xid, expect)
+		checkLoad(t, zdrv, xid, expect, bugs)
 	}
 }
 
