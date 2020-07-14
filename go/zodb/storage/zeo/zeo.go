@@ -454,6 +454,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		}
 	}()
 
+	// call register
 	rpc := z.rpc("register")
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
 	if err != nil {
