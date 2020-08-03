@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -182,13 +182,8 @@ func (fs *FileStorage) load(xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err er
 	dh.Oid = xid.Oid
 	dh.Tid = zodb.TidMax
 	dh.PrevRevPos = dataPos
-	//defer dh.Free()
-	buf, serial, err = fs._load(dh, xid)
-	dh.Free()
-	return buf, serial, err
-}
+	defer dh.Free()
 
-func (fs *FileStorage) _load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	// search backwards for when we first have data record with tid satisfying xid.At
 	for {
 		err := dh.LoadPrevRev(fs.file)
@@ -208,9 +203,9 @@ func (fs *FileStorage) _load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, 
 
 	// even if we will scan back via backpointers, the serial returned should
 	// be of first-found transaction
-	serial := dh.Tid
+	serial = dh.Tid
 
-	buf, err := dh.LoadData(fs.file)
+	buf, err = dh.LoadData(fs.file)
 	if err != nil {
 		return nil, 0, err
 	}
