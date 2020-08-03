@@ -163,6 +163,7 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *mem.Buf, seri
 // XXX temporary function - will go away:
 //
 // FIXME kill Load_XXXWithNextSerialXXX after neo/py cache does not depend on next_serial
+// https://github.com/zopefoundation/ZODB/pull/323
 func (fs *FileStorage) Load_XXXWithNextSerialXXX(_ context.Context, xid zodb.Xid) (buf *mem.Buf, serial, nextSerial zodb.Tid, err error) {
 	buf, serial, nextSerial, err = fs.load(xid)
 	if err != nil {
@@ -173,6 +174,7 @@ func (fs *FileStorage) Load_XXXWithNextSerialXXX(_ context.Context, xid zodb.Xid
 
 
 // FIXME kill nextSerial support after neo/py cache does not depend on next_serial
+// https://github.com/zopefoundation/ZODB/pull/323
 func (fs *FileStorage) load(xid zodb.Xid) (buf *mem.Buf, serial, nextSerial zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction which changed this oid
 	fs.mu.RLock()
