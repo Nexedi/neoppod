@@ -353,13 +353,8 @@ func (link *NodeLink) newConn(connId uint32) *Conn {
 // NewConn creates new connection on top of node-node link.
 func (link *NodeLink) NewConn() (*Conn, error) {
 	link.connMu.Lock()
-	//defer link.connMu.Unlock()
-	c, err := link._NewConn()
-	link.connMu.Unlock()
-	return c, err
-}
+	defer link.connMu.Unlock()
 
-func (link *NodeLink) _NewConn() (*Conn, error) {
 	if link.connTab == nil {
 		if link.closed.Get() != 0 {
 			return nil, link.err("newconn", ErrLinkClosed)
@@ -1325,13 +1320,8 @@ func (c *Conn) Recv() (proto.Msg, error) {
 	if err != nil {
 		return nil, err
 	}
-	//defer pkt.Free()
-	msg, err := c._Recv(pkt)
-	pkt.Free()
-	return msg, err
-}
+	defer pkt.Free()
 
-func (c *Conn) _Recv(pkt *pktBuf) (proto.Msg, error) {
 	// decode packet
 	pkth := pkt.Header()
 	msgCode := packed.Ntoh16(pkth.MsgCode)
@@ -1347,7 +1337,7 @@ func (c *Conn) _Recv(pkt *pktBuf) (proto.Msg, error) {
 //	msg := reflect.NewAt(msgType, bufAlloc(msgType.Size())
 
 
-	_, err := msg.NEOMsgDecode(pkt.Payload())
+	_, err = msg.NEOMsgDecode(pkt.Payload())
 	if err != nil {
 		return nil, c.err("decode", err) // XXX "decode:" is already in ErrDecodeOverflow
 	}
@@ -1389,13 +1379,8 @@ func (c *Conn) Expect(msgv ...proto.Msg) (which int, err error) {
 	if err != nil {
 		return -1, err
 	}
-	//defer pkt.Free()
-	which, err = c._Expect(pkt, msgv...)
-	pkt.Free()
-	return which, err
-}
+	defer pkt.Free()
 
-func (c *Conn) _Expect(pkt *pktBuf, msgv ...proto.Msg) (int, error) {
 	pkth := pkt.Header()
 	msgCode := packed.Ntoh16(pkth.MsgCode)
 
@@ -1567,15 +1552,9 @@ func (link *NodeLink) Ask1(req proto.Msg, resp proto.Msg) (err error) {
 	if err != nil {
 		return err
 	}
+	defer conn.lightClose()
 
-	//defer conn.lightClose()
-	err = conn._Ask1(req, resp)
-	conn.lightClose()
-	return err
-}
-
-func (conn *Conn) _Ask1(req proto.Msg, resp proto.Msg) error {
-	err := conn.sendMsgDirect(req)
+	err = conn.sendMsgDirect(req)
 	if err != nil {
 		return err
 	}
