@@ -311,29 +311,28 @@ class Test(NEOThreadedTest):
                     delay[c2].clear()
                     delay[1-c2].set()
 
-        if 1:
-            t, c = cluster.getTransaction()
-            c.root()[0] = ob = PCounterWithResolution()
-            t.commit()
-            counter_oid = ob._p_oid
-            del ob, t, c
+        t, c = cluster.getTransaction()
+        c.root()[0] = ob = PCounterWithResolution()
+        t.commit()
+        counter_oid = ob._p_oid
+        del ob, t, c
 
-            t1, c1 = cluster.getTransaction()
-            t2, c2 = cluster.getTransaction()
-            o1 = c1.root()[0]
-            o2 = c2.root()[0]
-            o1.value += 1
-            o2.value += 2
+        t1, c1 = cluster.getTransaction()
+        t2, c2 = cluster.getTransaction()
+        o1 = c1.root()[0]
+        o2 = c2.root()[0]
+        o1.value += 1
+        o2.value += 2
 
-            with Patch(TransactionManager, storeObject=onStoreObject), \
-                 Patch(MTClientConnection, ask=onAsk):
-                t = self.newThread(t1.commit)
-                t2.commit()
-                t.join()
-            t1.begin()
-            t2.begin()
-            self.assertEqual(o1.value, 3)
-            self.assertEqual(o2.value, 3)
+        with Patch(TransactionManager, storeObject=onStoreObject), \
+             Patch(MTClientConnection, ask=onAsk):
+            t = self.newThread(t1.commit)
+            t2.commit()
+            t.join()
+        t1.begin()
+        t2.begin()
+        self.assertEqual(o1.value, 3)
+        self.assertEqual(o2.value, 3)
         return except_list
 
     def testDelayedStore(self):
