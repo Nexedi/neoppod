@@ -455,6 +455,10 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         if self.master_conn:
             self.master_conn.close()
 
+    def loadConfiguration(self):
+        with Patch(logging, name=self.node_name):
+            super(StorageApplication, self).loadConfiguration()
+
     def getAdapter(self):
         return self._init_args['adapter']
 
