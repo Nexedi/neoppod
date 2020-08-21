@@ -1,10 +1,430 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
+from __future__ import division, print_function
 import subprocess
 from cgi import escape
+from msgpack import ExtType
 from urllib import FancyURLopener
 
 fancy_open = FancyURLopener().open
+
+def pipe_exec(cmd, stdin):
+  process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+  stdout, _ = process.communicate(stdin)
+  retcode = process.poll()
+  if retcode:
+      raise subprocess.CalledProcessError(retcode, cmd[0])
+  return stdout
+
+activity = """\
+"""
+
+sequence = """\
+hide footbox
+skinparam SequenceMessageAlign first
+"""
+
+# Use rectangle due to limited formatting of states :(
+state = """\
+hide stereotype
+skinparam rectangle {
+  RoundCorner 25
+  RoundCorner<<init>> 0
+  BorderStyle<<dashed>> dashed
+}
+"""
+
+plantuml_dict = dict(
+
+  cluster = state + r"""
+rectangle RECOVERING <<init>>
+rectangle STOPPING
+rectangle " " as operational {
+  rectangle VERIFYING
+  rectangle RUNNING
+  rectangle STARTING_BACKUP
+  rectangle BACKINGUP
+  rectangle STOPPING_BACKUP
+}
+RECOVERING -> STOPPING
+operational -[norank]> RECOVERING
+operational -> STOPPING
+RECOVERING --> VERIFYING
+VERIFYING -> RUNNING
+VERIFYING --> STARTING_BACKUP
+STARTING_BACKUP <-> BACKINGUP
+BACKINGUP --> STOPPING_BACKUP
+""",
+
+  cell = state + r"""
+rectangle " " as persistent {
+  rectangle OUT_OF_DATE <<init>>
+  rectangle UP_TO_DATE <<init>>
+  rectangle FEEDING
+  rectangle CORRUPTED
+}
+rectangle DISCARDED <<dashed>>
+
+OUT_OF_DATE --> UP_TO_DATE: replicated
+UP_TO_DATE <--> FEEDING: tweak
+UP_TO_DATE --> OUT_OF_DATE: node lost
+UP_TO_DATE --> CORRUPTED: check
+FEEDING --> CORRUPTED: check
+persistent --> DISCARDED
+""",
+
+  cluster_overview = r"""
+node A [
+  Admin
+  ----
+  A1
+  ....
+  ...
+  ....
+  Ai
+]
+node C [
+  Client
+  ----
+  C1
+  ....
+  ...
+  ....
+  Cj
+]
+node M [
+  Master
+  ----
+  primary
+  ....
+  secondary
+  ....
+  ...
+  ....
+  secondary
+]
+database S [
+  Storage
+  ----
+  S1
+  ....
+  ...
+  ....
+  Sk
+]
+rectangle neoctl
+actor " " as H
+
+H ~ C
+C <-> S
+S <..> M
+C <..> M
+A <.> M
+H ~~ neoctl
+neoctl .> A
+
+M <.> M
+S <-> S
+
+legend
+&#8674; control
+&#8594; data
+endlegend
+""",
+
+  commit = sequence + r"""
+skinparam ParticipantPadding 20
+participant M
+participant C
+participant "S (writable cell)" as S1
+participant "S (writable cell)" as S2
+
+note left of M: tpc_begin
+
+&C -> M: BeginTransaction
+M -> C: AnswerBeginTransaction
+
+C -->x]
+&[x<-- C
+note left of M: commit
+
+&C -> S1: StoreObject | CheckCurrentSerial
+C -> S2
+S1 -> C: AnswerStoreObject |\nAnswerCheckCurrentSerial
+S2 -> C
+...
+
+C -->x]
+&[x<-- C
+note left of M: tpc_vote
+
+&C -> S1: StoreTransaction | VoteTransaction
+C -> S2
+S1 -> C: AnswerStoreTransaction |\nAnswerVoteTransaction
+S2 -> C
+C --> M: FailedVote
+M --> C: ACK | INCOMPLETE_TRANSACTION
+
+C -->x]
+&[x<-- C
+note left of M: tpc_finish
+
+&C -> M: FinishTransaction
+M -> S1: LockInformation
+&M -> S2
+S1 -> M: AnswerInformationLocked
+&S2 -> M
+M -> C: AnswerFinishTransaction
+M -> S1: UnlockInformation
+&M -> S2
+""",
+
+  conflict_resolution = sequence + r"""
+skinparam ParticipantPadding 80
+participant "C₁" as C1
+participant M
+participant S
+participant "C₂" as C2
+
+C1 -> S: StoreObject (A₀→A₁)
+S -> C1: AnswerStoreObject (stored)
+note right: write-locked
+
+C2 -> S: StoreObject (A₀→A₂)
+note right of S: delayed (ttid₁ < ttid₂)
+...
+C1 -> M: FinishTransaction
+M -> S: LockInformation
+S -> M: AnswerLockInformation
+
+M o-> C1: FinishTransaction
+&M o-> C2: InvalidateObjects
+M -> S: UnlockInformation
+note right of S: unlocked
+S -> C2: AnswerStoreObject (conflict)
+group conflict resolution
+  C2 -> S: GetObject (A₁)
+  S -> C2: AnswerGetObject
+  C2 -> S: StoreObject (A₁→A₂')
+end group
+""",
+
+  deadlock = (
+    sequence + r"""
+skinparam ParticipantPadding 30
+participant "T₁" as T1
+participant S
+participant "T₂" as T2
+
+T1 -> S: oid1
+S <- T2: oid2
+S <- T2: oid1
+note left: wait
+T1 -> S: oid2
+note right: deadlock
+""",
+    sequence + r"""
+skinparam ParticipantPadding 30
+participant "T₁" as T1
+participant "S₁" as S1
+participant "S₂" as S2
+participant "T₂" as T2
+
+T1 -> S1: oid1
+&S2 <- T2: oid1
+S1 <- T2: oid1
+note left: wait
+T1 -> S2: oid1
+note right: deadlock
+"""),
+
+  new_deadlock = sequence + r"""
+skinparam ParticipantPadding 30
+participant "T₁" as T1
+participant S
+participant "T₂" as T2
+
+T1 -> S: oid1
+T2 -> S: oid2
+T2 -> S: oid1
+note left: wait
+T1 -> S: oid2
+note right: deadlock
+S -> T2: NotifyDeadlock
+T2 -> S: AskRelockObject
+note over S: oid2: T₂ → T₁
+""",
+
+  link_establishment = sequence + r"""
+participant "dialing node" as C
+participant "server node" as S
+|||
+note across
+  underlying (e.g. TCP)
+  connection established
+end note
+|||
+C <-> S: handshake
+|||
+C --> S: RequestIdentification
+S --> C: AcceptIdentification
+""",
+
+  read = sequence + r"""
+skinparam ParticipantPadding 20
+participant M
+participant C
+participant "S (readable cell)" as S1
+participant "S (readable cell)" as S2
+M -->x C: NotifyPartitionChanges\n| NotifyNodeInformation
+&C -> S1: GetObject
+note right of S1: node retrieves data
+S1 -> C: AnswerGetObject
+note left of M
+  possible error handling
+  on race condition
+end note
+C --> M: Ping
+M x--> C
+M --> C: Pong
+C --> S2: GetObject
+S2 --> C: AnswerGetObject
+""",
+
+  recovering = (
+    activity + r"""
+start
+partition "Network IO" {
+  fork
+    :election]
+  fork again
+    :recovery]
+  end fork
+}
+partition "Node Table changes" {
+  :all storage nodes that will immediately\nserve cells must be set RUNNING;
+  :all unidentified master nodes must be, if necessary:
+  * disconnected
+  * set DOWN;
+}
+partition "Partition Table changes" {
+  if (Existing PT?) then (yes)
+    :use it, outdate cells if necessary;
+  else (no)
+    :create new;
+  endif
+}
+stop
+note left: switch to VERIFYING
+""",
+    sequence + r"""
+title Recovery
+participant M
+participant S
+
+S -> M: //identified//
+note over S: PENDING
+loop
+  M -> S: AskRecovery
+  S -> M: AnswerRecovery
+  |||
+  M --> S: AskPartitionTable
+  S --> M: AnswerPartitionTable
+  note across
+    startup allowed; break
+    unless truncation is required
+  end note
+  M -> S: Truncate
+end
+"""),
+
+  replication = sequence + r"""
+participant "destination\nstorage" as dst
+participant "source\nstorage" as src
+
+loop
+  dst -> src: AskFetchTransactions
+  loop for any missing transaction
+    src -> dst: AddTransaction
+  end loop
+  src -> dst: AnswerFetchTransactions
+end loop
+loop
+  dst -> src: AskFetchObjects
+  loop for any missing object
+    src -> dst: AddObject
+  end loop
+  src -> dst: AnswerFetchObjects
+end loop
+""",
+
+  synchronous_replication = sequence + r"""
+skinparam ParticipantPadding 50
+participant "S₁" as S1
+participant "S₂" as S2
+participant M
+
+M -> S2: StartOperation |\nNotifyPartitionChanges
+activate S2 #lightgrey
+S2 --> M: NotifyReady (if StartOperation)
+S2 -> M: AskUnfinishedTransactions
+rnote left of S2 #lightgrey: lockless writes
+M -> S2: AnswerUnfinishedTransactions
+loop
+  S1 <--> S2: //replication//
+  M -> S2: NotifyTransactionFinished\n| AbortTransaction
+end loop
+S1 <-> S2: //replication//
+deactivate S2
+note over S2: shared locking
+S2 -> M: NotifyReplicationDone
+note over S2: normal locking
+note left of M: NotifyPartitionChanges
+""",
+
+  verifying = sequence + r"""
+participant M
+participant S
+
+group replay tpc_finish (if not in backup mode)
+  M -> S: AskLockedTransactions
+  M <- S: AnswerLockedTransactions
+  note across: all nodes have replied
+  M --> S: AskFinalTID
+  M <-- S: AnswerFinalTID
+  note across: all needed TIDs are known
+  M --> S: ValidateTransaction
+end group
+M -> S: AskLastIDs
+note right: truncate here if\npreviously requested\n(with //Truncate//)
+M <- S: AnswerLastIDs
+note across: VERIFYING ends when all nodes have replied
+""",
+
+)
+
+del plantuml_dict['cluster'], plantuml_dict['cell']
+
+def renderPlantUML(plantuml_dict):
+  keys = []
+  values = []
+  for k, v in plantuml_dict.items():
+    for v in v if type(v) is tuple else (v,):
+      keys.append(k)
+      values.append("""\
+@startuml
+!pragma teoz true
+scale 1.2
+skinparam Shadowing false
+%s
+@enduml
+""" % v)
+  values = pipe_exec(('plantuml', '-tsvg', '-p'), ''.join(values))
+  result = {}
+  for k, v in zip(keys, values.split(values[:values.index('>')+1])[1:]):
+    result[k] = result.get(k, '') + v
+  return result
+
 
 class Protocol(object):
 
@@ -20,33 +440,51 @@ class Protocol(object):
       response.close()
     exec(source, self.__dict__)
 
+  def _digraph(self, gv):
+    return pipe_exec(("dot", "-Tsvg",
+      "-Nfontname=inherit", "-Efontname=inherit"), """digraph {
+  edge [color="#a80036" arrowhead=vee arrowtail=vee];
+  node [fillcolor="#fefece" style=filled]
+  compound=true
+  newrank=true
+  %s
+}""" % gv)
 
-  def _dot(self, gv):
-    cmd = "dot", "-Tsvg", "-Nfontname=inherit", "-Efontname=inherit"
-    process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    svg, _ = process.communicate(gv)
-    retcode = process.poll()
-    if retcode:
-        raise subprocess.CalledProcessError(retcode, cmd[0])
-    return svg
+  def renderPlantUML(self):
+    return renderPlantUML(plantuml_dict)
+
+  def renderSplitBrain(self):
+    return self._digraph("""
+  subgraph cluster1 {
+    M1 -> S1 [dir=back]
+  }
+  subgraph cluster2 {
+    M2 -> S2 [dir=back]
+  }
+  { rank=same; M1 [label=master]; M2 [label=master]; }
+  { rank=same; S1 [label=storage]; S2 [label=storage]; }
+  { rank=same; C1 [label=client]; C2 [label=client]; }
+  M1 -> M2 [dir=none minlen=4 color=black style=dashed ltail=cluster1 lhead=cluster2 label="network cut"]
+  S1 -> S2 [dir=none penwidth=0 label="NR = 1"]
+  S1 -> C1 [dir=back ltail=cluster1]
+  S2 -> C2 [dir=back ltail=cluster2]
+""")
 
   def renderClusterStates(self):
-    return self._dot("""digraph {
-  compound=true;
+    return self._digraph("""
   RECOVERING [peripheries=2]
   subgraph cluster {
-    VERIFYING -> RUNNING
-    VERIFYING -> STARTING_BACKUP -> BACKINGUP -> { STARTING_BACKUP STOPPING_BACKUP }
-    { rank=same; BACKINGUP STOPPING_BACKUP }
+    { rank=same; VERIFYING -> RUNNING }
+    VERIFYING -> STARTING_BACKUP
+    STARTING_BACKUP -> BACKINGUP [dir=both]
+    BACKINGUP -> STOPPING_BACKUP
   }
   RECOVERING -> { VERIFYING STOPPING }
   RUNNING -> { rank=min; RECOVERING STOPPING } [ltail=cluster]
-}
 """)
 
   def renderCellStates(self):
-    return self._dot("""digraph {
-  compound=true;
+    return self._digraph("""
   DISCARDED [style=dashed]
   subgraph cluster {
     OUT_OF_DATE [peripheries=2]
@@ -57,37 +495,56 @@ class Protocol(object):
     { UP_TO_DATE FEEDING } -> CORRUPTED [label=check]
   }
   UP_TO_DATE -> DISCARDED [ltail=cluster]
-}
+""")
+
+  def renderIdentificationToMaster(self):
+    return self._digraph(r"""
+  node [shape=hexagon]
+  set [shape=invhouse, label="`node`: known node by `nid`\n`by_addr`: known node by `address`"]
+  set -> by_addr
+  by_addr [label="`by_addr`"]
+  by_addr -> by_addr_is_identified [label=yes]
+    by_addr_is_identified [label="is `by_addr` identified"]
+    by_addr_is_identified [shape=hexagon]
+    by_addr_is_identified -> by_addr_is_node [label=no]
+      by_addr_is_node [label="`by_addr` = `node`"]
+      by_addr_is_node -> use_node [label=yes]
+      by_addr_is_node -> address_conflict [label=no]
+        address_conflict [label="`node` and `nid`>0"]
+        address_conflict -> already_connected [label=yes]
+        address_conflict -> use_by_addr [label=no]
+    by_addr_is_identified -> already_connected [label=yes]
+  by_addr -> by_nid [label=no]
+  by_nid [label="`node`"]
+  by_nid -> by_nid_is_identified [label=yes]
+    by_nid_is_identified [label="is `node` identified"]
+    by_nid_is_identified -> by_nid_temp_id [label=yes]
+      by_nid_temp_id [label="`nid`<0"]
+      by_nid_temp_id -> new_nid [label=yes]
+        new_nid [shape=box, label="ignore `nid`"]
+        new_nid -> new_node
+      by_nid_temp_id -> id_conflict [label=no]
+        id_conflict [shape=ellipse, label="id conflict for a storage node"]
+        id_conflict -> already_connected
+    by_nid_is_identified -> by_nid_is_self [label=no]
+      by_nid_is_self [label="`node` is self"]
+      by_nid_is_self -> new_node [label=yes]
+      by_nid_is_self -> update_address [label=no]
+        update_address [shape=box, label="update `node`'s address"]
+        update_address -> use_node
+  by_nid -> new_node [label=no]
+  already_connected [shape=house, label="already connected", fontcolor=red]
+  use_by_addr [shape=house, label="use `by_addr`"]
+  use_node [shape=house, label="use `node`"]
+  new_node [shape=house, label="create new node"]
 """)
 
   def renderMessageTable(self):
-    types = set()
-    def arg(item):
-      if isinstance(item, self.PStruct):
-        x = '(%s)' % ', '.join(map(arg, item._items))
-        return x + '?' if isinstance(item, self.POption) else x
-      if isinstance(item, self.PList):
-        return '[%s]' % arg(item._item)
-      if isinstance(item, self.PDict):
-        return '{%s: %s}' % (arg(item._key), arg(item._value))
-      types.add(item.__class__)
-      return '%s&nbsp;<em>%s</em>' % (item.__class__.__name__, item._name)
-    def args(req):
-      x = p if req else answer
-      if x:
-        if i and x is self.Error:
-          return x.__name__,
-        x = x._fmt
-        return () if x is None else map(arg, x._items)
-      return '-'
-    def fmt(t):
-      return '<em>%s</em>' % t._fmt
     Packets = self.Packets
-    total_count = sum(x < self.RESPONSE_MASK for x in Packets)
+    total_count = 1 + sum(x < self.RESPONSE_MASK for x in Packets)
     messages = []
     response_count = 0
     br_join = '<br>'.join
-    cbr_join = ',<br>'.join
     for i in xrange(total_count):
       p = Packets[i or self.RESPONSE_MASK]
       answer = p._answer
@@ -99,12 +556,13 @@ class Protocol(object):
       doc = p.__doc__.strip().splitlines()
       description = []
       scope = nodes = ''
-      doc = iter(doc)
-      for x in doc:
-        x = x.strip()
-        if not x:
-          break
-        description.append(x)
+      if not doc[0].startswith((':scope: ', ':nodes: ')): # XXX
+        doc = iter(doc)
+        for x in doc:
+          x = x.strip()
+          if not x:
+            break
+          description.append(x)
       for x in doc:
         x = x.strip()
         if x.startswith(':scope: '):
@@ -119,44 +577,25 @@ class Protocol(object):
     <td>%s</td>
     <td>%s</td>
     <td>%s</td>
+  <!--
     <td>%s</td>
     <td>%s</td>
+  -->
   </tr>
 """ % (i, p.__name__, escape(' '.join(description)), scope, nodes,
-       cbr_join(args(i)), cbr_join(args(not i))))
-    t = sorted(types, key=lambda t: t.__name__)
-    types = []
-    for t in t:
-      none = None
-      if t is self.PChecksum:
-        encoding = 'SHA1 (20 bytes)'
-      elif t is self.PTID:
-        encoding = '8 bytes (TID or OID)'
-        none = self.INVALID_TID
-      elif issubclass(t, self.PString):
-        if t is self.PString:
-          encoding = 'size(%s), bytes' % fmt(t)
-        else:
-          assert t is self.PAddress, t
-          encoding = 'PString, port(<em>!H</em>)'
-      else:
-        assert issubclass(t, self.PStructItem), t
-        encoding = fmt(t)
-        if t is self.PEnum:
-          none = -1
-        elif issubclass(t, self.PStructItemOrNone):
-          none = t._None
-      types.append("""\
-  <tr>
-    <td>%s</td>
-    <td>%s</td>
-    <td>%s</td>
-  </tr>
-""" % (t.__name__, encoding, repr(none) if none else '-'))
-      enums = ['\n<li>%s<ol start="0">%s</ol></li>' % (name,
-                  ''.join("<li>%s</li>" % e for e in e))
-        for name, e in sorted((k, e) for k, e in vars(self).iteritems()
-                                     if isinstance(e, self.Enum))]
+       '' if i else '-', '' if (answer if i else p) else '-'))
+    enums = []
+    u = self.Unpacker()
+    while True:
+      u.feed('\xd4%c\0' % len(enums))
+      try:
+        enum = u.next()
+      except IndexError:
+        break
+      enum = enum._enum
+      enums.append('\n<li>%s<ol start="0">%s</ol></li>' % (enum._name,
+                  ''.join("<li>%s</li>" % e for e in enum)))
+
     other = []
     for k in (
       'INVALID_TID',
@@ -177,15 +616,19 @@ class Protocol(object):
 
     return """
 <details open="">
-<p>The following table lists the %s different types of messages that can be exchanged.
+<p>The <em>message code</em> encodes the type of the message.
+The following table lists the %s different types that can be exchanged.
 %s are them are requests with response packets.
 1 is a generic response packet for error handling.
 The remaining %s are notification packets.</p>
 <p>The <em>code (#)</em> of a response packet is the same as the corresponding request one, with the highest order bit set. Using Python language, it translates as follows:</p>
 <pre>response_code = request_code | 0x%x</pre>
-<p>The <em>format</em> columns refer to item types,
-which are described in the next table with Python literals, and in particular
-<a href="https://docs.python.org/2/library/struct.html#struct-format-strings">its struct format</a>.</p>
+<p><em>Message IDs</em> are used to identify response packets: each node sends a request with a unique value and the peer replies using the same id as the request. Notification packets normally follow the same rule as request packets, for debugging purpose. In some complex cases where replying is done with several notification packets followed by a response one (e.g. replication), the notification packets must have the same id as the response.</p>
+<p style="margin-left: 2em;"><strong>Notice to implementers</strong>:</p>
+<ul>
+<li>A 32-bit counter can be used for <em>Message IDs</em>, 0 being the value of the first sent message, and the value is reset to 0 after 0xffffffff.</li>
+<li>On error, the implementer is free to answer with a <em>Error</em> packet before aborting the connection, so that the requesting node logs debugging information. We will only document other uses of <em>Error</em>.</li>
+</ul>
 </details>
 
 <details open="">
@@ -198,52 +641,23 @@ which are described in the next table with Python literals, and in particular
     <th>Description</th>
     <th>Workflow</th>
     <th>Nodes</th>
+  <!--
     <th>Format</th>
     <th>Answer Format</th>
+  -->
   </tr>
 %s</table>
 </div>
-</details>
-
-<details open="">
-<summary>Item Types</summary>
-<table>
-  <tr>
-    <th>Type</th>
-    <th>Encoding</th>
-    <th>Null (e.g. Python's None)</th>
-  </tr>
-  <tr>
-    <td>(...)</td>
-    <td>each item is encoded one after the other</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td>[...]</td>
-    <td>count(%s), (...)</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td>{keys: values}</td>
-    <td>[(key, value)]</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td>(...)?</td>
-    <td><span>'\\1'</span>, (...)</td>
-    <td>'\\0'</td>
-  </tr>
-%s</table>
-<p><strong>Note:</strong> There's no UUID anymore in NEO and PUUID must renamed into PNID.</p>
 </details>
 
 <details open="">
 <summary>Enum Types</summary>
-<div style="overflow: auto; height: 40ex">
-<ul style="font-size: smaller; margin-top: 0">%s
+<div style="overflow: auto; height: 32ex">
+<ol start="0" style="font-size: smaller; margin-top: 0">%s
 </ul>
 </div>
-<p style="margin-left: 2em;"><strong>Naming choice</strong>: For cell states, node states and node types, names are chosen to have unambiguous initials, which is useful to produce shorter logs or have a more compact user interface. This explains for example why <em>RUNNING</em> was preferred over <em>UP</em>.</p>
+<p>Enum values are serialized using <em>Extension</em> mechanism: <em>type</em> is the number of the Enum type (as listed above), <em>data</em> is MessagePack serialization of the Enum value (i.e. a positive integer). For exemple, <em>NodeStates.RUNNING</em> is encoded as <tt>\\xd4\\x03\\x02</tt>.</p>
+<p><strong>Naming choice</strong>: For cell states, node states and node types, names are chosen to have unambiguous initials, which is useful to produce shorter logs or have a more compact user interface. This explains for example why <em>RUNNING</em> was preferred over <em>UP</em>.</p>
 </details>
 
 <details open="">
@@ -251,7 +665,7 @@ which are described in the next table with Python literals, and in particular
 <table>
 %s</table>
 <p>MAX_TID could be bigger but in the Python implementation, TIDs are stored as integers and some storage backend may have no support for values above 2⁶³-1 (e.g. SQLite).</p>
-<p>Node ID namespaces are required to prevent conflicts when the master generates new ids before it knows those of existing storage nodes. The high-order byte of node ids is one the following values:</p>
+<p>Node IDs are 32-bit integers. NID namespaces are required to prevent conflicts when the master generates new ids before it knows those of existing storage nodes. The high-order byte of node ids is one the following values:</p>
 <table>
 <tr><td>Storage</td><td>0x00</td></tr>
 <tr><td>Master</td><td>-0x10</td></tr>
@@ -262,10 +676,12 @@ which are described in the next table with Python literals, and in particular
 </details>
 """ % (total_count, response_count, total_count - response_count - 1,
        self.RESPONSE_MASK, ''.join(messages),
-       fmt(self.PDict), ''.join(types), ''.join(enums), ''.join(other))
+       ''.join(enums), ''.join(other))
 
 if __name__ == '__main__':
-  import httplib, SimpleHTTPServer, SocketServer, sys, traceback
+  import ast, httplib, os, SimpleHTTPServer
+  import SocketServer, sys, threading, traceback
+  from inotify_simple import INotify, flags
 
   class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
@@ -278,9 +694,12 @@ if __name__ == '__main__':
         if path == '/':
             try:
                 protocol = Protocol(query)
+                plantuml_dict = protocol.renderPlantUML()
+                split_brain = protocol.renderSplitBrain()
                 messages = protocol.renderMessageTable()
                 cluster = protocol.renderClusterStates()
                 cell = protocol.renderCellStates()
+                identification_to_master = protocol.renderIdentificationToMaster()
             except Exception:
                 traceback.print_exc()
                 self.send_error(httplib.INTERNAL_SERVER_ERROR)
@@ -292,12 +711,43 @@ if __name__ == '__main__':
 table { border-collapse: collapse }
 table, th, td { border: thin solid black }
 div { height: inherit !important }
+svg { vertical-align: middle }
+svg:not(:first-child) { padding-left: 5em }
 </style></head><body>
+<h1>Cluster Overview</h1>%s
+<h1>Split Brain</h1>%s
 <h1>Messages</h1>%s
+<h1>Link Establishment</h1>%s
 <h1>Cluster States</h1>%s
 <h1>Cell States</h1>%s
-</body></html>""" %
-                  (messages, cluster, cell))
+<h1>Recovering</h1><div>%s</div>
+<h1>Verifying</h1><div>%s</div>
+<h1>Read</h1>%s
+<h1>Commit</h1>%s
+<h1>Deadlock</h1>%s
+<h1>Conflict Resolution</h1>%s
+<h1>Deadlock Avoidance</h1>%s
+<h1>Replication</h1>%s
+<h1>Synchronous Replication</h1>%s
+"""
+#<h1>Identification to Primary Master</h1>%s
+"""\
+</body></html>""" % (
+                  plantuml_dict['cluster_overview'],
+                  split_brain, messages,
+                  plantuml_dict['link_establishment'],
+                  cluster, cell,
+                  plantuml_dict['recovering'],
+                  plantuml_dict['verifying'],
+                  plantuml_dict['read'],
+                  plantuml_dict['commit'],
+                  plantuml_dict['deadlock'],
+                  plantuml_dict['conflict_resolution'],
+                  plantuml_dict['new_deadlock'],
+                  plantuml_dict['replication'],
+                  plantuml_dict['synchronous_replication'],
+                  #identification_to_master,
+                  ))
         else:
             self.send_error(httplib.NOT_FOUND)
 
@@ -312,4 +762,22 @@ div { height: inherit !important }
           host_port = "localhost", int(host_port[0])
   else:
       host_port = "localhost", 80
-  HTTPD(host_port, Handler).serve_forever()
+  server = HTTPD(host_port, Handler)
+  print('Listening on %s:%s' % host_port)
+  with INotify() as inotify:
+    inotify.add_watch(__file__, flags.CLOSE_WRITE)
+    t = threading.Thread(target=server.serve_forever)
+    t.daemon = True
+    t.start()
+    while True:
+      inotify.read()
+      try:
+        with open(__file__) as f:
+          ast.parse(f.read(), f.name)
+        break
+      except Exception, e:
+        print(e)
+    server.shutdown()
+    t.join()
+  server.server_close()
+  os.execvp(sys.argv[0], sys.argv)
