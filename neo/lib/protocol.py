@@ -293,11 +293,13 @@ class Packet(object):
         assert isinstance(other, Packet)
         return self._code == other._code
 
-    def isError(self):
-        return self._code == RESPONSE_MASK
+    @classmethod
+    def isError(cls):
+        return cls._code == RESPONSE_MASK
 
-    def isResponse(self):
-        return self._code & RESPONSE_MASK
+    @classmethod
+    def isResponse(cls):
+        return cls._code & RESPONSE_MASK
 
     def getAnswerClass(self):
         return self._answer
@@ -689,11 +691,31 @@ class Packets(dict):
         :nodes: C -> S
         """)
 
-    AskPack, AnswerPack = request("""
-        Request a pack at given TID.
+    WaitForPack, WaitedForPack = request("""
+        Wait until pack given by tid is completed.
 
-        :nodes: C -> M -> S
-        """, ignore_when_closed=False)
+        :nodes: C -> M
+        """)
+
+    AskPackOrders, AnswerPackOrders = request("""
+        Request list of pack orders excluding oldest completed ones.
+
+        :nodes: M -> S, S -> M
+        """)
+
+    NotifyPackValidated = notify("""
+        Send ids of pack orders to be processed. Also used to fix replicas
+        that may have lost them.
+
+        :nodes: M -> S
+        """)
+
+    NotifyPackCompleted = notify("""
+        Notify the master node that partitions have been successfully
+        packed up to the given ids.
+
+        :nodes: S -> M
+        """)
 
     CheckReplicas = request("""
         Ask the cluster to search for mismatches between replicas, metadata

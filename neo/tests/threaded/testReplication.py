@@ -754,7 +754,7 @@ class ReplicationTests(NEOThreadedTest):
         self.assertEqual(tids, getTIDList())
         t0_next = add64(tids[0], 1)
         self.assertEqual(ask, [
-            (t0_next, tids[2], tids[2:]),
+            (t0_next, tids[2], tids[2:], True),
             (t0_next, tids[2], ZERO_OID, {tids[2]: [ZERO_OID]}),
         ])
 
@@ -877,9 +877,9 @@ class ReplicationTests(NEOThreadedTest):
             t1_next = add64(tids[1], 1)
             self.assertEqual(ask, [
                 # trans
-                (0, 1, t1_next, tids[4], []),
-                (0, 1, tids[3], tids[4], []),
-                (0, 1, tids[4], tids[4], []),
+                (0, 1, t1_next, tids[4], [], True),
+                (0, 1, tids[3], tids[4], [], False),
+                (0, 1, tids[4], tids[4], [], False),
                 # obj
                 (0, 1, t1_next, tids[4], ZERO_OID, {}),
                 (0, 1, tids[2], tids[4], p64(2), {}),
@@ -893,9 +893,9 @@ class ReplicationTests(NEOThreadedTest):
             n = replicator.FETCH_COUNT
             t4_next = add64(tids[4], 1)
             self.assertEqual(ask, [
-                (0, n, t4_next, tids[5], []),
+                (0, n, t4_next, tids[5], [], True),
                 (0, n, tids[3], tids[5], ZERO_OID, {tids[3]: [ZERO_OID]}),
-                (1, n, t1_next, tids[5], []),
+                (1, n, t1_next, tids[5], [], True),
                 (1, n, t1_next, tids[5], ZERO_OID, {}),
             ])
         self.tic()

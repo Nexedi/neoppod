@@ -16,7 +16,8 @@
 
 import os
 
-from .. import DB_PREFIX
+from neo.client.app import Application as ClientApplication, TXN_PACK_DESC
+from .. import DB_PREFIX, Patch
 functional = int(os.getenv('NEO_TEST_ZODB_FUNCTIONAL', 0))
 if functional:
     from ..functional import NEOCluster, NEOFunctionalTest as TestCase
@@ -24,6 +25,13 @@ else:
     from ..threaded import NEOCluster, NEOThreadedTest as TestCase
 
 class ZODBTestCase(TestCase):
+
+    def undoLog(orig, *args, **kw):
+        return [txn for txn in orig(*args, **kw)
+                    if txn['description'] != TXN_PACK_DESC]
+
+    _patch = Patch(ClientApplication, undoLog=undoLog)
+    del undoLog
 
     def setUp(self):
         super(ZODBTestCase, self).setUp()
@@ -37,6 +45,7 @@ class ZODBTestCase(TestCase):
         if functional:
             kw['temp_dir'] = self.getTempDirectory()
         self.neo = NEOCluster(**kw)
+        self._patch.apply()
         self.neo.start()
         self.open()
 
@@ -49,6 +58,7 @@ class ZODBTestCase(TestCase):
         except Exception:
             if success:
                 raise
+        self._patch.revert()
         del self.neo, self._storage
         super(ZODBTestCase, self)._tearDown(success)
 

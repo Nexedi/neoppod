@@ -65,20 +65,39 @@ class BaseMasterHandler(BaseHandler):
                 # See comment in ClientOperationHandler.connectionClosed
                 self.app.tm.abortFor(uuid, even_if_voted=True)
 
+    def notifyPackValidated(self, conn, tid_id_dict):
+        app = self.app
+        app.dm.validatePackOrders(tid_id_dict)
+        pack_id = max(tid_id_dict.itervalues())
+        if app.last_pack_id < pack_id:
+            app.last_pack_id = pack_id
+            if app.operational:
+                app.maybePack()
+
     def notifyPartitionChanges(self, conn, ptid, num_replicas, cell_list):
         """This is very similar to Send Partition Table, except that
        the information is only about changes from the previous."""
         app = self.app
         if ptid != 1 + app.pt.getID():
             raise ProtocolError('wrong partition table id')
+        if app.operational:
+            outdated = app.pt.getOutdatedOffsetListFor(app.uuid)
         app.pt.update(ptid, num_replicas, cell_list, app.nm)
         app.dm.changePartitionTable(app, ptid, num_replicas, cell_list)
         if app.operational:
             app.replicator.notifyPartitionChanges(cell_list)
+            if outdated:
+                app.notifyPackCompleted()
+                app.maybePack()
         app.dm.commit()
 
     def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))
+
+    def askPackOrders(self, conn, min_completed_id, limit):
+        assert limit is None, (conn, limit)
+        conn.answer(Packets.AnswerPackOrders(
+            self.app.dm.getPackOrders(min_completed_id)))
 
     def notifyRepair(self, conn, *args):
         app = self.app

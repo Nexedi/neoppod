@@ -216,6 +216,7 @@ class Application(BaseApplication):
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
+            self.completed_pack_id = self.last_pack_id = 0
             self.checker = Checker(self)
             self.replicator = Replicator(self)
             self.tm = TransactionManager(self)
@@ -279,29 +280,47 @@ class Application(BaseApplication):
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
 
-        self.task_queue = task_queue = deque()
+        self.task_priority = -1
+        self.task_queue = task_queue = deque(), deque()
         try:
+            self.maybePack()
             self.dm.doOperation(self)
             while True:
-                while task_queue:
-                    try:
-                        while isIdle():
-                            next(task_queue[-1]) or task_queue.rotate()
-                            _poll(0)
+                p = self.task_priority
+                if p >= 0:
+                    q = task_queue[p]
+                    while True:
+                        try:
+                            while isIdle():
+                                next(q[-1]) or q.rotate()
+                                _poll(0)
+                            break
+                        except StopIteration:
+                            q.pop()
+                        while not q:
+                            p -= 1
+                            self.task_priority = p
+                            if p < 0:
+                                break
+                            q = task_queue[p]
+                        else:
+                            continue
                         break
-                    except StopIteration:
-                        task_queue.pop()
                 poll()
         finally:
-            del self.task_queue
+            if self.dm._delete_task._deleting: pdb() # XXX
+            del self.task_priority, self.task_queue
+            assert not self.dm._delete_task._deleting
 
     def changeClusterState(self, state):
         self.cluster_state = state
         if state == ClusterStates.STOPPING_BACKUP:
             self.replicator.stop()
 
-    def newTask(self, iterator):
-        self.task_queue.appendleft(iterator)
+    def newTask(self, iterator, priority):
+        if self.task_priority < priority:
+            self.task_priority = priority
+        self.task_queue[priority].appendleft(iterator)
 
     def closeClient(self, connection):
         if connection is not self.replicator.getCurrentConnection() and \
@@ -320,3 +339,28 @@ class Application(BaseApplication):
             self.dm.erase()
         logging.info("Application has been asked to shut down")
         sys.exit()
+
+    def notifyPackCompleted(self):
+        packed = self.dm.getPackedIDs()
+        if packed:
+            pack_id = min(packed.itervalues())
+            if self.completed_pack_id != pack_id:
+                self.completed_pack_id = pack_id
+                self.master_conn.send(Packets.NotifyPackCompleted(pack_id))
+
+    def maybePack(self, info=None, alt_id=None):
+        packed = self.dm.getPackedIDs(True)
+        if packed:
+            pack_id = min(packed.itervalues())
+            if pack_id < self.last_pack_id:
+                next_pack_id = pack_id + 1
+                if info is None or info[0] != next_pack_id != alt_id:
+                    # IDEA: Do not ask the master if we already have the
+                    #       information in the storage backend.
+                    self.master_conn.ask(Packets.AskPackOrders(next_pack_id, 1),
+                                         min_id=next_pack_id)
+                else:
+                    self.dm.pack(self, (k for k, v in packed.iteritems()
+                                          if v == pack_id), info)
+        else:
+            assert not self.pt.getAssignedPartitionList(self.uuid)

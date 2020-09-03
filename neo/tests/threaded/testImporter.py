@@ -209,13 +209,16 @@ class ImporterTests(NEOThreadedTest):
             dm = cluster.storage.dm
             def doOperation(app):
                 del dm.doOperation
+                q = app.task_queue[1]
                 try:
                     while True:
-                        if app.task_queue:
-                            app.task_queue[-1].next()
+                        if q:
+                            q[-1].next()
                         app._poll()
                 except StopIteration:
-                    app.task_queue.pop()
+                    q.pop()
+                assert not any(app.task_queue)
+                app.task_priority = -1
             dm.doOperation = doOperation
             cluster.start()
             t, c = cluster.getTransaction()

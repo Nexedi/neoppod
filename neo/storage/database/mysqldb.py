@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from binascii import a2b_hex
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from functools import wraps
 import MySQLdb
 from MySQLdb import DataError, IntegrityError, \
@@ -35,7 +35,7 @@ from . import LOG_QUERIES, DatabaseFailure
 from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.interfaces import implements
-from neo.lib.protocol import ZERO_OID, ZERO_TID, ZERO_HASH
+from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 
 
 class MysqlError(DatabaseFailure):
@@ -91,7 +91,7 @@ def splitList(x, n):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
-    VERSION = 3
+    VERSION = 4
     ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
@@ -214,14 +214,14 @@ class MySQLDatabaseManager(DatabaseManager):
                 getPrintableQuery(query.split('\n', 1)[0][:70]))
         conn = self.conn
         conn.query(query)
-        if query.startswith("SELECT "):
+        if query.startswith(("SELECT ", "(SELECT ")):
             r = conn.store_result()
             return tuple([
                 tuple([d.tostring() if isinstance(d, array) else d
                       for d in row])
                 for row in r.fetch_row(r.num_rows())])
         r = query.split(None, 1)[0]
-        if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
+        if r in ("INSERT", "REPLACE", "DELETE", "UPDATE", "SET"):
             self._active = 1
         else:
             assert r in ("ALTER", "CREATE", "DROP"), query
@@ -238,7 +238,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def erase(self):
         self.query("DROP TABLE IF EXISTS"
-            " config, pt, trans, obj, data, bigdata, ttrans, tobj")
+            " config, pt, pack, trans, obj, data, bigdata, ttrans, tobj")
 
     def nonempty(self, table):
         try:
@@ -268,18 +268,22 @@ class MySQLDatabaseManager(DatabaseManager):
         self._alterTable(schema_dict, 'obj')
 
     def _migrate3(self, schema_dict):
-        self._alterTable(schema_dict, 'pt', "rid as `partition`, nid,"
+        x = 'pt'
+        self._alterTable({x: schema_dict[x].replace('pack', '-- pack')}, x,
+            "rid AS `partition`, nid,"
             " CASE state"
             " WHEN 0 THEN -1"  # UP_TO_DATE
             " WHEN 2 THEN -2"  # FEEDING
             " ELSE 1-state"
-            " END as tid")
+            " END AS tid")
 
-    # Let's wait for a more important change to clean up,
-    # so that users can still downgrade.
-    if 0:
-      def _migrate4(self, schema_dict):
+    def _migrate4(self, schema_dict):
         self._setConfiguration('partitions', None)
+        self._alterTable(schema_dict, 'pt', "*,"
+            # tid == 0 is as if there's no data so defer setting 'pack'
+            # (imagine the case of a pack that is requested and completed
+            #  before replication starts for this partition)
+            " IF(nid!=%s OR tid=0, NULL, 0) AS pack" % self.getUUID())
 
     def _setup(self, dedup=False):
         self._config.clear()
@@ -299,7 +303,16 @@ class MySQLDatabaseManager(DatabaseManager):
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  nid INT NOT NULL,
                  tid BIGINT NOT NULL,
+                 pack INT UNSIGNED,
                  PRIMARY KEY (`partition`, nid)
+             ) ENGINE=""" + engine
+
+        schema_dict['pack'] = """CREATE TABLE %s (
+                  tid BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+                  partial BOOLEAN NOT NULL,
+                  id INT UNSIGNED UNIQUE KEY, -- NULL if not validated
+                  oids MEDIUMBLOB, -- same format as trans.oids
+                  pack_tid BIGINT UNSIGNED
              ) ENGINE=""" + engine
 
         if engine == "RocksDB":
@@ -446,6 +459,34 @@ class MySQLDatabaseManager(DatabaseManager):
         (tid,), = q("SELECT MAX(tid) FROM obj FORCE INDEX (tid)" + x)
         return tid, oid
 
+    def _getPackOrders(self, min_completed_id):
+        id_cond = 'id IS NULL'
+        if min_completed_id is not None:
+            id_cond = '(%s OR id > %s)' % (id_cond, min_completed_id)
+        return self.query(
+            "SELECT tid, partial, id, IF(id=NULL,NULL,oids)"
+            " FROM pack WHERE tid %% %s IN (%s) AND %s"
+            % (self.np, ','.join(map(str, self._readable_set)), id_cond))
+
+    def getPackedIDs(self, up_to_date=False):
+        return dict(self.query(
+            "SELECT `partition`, pack FROM pt WHERE pack IS NOT NULL"
+            + (" AND tid=-%u" % CellStates.UP_TO_DATE if up_to_date else "")))
+
+    def _setPartitionPacked(self, partition, pack_id):
+        q = self.query
+        nid = self.getUUID()
+        (i,), = q("SELECT pack FROM pt WHERE `partition`=%s AND nid=%s"
+            % (partition, nid))
+        assert i is not None and i < pack_id, (i, pack_id)
+        q("UPDATE pt SET pack=%s WHERE `partition`=%s AND nid=%s"
+            % (pack_id, partition, nid))
+
+    def updateCompletedPackByReplication(self, partition, pack_id):
+        self.query("UPDATE pt SET pack=%s"
+            " WHERE `partition`=%s AND nid=%s AND (pack IS NULL OR pack>%s)"
+            % (pack_id, partition, self.getUUID(), pack_id))
+
     def _getDataLastId(self, partition):
         return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
             % (partition << 48, (partition + 1) << 48))[0][0]
@@ -506,21 +547,19 @@ class MySQLDatabaseManager(DatabaseManager):
                 compression, checksum, data, value_serial)
 
     def _changePartitionTable(self, cell_list, reset=False):
-        offset_list = []
         q = self.query
         if reset:
             q("DELETE FROM pt")
-        for offset, nid, tid in cell_list:
+        for offset, nid, tid, pack in cell_list:
             # TODO: this logic should move out of database manager
             # add 'dropCells(cell_list)' to API and use one query
             if tid is None:
                 q("DELETE FROM pt WHERE `partition` = %d AND nid = %d"
                   % (offset, nid))
             else:
-                offset_list.append(offset)
-                q("INSERT INTO pt VALUES (%d, %d, %d)"
-                  " ON DUPLICATE KEY UPDATE tid = %d"
-                  % (offset, nid, tid, tid))
+                q("INSERT INTO pt VALUES (%d, %d, %d, %s)"
+                  " ON DUPLICATE KEY UPDATE tid=%d"
+                  % (offset, nid, tid, 'NULL' if pack is None else pack, tid))
 
     def _dropPartition(self, offset, count):
         q = self.query
@@ -533,7 +572,8 @@ class MySQLDatabaseManager(DatabaseManager):
             q("DELETE FROM obj" + where)
             return [x for x, in x]
         logging.debug("drop: trans")
-        q("DELETE FROM trans WHERE `partition`=%s" % offset)
+        q("DELETE trans, pack FROM trans LEFT JOIN pack USING(tid)"
+          " WHERE `partition`=%s" % offset)
         (x,), = q('SELECT ROW_COUNT()')
         return x
 
@@ -546,7 +586,7 @@ class MySQLDatabaseManager(DatabaseManager):
             " WHERE `partition` IN (%s)" % ','.join(map(str, offset_list))
         q = self.query
         q("DELETE FROM tobj" + where)
-        q("DELETE FROM ttrans" + where)
+        q("DELETE ttrans, pack FROM ttrans LEFT JOIN pack USING(tid)" + where)
 
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         e = self.escape
@@ -715,18 +755,44 @@ class MySQLDatabaseManager(DatabaseManager):
         r = self.query(sql)
         return r[0] if r else (None, None)
 
-    def lockTransaction(self, tid, ttid):
+    def storePackOrder(self, tid, partial, pack_id, oid_list, pack_tid):
+        u64 = util.u64
+        self.query("INSERT INTO pack VALUES (%s,%s,%s,%s,%s)" % (
+            u64(tid), partial,
+            'NULL' if pack_id is None else pack_id,
+            'NULL' if oid_list is None else
+            '%s' % self.escape(''.join(oid_list)),
+            u64(pack_tid)))
+
+    def validatePackOrders(self, tid_id_dict):
+        u64 = util.u64
+        tid_id_dict = {u64(tid): id for tid, id in tid_id_dict.iteritems()}
+        to_fix = sum(self.query(
+            "SELECT tid FROM pack WHERE tid IN (%s) AND id IS NULL"
+            % ','.join(map(str, tid_id_dict))), ())
+        if to_fix: # empty most of the time
+            q = self.query
+            for tid in to_fix:
+                q("UPDATE pack SET id=%s WHERE tid=%s"
+                  % (tid_id_dict[tid], tid))
+            self.commit()
+
+    def lockTransaction(self, tid, ttid, pack):
         u64 = util.u64
         self.query("UPDATE ttrans SET tid=%d WHERE ttid=%d LIMIT 1"
                    % (u64(tid), u64(ttid)))
+        if pack is not None:
+            self.query("UPDATE pack SET id=%d WHERE tid=%d" % (pack, u64(ttid)))
         self.commit()
 
-    def unlockTransaction(self, tid, ttid, trans, obj):
+    def unlockTransaction(self, tid, ttid, trans, obj, pack):
         q = self.query
         u64 = util.u64
         tid = u64(tid)
         if trans:
             q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
+            if pack:
+                q("UPDATE pack SET tid=%s WHERE tid=%d" % (tid, u64(ttid)))
             q("DELETE FROM ttrans WHERE tid=%d" % tid)
             if not obj:
                 return
@@ -746,7 +812,9 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)
-        self.query("DELETE FROM trans WHERE `partition`=%s AND tid=%s" %
+        self.query("DELETE trans, pack"
+            " FROM trans LEFT JOIN pack USING(tid)"
+            " WHERE `partition`=%s AND tid=%s" %
             (self._getPartition(tid), tid))
 
     def deleteObject(self, oid, serial=None):
@@ -769,7 +837,7 @@ class MySQLDatabaseManager(DatabaseManager):
         if max_tid is not None:
             sql += " AND tid <= %d" % max_tid
         q = self.query
-        q("DELETE FROM trans" + sql)
+        q("DELETE trans, pack FROM trans LEFT JOIN pack USING(tid)" + sql)
         sql = " FROM obj" + sql
         data_id_list = [x for x, in q(
             "SELECT DISTINCT data_id%s AND data_id IS NOT NULL" % sql)]
@@ -779,16 +847,30 @@ class MySQLDatabaseManager(DatabaseManager):
     def getTransaction(self, tid, all = False):
         tid = util.u64(tid)
         q = self.query
-        r = q("SELECT oids, user, description, ext, packed, ttid"
-              " FROM trans WHERE `partition` = %d AND tid = %d"
+        r = q("SELECT trans.oids, user, description, ext, packed, ttid,"
+                " partial, id, pack.oids, pack_tid"
+              " FROM trans LEFT JOIN pack USING (tid)"
+              " WHERE `partition` = %d AND tid = %d"
               % (self._getReadablePartition(tid), tid))
-        if not r and all:
-            r = q("SELECT oids, user, description, ext, packed, ttid"
-                  " FROM ttrans WHERE tid = %d" % tid)
-        if r:
-            oids, user, desc, ext, packed, ttid = r[0]
-            oid_list = splitOIDField(tid, oids)
-            return oid_list, user, desc, ext, bool(packed), util.p64(ttid)
+        if not r:
+            if not all:
+                return
+            r = q("SELECT ttrans.oids, user, description, ext, packed, ttid,"
+                    " partial, id, pack.oids, pack_tid"
+                  " FROM ttrans LEFT JOIN pack USING (tid)"
+                  " WHERE tid = %d" % tid)
+            if not r:
+                return
+        oids, user, desc, ext, packed, ttid, \
+            pack_partial, pack_id, pack_oids, pack_tid = r[0]
+        return (
+            splitOIDField(tid, oids),
+            user, desc, ext,
+            bool(packed), util.p64(ttid),
+            None if pack_partial is None else (
+                bool(pack_partial), pack_id,
+                None if pack_oids is None else splitOIDField(tid, pack_oids),
+                util.p64(pack_tid)))
 
     def getObjectHistory(self, oid, offset, length):
         # FIXME: This method doesn't take client's current transaction id as
@@ -800,10 +882,9 @@ class MySQLDatabaseManager(DatabaseManager):
             "  CAST(CONV(HEX(SUBSTR(value, 5, 4)), 16, 10) AS INT))"
             " FROM obj FORCE INDEX(PRIMARY)"
             " LEFT JOIN data ON (obj.data_id = data.id)"
-            " WHERE `partition` = %d AND oid = %d AND tid >= %d"
+            " WHERE `partition` = %d AND oid = %d"
             " ORDER BY tid DESC LIMIT %d, %d" %
-            (self._getReadablePartition(oid), oid,
-             self._getPackTID(), offset, length))
+            (self._getReadablePartition(oid), oid, offset, length))
         if r:
             return [(p64(tid), length or 0) for tid, length in r]
 
@@ -856,67 +937,59 @@ class MySQLDatabaseManager(DatabaseManager):
         })
         return [p64(t[0]) for t in r]
 
-    def _updatePackFuture(self, oid, orig_serial, max_serial):
-        q = self.query
-        # Before deleting this objects revision, see if there is any
-        # transaction referencing its value at max_serial or above.
-        # If there is, copy value to the first future transaction. Any further
-        # reference is just updated to point to the new data location.
-        value_serial = None
-        kw = {
-          'partition': self._getReadablePartition(oid),
-          'oid': oid,
-          'orig_tid': orig_serial,
-          'max_tid': max_serial,
-          'new_tid': 'NULL',
-        }
-        for kw['table'] in 'obj', 'tobj':
-            for kw['tid'], in q('SELECT tid FROM %(table)s'
-                  ' WHERE `partition`=%(partition)d AND oid=%(oid)d'
-                  ' AND tid>=%(max_tid)d AND value_tid=%(orig_tid)d'
-                  ' ORDER BY tid ASC' % kw):
-                q('UPDATE %(table)s SET value_tid=%(new_tid)s'
-                  ' WHERE `partition`=%(partition)d AND oid=%(oid)d'
-                  ' AND tid=%(tid)d' % kw)
-                if value_serial is None:
-                    # First found, mark its serial for future reference.
-                    kw['new_tid'] = value_serial = kw['tid']
-        return value_serial
-
-    def pack(self, tid, updateObjectDataForPack):
-        # TODO: unit test (along with updatePackFuture)
+    def _pack(self, updateObjectDataForPack, offset, oid, tid, limit=None):
         p64 = util.p64
-        tid = util.u64(tid)
-        updatePackFuture = self._updatePackFuture
-        getPartition = self._getReadablePartition
         q = self.query
-        self._setPackTID(tid)
-        for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"
-                                        " FROM obj FORCE INDEX(PRIMARY)"
-                                        " WHERE tid <= %d GROUP BY oid"
-                                        % tid):
-            partition = getPartition(oid)
-            if q("SELECT 1 FROM obj WHERE `partition` = %d"
-                 " AND oid = %d AND tid = %d AND data_id IS NULL"
-                 % (partition, oid, max_serial)):
-                max_serial += 1
-            elif not count:
-                continue
-            # There are things to delete for this object
+        if limit:
+            q("SET @next_oid=NULL")
+        data_id_set = set()
+        value_dict = defaultdict(list)
+        for oid, max_serial in q(
+                "SELECT obj.oid, tid + (data_id IS NULL)"
+                " FROM (SELECT COUNT(*) AS n, oid, MAX(tid) AS max_tid"
+                    " FROM obj FORCE INDEX(PRIMARY)"
+                    " WHERE `partition`=%s AND tid<=%s AND oid%s"
+                    " GROUP BY oid%s) AS t"
+                " JOIN obj ON `partition`=%s AND t.oid=obj.oid AND tid=max_tid"
+                " WHERE data_id IS NULL OR n>1"% (
+                    offset, tid,
+                    ">=%s AND last_value(@next_oid:=oid,1)" % oid if limit else
+                    " IN (%s)" % ','.join(map(str, oid)),
+                    " LIMIT %s" % limit if limit else "",
+                    offset)):
+            value_dict.clear()
+            for i, serial, value_serial in q(
+                    "(SELECT 0, tid, value_tid FROM obj FORCE INDEX(PRIMARY)"
+                    " WHERE `partition`=%s AND oid=%s AND tid>=%s"
+                    " AND value_tid<%s) UNION "
+                    "(SELECT 1, tid, value_tid FROM tobj"
+                    " WHERE `partition`=%s AND oid=%s AND value_tid<%s)"
+                    % (offset, oid, max_serial, max_serial,
+                       offset, oid, max_serial)):
+                value_dict[value_serial].append((i, serial))
             data_id_set = set()
-            sql = ' FROM obj WHERE `partition`=%d AND oid=%d' \
-                ' AND tid<%d' % (partition, oid, max_serial)
-            for serial, data_id in q('SELECT tid, data_id' + sql):
+            sql = " FROM obj WHERE `partition`=%s AND oid=%s AND tid<%s" \
+                % (offset, oid, max_serial)
+            for serial, data_id in q("SELECT tid, data_id" + sql):
                 data_id_set.add(data_id)
-                new_serial = updatePackFuture(oid, serial, max_serial)
-                if new_serial:
-                    new_serial = p64(new_serial)
-                updateObjectDataForPack(p64(oid), p64(serial),
-                                        new_serial, data_id)
-            q('DELETE' + sql)
-            data_id_set.discard(None)
-            self._pruneData(data_id_set)
-        self.commit()
+                if serial in value_dict:
+                    value_serial = None
+                    for i, t in value_dict[serial]:
+                        q("UPDATE %s SET value_tid=%s"
+                          " WHERE `partition`=%s AND oid=%s AND tid=%s" % (
+                              'tobj' if i else 'obj',
+                              'NULL' if value_serial is None else value_serial,
+                              offset, oid, t))
+                        if value_serial is None and not i:
+                            value_serial = t
+                    if value_serial is not None:
+                        value_serial = p64(value_serial)
+                    updateObjectDataForPack(p64(oid), p64(serial),
+                                            value_serial, data_id)
+            q("DELETE" + sql)
+        data_id_set.discard(None)
+        self._pruneData(data_id_set)
+        return limit and q("SELECT @next_oid+1")[0][0], len(data_id_set)
 
     def checkTIDRange(self, partition, length, min_tid, max_tid):
         count, tid_checksum, max_tid = self.query(

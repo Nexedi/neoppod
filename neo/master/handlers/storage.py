@@ -44,14 +44,13 @@ class StorageServiceHandler(BaseServiceHandler):
         super(StorageServiceHandler, self).connectionLost(conn, new_state)
         app.setStorageNotReady(uuid)
         app.tm.storageLost(uuid)
+        app.pm.connectionLost(conn)
         if (app.getClusterState() == ClusterStates.BACKINGUP
             # Also check if we're exiting, because backup_app is not usable
             # in this case. Maybe cluster state should be set to something
             # else, like STOPPING, during cleanup (__del__/close).
             and app.listening_conn):
             app.backup_app.nodeLost(node)
-        if app.packing is not None:
-            self.answerPack(conn, False)
 
     def askUnfinishedTransactions(self, conn, offset_list):
         app = self.app
@@ -109,13 +108,10 @@ class StorageServiceHandler(BaseServiceHandler):
                       uuid_str(uuid), offset, dump(tid))
         self.app.broadcastPartitionChanges(cell_list)
 
-    def answerPack(self, conn, status):
+    def notifyPackCompleted(self, conn, pack_id):
         app = self.app
-        if app.packing is not None:
-            client, msg_id, uid_set = app.packing
-            uid_set.remove(conn.getUUID())
-            if not uid_set:
-                app.packing = None
-                if not client.isClosed():
-                    client.send(Packets.AnswerPack(True), msg_id)
+        app.nm.getByUUID(conn.getUUID()).completed_pack_id = pack_id
+        app.pm.notifyCompleted(app.getCompletedPackId())
 
+    def answerPackOrders(self, conn, pack_list, process):
+        process(pack_list)

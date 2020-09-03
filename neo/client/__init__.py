@@ -92,6 +92,14 @@ def patch():
         self._flush_invalidations()
     Connection.afterCompletion = afterCompletion
 
+    global TransactionMetaData
+    try:
+        from ZODB.Connection import TransactionMetaData
+    except ImportError: # BBB: ZODB < 5
+        from ZODB.BaseStorage import TransactionRecord
+        TransactionMetaData = lambda user='', description='', extension=None: \
+            TransactionRecord(None, None, user, description, extension)
+
 patch()
 
 from . import app # set up signal handlers early enough to do it in the main thread

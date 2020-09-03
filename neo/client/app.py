@@ -25,7 +25,7 @@ except ImportError:
     from cPickle import dumps, loads
     _protocol = 1
 from ZODB.POSException import UndoError, ConflictError, ReadConflictError
-from . import OLD_ZODB
+from . import OLD_ZODB, TransactionMetaData
 if OLD_ZODB:
   from ZODB.ConflictResolution import ResolvedSerial
 from persistent.TimeStamp import TimeStamp
@@ -34,7 +34,7 @@ from neo.lib import logging
 from neo.lib.compress import decompress_list, getCompress
 from neo.lib.protocol import NodeTypes, Packets, \
     INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_TID
-from neo.lib.util import makeChecksum, dump
+from neo.lib.util import makeChecksum, dump, tidFromTime
 from neo.lib.locking import Empty, Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.exception import NodeNotReady
@@ -52,6 +52,8 @@ CHECKED_SERIAL = object()
 # failed in the past.
 MAX_FAILURE_AGE = 600
 
+TXN_PACK_DESC = 'IStorage.pack'
+
 try:
     from Signals.Signals import SignalHandler
 except ImportError:
@@ -67,6 +69,8 @@ class Application(ThreadedApplication):
     # the transaction is really committed, no matter for how long the master
     # is unreachable.
     max_reconnection_to_master = float('inf')
+    # For tests only. See end of pack() method.
+    wait_for_pack = True
 
     def __init__(self, master_nodes, name, compress=True, cache_size=None,
                  **kw):
@@ -594,7 +598,8 @@ class Application(ThreadedApplication):
         # user and description are cast to str in case they're unicode.
         # BBB: This is not required anymore with recent ZODB.
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
-            str(transaction.description), ext, list(txn_context.cache_dict))
+            str(transaction.description), ext, list(txn_context.cache_dict),
+            txn_context.pack)
         queue = txn_context.queue
         conn_dict = txn_context.conn_dict
         # Ask in parallel all involved storage nodes to commit object metadata.
@@ -712,7 +717,7 @@ class Application(ThreadedApplication):
             del cache_dict[oid]
         ttid = txn_context.ttid
         p = Packets.AskFinishTransaction(ttid, list(cache_dict),
-                                         checked_list)
+                                         checked_list, txn_context.pack)
         try:
             tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
             assert tid
@@ -952,11 +957,16 @@ class Application(ThreadedApplication):
         self._askPrimary(Packets.Ping())
 
     def pack(self, t):
-        tid = TimeStamp(*time.gmtime(t)[:5] + (t % 60, )).raw()
-        if tid == ZERO_TID:
-            raise NEOStorageError('Invalid pack time')
-        self._askPrimary(Packets.AskPack(tid))
-        # XXX: this is only needed to make ZODB unit tests pass.
+        tid = tidFromTime(t)
+        transaction = TransactionMetaData(description=TXN_PACK_DESC)
+        self.tpc_begin(None, transaction)
+        self._txn_container.get(transaction).pack = None, tid
+        tid = self.tpc_finish(transaction)
+        if not self.wait_for_pack:
+            return
+        # Waiting for pack to be finished is only needed
+        # to make ZODB unit tests pass.
+        self._askPrimary(Packets.WaitForPack(tid))
         # It should not be otherwise required (clients should be free to load
         # old data as long as it is available in cache, event if it was pruned
         # by a pack), so don't bother invalidating on other clients.

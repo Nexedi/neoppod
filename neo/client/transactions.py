@@ -31,6 +31,7 @@ class Transaction(object):
     voted = False
     ttid = None     # XXX: useless, except for testBackupReadOnlyAccess
     lockless_dict = None                    # {partition: {uuid}}
+    pack = None
 
     def __init__(self, txn):
         self.queue = SimpleQueue()

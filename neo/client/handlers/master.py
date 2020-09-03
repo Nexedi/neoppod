@@ -174,3 +174,6 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
 
     def answerFinalTID(self, conn, tid):
         self.app.setHandlerData(tid)
+
+    def waitedForPack(self, conn):
+        pass

@@ -69,6 +69,8 @@ class Node(object):
         else:
             old_state = self._state
             self._state = new_state
+            if new_state != NodeStates.RUNNING:
+                self.completed_pack_id = 0
             self._manager._updateState(self, old_state)
         self._last_state_change = time()
 

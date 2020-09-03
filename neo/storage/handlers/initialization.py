@@ -49,8 +49,11 @@ class InitializationHandler(BaseMasterHandler):
     def askLastIDs(self, conn):
         dm = self.app.dm
         dm.truncate()
-        ltid, loid = dm.getLastIDs()
-        conn.answer(Packets.AnswerLastIDs(loid, ltid))
+        packed = dm.getPackedIDs()
+        if packed:
+            self.app.completed_pack_id = pack_id = min(packed.itervalues())
+            conn.send(Packets.NotifyPackCompleted(pack_id))
+        conn.answer(Packets.AnswerLastIDs(*dm.getLastIDs()))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt
@@ -63,8 +66,8 @@ class InitializationHandler(BaseMasterHandler):
 
     def validateTransaction(self, conn, ttid, tid):
         dm = self.app.dm
-        dm.lockTransaction(tid, ttid)
-        dm.unlockTransaction(tid, ttid, True, True)
+        dm.lockTransaction(tid, ttid, None)
+        dm.unlockTransaction(tid, ttid, True, True, True)
         dm.commit()
 
     def startOperation(self, conn, backup):

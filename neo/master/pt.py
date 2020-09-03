@@ -31,6 +31,10 @@ class Cell(neo.lib.pt.Cell):
         if self.isReadable():
             return
         try:
+            del self.getNode().completed_pack_id
+        except AttributeError:
+            pass
+        try:
             del self.updatable
         except AttributeError:
             pass

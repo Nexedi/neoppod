@@ -14,11 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, errno, socket, struct, sys, threading
+import os, errno, socket, struct, sys, threading, weakref
 from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
-from functools import wraps
+from functools import partial, wraps
 from time import time
 from neo.lib import logging, util
 from neo.lib.interfaces import abstract, requires
@@ -43,6 +43,186 @@ class CreationUndone(Exception):
 class Fallback(object):
     pass
 
+class DeleteTask(object):
+
+    _deleting = False
+    _drop_stats = 0, 0
+    _pack_stats = 0, 0
+
+    def __init__(self):
+        self._drop_set = set()
+        self._pack_set = set()
+
+    def _task(self, weak_app):
+        self._deleting = True
+        try:
+            dm = weak_app().dm
+            while True:
+                if self._drop_set:
+                    before = drop_count, drop_time = self._drop_stats
+                    commit = dropped = 0
+                    parts = self._drop_set
+                    while True:
+                        offset = next(iter(parts))
+                        log = True
+                        while True:
+                            yield 1
+                            if offset not in parts: # partition readded
+                                break
+                            start = time()
+                            if 0 < commit < start:
+                                dm.commit()
+                                logging.debug('drop: committed')
+                                commit = 0
+                                continue
+                            data_id_list = dm._dropPartition(offset,
+                                # The efficiency drops when the number
+                                # of lines to delete is too small,
+                                # so do not delete too few.
+                                max(100, int(.1 * drop_count / drop_time))
+                                if drop_time else 1000)
+                            if data_id_list:
+                                if not commit:
+                                    commit = time() + 1
+                                if log:
+                                    log = False
+                                    logging.info("dropping partition %s...",
+                                                 offset)
+                                if type(data_id_list) is list:
+                                    try:
+                                        data_id_list.remove(None)
+                                        pass # XXX: not covered
+                                    except ValueError:
+                                        pass
+                                    logging.debug('drop: pruneData(%s)',
+                                                  len(data_id_list))
+                                    drop_count += dm._pruneData(data_id_list)
+                                    drop_time += time() - start
+                                    self._drop_stats = drop_count, drop_time
+                                    continue
+                            parts.remove(offset)
+                            dropped += 1
+                            break
+                        if not parts:
+                            break
+                    if dropped:
+                        if commit:
+                            dm.commit()
+                        logging.info("%s partition(s) dropped"
+                            " (delete stats: count: %s/%s, time: %.4s/%.4s)",
+                            dropped, drop_count - before[0], drop_count,
+                            round(drop_time - before[1], 3),
+                            round(drop_time, 3))
+                elif self._pack_set:
+                    dm_pack = partial(dm._pack,
+                        weak_app().tm.updateObjectDataForPack)
+                    pack_id, partial_, oids, tid = self._pack_info
+                    tid = util.u64(tid)
+                    before = delete_count, delete_time = self._pack_stats
+                    commit = oid_index = oid = packed = 0
+                    parts = self._pack_set
+                    while True:
+                        offset = next(iter(parts))
+                        log = True
+                        while True:
+                            yield 1
+                            if offset not in parts: # partition dropped
+                                break
+                            start = time()
+                            if not commit:
+                                commit = start + 1
+                            elif commit < start:
+                                dm.commit()
+                                logging.debug('pack: committed')
+                                commit = 0
+                                continue
+                            # The efficiency drops when the number of lines to
+                            # delete is too small, so do not delete too few.
+                            limit = max(100,
+                                int(.1 * delete_count / delete_time)
+                                ) if delete_time else 1000
+                            if partial_:
+                                i = oid_index + limit
+                                deleted = dm_pack(offset, oids[oid_index:i],
+                                                  tid)[1]
+                                oid_index = i
+                            else:
+                                oid, deleted = dm_pack(offset, oid, tid, limit)
+                            if log:
+                                log = False
+                                logging.info("pack %s: partition %s...",
+                                             pack_id, offset)
+                            delete_count += deleted
+                            delete_time += time() - start
+                            self._pack_stats = delete_count, delete_time
+                            if (oid_index < len(oids) if partial_ else
+                                    oid is None):
+                                parts.remove(offset)
+                                packed += 1
+                                dm._setPartitionPacked(offset, pack_id)
+                                break
+                        if not parts:
+                            break
+                    del self._pack_info
+                    if packed:
+                        if commit:
+                            dm.commit()
+                        logging.info("%s partition(s) processed for pack %s"
+                            " (delete stats: count: %s/%s, time: %.4s/%.4s)",
+                            packed, pack_id,
+                            delete_count - before[0], delete_count,
+                            round(delete_time - before[1], 3),
+                            round(delete_time, 3))
+                        # After a partition is packed, it may have been dropped
+                        # and readded, in which case its last completed pack id
+                        # may be unknown (replication not started) or smaller
+                        # (replication from a node that is late about packing).
+                        # IOW, the list of partitions that we've just packed is
+                        # not pertinent.
+                        weak_app().notifyPackCompleted()
+                    weak_app().maybePack()
+                else:
+                    break
+        finally:
+            del self._deleting
+
+    @contextmanager
+    def dropPartitions(self, app):
+        if app.disable_drop_partitions:
+            drop_set = set()
+            yield drop_set
+            if drop_set:
+                logging.info("don't drop data for partitions %r",
+                             sorted(drop_set))
+        else:
+            drop_set = self._drop_set
+            yield drop_set
+            if app.operational and not self._deleting:
+                self.resume(app)
+        self._pack_set -= drop_set
+
+    def pack(self, app, offset_list, info):
+        assert app.operational
+        if self._pack_set:
+            if info[0] != self._pack_info[0]: # pack id
+                return
+            assert info == self._pack_info
+            assert self._deleting
+            self._pack_set.update(offset_list)
+        else:
+            self._pack_set.update(offset_list)
+            self._pack_info = info
+            if not self._deleting:
+                self.resume(app)
+
+    def resume(self, app):
+        task = self._task(weakref.ref(app))
+        try:
+            next(task)
+        except StopIteration:
+            return
+        app.newTask(task, 0)
+
 class DatabaseManager(object):
     """This class only describes an interface for database managers."""
 
@@ -54,8 +234,6 @@ class DatabaseManager(object):
     LOCKED = "error: database is locked"
 
     _deferred = 0
-    _drop_stats = 0, 0
-    _dropping = None
     _repairing = None
 
     def __init__(self, database, engine=None, wait=None):
@@ -72,6 +250,7 @@ class DatabaseManager(object):
         self._wait = wait or 0
         self._parse(database)
         self._init_attrs = tuple(self.__dict__)
+        self._delete_task = DeleteTask()
         self._connect()
 
     def __getstate__(self):
@@ -96,7 +275,7 @@ class DatabaseManager(object):
             db.close()
 
     _cached_attr_list = (
-        '_readable_set', '_getPartition', '_getReadablePartition')
+        'pt', '_readable_set', '_getPartition', '_getReadablePartition')
 
     def __getattr__(self, attr):
         if attr in self._cached_attr_list:
@@ -214,9 +393,9 @@ class DatabaseManager(object):
             getattr(self, '_migrate%s' % version)(*args, **kw)
             self.setConfiguration("version", version)
 
-    def doOperation(self, app):
-        if self._dropping:
-            self._dropPartitions(app)
+    @property
+    def doOperation(self):
+        return self._delete_task.resume
 
     def _close(self):
         """Backend-specific code to close the database"""
@@ -277,8 +456,9 @@ class DatabaseManager(object):
 
     def _getPartitionTable(self):
         """Return a whole partition table as a sequence of rows. Each row
-        is again a tuple of an offset (row ID), the NID of a storage
-        node, and a cell state."""
+        is again a tuple of an offset (row ID), the NID of a storage node,
+        either a tid or the negative of a cell state, and a pack id.
+        """
 
     def getUUID(self):
         """
@@ -296,8 +476,8 @@ class DatabaseManager(object):
         old_nid = self.getUUID()
         if nid != old_nid:
             if old_nid:
-                self._changePartitionTable((offset, x, tid)
-                    for offset, x, tid in self._getPartitionTable()
+                self._changePartitionTable((offset, x, tid, pack)
+                    for offset, x, tid, pack in self._getPartitionTable()
                     if x == old_nid
                     for x, tid in ((x, None), (nid, tid)))
             self.setConfiguration('nid', str(nid))
@@ -346,15 +526,6 @@ class DatabaseManager(object):
         logging.debug('truncate_tid = %s', tid)
         return self._setConfiguration('truncate_tid', tid)
 
-    def _setPackTID(self, tid):
-        self._setConfiguration('_pack_tid', tid)
-
-    def _getPackTID(self):
-        try:
-            return int(self.getConfiguration('_pack_tid'))
-        except TypeError:
-            return -1
-
     # XXX: Consider splitting getLastIDs/_getLastIDs because
     #      sometimes the last oid is not wanted.
 
@@ -397,6 +568,32 @@ class DatabaseManager(object):
             return (None if tid is None else util.p64(tid),
                     None if oid is None else util.p64(oid))
         return None, None
+
+    def _getPackOrders(self, min_completed_id):
+      """Request list of pack orders excluding oldest completed ones.
+      """
+
+    @requires(_getPackOrders)
+    def getPackOrders(self, min_completed_id):
+        p64 = util.p64
+        return [p64(x[0]) + x[1:]
+            for x in self._getPackOrders(min_completed_id)]
+
+    @abstract
+    def getPackedIDs(self, up_to_date=False):
+        """"""
+
+    @abstract
+    def _setPartitionPacked(self, partition, pack_id):
+        """"""
+
+    @abstract
+    def updateCompletedPackByReplication(self, partition, pack_id):
+        """"""
+
+    @property
+    def pack(self):
+        return self._delete_task.pack
 
     def _getUnfinishedTIDDict(self):
         """"""
@@ -512,13 +709,14 @@ class DatabaseManager(object):
     @requires(_getPartitionTable)
     def iterAssignedCells(self):
         my_nid = self.getUUID()
-        return ((offset, tid) for offset, nid, tid in self._getPartitionTable()
-                              if my_nid == nid)
+        return ((offset, tid)
+            for offset, nid, tid, pack in self._getPartitionTable()
+            if my_nid == nid)
 
     @requires(_getPartitionTable)
     def getPartitionTable(self):
-        return [(offset, nid, max(0, -state))
-            for offset, nid, state in self._getPartitionTable()]
+        return [(offset, nid, max(0, -tid))
+            for offset, nid, tid, pack in self._getPartitionTable()]
 
     @contextmanager
     def replicated(self, offset):
@@ -542,7 +740,7 @@ class DatabaseManager(object):
     def _updateReadable(self, reset=True):
         if reset:
             readable_set = self._readable_set = set()
-            np = 1 + self._getMaxPartition()
+            np = self.np = 1 + self._getMaxPartition()
             def _getPartition(x, np=np):
                 return x % np
             def _getReadablePartition(x, np=np, r=readable_set):
@@ -573,40 +771,39 @@ class DatabaseManager(object):
         if backup_tid:
             backup_tid = util.u64(backup_tid)
         max_offset = -1
-        dropping = self._dropping or set()
         assigned = []
         cells = []
-        for offset, nid, state in cell_list:
-            if max_offset < offset:
-                max_offset = offset
-            if state == CellStates.DISCARDED:
-                if nid == my_nid:
-                    dropping.add(offset)
-                tid = None
-            else:
-                if nid == my_nid:
-                    assigned.append(offset)
-                if nid != my_nid or state != CellStates.OUT_OF_DATE:
-                    tid = -state
+        with self._delete_task.dropPartitions(app) as drop_set:
+            for offset, nid, state in cell_list:
+                if max_offset < offset:
+                    max_offset = offset
+                pack = None
+                if state == CellStates.DISCARDED:
+                    if nid == my_nid:
+                        drop_set.add(offset)
+                    tid = None
                 else:
-                    tid = pt.get(offset, 0)
-                    if tid < 0:
-                        tid = -tid in READABLE and (backup_tid or
-                            max(self._getLastIDs(offset)[0],
-                                self._getLastTID(offset))) or 0
-            cells.append((offset, nid, tid))
-        if reset:
-            dropping.update(xrange(max_offset + 1))
-            dropping.difference_update(assigned)
-        self._changePartitionTable(cells, reset)
-        self._updateReadable(reset)
-        assert isinstance(ptid, (int, long)), ptid
-        self._setConfiguration('ptid', str(ptid))
-        self._setConfiguration('replicas', str(num_replicas))
-        if dropping and not self._dropping:
-            self._dropping = dropping
-            if app.operational:
-                self._dropPartitions(app)
+                    if nid == my_nid:
+                        assigned.append(offset)
+                        if state == CellStates.UP_TO_DATE:
+                            pack = 0
+                    if nid != my_nid or state != CellStates.OUT_OF_DATE:
+                        tid = -state
+                    else:
+                        tid = pt.get(offset, 0)
+                        if tid < 0:
+                            tid = -tid in READABLE and (backup_tid or
+                                max(self._getLastIDs(offset)[0],
+                                    self._getLastTID(offset))) or 0
+                cells.append((offset, nid, tid, pack))
+            if reset:
+                drop_set.update(xrange(max_offset + 1))
+                drop_set.difference_update(assigned)
+            self._changePartitionTable(cells, reset)
+            self._updateReadable(reset)
+            assert isinstance(ptid, (int, long)), ptid
+            self._setConfiguration('ptid', str(ptid))
+            self._setConfiguration('replicas', str(num_replicas))
 
     @requires(_changePartitionTable)
     def updateCellTID(self, partition, tid):
@@ -623,7 +820,7 @@ class DatabaseManager(object):
         # we may end up in a special situation where an OUT_OF_DATE cell
         # is actually more up-to-date than an UP_TO_DATE one.
         assert t < tid or self.getBackupTID()
-        self._changePartitionTable([(partition, self.getUUID(), tid)])
+        self._changePartitionTable([(partition, self.getUUID(), tid, None)])
 
     def iterCellNextTIDs(self):
         p64 = util.p64
@@ -650,61 +847,6 @@ class DatabaseManager(object):
                         p64(max(next_tid, self._getLastIDs(offset)[0])))
                 else:
                     yield offset, None
-
-    def _dropPartitions(self, app):
-        if app.disable_drop_partitions:
-            logging.info("don't drop data for partitions %r", self._dropping)
-            return
-        def dropPartitions():
-            dropping = self._dropping
-            before = drop_count, drop_time = self._drop_stats
-            commit = dropped = 0
-            while dropping:
-                offset = next(iter(dropping))
-                log = dropped
-                while True:
-                    yield 1
-                    if offset not in dropping:
-                        break
-                    start = time()
-                    if 0 < commit < start:
-                        self.commit()
-                        logging.debug('drop: committed')
-                        commit = 0
-                        continue
-                    data_id_list = self._dropPartition(offset,
-                        # The efficiency drops when the number of lines to
-                        # delete is too small so do not delete too few.
-                        max(100, int(.1 * drop_count / drop_time))
-                        if drop_time else 1000)
-                    if data_id_list:
-                        if not commit:
-                            commit = time() + 1
-                        if log == dropped:
-                            dropped += 1
-                            logging.info("dropping partition %s...", offset)
-                        if type(data_id_list) is list:
-                            try:
-                                data_id_list.remove(None)
-                                pass # XXX: not covered
-                            except ValueError:
-                                pass
-                            logging.debug('drop: pruneData(%s)',
-                                          len(data_id_list))
-                            drop_count += self._pruneData(data_id_list)
-                            drop_time += time() - start
-                            self._drop_stats = drop_count, drop_time
-                            continue
-                    dropping.remove(offset)
-                    break
-            if dropped:
-                if commit:
-                    self.commit()
-                logging.info("%s partition(s) dropped"
-                    " (stats: count: %s/%s, time: %.4s/%.4s)",
-                    dropped, drop_count - before[0], drop_count,
-                    round(drop_time - before[1], 3), round(drop_time, 3))
-        app.newTask(dropPartitions())
 
     @abstract
     def _dropPartition(self, offset, count):
@@ -902,14 +1044,22 @@ class DatabaseManager(object):
         return p64(current_tid), data_tid, is_current
 
     @abstract
-    def lockTransaction(self, tid, ttid):
+    def storePackOrder(self, tid, partial, pack_id, oid_list, pack_tid):
+        """"""
+
+    @abstract
+    def validatePackOrders(self, tid_id_dict):
+        """"""
+
+    @abstract
+    def lockTransaction(self, tid, ttid, pack):
         """Mark voted transaction 'ttid' as committed with given 'tid'
 
         All pending changes are committed just before returning to the caller.
         """
 
     @abstract
-    def unlockTransaction(self, tid, ttid, trans, obj):
+    def unlockTransaction(self, tid, ttid, trans, obj, pack):
         """Finalize a transaction by moving data to a finished area."""
 
     @abstract
@@ -944,7 +1094,7 @@ class DatabaseManager(object):
                         self.commit()
                     commit = time() + 10
                 if state > tid:
-                    cell_list.append((partition, my_nid, tid))
+                    cell_list.append((partition, my_nid, tid, None))
                 self._deleteRange(partition, tid)
             if cell_list:
                 self._changePartitionTable(cell_list)
@@ -1025,21 +1175,8 @@ class DatabaseManager(object):
         passed to filter out non-applicable TIDs."""
 
     @abstract
-    def pack(self, tid, updateObjectDataForPack):
-        """Prune all non-current object revisions at given tid.
-        updateObjectDataForPack is a function called for each deleted object
-        and revision with:
-        - OID
-        - packed TID
-        - new value_serial
-            If object data was moved to an after-pack-tid revision, this
-            parameter contains the TID of that revision, allowing to backlink
-            to it.
-        - getObjectData function
-            To call if value_serial is None and an object needs to be updated.
-            Takes no parameter, returns a 3-tuple: compression, data_id,
-            value
-        """
+    def _pack(self, updateObjectDataForPack, offset, oid, tid, limit=None):
+        """"""
 
     @abstract
     def checkTIDRange(self, partition, length, min_tid, max_tid):

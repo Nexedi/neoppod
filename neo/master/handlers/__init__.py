@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from itertools import islice
 from ..app import monotonic_time
+from ..pack import RequestOld
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
@@ -40,11 +42,21 @@ class MasterHandler(EventHandler):
 
     def askLastIDs(self, conn):
         tm = self.app.tm
-        conn.answer(Packets.AnswerLastIDs(tm.getLastOID(), tm.getLastTID()))
+        conn.answer(Packets.AnswerLastIDs(tm.getLastTID(), tm.getLastOID()))
 
     def askLastTransaction(self, conn):
         conn.answer(Packets.AnswerLastTransaction(
             self.app.getLastTransaction()))
+
+    def askPackOrders(self, conn, pack_id, limit):
+        pm = self.app.pm
+        if pack_id is None or None is not pm.getMinPackId() <= pack_id:
+            conn.answer(Packets.AnswerPackOrders([
+                (p.tid, p.id, p.partial, p.oids, p.time)
+                for p in islice(pm.sorted(pack_id), limit)]))
+        else:
+            RequestOld(self.app, pack_id, limit,
+                conn.delayAnswer(Packets.AnswerPackOrders))
 
     def _notifyNodeInformation(self, conn):
         app = self.app

@@ -348,9 +348,9 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def __init__(self, *args, **kw):
         super(ImporterDatabaseManager, self).__init__(*args, **kw)
-        implements(self, """_getNextTID checkSerialRange checkTIDRange
-            deleteObject deleteTransaction _dropPartition _getLastTID
-            getReplicationObjectList _getTIDList nonempty""".split())
+        implements(self, """_getNextTID checkSerialRange checkTIDRange _pack
+            deleteObject deleteTransaction _dropPartition _getLastTID nonempty
+            getReplicationObjectList _getTIDList _setPartitionPacked""".split())
 
     _getPartition = property(lambda self: self.db._getPartition)
     _getReadablePartition = property(lambda self: self.db._getReadablePartition)
@@ -384,6 +384,8 @@ class ImporterDatabaseManager(DatabaseManager):
                     abortTransaction storeTransaction lockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit
                     _getDevPath dropPartitionsTemporary
+                    getPackedIDs updateCompletedPackByReplication
+                    _getPackOrders storePackOrder validatePackOrders
                  """.split():
             setattr(self, x, getattr(db, x))
         if self._writeback:
@@ -453,7 +455,7 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def doOperation(self, app):
         if self._import:
-            app.newTask(self._import)
+            app.newTask(self._import, 1)
 
     def _import(self):
         p64 = util.p64
@@ -821,7 +823,7 @@ class WriteBack(object):
 class TransactionRecord(BaseStorage.TransactionRecord):
 
     def __init__(self, db, tid):
-        self._oid_list, user, desc, ext, _, _ = db.getTransaction(tid)
+        self._oid_list, user, desc, ext, _, _, _ = db.getTransaction(tid)
         super(TransactionRecord, self).__init__(tid, ' ', user, desc,
             loads(ext) if ext else {})
         self._db = db

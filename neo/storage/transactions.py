@@ -42,6 +42,7 @@ class Transaction(object):
         Container for a pending transaction
     """
     _delayed = {}
+    pack = False
     tid = None
     voted = 0
 
@@ -231,17 +232,22 @@ class TransactionManager(EventQueue):
             raise ProtocolError("unknown ttid %s" % dump(ttid))
         object_list = transaction.store_dict.itervalues()
         if txn_info:
-            user, desc, ext, oid_list = txn_info
+            user, desc, ext, oid_list, pack = txn_info
             txn_info = oid_list, user, desc, ext, False, ttid
             transaction.voted = 2
         else:
+            pack = None
             transaction.voted = 1
         # store metadata to temporary table
         dm = self._app.dm
         dm.storeTransaction(ttid, object_list, txn_info)
+        if pack:
+            transaction.pack = True
+            oid_list, pack_tid = pack
+            dm.storePackOrder(ttid, bool(oid_list), None, oid_list, pack_tid)
         dm.commit()
 
-    def lock(self, ttid, tid):
+    def lock(self, ttid, tid, pack):
         """
             Lock a transaction
         """
@@ -256,7 +262,7 @@ class TransactionManager(EventQueue):
         self._load_lock_dict.update(
             dict.fromkeys(transaction.store_dict, ttid))
         if transaction.voted == 2:
-            self._app.dm.lockTransaction(tid, ttid)
+            self._app.dm.lockTransaction(tid, ttid, pack)
         else:
             assert transaction.voted
 
@@ -273,7 +279,8 @@ class TransactionManager(EventQueue):
         dm = self._app.dm
         dm.unlockTransaction(tid, ttid,
             transaction.voted == 2,
-            transaction.store_dict)
+            transaction.store_dict,
+            transaction.pack)
         self._app.em.setTimeout(time() + 1, dm.deferCommit())
         self.abort(ttid, even_if_locked=True)
 

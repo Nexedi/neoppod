@@ -48,10 +48,8 @@ UNIT_TEST_MODULES = [
     'neo.tests.testUtil',
     'neo.tests.testPT',
     # master application
-    'neo.tests.master.testClientHandler',
     'neo.tests.master.testMasterApp',
     'neo.tests.master.testMasterPT',
-    'neo.tests.master.testStorageHandler',
     'neo.tests.master.testTransactions',
     # storage application
     'neo.tests.storage.testClientHandler',

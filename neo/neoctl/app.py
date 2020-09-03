@@ -103,7 +103,7 @@ class TerminalNeoCTL(object):
             r = "backup_tid = 0x%x (%s)" % (u64(backup_tid),
                                             datetimeFromTID(backup_tid))
         else:
-            loid, ltid = self.neoctl.getLastIds()
+            ltid, loid = self.neoctl.getLastIds()
             r = "last_oid = 0x%x" % (u64(loid))
         return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %s" % \
                                     (u64(ltid), datetimeFromTID(ltid), ptid)

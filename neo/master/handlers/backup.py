@@ -72,3 +72,6 @@ class BackupHandler(EventHandler):
         partition_set.add(getPartition(tid))
         prev_tid = app.app.getLastTransaction()
         app.invalidatePartitions(tid, prev_tid, partition_set)
+
+    def notifyPackValidated(self, conn, tid_id_dict):
+        raise NotImplementedError # TODO

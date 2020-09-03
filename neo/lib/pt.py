@@ -30,9 +30,11 @@ class PartitionTableException(Exception):
 class Cell(object):
     """This class represents a cell in a partition table."""
 
+    state = CellStates.DISCARDED
+
     def __init__(self, node, state = CellStates.UP_TO_DATE):
         self.node = node
-        self.state = state
+        self.setState(state)
 
     def __repr__(self):
         return "<Cell(uuid=%s, address=%s, state=%s)>" % (

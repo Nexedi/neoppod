@@ -370,6 +370,7 @@ class Replicator(object):
             # restarting from the beginning by committing now.
             self.app.dm.commit()
             p.next_trans = min_tid
+            ask_pack_info = False
         else:
             try:
                 addr, name = self.source_dict[offset]
@@ -383,11 +384,12 @@ class Replicator(object):
             logging.debug("starting replication of <partition=%u"
                 " min_tid=%s max_tid=%s> from %r", offset, dump(min_tid),
                 dump(self.replicate_tid), self.current_node)
+            ask_pack_info = True
         max_tid = self.replicate_tid
         tid_list = self.app.dm.getReplicationTIDList(min_tid, max_tid,
             FETCH_COUNT, offset)
         self._conn_msg_id = self.current_node.ask(Packets.AskFetchTransactions(
-            offset, FETCH_COUNT, min_tid, max_tid, tid_list))
+            offset, FETCH_COUNT, min_tid, max_tid, tid_list, ask_pack_info))
 
     def fetchObjects(self, min_tid=None, min_oid=ZERO_OID):
         offset = self.current_partition
