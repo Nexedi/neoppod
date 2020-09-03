@@ -56,3 +56,6 @@ class NonReadableCell(NeoException):
 
     On such event, the client must retry, preferably another cell.
     """
+
+class UndoPackError(NeoException):
+    pass

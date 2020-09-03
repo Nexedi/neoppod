@@ -600,9 +600,38 @@ class Connection(BaseConnection):
         packet.setId(self.peer_id)
         self._addPacket(packet)
 
+    def delayedAnswer(self, packet):
+        return DelayedAnswer(self, packet)
+
     def _connected(self):
         self.connecting = False
         self.getHandler().connectionCompleted(self)
+
+
+class DelayedAnswer(object):
+
+    def __init__(self, conn, packet):
+        assert packet.isResponse() and not packet.isError(), packet
+        self.conn = conn
+        self.packet = packet
+        self.msg_id = conn.peer_id
+
+    def __call__(self, *args):
+        # Same behaviour as Connection.answer for closed connections.
+        # Not more tolerant, because connections are expected to be properly
+        # cleaned up when they're closed (__eq__/__hash__ help to identify
+        # instances that are related to the connection being closed).
+        try:
+            self.conn.send(self.packet(*args), self.msg_id)
+        except ConnectionClosed:
+            if self.packet.ignoreOnClosedConnection():
+                raise
+
+    def __hash__(self):
+        return hash(self.conn)
+
+    def __eq__(self, other):
+        return self is other or self.conn is other
 
 
 class ClientConnection(Connection):

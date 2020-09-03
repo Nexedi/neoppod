@@ -15,9 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import BaseMasterHandler
-from neo.lib import logging
 from neo.lib.exception import ProtocolError
-from neo.lib.protocol import Packets, ZERO_TID
+from neo.lib.protocol import Packets
 
 class InitializationHandler(BaseMasterHandler):
 
@@ -48,10 +47,15 @@ class InitializationHandler(BaseMasterHandler):
             app.dm.getTruncateTID()))
 
     def askLastIDs(self, conn):
-        dm = self.app.dm
+        app = self.app
+        dm = app.dm
         dm.truncate()
-        ltid, loid = dm.getLastIDs()
-        conn.answer(Packets.AnswerLastIDs(loid, ltid))
+        if not app.disable_pack:
+            packed = dm.getPackedIDs()
+            if packed:
+                self.app.completed_pack_id = pack_id = min(packed.itervalues())
+                conn.send(Packets.NotifyPackCompleted(pack_id))
+        conn.answer(Packets.AnswerLastIDs(*dm.getLastIDs()))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt
@@ -64,8 +68,8 @@ class InitializationHandler(BaseMasterHandler):
 
     def validateTransaction(self, conn, ttid, tid):
         dm = self.app.dm
-        dm.lockTransaction(tid, ttid)
-        dm.unlockTransaction(tid, ttid, True, True)
+        dm.lockTransaction(tid, ttid, True)
+        dm.unlockTransaction(tid, ttid, True, True, True)
         dm.commit()
 
     def startOperation(self, conn, backup):

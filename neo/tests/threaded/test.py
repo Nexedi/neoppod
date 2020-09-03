@@ -798,7 +798,9 @@ class Test(NEOThreadedTest):
     def testStorageUpgrade1(self, cluster):
         storage = cluster.storage
         # Disable migration steps that aren't idempotent.
-        with Patch(storage.dm.__class__, _migrate3=lambda *_: None):
+        def noop(*_): pass
+        with Patch(storage.dm.__class__, _migrate3=noop), \
+             Patch(storage.dm.__class__, _migrate4=noop):
             t, c = cluster.getTransaction()
             storage.dm.setConfiguration("version", None)
             c.root()._p_changed = 1
@@ -1638,6 +1640,8 @@ class Test(NEOThreadedTest):
             self.assertEqual(1, u64(c._storage.new_oid()))
             for s in cluster.storage_list:
                 self.assertEqual(s.dm.getLastIDs()[0], truncate_tid)
+        # Warn user about noop truncation.
+        self.assertRaises(SystemExit, cluster.neoctl.truncate, truncate_tid)
 
     def testConnectionAbort(self):
         with self.getLoopbackConnection() as client:
@@ -1776,7 +1780,7 @@ class Test(NEOThreadedTest):
                 for e, s in zip(expected, cluster.storage_list):
                     while 1:
                         self.tic()
-                        if s.dm._repairing is None:
+                        if s.dm._background_worker._orphan is None:
                             break
                         time.sleep(.1)
                     self.assertEqual(e, s.getDataLockInfo())
@@ -2696,7 +2700,6 @@ class Test(NEOThreadedTest):
         big_id_list = ('\x7c' * 8, '\x7e' * 8), ('\x7b' * 8, '\x7d' * 8)
         for i in 0, 1:
             dm = cluster.storage_list[i].dm
-            expected = dm.getLastTID(u64(MAX_TID)), dm.getLastIDs()
             oid, tid = big_id_list[i]
             for j, expected in (
                     (1 - i, (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs())),
@@ -2721,7 +2724,6 @@ class Test(NEOThreadedTest):
             dump_dict[s.uuid] = dm.dump()
             with open(path % (s.getAdapter(), s.uuid)) as f:
                 dm.restore(f.read())
-            dm.setConfiguration('partitions', None) # XXX: see dm._migrate4
         with NEOCluster(storage_count=3, partitions=3, replicas=1,
                         name=self._testMethodName) as cluster:
             s1, s2, s3 = cluster.storage_list

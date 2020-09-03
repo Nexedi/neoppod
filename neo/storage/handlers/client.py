@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.exception import NonReadableCell, ProtocolError
+from neo.lib.exception import NonReadableCell, ProtocolError, UndoPackError
 from neo.lib.handler import DelayEvent
 from neo.lib.util import dump, makeChecksum, add64
 from neo.lib.protocol import Packets, Errors, \
@@ -46,7 +46,8 @@ class ClientOperationHandler(BaseHandler):
             #   not releasing write-locks now would lead to a deadlock.
             # - A client node may be disconnected from the master, whereas
             #   there are still voted (and not locked) transactions to abort.
-            app.tm.abortFor(conn.getUUID())
+            with app.dm.lock:
+                app.tm.abortFor(conn.getUUID())
 
     def askTransactionInformation(self, conn, tid):
         t = self.app.dm.getTransaction(tid)
@@ -54,7 +55,7 @@ class ClientOperationHandler(BaseHandler):
             p = Errors.TidNotFound('%s does not exist' % dump(tid))
         else:
             p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
-                    bool(t[4]), t[0])
+                    t[4], t[0])
         conn.answer(p)
 
     def getEventQueue(self):
@@ -106,6 +107,10 @@ class ClientOperationHandler(BaseHandler):
                     dump(oid), dump(serial), dump(ttid),
                     dump(self.app.tm.getLockingTID(oid)))
             locked = ZERO_TID
+        except UndoPackError:
+            conn.answer(Errors.UndoPackError(
+                'Could not undo for oid %s' % dump(oid)))
+            return
         else:
             if request_time and SLOW_STORE is not None:
                 duration = time.time() - request_time
@@ -199,7 +204,8 @@ class ClientOperationHandler(BaseHandler):
         app = self.app
         if app.tm.loadLocked(oid):
             raise DelayEvent
-        history_list = app.dm.getObjectHistory(oid, first, last - first)
+        history_list = app.dm.getObjectHistoryWithLength(
+            oid, first, last - first)
         if history_list is None:
             p = Errors.OidNotFound(dump(oid))
         else:
@@ -300,5 +306,5 @@ class ClientReadOnlyOperationHandler(ClientOperationHandler):
     # (askObjectUndoSerial is used in undo() but itself is read-only query)
 
     # FIXME askObjectHistory to limit tid <= backup_tid
-    # TODO dm.getObjectHistory has to be first fixed for this
+    # TODO dm.getObjectHistoryWithLength has to be first fixed for this
     #def askObjectHistory(self, conn, oid, first, last):

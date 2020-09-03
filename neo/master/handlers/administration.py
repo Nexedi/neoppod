@@ -25,7 +25,7 @@ from neo.lib.handler import AnswerDenied
 from neo.lib.pt import PartitionTableException
 from neo.lib.protocol import ClusterStates, Errors, \
     NodeStates, NodeTypes, Packets, uuid_str
-from neo.lib.util import dump
+from neo.lib.util import add64, dump
 
 CLUSTER_STATE_WORKFLOW = {
     # destination: sources
@@ -234,6 +234,15 @@ class AdministrationHandler(MasterHandler):
 
     @check_state(ClusterStates.RUNNING)
     def truncate(self, conn, tid):
+        app = self.app
+        if app.getLastTransaction() <= tid:
+            raise AnswerDenied("Truncating after last transaction does nothing")
+        if app.pm.getApprovedRejected(add64(tid, 1))[0]:
+            # TODO: The protocol must be extended to support safe cases
+            #       (e.g. no started pack whose id is after truncation tid).
+            #       The user may also accept having a truncated DB with missing
+            #       records (i.e. have an option to force that).
+            raise AnswerDenied("Can not truncate before an approved pack")
         conn.answer(Errors.Ack(''))
         raise StoppedOperation(tid)
 

@@ -28,19 +28,24 @@ def patch():
     # successful commit (which ends with a response from the master) already
     # acts as a "network barrier".
     # BBB: What this monkey-patch does has been merged in ZODB5.
-    if not hasattr(Connection, '_flush_invalidations'):
-        return
+    if hasattr(Connection, '_flush_invalidations'):
+        assert H(Connection.afterCompletion) in (
+            'cd3a080b80fd957190ff3bb867149448', # Python 2.7
+            'b1d9685c13967d4b6d74c7ef86f68f17', # PyPy 2.7
+            )
+        def afterCompletion(self, *ignored):
+            self._readCurrent.clear()
+            # PATCH: do not call sync()
+            self._flush_invalidations()
+        Connection.afterCompletion = afterCompletion
 
-    assert H(Connection.afterCompletion) in (
-        'cd3a080b80fd957190ff3bb867149448', # Python 2.7
-        'b1d9685c13967d4b6d74c7ef86f68f17', # PyPy 2.7
-        )
-
-    def afterCompletion(self, *ignored):
-        self._readCurrent.clear()
-        # PATCH: do not call sync()
-        self._flush_invalidations()
-    Connection.afterCompletion = afterCompletion
+    global TransactionMetaData
+    try:
+        from ZODB.Connection import TransactionMetaData
+    except ImportError: # BBB: ZODB < 5
+        from ZODB.BaseStorage import TransactionRecord
+        TransactionMetaData = lambda user='', description='', extension=None: \
+            TransactionRecord(None, None, user, description, extension)
 
 patch()
 

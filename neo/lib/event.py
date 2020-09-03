@@ -63,6 +63,8 @@ class EpollEventManager(object):
         assert fd == -1, fd
         self.epoll.register(r, EPOLLIN)
         self._trigger_lock = Lock()
+        self.lock = l = Lock()
+        l.acquire()
         close_list = []
         self._closeAppend = close_list.append
         l = Lock()
@@ -207,6 +209,15 @@ class EpollEventManager(object):
             # granularity of 1ms and Python 2.7 rounds the timeout towards zero.
             # See also https://bugs.python.org/issue20452 (fixed in Python 3).
             blocking = .001 + max(0, timeout - time()) if timeout else -1
+            def poll(blocking):
+                l = self.lock
+                l.release()
+                try:
+                    return self.epoll.poll(blocking)
+                finally:
+                    l.acquire()
+        else:
+            poll = self.epoll.poll
         # From this point, and until we have processed all fds returned by
         # epoll, we must prevent any fd from being closed, because they could
         # be reallocated by new connection, either by this thread or by another.
@@ -214,7 +225,7 @@ class EpollEventManager(object):
         # 'finally' clause.
         self._closeAcquire()
         try:
-            event_list = self.epoll.poll(blocking)
+            event_list = poll(blocking)
         except IOError, exc:
             if exc.errno in (0, EAGAIN):
                 logging.info('epoll.poll triggered undocumented error %r',

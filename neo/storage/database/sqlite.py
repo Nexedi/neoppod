@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 import os
 import sqlite3
 from hashlib import sha1
@@ -24,8 +24,9 @@ import traceback
 from . import LOG_QUERIES
 from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
+from neo.lib.exception import UndoPackError
 from neo.lib.interfaces import implements
-from neo.lib.protocol import ZERO_OID, ZERO_TID, ZERO_HASH
+from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 
 def unique_constraint_message(table, *columns):
     c = sqlite3.connect(":memory:")
@@ -68,7 +69,7 @@ class SQLiteDatabaseManager(DatabaseManager):
              never be used for small requests.
     """
 
-    VERSION = 3
+    VERSION = 4
 
     def _parse(self, database):
         self.db = os.path.expanduser(database)
@@ -80,7 +81,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
         self.conn.text_factory = str
-        self.lock(self.db)
+        self.lockFile(self.db)
         if self.UNSAFE:
             q = self.query
             q("PRAGMA synchronous = OFF").fetchall()
@@ -94,19 +95,20 @@ class SQLiteDatabaseManager(DatabaseManager):
         retry_if_locked(self.conn.commit)
 
     if LOG_QUERIES:
-        def query(self, query):
+        def query(self, query, *args):
             printable_char_list = []
             for c in query.split('\n', 1)[0][:70]:
                 if c not in string.printable or c in '\t\x0b\x0c\r':
                     c = '\\x%02x' % ord(c)
                 printable_char_list.append(c)
             logging.debug('querying %s...', ''.join(printable_char_list))
-            return self.conn.execute(query)
+            return self.conn.execute(query, *args)
     else:
         query = property(lambda self: self.conn.execute)
 
     def erase(self):
-        for t in 'config', 'pt', 'trans', 'obj', 'data', 'ttrans', 'tobj':
+        for t in ('config', 'pt', 'pack', 'trans',
+                  'obj', 'data', 'ttrans', 'tobj'):
             self.query('DROP TABLE IF EXISTS ' + t)
 
     def nonempty(self, table):
@@ -142,16 +144,18 @@ class SQLiteDatabaseManager(DatabaseManager):
         self._alterTable(schema_dict, 'obj')
 
     def _migrate3(self, schema_dict, index_dict):
-        self._alterTable(schema_dict, 'pt', "rid, nid, CASE state"
+        x = 'pt'
+        self._alterTable({x: schema_dict[x].replace('pack', '-- pack')}, x,
+            "rid, nid, CASE state"
             " WHEN 0 THEN -1"  # UP_TO_DATE
             " WHEN 2 THEN -2"  # FEEDING
             " ELSE 1-state END")
 
-    # Let's wait for a more important change to clean up,
-    # so that users can still downgrade.
-    if 0:
-      def _migrate4(self, schema_dict, index_dict):
+    def _migrate4(self, schema_dict, index_dict):
         self._setConfiguration('partitions', None)
+        self._alterTable(schema_dict, 'pt', "*, CASE"
+            " WHEN nid=%s THEN 0"
+            " ELSE NULL END" % self.getUUID())
 
     def _setup(self, dedup=False):
         # BBB: SQLite has transactional DDL but before Python 3.6,
@@ -175,8 +179,17 @@ class SQLiteDatabaseManager(DatabaseManager):
                  partition INTEGER NOT NULL,
                  nid INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
+                 pack INTEGER,
                  PRIMARY KEY (partition, nid)
             ) WITHOUT ROWID
+            """
+
+        schema_dict['pack'] = """CREATE TABLE %s (
+                 tid INTEGER PRIMARY KEY,
+                 approved BOOLEAN, -- NULL if not signed
+                 partial BOOLEAN NOT NULL,
+                 oids BLOB, -- same format as trans.oids
+                 pack_tid INTEGER)
             """
 
         # The table "trans" stores information on committed transactions.
@@ -297,6 +310,30 @@ class SQLiteDatabaseManager(DatabaseManager):
         (tid,), = q("SELECT MAX(tid) FROM obj WHERE `partition`=?", args)
         return tid, oid
 
+    def _getPackOrders(self, min_completed):
+        return self.query(
+            "SELECT * FROM pack WHERE tid >= ? AND tid %% %s IN (%s)"
+            % (self.np, ','.join(map(str, self._readable_set))),
+            (min_completed,))
+
+    def getPackedIDs(self, up_to_date=False):
+        return {offset: util.p64(pack) for offset, pack in self.query(
+            "SELECT partition, pack FROM pt WHERE pack IS NOT NULL"
+            + (" AND tid=-%u" % CellStates.UP_TO_DATE if up_to_date else ""))}
+
+    def _getPartitionPacked(self, partition):
+        (pack_id,), = self.query(
+            "SELECT pack FROM pt WHERE partition=? AND nid=?",
+            (partition, self.getUUID()))
+        assert pack_id is not None # PY3: the assertion will be useless because
+                                   #      the caller always compares the value
+        return pack_id
+
+    def _setPartitionPacked(self, partition, pack_id):
+        assert pack_id is not None
+        self.query("UPDATE pt SET pack=? WHERE partition=? AND nid=?",
+                   (pack_id, partition, self.getUUID()))
+
     def _getDataLastId(self, partition):
         return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
             % (partition << 48, (partition + 1) << 48)).fetchone()[0]
@@ -354,19 +391,22 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def _changePartitionTable(self, cell_list, reset=False):
         q = self.query
-        if reset:
-            q("DELETE FROM pt")
-        for offset, nid, state in cell_list:
-            # TODO: this logic should move out of database manager
-            # add 'dropCells(cell_list)' to API and use one query
-            # WKRD: Why does SQLite need a statement journal file
-            #       whereas we try to replace only 1 value ?
-            #       We don't want to remove the 'NOT NULL' constraint
-            #       so we must simulate a "REPLACE OR FAIL".
-            q("DELETE FROM pt WHERE partition=? AND nid=?", (offset, nid))
-            if state is not None:
-                q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
-                  (offset, nid, int(state)))
+        delete = set(q("SELECT partition, nid FROM pt")) if reset else set()
+        for cell in cell_list:
+            key = cell[:2]
+            tid = cell[2]
+            if tid is None:
+                delete.add(key)
+            else:
+                delete.discard(key)
+                if q("SELECT 1 FROM pt WHERE partition=? AND nid=?",
+                       key).fetchone():
+                    q("UPDATE pt SET tid=? WHERE partition=? AND nid=?",
+                      (tid,) + key)
+                else:
+                    q("INSERT OR FAIL INTO pt VALUES (?,?,?,?)", cell)
+        for key in delete:
+            q("DELETE FROM pt WHERE partition=? AND nid=?", key)
 
     def _dropPartition(self, *args):
         q = self.query
@@ -375,7 +415,10 @@ class SQLiteDatabaseManager(DatabaseManager):
         if x:
             q("DELETE" + where, args)
             return [x for x, in x]
-        return q("DELETE FROM trans WHERE partition=?", args[:1]).rowcount
+        x = args[:1]
+        q("DELETE FROM pack WHERE tid IN ("
+            "SELECT tid FROM trans JOIN pack USING (tid) WHERE partition=?)", x)
+        return q("DELETE FROM trans WHERE partition=?", x).rowcount
 
     def _getUnfinishedDataIdList(self):
         return [x for x, in self.query(
@@ -386,6 +429,8 @@ class SQLiteDatabaseManager(DatabaseManager):
             " WHERE `partition` IN (%s)" % ','.join(map(str, offset_list))
         q = self.query
         q("DELETE FROM tobj" + where)
+        q("DELETE FROM pack WHERE tid IN ("
+            "SELECT tid FROM ttrans JOIN pack USING (tid)%s)" % where)
         q("DELETE FROM ttrans" + where)
 
     def storeTransaction(self, tid, object_list, transaction, temporary=True):
@@ -446,6 +491,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                     " WHERE partition=? AND oid=? AND tid=?",
                     (p, oid, util.u64(data_tid))):
                 return r
+            if p in self._readable_set: # and not checksum:
+                raise UndoPackError
         if not checksum:
             return # delete
         H = buffer(checksum)
@@ -487,18 +534,39 @@ class SQLiteDatabaseManager(DatabaseManager):
         r = r.fetchone()
         return r or (None, None)
 
-    def lockTransaction(self, tid, ttid):
+    def storePackOrder(self, tid, approved, partial, oid_list, pack_tid):
+        u64 = util.u64
+        self.query("INSERT INTO pack VALUES (?,?,?,?,?)", (
+            u64(tid), approved, partial,
+            None if oid_list is None else buffer(''.join(oid_list)),
+            u64(pack_tid)))
+
+    def _signPackOrders(self, approved, rejected):
+        def isTID(x):
+            return "tid IN (%s)" % ','.join(map(str, x)) if x else 0
+        approved = isTID(approved)
+        where = " WHERE %s OR %s" % (approved, isTID(rejected))
+        changed = [tid for tid, in self.query("SELECT tid FROM pack" + where)]
+        if changed:
+            self.query("UPDATE pack SET approved = %s%s" % (approved, where))
+        return changed
+
+    def lockTransaction(self, tid, ttid, pack):
         u64 = util.u64
         self.query("UPDATE ttrans SET tid=? WHERE ttid=?",
                    (u64(tid), u64(ttid)))
+        if pack:
+            self.query("UPDATE pack SET approved=1 WHERE tid=?", (u64(ttid),))
         self.commit()
 
-    def unlockTransaction(self, tid, ttid, trans, obj):
+    def unlockTransaction(self, tid, ttid, trans, obj, pack):
         q = self.query
         u64 = util.u64
         tid = u64(tid)
         if trans:
             q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=?", (tid,))
+            if pack:
+                q("UPDATE pack SET tid=? WHERE tid=?", (tid, u64(ttid)))
             q("DELETE FROM ttrans WHERE tid=?", (tid,))
             if not obj:
                 return
@@ -519,7 +587,9 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)
-        self.query("DELETE FROM trans WHERE partition=? AND tid=?",
+        q = self.query
+        q("DELETE FROM pack WHERE tid=?", (tid,))
+        q("DELETE FROM trans WHERE partition=? AND tid=?",
             (self._getPartition(tid), tid))
 
     def deleteObject(self, oid, serial=None):
@@ -545,6 +615,8 @@ class SQLiteDatabaseManager(DatabaseManager):
             sql += " AND tid <= ?"
             args.append(max_tid)
         q = self.query
+        q("DELETE FROM pack WHERE tid IN ("
+            "SELECT tid FROM trans JOIN pack USING (tid)%s)" % sql, args)
         q("DELETE FROM trans" + sql, args)
         sql = " FROM obj" + sql
         data_id_list = [x for x, in q(
@@ -555,30 +627,56 @@ class SQLiteDatabaseManager(DatabaseManager):
     def getTransaction(self, tid, all=False):
         tid = util.u64(tid)
         q = self.query
-        r = q("SELECT oids, user, description, ext, packed, ttid"
-              " FROM trans WHERE partition=? AND tid=?",
+        r = q("SELECT trans.oids, user, description, ext, packed, ttid,"
+                " approved, partial, pack.oids, pack_tid"
+              " FROM trans LEFT JOIN pack USING (tid)"
+              " WHERE partition=? AND tid=?",
               (self._getReadablePartition(tid), tid)).fetchone()
-        if not r and all:
-            r = q("SELECT oids, user, description, ext, packed, ttid"
-                  " FROM ttrans WHERE tid=?", (tid,)).fetchone()
-        if r:
-            oids, user, description, ext, packed, ttid = r
-            return splitOIDField(tid, oids), str(user), \
-                str(description), str(ext), packed, util.p64(ttid)
+        if not r:
+            if not all:
+                return
+            r = q("SELECT ttrans.oids, user, description, ext, packed, ttid,"
+                    " approved, partial, pack.oids, pack_tid"
+                  " FROM ttrans LEFT JOIN pack USING (tid)"
+                  " WHERE tid=?", (tid,)).fetchone()
+            if not r:
+                return
+        oids, user, desc, ext, packed, ttid, \
+            approved, pack_partial, pack_oids, pack_tid = r
+        return (
+            splitOIDField(tid, oids),
+            str(user), str(desc), str(ext),
+            bool(packed), util.p64(ttid),
+            None if pack_partial is None else (
+                None if approved is None else bool(approved),
+                bool(pack_partial),
+                None if pack_oids is None else splitOIDField(tid, pack_oids),
+                util.p64(pack_tid)))
 
-    def getObjectHistory(self, oid, offset, length):
+    def _getObjectHistoryForUndo(self, oid, undo_tid):
+        q = self.query
+        args = self._getReadablePartition(oid), oid, undo_tid
+        undo = q("SELECT tid FROM obj"
+                 " WHERE partition=? AND oid=? AND tid<=?"
+                 " ORDER BY tid DESC LIMIT 2", args).fetchall()
+        if undo and undo.pop(0)[0] == undo_tid:
+            return undo[0][0] if undo else None, q(
+                "SELECT tid, value_tid FROM obj"
+                " WHERE partition=? AND oid=? AND tid>?"
+                " ORDER BY tid", args).fetchall()
+
+    def getObjectHistoryWithLength(self, oid, offset, length):
         # FIXME: This method doesn't take client's current transaction id as
         # parameter, which means it can return transactions in the future of
         # client's transaction.
         p64 = util.p64
         oid = util.u64(oid)
-        return [(p64(tid), length or 0) for tid, length in self.query("""\
-            SELECT tid, LENGTH(value)
-                FROM obj LEFT JOIN data ON obj.data_id = data.id
-                WHERE partition=? AND oid=? AND tid>=?
-                ORDER BY tid DESC LIMIT ?,?""",
-            (self._getReadablePartition(oid), oid,
-             self._getPackTID(), offset, length))
+        return [(p64(tid), length or 0) for tid, length in self.query(
+            "SELECT tid, LENGTH(value)"
+            " FROM obj LEFT JOIN data ON obj.data_id = data.id"
+            " WHERE partition=? AND oid=?"
+            " ORDER BY tid DESC LIMIT ?,?",
+            (self._getReadablePartition(oid), oid, offset, length))
             ] or None
 
     def _fetchObject(self, oid, tid):
@@ -625,60 +723,31 @@ class SQLiteDatabaseManager(DatabaseManager):
             ORDER BY tid ASC LIMIT ?""",
             (partition, min_tid, max_tid, length))]
 
-    def _updatePackFuture(self, oid, orig_serial, max_serial):
-        # Before deleting this objects revision, see if there is any
-        # transaction referencing its value at max_serial or above.
-        # If there is, copy value to the first future transaction. Any further
-        # reference is just updated to point to the new data location.
-        partition = self._getReadablePartition(oid)
-        value_serial = None
+    _pack = " FROM obj WHERE partition=? AND oid=? AND tid<?"
+    def _pack(self, offset, oid, tid, limit=None,
+            _select_data_id_sql="SELECT DISTINCT data_id" + _pack,
+            _delete_obj_sql="DELETE" + _pack):
         q = self.query
-        for T in '', 't':
-            update = """UPDATE OR FAIL %sobj SET value_tid=?
-                         WHERE partition=? AND oid=? AND tid=?""" % T
-            for serial, in q("""SELECT tid FROM %sobj
-                    WHERE partition=? AND oid=? AND tid>=? AND value_tid=?
-                    ORDER BY tid ASC""" % T,
-                    (partition, oid, max_serial, orig_serial)):
-                q(update, (value_serial, partition, oid, serial))
-                if value_serial is None:
-                    # First found, mark its serial for future reference.
-                    value_serial = serial
-        return value_serial
-
-    def pack(self, tid, updateObjectDataForPack):
-        # TODO: unit test (along with updatePackFuture)
-        p64 = util.p64
-        tid = util.u64(tid)
-        updatePackFuture = self._updatePackFuture
-        getPartition = self._getReadablePartition
-        q = self.query
-        self._setPackTID(tid)
-        for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"
-                                        " FROM obj WHERE tid<=? GROUP BY oid",
-                                        (tid,)):
-            partition = getPartition(oid)
-            if q("SELECT 1 FROM obj WHERE partition=?"
-                 " AND oid=? AND tid=? AND data_id IS NULL",
-                 (partition, oid, max_serial)).fetchone():
-                max_serial += 1
-            elif not count:
-                continue
-            # There are things to delete for this object
-            data_id_set = set()
-            sql = " FROM obj WHERE partition=? AND oid=? AND tid<?"
-            args = partition, oid, max_serial
-            for serial, data_id in q("SELECT tid, data_id" + sql, args):
-                data_id_set.add(data_id)
-                new_serial = updatePackFuture(oid, serial, max_serial)
-                if new_serial:
-                    new_serial = p64(new_serial)
-                updateObjectDataForPack(p64(oid), p64(serial),
-                                        new_serial, data_id)
-            q("DELETE" + sql, args)
-            data_id_set.discard(None)
-            self._pruneData(data_id_set)
-        self.commit()
+        data_id_set = set()
+        value_dict = defaultdict(list)
+        sql = ("SELECT COUNT(*), oid, MAX(tid) FROM obj"
+               " WHERE partition=%s AND tid<=%s AND oid%s GROUP BY oid%s") % (
+            offset, tid,
+            ">=%s" % oid if limit else " IN (%s)" % ','.join(map(str, oid)),
+            " LIMIT %s" % limit if limit else "")
+        oid = None
+        for x, oid, max_tid in q(sql):
+            for x in q("SELECT tid + (data_id IS NULL) FROM obj"
+                  " WHERE partition=? AND oid=? AND tid=?"
+                    " AND (data_id IS NULL OR ?>1)",
+                  (offset, oid, max_tid, x)):
+                x = (offset, oid) + x
+                data_id_set.update(*zip(*q(_select_data_id_sql, x)))
+                q(_delete_obj_sql, x)
+                break
+        data_id_set.discard(None)
+        self._pruneData(data_id_set)
+        return limit and oid, len(data_id_set)
 
     def checkTIDRange(self, partition, length, min_tid, max_tid):
         # XXX: SQLite's GROUP_CONCAT is slow (looks like quadratic)

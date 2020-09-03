@@ -101,6 +101,9 @@ def datetimeFromTID(tid):
     seconds, lower = divmod(lower * 60, TID_LOW_OVERFLOW)
     return datetime(*(higher + (seconds, int(lower * MICRO_FROM_UINT32))))
 
+def timeFromTID(tid, _epoch=datetime.utcfromtimestamp(0)):
+    return (datetimeFromTID(tid) - _epoch).total_seconds()
+
 def addTID(ptid, offset):
     """
     Offset given packed TID.

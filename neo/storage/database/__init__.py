@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import time
+
 LOG_QUERIES = False
 
 def useMySQLdb():
@@ -65,5 +67,25 @@ DATABASE_MANAGERS = tuple(sorted(
 def buildDatabaseManager(name, args=(), kw={}):
     return getAdapterKlass(name)(*args, **kw)
 
+
 class DatabaseFailure(Exception):
-    pass
+
+    transient_failure = False
+
+    if __debug__:
+        def getFailingDatabaseManager(self):
+            pass
+
+    def logTransientFailure(self):
+        raise NotImplementedError
+
+    def checkTransientFailure(self, dm):
+        if dm.LOCK or not self.transient_failure:
+            raise
+        assert dm is self.getFailingDatabaseManager()
+        dm.close()
+        self.logTransientFailure()
+        # Avoid reconnecting too often.
+        # Since this is used when wrapping an arbitrary long process and
+        # not just a single query, we can't limit the number of retries.
+        time.sleep(5)

@@ -16,8 +16,8 @@
 
 from neo.lib import logging
 from neo.lib.exception import NotReadyError, ProtocolError
-from neo.lib.handler import EventHandler
 from neo.lib.protocol import NodeTypes, Packets
+from . import EventHandler
 from .storage import StorageOperationHandler
 from .client import ClientOperationHandler, ClientReadOnlyOperationHandler
 

@@ -200,7 +200,7 @@ class StressApplication(AdminApplication):
         if conn:
             conn.ask(Packets.AskLastIDs())
 
-    def answerLastIDs(self, loid, ltid):
+    def answerLastIDs(self, ltid, loid):
         self.loid = loid
         self.ltid = ltid
         self.em.setTimeout(int(time.time() + 1), self.askLastIDs)

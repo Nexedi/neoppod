@@ -19,11 +19,12 @@ from collections import deque
 
 from neo.lib import logging
 from neo.lib.app import BaseApplication, buildOptionParser
-from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, Packets
+from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, Packets, \
+    ZERO_TID
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import StoppedOperation, PrimaryFailure
 from neo.lib.pt import PartitionTable
-from neo.lib.util import dump
+from neo.lib.util import add64, dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
 from .database import buildDatabaseManager, DATABASE_MANAGERS
@@ -59,6 +60,8 @@ class Application(BaseApplication):
         _.float('w', 'wait',
             help="seconds to wait for backend to be available,"
                  " before erroring-out (-1 = infinite)")
+        _.bool('disable-pack',
+            help="do not process any pack order")
         _.bool('disable-drop-partitions',
             help="do not delete data of discarded cells, which is useful for"
                  " big databases because the current implementation is"
@@ -98,6 +101,7 @@ class Application(BaseApplication):
         )
         self.disable_drop_partitions = config.get('disable_drop_partitions',
                                                   False)
+        self.disable_pack = config.get('disable_pack', False)
         self.nm.createMasters(config['masters'])
 
         # set the bind address
@@ -132,6 +136,7 @@ class Application(BaseApplication):
                 logging.node(self.name, self.uuid)
 
         registerLiveDebugger(on_log=self.log)
+        self.dm.lock.release()
 
     def close(self):
         self.listening_conn = None
@@ -190,7 +195,8 @@ class Application(BaseApplication):
 
     def run(self):
         try:
-            self._run()
+            with self.dm.lock:
+                self._run()
         except Exception:
             logging.exception('Pre-mortem data:')
             self.log()
@@ -216,6 +222,7 @@ class Application(BaseApplication):
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
+            self.completed_pack_id = self.last_pack_id = ZERO_TID
             self.checker = Checker(self)
             self.replicator = Replicator(self)
             self.tm = TransactionManager(self)
@@ -281,17 +288,24 @@ class Application(BaseApplication):
 
         self.task_queue = task_queue = deque()
         try:
-            self.dm.doOperation(self)
-            while True:
-                while task_queue:
-                    try:
-                        while isIdle():
-                            next(task_queue[-1]) or task_queue.rotate()
-                            _poll(0)
-                        break
-                    except StopIteration:
-                        task_queue.pop()
-                poll()
+            with self.dm.operational(self):
+                with self.dm.lock:
+                    self.maybePack()
+                while True:
+                    if task_queue and isIdle():
+                        with self.dm.lock:
+                            while True:
+                                try:
+                                    next(task_queue[-1]) or task_queue.rotate()
+                                except StopIteration:
+                                    task_queue.pop()
+                                    if not task_queue:
+                                        break
+                                else:
+                                    _poll(0)
+                                if not isIdle():
+                                    break
+                    poll()
         finally:
             del self.task_queue
 
@@ -320,3 +334,50 @@ class Application(BaseApplication):
             self.dm.erase()
         logging.info("Application has been asked to shut down")
         sys.exit()
+
+    def notifyPackCompleted(self):
+        if self.disable_pack:
+            pack_id = self.last_pack_id
+        else:
+            packed = self.dm.getPackedIDs()
+            if not packed:
+                return
+            pack_id = min(packed.itervalues())
+        if self.completed_pack_id != pack_id:
+            self.completed_pack_id = pack_id
+            self.master_conn.send(Packets.NotifyPackCompleted(pack_id))
+
+    def maybePack(self, info=None, min_id=None):
+        ready = self.dm.isReadyToStartPack()
+        if ready:
+            packed_dict = self.dm.getPackedIDs(True)
+            if packed_dict:
+                packed = min(packed_dict.itervalues())
+                if packed < self.last_pack_id:
+                    if packed == ready[1]:
+                        # Last completed pack for this storage node hasn't
+                        # changed since the last call to dm.pack() so simply
+                        # resume. No info needed.
+                        pack_id = ready[0]
+                        assert not info, (ready, info, min_id)
+                    elif packed == min_id:
+                        # New pack order to process and we've just received
+                        # all needed information to start right now.
+                        pack_id = info[0]
+                    else:
+                        # Time to process the next approved pack after 'packed'.
+                        # We don't even know its id. Ask the master more
+                        # information.
+                        self.master_conn.ask(
+                            Packets.AskPackOrders(add64(packed, 1)),
+                            pack_id=packed)
+                        return
+                    self.dm.pack(self, info, packed,
+                        self.replicator.filterPackable(pack_id,
+                            (k for k, v in packed_dict.iteritems()
+                                if v == packed)))
+                else:
+                    # All approved pack orders are processed.
+                    self.dm.pack(self, None, None, ()) # for cleanup
+            else:
+                assert not self.pt.getReadableOffsetList(self.uuid)

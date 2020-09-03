@@ -103,7 +103,7 @@ class TerminalNeoCTL(object):
             r = "backup_tid = 0x%x (%s)" % (u64(backup_tid),
                                             datetimeFromTID(backup_tid))
         else:
-            loid, ltid = self.neoctl.getLastIds()
+            ltid, loid = self.neoctl.getLastIds()
             r = "last_oid = 0x%x" % (u64(loid))
         return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %s" % \
                                     (u64(ltid), datetimeFromTID(ltid), ptid)
@@ -276,10 +276,16 @@ class TerminalNeoCTL(object):
 
     def checkReplicas(self, params):
         """
-          Test whether partitions have corrupted metadata
+          Test whether partitions have corrupted metadata by comparing replicas
 
           Any corrupted cell is put in CORRUPTED state, possibly make the
           cluster non operational.
+
+          EXPERIMENTAL - This operation is not aware that differences happen
+                         during pack operations and you could easily break
+                         your database. Since there's anyway no mechanism to
+                         repair cells, the primary master only logs possible
+                         corruption rather than mark cells as CORRUPTED.
 
           Parameters: [partition]:[reference] ... [min_tid [max_tid]]
             reference: node id of a storage with known good data

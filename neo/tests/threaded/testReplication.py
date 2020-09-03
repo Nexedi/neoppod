@@ -34,7 +34,7 @@ from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import add64, p64, u64
 from .. import Patch, TransactionalResource
-from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
+from . import ConnectionFilter, LockLock, NEOCluster, NEOThreadedTest, \
     predictable_random, with_cluster
 from .test import PCounter, PCounterWithResolution # XXX
 
@@ -681,7 +681,7 @@ class ReplicationTests(NEOThreadedTest):
         self.assertEqual(3, s0.sqlCount('obj'))
         cluster.enableStorageList((s1,))
         cluster.neoctl.tweakPartitionTable()
-        self.tic()
+        cluster.ticAndJoinStorageTasks()
         self.assertEqual(1, s1.sqlCount('obj'))
         self.assertEqual(2, s0.sqlCount('obj'))
 
@@ -732,7 +732,7 @@ class ReplicationTests(NEOThreadedTest):
         self.assertEqual(tids, getTIDList())
         t0_next = add64(tids[0], 1)
         self.assertEqual(ask, [
-            (t0_next, tids[2], tids[2:]),
+            (t0_next, tids[2], tids[2:], True),
             (t0_next, tids[2], ZERO_OID, {tids[2]: [ZERO_OID]}),
         ])
 
@@ -855,9 +855,9 @@ class ReplicationTests(NEOThreadedTest):
             t1_next = add64(tids[1], 1)
             self.assertEqual(ask, [
                 # trans
-                (0, 1, t1_next, tids[4], []),
-                (0, 1, tids[3], tids[4], []),
-                (0, 1, tids[4], tids[4], []),
+                (0, 1, t1_next, tids[4], [], True),
+                (0, 1, tids[3], tids[4], [], False),
+                (0, 1, tids[4], tids[4], [], False),
                 # obj
                 (0, 1, t1_next, tids[4], ZERO_OID, {}),
                 (0, 1, tids[2], tids[4], p64(2), {}),
@@ -871,9 +871,9 @@ class ReplicationTests(NEOThreadedTest):
             n = replicator.FETCH_COUNT
             t4_next = add64(tids[4], 1)
             self.assertEqual(ask, [
-                (0, n, t4_next, tids[5], []),
+                (0, n, t4_next, tids[5], [], True),
                 (0, n, tids[3], tids[5], ZERO_OID, {tids[3]: [ZERO_OID]}),
-                (1, n, t1_next, tids[5], []),
+                (1, n, t1_next, tids[5], [], True),
                 (1, n, t1_next, tids[5], ZERO_OID, {}),
             ])
         self.tic()
@@ -1060,7 +1060,7 @@ class ReplicationTests(NEOThreadedTest):
                          ClusterStates.RECOVERING)
 
     @with_cluster(partitions=5, replicas=2, storage_count=3)
-    def testCheckReplicas(self, cluster):
+    def testCheckReplicas(self, cluster, corrupted_state=False):
         from neo.storage import checker
         def corrupt(offset):
             s0, s1, s2 = (storage_dict[cell.getUUID()]
@@ -1070,11 +1070,12 @@ class ReplicationTests(NEOThreadedTest):
             s1.dm.deleteObject(p64(np+offset), p64(corrupt_tid))
             return s0.uuid
         def check(expected_state, expected_count):
-            self.assertEqual(expected_count, len([None
-              for row in cluster.neoctl.getPartitionRowList()[2]
-              for cell in row
-              if cell[1] == CellStates.CORRUPTED]))
-            self.assertEqual(expected_state, cluster.neoctl.getClusterState())
+            self.assertEqual(expected_count if corrupted_state else 0, sum(
+                cell[1] == CellStates.CORRUPTED
+                for row in cluster.neoctl.getPartitionRowList()[2]
+                for cell in row))
+            self.assertEqual(cluster.neoctl.getClusterState(),
+                expected_state if corrupted_state else ClusterStates.RUNNING)
         np = cluster.num_partitions
         tid_count = np * 3
         corrupt_tid = tid_count // 2
@@ -1099,6 +1100,11 @@ class ReplicationTests(NEOThreadedTest):
             cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
             self.tic()
             check(ClusterStates.RECOVERING, 4)
+
+    def testCheckReplicasCorruptedState(self):
+        from neo.master.handlers import storage
+        with Patch(storage, EXPERIMENTAL_CORRUPTED_STATE=True):
+            self.testCheckReplicas(True)
 
     @backup_test()
     def testBackupReadOnlyAccess(self, backup):
@@ -1201,6 +1207,28 @@ class ReplicationTests(NEOThreadedTest):
                 # threaded tests and we need to refresh last_tid on next run
                 # (XXX see above about invalidations not working)
                 Zb.close()
+
+    @backup_test()
+    def testBackupPack(self, backup):
+        """Check asynchronous replication during a pack"""
+        upstream = backup.upstream
+        importZODB = upstream.importZODB()
+        importZODB(10)
+        tid = upstream.last_tid
+        importZODB(10)
+        def _task_pack(orig, *args):
+            ll()
+            orig(*args)
+        with LockLock() as ll:
+            with Patch(backup.storage.dm._background_worker,
+                       _task_pack=_task_pack):
+                upstream.client.pack(tid)
+                self.tic()
+                ll()
+            importZODB(10)
+            upstream.ticAndJoinStorageTasks()
+        backup.ticAndJoinStorageTasks()
+        self.assertEqual(1, self.checkBackup(backup))
 
 
 if __name__ == "__main__":

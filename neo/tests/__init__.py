@@ -25,6 +25,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import thread
 import unittest
 import weakref
 import transaction
@@ -38,10 +39,12 @@ except ImportError:
     from cPickle import Unpickler
 from functools import wraps
 from inspect import isclass
+from itertools import islice
 from .mock import Mock
 from neo.lib import debug, event, logging
 from neo.lib.protocol import NodeTypes, Packet, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property
+from neo.storage.database.manager import DatabaseManager
 from time import time, sleep
 from struct import pack, unpack
 from unittest.case import _ExpectedFailure, _UnexpectedSuccess
@@ -76,6 +79,8 @@ DB_SOCKET = os.getenv('NEO_DB_SOCKET', '')
 DB_INSTALL = os.getenv('NEO_DB_INSTALL', 'mysql_install_db')
 DB_MYSQLD = os.getenv('NEO_DB_MYSQLD', '/usr/sbin/mysqld')
 DB_MYCNF = os.getenv('NEO_DB_MYCNF')
+
+DatabaseManager.TEST_IDENT = thread.get_ident()
 
 adapter = os.getenv('NEO_TESTS_ADAPTER')
 if adapter:
@@ -628,6 +633,10 @@ class Patch(object):
 
     def __exit__(self, t, v, tb):
         self.__del__()
+
+def consume(iterator, n):
+    """Advance the iterator n-steps ahead and returns the last consumed item"""
+    return next(islice(iterator, n-1, n))
 
 def unpickle_state(data):
     unpickler = Unpickler(StringIO(data))

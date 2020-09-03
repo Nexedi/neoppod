@@ -28,19 +28,16 @@ class MasterOperationHandler(BaseMasterHandler):
         assert self.app.operational and backup
         self.app.replicator.startOperation(backup)
 
-    def askLockInformation(self, conn, ttid, tid):
-        self.app.tm.lock(ttid, tid)
+    def askLockInformation(self, conn, ttid, tid, pack):
+        self.app.tm.lock(ttid, tid, pack)
         conn.answer(Packets.AnswerInformationLocked(ttid))
 
     def notifyUnlockInformation(self, conn, ttid):
         self.app.tm.unlock(ttid)
 
-    def askPack(self, conn, tid):
-        app = self.app
-        logging.info('Pack started, up to %s...', dump(tid))
-        app.dm.pack(tid, app.tm.updateObjectDataForPack)
-        logging.info('Pack finished.')
-        conn.answer(Packets.AnswerPack(True))
+    def answerPackOrders(self, conn, pack_list, pack_id):
+        if pack_list:
+            self.app.maybePack(pack_list[0], pack_id)
 
     def answerUnfinishedTransactions(self, conn, *args, **kw):
         self.app.replicator.setUnfinishedTIDList(*args, **kw)

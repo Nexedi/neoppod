@@ -14,12 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import string, unittest
 from binascii import a2b_hex
 from contextlib import closing, contextmanager
-import unittest
-from neo.lib.util import add64, p64, u64
+from copy import copy
+from neo.lib.util import add64, p64, u64, makeChecksum
 from neo.lib.protocol import CellStates, ZERO_HASH, ZERO_OID, ZERO_TID, MAX_TID
+from neo.storage.database.manager import MVCCDatabaseManager
 from .. import NeoUnitTestBase
+from ..mock import Mock
 
 
 class StorageDBTests(NeoUnitTestBase):
@@ -49,7 +52,9 @@ class StorageDBTests(NeoUnitTestBase):
         uuid = self.getStorageUUID()
         db.setUUID(uuid)
         self.assertEqual(uuid, db.getUUID())
-        db.changePartitionTable(None, 1, 0,
+        app = Mock()
+        app.last_pack_id = ZERO_TID
+        db.changePartitionTable(app, 1, 0,
             [(i, uuid, CellStates.UP_TO_DATE) for i in xrange(num_partitions)],
             reset=True)
         self.assertEqual(num_partitions, 1 + db._getMaxPartition())
@@ -67,10 +72,10 @@ class StorageDBTests(NeoUnitTestBase):
     def commitTransaction(self, tid, objs, txn, commit=True):
         ttid = txn[-1]
         self.db.storeTransaction(ttid, objs, txn)
-        self.db.lockTransaction(tid, ttid)
+        self.db.lockTransaction(tid, ttid, None)
         yield
         if commit:
-            self.db.unlockTransaction(tid, ttid, True, objs)
+            self.db.unlockTransaction(tid, ttid, True, objs, False)
             self.db.commit()
         elif commit is not None:
             self.db.abortTransaction(ttid)
@@ -189,25 +194,25 @@ class StorageDBTests(NeoUnitTestBase):
         with self.commitTransaction(tid1, objs1, txn1), \
              self.commitTransaction(tid2, objs2, txn2):
             self.assertEqual(self.db.getTransaction(tid1, True),
-                             ([oid1], 'user', 'desc', 'ext', False, p64(1)))
+                ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
             self.assertEqual(self.db.getTransaction(tid2, True),
-                             ([oid2], 'user', 'desc', 'ext', False, p64(2)))
+                ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
             self.assertEqual(self.db.getTransaction(tid1, False), None)
             self.assertEqual(self.db.getTransaction(tid2, False), None)
-        result = self.db.getTransaction(tid1, True)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
-        result = self.db.getTransaction(tid2, True)
-        self.assertEqual(result, ([oid2], 'user', 'desc', 'ext', False, p64(2)))
-        result = self.db.getTransaction(tid1, False)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
-        result = self.db.getTransaction(tid2, False)
-        self.assertEqual(result, ([oid2], 'user', 'desc', 'ext', False, p64(2)))
+        self.assertEqual(self.db.getTransaction(tid1, True),
+            ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
+        self.assertEqual(self.db.getTransaction(tid2, True),
+            ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
+        self.assertEqual(self.db.getTransaction(tid1, False),
+            ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
+        self.assertEqual(self.db.getTransaction(tid2, False),
+            ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
 
     def test_deleteTransaction(self):
         txn, objs = self.getTransaction([])
         tid = txn[-1]
         self.db.storeTransaction(tid, objs, txn, False)
-        self.assertEqual(self.db.getTransaction(tid), txn)
+        self.assertEqual(self.db.getTransaction(tid), txn + (None,))
         self.db.deleteTransaction(tid)
         self.assertEqual(self.db.getTransaction(tid), None)
 
@@ -265,13 +270,13 @@ class StorageDBTests(NeoUnitTestBase):
         with self.commitTransaction(tid1, objs1, txn1), \
              self.commitTransaction(tid2, objs2, txn2, None):
             pass
-        result = self.db.getTransaction(tid1, True)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
-        result = self.db.getTransaction(tid2, True)
-        self.assertEqual(result, ([oid2], 'user', 'desc', 'ext', False, p64(2)))
+        self.assertEqual(self.db.getTransaction(tid1, True),
+            ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
+        self.assertEqual(self.db.getTransaction(tid2, True),
+            ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
         # get from non-temporary only
-        result = self.db.getTransaction(tid1, False)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
+        self.assertEqual(self.db.getTransaction(tid1, False),
+            ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
         self.assertEqual(self.db.getTransaction(tid2, False), None)
 
     def test_getObjectHistory(self):
@@ -282,17 +287,17 @@ class StorageDBTests(NeoUnitTestBase):
         txn3, objs3 = self.getTransaction([oid])
         # one revision
         self.db.storeTransaction(tid1, objs1, txn1, False)
-        result = self.db.getObjectHistory(oid, 0, 3)
+        result = self.db.getObjectHistoryWithLength(oid, 0, 3)
         self.assertEqual(result, [(tid1, 0)])
-        result = self.db.getObjectHistory(oid, 1, 1)
+        result = self.db.getObjectHistoryWithLength(oid, 1, 1)
         self.assertEqual(result, None)
         # two revisions
         self.db.storeTransaction(tid2, objs2, txn2, False)
-        result = self.db.getObjectHistory(oid, 0, 3)
+        result = self.db.getObjectHistoryWithLength(oid, 0, 3)
         self.assertEqual(result, [(tid2, 0), (tid1, 0)])
-        result = self.db.getObjectHistory(oid, 1, 3)
+        result = self.db.getObjectHistoryWithLength(oid, 1, 3)
         self.assertEqual(result, [(tid1, 0)])
-        result = self.db.getObjectHistory(oid, 2, 3)
+        result = self.db.getObjectHistoryWithLength(oid, 2, 3)
         self.assertEqual(result, None)
 
     def _storeTransactions(self, count):
@@ -438,6 +443,32 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(
             db.findUndoTID(oid1, tid4, tid1, None),
             (tid3, None, True))
+
+    def testDeferredPruning(self):
+        self.setupDB(1, True)
+        db = self.db
+        if isinstance(db, MVCCDatabaseManager):
+            self.assertFalse(db.nonempty('todel'))
+            self.assertEqual([
+                db.storeData(makeChecksum(x), ZERO_OID, x, 0, None)
+                for x in string.digits
+            ], range(0, 10))
+            db2 = copy(db)
+            for x in (3, 9, 4), (4, 7, 6):
+                self.assertIsNone(db2._pruneData(x))
+            db.commit()
+            db2.commit()
+            for expected in (3, 4, 6), (7, 9):
+                self.assertTrue(db.nonempty('todel'))
+                x = db._dataIdsToPrune(3)
+                self.assertEqual(tuple(x), expected)
+                self.assertEqual(db._pruneData(x), len(expected))
+            self.assertFalse(db._dataIdsToPrune(3))
+            self.assertFalse(db2.nonempty('todel'))
+            self.assertEqual(db._pruneData(range(10)), 5)
+            self.assertFalse(db.nonempty('todel'))
+        else:
+            self.assertIsNone(db.nonempty('todel'))
 
 if __name__ == "__main__":
     unittest.main()

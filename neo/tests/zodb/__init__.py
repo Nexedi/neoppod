@@ -16,7 +16,8 @@
 
 import os
 
-from .. import DB_PREFIX
+from neo.client.app import Application as ClientApplication, TXN_PACK_DESC
+from .. import DB_PREFIX, Patch
 functional = int(os.getenv('NEO_TEST_ZODB_FUNCTIONAL', 0))
 if functional:
     from ..functional import NEOCluster, NEOFunctionalTest as TestCase
@@ -28,6 +29,16 @@ else:
     del x
 
 class ZODBTestCase(TestCase):
+
+    def undoLog(orig, *args, **kw):
+        return [txn for txn in orig(*args, **kw)
+                    if txn['description'] != TXN_PACK_DESC]
+
+    _patches = (
+        Patch(ClientApplication, undoLog=undoLog),
+        Patch(ClientApplication, wait_for_pack=True),
+    )
+    del undoLog
 
     def setUp(self):
         super(ZODBTestCase, self).setUp()
@@ -41,6 +52,8 @@ class ZODBTestCase(TestCase):
         if functional:
             kw['temp_dir'] = self.getTempDirectory()
         self.neo = NEOCluster(**kw)
+        for p in self._patches:
+            p.apply()
 
     def __init__(self, methodName):
         super(ZODBTestCase, self).__init__(methodName)
@@ -51,7 +64,20 @@ class ZODBTestCase(TestCase):
                 self.neo.start()
                 self.open()
                 test(self)
-                if not functional:
+                if functional:
+                    dm = self._getDatabaseManager()
+                    try:
+                        @self.neo.expectCondition
+                        def _(last_try):
+                            dm.commit()
+                            dm.setup()
+                            x = dm.nonempty('todel'), dm._uncommitted_data
+                            return not any(x), x
+                        orphan = dm.getOrphanList()
+                    finally:
+                        dm.close()
+                else:
+                    self.neo.ticAndJoinStorageTasks()
                     orphan = self.neo.storage.dm.getOrphanList()
                 failed = False
             finally:
@@ -60,23 +86,21 @@ class ZODBTestCase(TestCase):
                     self.neo.stop(ignore_errors=failed)
                 else:
                     self.neo.stop(None)
-            if functional:
-                dm = self.neo.getSQLConnection(*self.neo.db_list)
-                try:
-                    dm.setup()
-                    orphan = set(dm.getOrphanList())
-                    orphan.difference_update(dm._uncommitted_data)
-                finally:
-                    dm.close()
             self.assertFalse(orphan)
         setattr(self, methodName, runTest)
 
     def _tearDown(self, success):
+        for p in self._patches:
+            p.revert()
         del self.neo
         super(ZODBTestCase, self)._tearDown(success)
 
     assertEquals = failUnlessEqual = TestCase.assertEqual
     assertNotEquals = failIfEqual = TestCase.assertNotEqual
+
+    if functional:
+        def _getDatabaseManager(self):
+            return self.neo.getSQLConnection(*self.neo.db_list)
 
     def open(self, **kw):
         self._open(_storage=self.neo.getZODBStorage(**kw))

@@ -22,7 +22,7 @@ from ZODB.tests import testZODB
 from neo.storage import database as database_module
 from neo.storage.database.importer import ImporterDatabaseManager
 from .. import expectedFailure, getTempDirectory, Patch
-from . import ZODBTestCase
+from . import functional, ZODBTestCase
 
 class NEOZODBTests(ZODBTestCase, testZODB.ZODBTests):
 
@@ -64,8 +64,14 @@ class NEOZODBImporterTests(NEOZODBTests):
 
     def run(self, *args, **kw):
         with Patch(database_module, getAdapterKlass=lambda *args:
-                partial(DummyImporter, self._importer_config, *args)):
+                partial(DummyImporter, self._importer_config, *args)) as p:
+            self._importer_patch = p
             super(ZODBTestCase, self).run(*args, **kw)
+
+    if functional:
+        def _getDatabaseManager(self):
+            self._importer_patch.revert()
+            return super(NEOZODBImporterTests, self)._getDatabaseManager()
 
     checkMultipleUndoInOneTransaction = expectedFailure(IndexError)(
         NEOZODBTests.checkMultipleUndoInOneTransaction)
