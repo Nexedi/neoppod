@@ -156,6 +156,9 @@ class MySQLDatabaseManager(DatabaseManager):
         conn.autocommit(False)
         conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
         conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
+        if self._engine == 'RocksDB':
+            # Maximum value for _deleteRange.
+            conn.query("SET SESSION rocksdb_max_row_locks = %u" % 2**30)
         def query(sql):
             conn.query(sql)
             r = conn.store_result()
