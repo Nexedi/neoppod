@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, errno, socket, struct, sys, threading
+import os, errno, socket, struct, sys, threading, time
 from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
@@ -853,7 +853,12 @@ class DatabaseManager(object):
             assert tid, tid
             cell_list = []
             my_nid = self.getUUID()
+            commit = 0
             for partition, state in self.iterAssignedCells():
+                if commit < time.time():
+                    if commit:
+                        self.commit()
+                    commit = time.time() + 10
                 if state > tid:
                     cell_list.append((partition, my_nid, tid))
                 self._deleteRange(partition, tid)
