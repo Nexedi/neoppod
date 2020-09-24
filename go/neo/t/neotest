@@ -1,7 +1,7 @@
 #!/bin/bash -e
 # neotest: run tests and benchmarks against FileStorage, ZEO and various NEO/py and NEO/go clusters
 
-# Copyright (C) 2017-2018  Nexedi SA and Contributors.
+# Copyright (C) 2017-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -638,15 +638,20 @@ system_info() {
 	freqstable=y
 	while read cpu; do
 		f="$cpu/cpufreq"
-		fmin=`fkghz $f/scaling_min_freq`
-		fmax=`fkghz $f/scaling_max_freq`
-		fs="`cat $f/scaling_driver`/`cat $f/scaling_governor` [$fmin - $fmax]"
+		if ! test -d "$f"; then
+			fs="?"
+			freqstable=n
+		else
+			fmin=`fkghz $f/scaling_min_freq`
+			fmax=`fkghz $f/scaling_max_freq`
+			fs="`cat $f/scaling_driver`/`cat $f/scaling_governor` [$fmin - $fmax]"
+			test "$fmin" != "$fmax" && freqstable=n
+		fi
 		if [ "$fs" != "$freqstr" ]; then
 			freqdump
 			freqstr="$fs"
 		fi
 		freqcpuv+=(`basename $cpu`)
-		test "$fmin" != "$fmax" && freqstable=n
 	done \
 	< <(ls -vd $syscpu/cpu[0-9]*)
 	freqdump
@@ -654,16 +659,20 @@ system_info() {
 	latmax=0
 	while read cpu; do
 		is="`cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
-		while read state; do
-			is+=" "
-			lat=`cat $state/latency`
-			res=`cat $state/residency 2>/dev/null` || res="?"	# added in linux 3.15
-			test "`cat $state/disable`" = "1" && is+="!" || latmax=$(($lat>$latmax?$lat:$latmax))
-			is+="`cat $state/name`·${lat}/${res}"
-		done \
-		< <(ls -vd $cpu/cpuidle/state[0-9]*)
+		if ! test -d "$cpu/cpuidle"; then
+			is+=" ?"
+		else
+			while read state; do
+				is+=" "
+				lat=`cat $state/latency`
+				res=`cat $state/residency 2>/dev/null` || res="?"	# added in linux 3.15
+				test "`cat $state/disable`" = "1" && is+="!" || latmax=$(($lat>$latmax?$lat:$latmax))
+				is+="`cat $state/name`·${lat}/${res}"
+			done \
+			< <(ls -vd $cpu/cpuidle/state[0-9]*)
 
-		is+=" # elat/tres µs"
+			is+=" # elat/tres µs"
+		fi
 
 		if [ "$is" != "$idlestr" ]; then
 			idledump
