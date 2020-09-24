@@ -739,6 +739,8 @@ system_info() {
 		nicname=`basename $nic`		# /sys/class/net/eth0	-> eth0
 		echo -n "nic/$nicname: "
 		nicdev=`realpath $nic/device`	# /sys/class/net/eth0	-> /sys/devices/pci0000:00/0000:00:1f.6
+		# for virtio NICs $nic/device lead to $pcidev/virtioX, not just $pcidev
+		nicdev=`echo $nicdev | sed -s 's\\/virtio.$\\\\'`
 
 		case "$nicdev" in
 		*usb*)
