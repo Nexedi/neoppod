@@ -183,7 +183,7 @@ class LocalTestResult:
         self.next  = 0 # testv[next] is next test to execute
 
     def start(self): # -> test_result_line
-        if self.next > len(self.testv):
+        if self.next >= len(self.testv):
             return None # all tests are done
 
         test_result_line = LocalTestResultLine()
@@ -194,7 +194,7 @@ class LocalTestResult:
 class LocalTestResultLine:
     def stop(self, **kw):
         def v(name):
-            kw.get('name', '?')
+            return kw.get('name', '?')
 
         _ = v('error_count')
         if _ == '?':
@@ -204,7 +204,7 @@ class LocalTestResultLine:
         else:
             st = 'fail'
 
-        print('%s\t%s\ti%.3fs\t# %sT %sE %sF %sS' % (st, self.name, v('test_count'), v('error_count'), v('failure_count'), v('skip_count')))
+        print('%s\t%s\t%.3fs\t# %sT %sE %sF %sS' % (st, self.name, kw['duration'], v('test_count'), v('error_count'), v('failure_count'), v('skip_count')))
 
 
 
