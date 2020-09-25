@@ -91,7 +91,7 @@ def main():
         tool = TaskDistributor(portal_url = args.master_url, logger = logger)
         test_result = tool.createTestResult(
                         revision        = args.revision,
-                        test_name_list  = tenv.testv,
+                        test_name_list  = [t.name for t in tenv.testv],
                         node_title      = args.test_node_title,
                         test_title      = args.test_suite_title or args.test_suite,
                         project_title   = args.project_title)
@@ -102,7 +102,7 @@ def main():
 
     # master_url not provided -> run tests locally
     else:
-        test_result = LocalTestResult(tenv.testv)
+        test_result = LocalTestResult(tenv)
 
     # make sure we get output from subprocesses without delay.
     # go does not buffer stdout/stderr by default, but python does for stdout.
@@ -207,16 +207,17 @@ def tee(fin, fout, buf):
 
 # LocalTestResult* handle tests runs, when master_url was not provided and tests are run locally.
 class LocalTestResult:
-    def __init__(self, test_name_list):
-        self.testv = test_name_list
-        self.next  = 0 # testv[next] is next test to execute
+    def __init__(self, tenv):
+        assert isinstance(tenv, TestEnv)
+        self.tenv = tenv
+        self.next = 0 # tenv.testv[next] is next test to execute
 
     def start(self): # -> test_result_line
-        if self.next >= len(self.testv):
+        if self.next >= len(self.tenv.testv):
             return None # all tests are done
 
         test_result_line = LocalTestResultLine()
-        test_result_line.name = self.testv[self.next]
+        test_result_line.name = self.tenv.testv[self.next].name
         self.next += 1
         return test_result_line
 
