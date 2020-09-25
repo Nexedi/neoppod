@@ -30,12 +30,15 @@ from erp5.util.taskdistribution import TaskDistributor
 from subprocess import Popen, PIPE
 from time import time, strftime, gmtime
 import os, sys, threading, argparse, logging, traceback, re
+import six
 
 # loadNXDTestFile loads .nxdtest file located @path.
 def loadNXDTestFile(path): # -> TestEnv
     t = TestEnv()
     g = {'TestCase': t.TestCase}    # TODO + all other public TestEnv methods
-    six.exec_(code, g)
+    with open(path, "r") as f:
+        src = f.read()
+    six.exec_(src, g)
     return t
 
 # TestCase defines one test case to run.
