@@ -235,6 +235,21 @@ class LocalTestResultLine:
             st = 'fail'
 
         print('%s\t%s\t%.3fs\t# %st %se %sf %ss' % (st, self.name, kw['duration'], v('test_count'), v('error_count'), v('failure_count'), v('skip_count')))
+        # XXX + dump .json ?
+
+
+# well-known summary functions
+def pytest_summary(out): # -> status_dict
+    # XXX
+
+def unittest_summary(out): # -> status_dict
+    # XXX -> erp5.util.testsuite.EggTestSuite
+    pass
+
+
+def gotest_summary(out): # -> status_dict
+    # TODO
+    pass
 
 
 if __name__ == '__main__':
