@@ -35,7 +35,8 @@ import six
 # loadNXDTestFile loads .nxdtest file located @path.
 def loadNXDTestFile(path): # -> TestEnv
     t = TestEnv()
-    g = {'TestCase': t.TestCase}    # TODO + all other public TestEnv methods
+    g = {'TestCase': t.TestCase,    # TODO + all other public TestEnv methods
+         'PyTest':   PyTest}
     with open(path, "r") as f:
         src = f.read()
     six.exec_(src, g)
@@ -238,9 +239,33 @@ class LocalTestResultLine:
         # XXX + dump .json ?
 
 
-# well-known summary functions
-def pytest_summary(out): # -> status_dict
-    # XXX
+# support for well-known summary functions
+class PyTest:
+    @staticmethod
+    def summary(out): # -> status_dict
+        # last line is like
+        # ================ 1 failed, 1 passed, 12 skipped in 0.39 seconds ================
+        textv = out.splitlines()
+        tail = textv[-1]
+        def get(name, default=None):
+            m = re.search(r'\b([0-9]+) '+name+r'\b', tail)
+            if m is None:
+                return default
+            return int(m.group(1))
+
+        stat = {}
+        def set_stat(stat_key, from_name):
+            v = get(from_name)
+            if v is None:
+                return
+            stat[stat_key] = v
+        set_stat('skip_count',  'skipped')
+        set_stat('error_count', 'failed')
+        # XXX failure_count <- ?
+        nxfail = get('xfailed', 0)
+        npass  = get('passed',  0)
+        stat['test_count'] = npass + nxfail + stat.get('skip_count', 0) + stat.get('error_count', 0)
+        return stat
 
 def unittest_summary(out): # -> status_dict
     # XXX -> erp5.util.testsuite.EggTestSuite
