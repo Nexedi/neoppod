@@ -175,7 +175,7 @@ def main():
 
         # report result of test run back to master
         test_result_line.stop(
-            command     = ' '.join(argv),
+            command     = ' '.join(t.argv),
             duration    = tend - tstart,
             date        = strftime("%Y/%m/%d %H:%M:%S", gmtime(tend)),
 
