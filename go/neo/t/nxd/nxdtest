@@ -107,7 +107,8 @@ def main():
             # bufsize=1 means 'line buffered'
             p = Popen(argv, stdin=devnull, stdout=PIPE, stderr=PIPE, bufsize=1)
         except:
-            stdout, stderr = '', traceback.format_exc()
+            stdout = ''
+            stderr = 'run %r\n%s' % (argv, traceback.format_exc())
             sys.stderr.write(stderr)
             status['error_count'] += 1
         else:
@@ -194,7 +195,7 @@ class LocalTestResult:
 class LocalTestResultLine:
     def stop(self, **kw):
         def v(name):
-            return kw.get('name', '?')
+            return kw.get(name, '?')
 
         _ = v('error_count')
         if _ == '?':
@@ -204,7 +205,7 @@ class LocalTestResultLine:
         else:
             st = 'fail'
 
-        print('%s\t%s\t%.3fs\t# %sT %sE %sF %sS' % (st, self.name, kw['duration'], v('test_count'), v('error_count'), v('failure_count'), v('skip_count')))
+        print('%s\t%s\t%.3fs\t# %st %se %sf %ss' % (st, self.name, kw['duration'], v('test_count'), v('error_count'), v('failure_count'), v('skip_count')))
 
 
 
