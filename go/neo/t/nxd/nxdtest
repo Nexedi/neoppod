@@ -254,17 +254,16 @@ class PyTest:
             return int(m.group(1))
 
         stat = {}
-        def set_stat(stat_key, from_name):
+        def stat_set(stat_key, from_name):
             v = get(from_name)
             if v is None:
                 return
             stat[stat_key] = v
-        set_stat('skip_count',  'skipped')
-        set_stat('error_count', 'failed')
-        # XXX failure_count <- ?
-        nxfail = get('xfailed', 0)
-        npass  = get('passed',  0)
-        stat['test_count'] = npass + nxfail + stat.get('skip_count', 0) + stat.get('error_count', 0)
+        stat_set('skip_count',    'skipped')
+        stat_set('error_count',   'failed')
+        stat_set('failure_count', 'xfailed')    # XXX ok?
+        npass = get('passed',  0)
+        stat['test_count'] = npass + stat.get('failure_count', 0) + stat.get('skip_count', 0) + stat.get('error_count', 0)
         return stat
 
 def unittest_summary(out): # -> status_dict
