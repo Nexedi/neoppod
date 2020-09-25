@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -17,9 +17,9 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""runTestSuite - run neotest under Nexedi testing infrastructure.
+"""nxdtest - test a project under Nexedi testing infrastructure.
 
-neotest must be on $PATH.
+XXX more docs
 """
 
 # XXX split -> nxdtest + NXDTestfile  (name=?)
@@ -82,6 +82,15 @@ def main():
         argv = ['neotest', testname]
         tstart = time()
 
+        # default status dict
+        status = {
+            'test_count':       1,
+            'error_count':      0,
+            'failure_count':    0,
+            'skip_count':       0,
+            #html_test_result
+        }
+
         try:
             # NOTE runs with unchanged cwd. Instance wrapper cares to set cwd before running us.
             # bufsize=1 means 'line buffered'
@@ -89,7 +98,7 @@ def main():
         except:
             stdout, stderr = '', traceback.format_exc()
             sys.stderr.write(stderr)
-            ok = False
+            status['error_count'] += 1
         else:
             # tee >stdout,stderr so we can also see in testnode logs
             # (explicit teeing instead of p.communicate() to be able to see incremental progress)
@@ -103,16 +112,9 @@ def main():
             tout.join(); stdout = ''.join(buf_out)
             terr.join(); stderr = ''.join(buf_err)
             p.wait()
-            ok = (p.returncode == 0)
 
-            # default status dict just by exit code
-            status = {
-                'test_count':       1,
-                'error_count':      (0 if ok else 1),
-                'failure_count':    0,
-                'skip_count':       0,
-                #html_test_result
-            }
+            if p.returncode != 0:
+                status['error_count'] += 1
 
             # postprocess output, if we can
             summaryf = globals().get(testname.replace('-', '_') + '_summary')
@@ -140,7 +142,7 @@ def main():
             stdout      = stdout,
             stderr      = stderr,
 
-            **status
+            **status    # FIXME popen fail -> status is unbound
         )
 
 # tee, similar to tee(1) utility, copies data from fin to fout appending them to buf.
