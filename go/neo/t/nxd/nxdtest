@@ -31,6 +31,32 @@ from subprocess import Popen, PIPE
 from time import time, strftime, gmtime
 import os, sys, threading, argparse, logging, traceback, re
 
+# loadNXDTestFile loads .nxdtest file located @path.
+def loadNXDTestFile(path): # -> TestEnv
+    t = TestEnv()
+    g = {'TestCase': t.TestCase}    # TODO + all other public TestEnv methods
+    six.exec_(code, g)
+    return t
+
+# TestCase defines one test case to run.
+class TestCase:
+    def __init__(self, name, argv, **kw):
+        self.name = name
+        self.argv = argv
+        self.kw   = kw
+
+# TestEnv represents a testing environment with set of TestCases to run.
+class TestEnv:
+    def __init__(self):
+        self.byname = {} # of TestCase
+        self.testv  = [] # of TestCase
+
+    # TestCase adds new test case to the environment.
+    def TestCase(self, name, argv, **kw):
+        assert name not in self.byname
+        t = TestCase(name, argv, **kw)
+        self.testv.append(t)
+        self.byname[name] = t
 
 def main():
     # testnode executes us giving URL to master results collecting instance and other details
@@ -53,8 +79,8 @@ def main():
         logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
         logger = logging.getLogger()
 
-    # list of tests to run
-    testv = ['test-go', 'test-py', 'bench-local']   # XXX -> .nxdtest
+    # load list of tests to run
+    tenv = loadNXDTestFile('.nxdtest')
 
     # master_url provided -> run tests under master control
     if args.master_url is not None:
@@ -62,7 +88,7 @@ def main():
         tool = TaskDistributor(portal_url = args.master_url, logger = logger)
         test_result = tool.createTestResult(
                         revision        = args.revision,
-                        test_name_list  = testv,
+                        test_name_list  = tenv.testv,
                         node_title      = args.test_node_title,
                         test_title      = args.test_suite_title or args.test_suite,
                         project_title   = args.project_title)
@@ -73,7 +99,7 @@ def main():
 
     # master_url not provided -> run tests locally
     else:
-        test_result = LocalTestResult(testv)
+        test_result = LocalTestResult(tenv.testv)
 
     # make sure we get output from subprocesses without delay.
     # go does not buffer stdout/stderr by default, but python does for stdout.
@@ -88,9 +114,8 @@ def main():
         if test_result_line is None:
             break
 
-        # run `neotest <test-name>`
-        testname = test_result_line.name
-        argv = ['neotest', testname]
+        # run tenv[name]
+        t = tenv.byname[test_result_line.name]
         tstart = time()
 
         # default status dict
@@ -105,10 +130,10 @@ def main():
         try:
             # NOTE runs with unchanged cwd. Instance wrapper cares to set cwd before running us.
             # bufsize=1 means 'line buffered'
-            p = Popen(argv, stdin=devnull, stdout=PIPE, stderr=PIPE, bufsize=1)
+            p = Popen(t.argv, stdin=devnull, stdout=PIPE, stderr=PIPE, bufsize=1)
         except:
             stdout = ''
-            stderr = 'run %r\n%s' % (argv, traceback.format_exc())
+            stderr = 'run %r\n%s' % (t.argv, traceback.format_exc())
             sys.stderr.write(stderr)
             status['error_count'] += 1
         else:
@@ -129,7 +154,7 @@ def main():
                 status['error_count'] += 1
 
             # postprocess output, if we can
-            summaryf = globals().get(testname.replace('-', '_') + '_summary')
+            summaryf = globals().get(t.name.replace('-', '_') + '_summary')
             if summaryf is not None:
                 try:
                     summary = summaryf(stdout)

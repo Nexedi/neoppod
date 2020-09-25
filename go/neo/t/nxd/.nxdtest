@@ -1,0 +1,5 @@
+# setup for continous integration via nxdtes
+
+TestCase('test-go', ['neotest', 'test-go'])
+TestCase('test-py', ['neotest', 'test-py'])
+TestCase('bench-local', ['neotest', 'bench-local'])
