@@ -133,9 +133,17 @@ def main():
         }
 
         try:
-            # NOTE runs with unchanged cwd. Instance wrapper cares to set cwd before running us.
+            # Run t.argv in t.kw['env'] environment.
+            # In addition to kw['env'], kw['envadj'] allows users to define
+            # only adjustments instead of providing full env dict.
+            # Test command is spawned with unchanged cwd. Instance wrapper cares to set cwd before running us.
             # bufsize=1 means 'line buffered'
-            p = Popen(t.argv, stdin=devnull, stdout=PIPE, stderr=PIPE, bufsize=1)
+            kw = t.kw.copy()
+            env = kw.pop('env', os.environ)
+            env = env.copy()
+            envadj = kw.pop('envadj', {})
+            env.update(envadj)
+            p = Popen(t.argv, env=env, stdin=devnull, stdout=PIPE, stderr=PIPE, bufsize=1, **kw)
         except:
             stdout = ''
             stderr = 'run %r\n%s' % (t.argv, traceback.format_exc())
