@@ -211,7 +211,6 @@ class AdministrationHandler(MasterHandler):
             if node.getUUID() in uuid_list or node.isPending():
                 drop_list.append(node)
             elif not node.isRunning():
-                drop_list.append(node)
                 raise AnswerDenied(
                     'tweak: down nodes must be listed explicitly')
         if dry_run:
