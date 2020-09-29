@@ -22,7 +22,7 @@
 neotest must be on $PATH.
 """
 
-# XXX split -> nxdtest + NXDTestfile  (name=?)
+# FIXME -> use https://lab.nexedi.com/kirr/nxdtest
 
 from erp5.util.taskdistribution import TaskDistributor
 from subprocess import Popen, PIPE
