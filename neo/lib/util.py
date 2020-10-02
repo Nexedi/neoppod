@@ -158,7 +158,6 @@ def parseNodeAddress(address, port_opt=None):
     return socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0][4][:2]
 
 def parseMasterList(masters):
-    assert masters, 'At least one master must be defined'
     return map(parseNodeAddress, masters.split())
 
 

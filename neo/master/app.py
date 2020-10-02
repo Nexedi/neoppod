@@ -108,7 +108,7 @@ class Application(BaseApplication):
 
         self.storage_ready_dict = {}
         self.storage_starting_set = set()
-        for master_address in config['masters']:
+        for master_address in config.get('masters', ()):
             self.nm.createMaster(address=master_address)
         self._node = self.nm.createMaster(address=self.server,
                                           uuid=config.get('nid'))

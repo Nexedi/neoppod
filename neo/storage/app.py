@@ -98,10 +98,7 @@ class Application(BaseApplication):
         )
         self.disable_drop_partitions = config.get('disable_drop_partitions',
                                                   False)
-
-        # load master nodes
-        for master_address in config['masters']:
-            self.nm.createMaster(address=master_address)
+        self.nm.createMasters(config['masters'])
 
         # set the bind address
         self.server = config['bind']

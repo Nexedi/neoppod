@@ -57,8 +57,9 @@ class BaseApplication(object):
         _('s', 'section', default=section,
             help='specify a configuration section')
         _('c', 'cluster', required=True, help='the cluster name')
-        _('m', 'masters', default=masters, parse=util.parseMasterList,
-            help='master node list')
+        _('m', 'masters', parse=util.parseMasterList,
+            help='space-separated list of master node addresses',
+            **{'default': masters} if masters else {'type': lambda x: x or ''})
         _('b', 'bind', default=bind,
             parse=lambda x: util.parseNodeAddress(x, 0),
             help='the local address to bind to')

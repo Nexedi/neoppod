@@ -72,8 +72,7 @@ class BackupApplication(object):
         self.app = weakref.proxy(app)
         self.name = name
         self.nm = NodeManager()
-        for master_address in master_addresses:
-            self.nm.createMaster(address=master_address)
+        self.nm.createMasters(master_addresses)
 
     em = property(lambda self: self.app.em)
     ssl = property(lambda self: self.app.ssl)

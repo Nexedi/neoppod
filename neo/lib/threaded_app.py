@@ -53,10 +53,7 @@ class ThreadedApplication(BaseApplication):
         self.name = name
         self.dispatcher = Dispatcher()
         self.master_conn = None
-
-        # load master node list
-        for address in master_nodes:
-            self.nm.createMaster(address=address)
+        self.nm.createMasters(master_nodes)
 
         # Internal attribute distinct between thread
         self._thread_container = ThreadContainer()

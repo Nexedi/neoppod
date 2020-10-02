@@ -393,6 +393,12 @@ class NodeManager(EventQueue):
                 raise NotReadyError('unknown by master')
         return node
 
+    def createMasters(self, master_nodes):
+        for address in master_nodes:
+            self.createMaster(address=address)
+        if not self.getMasterList():
+            raise ValueError("At least one master must be defined")
+
     def _createNode(self, klass, address=None, uuid=None, **kw):
         by_address = self.getByAddress(address)
         by_uuid = self.getByUUID(uuid)

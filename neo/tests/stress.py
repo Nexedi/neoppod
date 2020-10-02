@@ -66,8 +66,7 @@ class StressApplication(AdminApplication):
 
     def __init__(self, ssl, master_nodes):
         BaseApplication.__init__(self, ssl)
-        for address in master_nodes:
-            self.nm.createMaster(address=address)
+        self.nm.createMasters(master_nodes)
         self.pt = None
         self.master_event_handler = Handler(self)
         self.reset()
