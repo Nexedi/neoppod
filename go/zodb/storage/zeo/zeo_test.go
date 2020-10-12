@@ -242,6 +242,19 @@ func TestHandshake(t *testing.T) {
 	})
 }
 
+// verify that connection to ZEO server with empty DB works ok.
+func TestEmptyDB(t *testing.T) {
+	withZEO(t, func(t *testing.T, zsrv ZEOSrv, z *zeo) {
+		X := xtesting.FatalIf(t)
+		ctx := context.Background()
+		head, err := z.Sync(ctx); X(err)
+		headOk := zodb.Tid(0)
+		if head != headOk {
+			t.Errorf("head=%s  ; expected %s", head, headOk)
+		}
+	})
+}
+
 func TestLoad(t *testing.T) {
 	X := exc.Raiseif
 
