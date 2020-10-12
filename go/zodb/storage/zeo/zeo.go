@@ -42,9 +42,11 @@ type zeo struct {
 	// driver client <- watcher: database commits | errors.
 	watchq  chan<- zodb.Event
 	head    zodb.Tid            // last invalidation received from server
-	at0Mu   sync.Mutex
-	at0     zodb.Tid            // at0 obtained when initially connecting to server
-	eventq0 []*zodb.EventCommit // buffer for initial messages, until .at0 is initialized
+
+	at0Mu          sync.Mutex
+	at0            zodb.Tid            // at0 obtained when initially connecting to server
+	eventq0        []*zodb.EventCommit // buffer for initial messages, until .at0 is initialized
+	at0Initialized bool                // true after .at0 is initialized
 
 	// becomes ready when serve loop finishes
 	serveWG sync.WaitGroup
@@ -161,7 +163,7 @@ func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
 
 	// queue initial events until .at0 is initialized after register
 	// queued events will be sent to watchq by zeo ctor after initializing .at0
-	if z.at0 == 0 {
+	if !z.at0Initialized {
 		z.eventq0 = append(z.eventq0, event)
 		return nil
 	}
@@ -176,7 +178,7 @@ func (z *zeo) invalidateTransaction(arg interface{}) (err error) {
 // flushEventq0 flushes events queued in z.eventq0.
 // must be called under .at0Mu
 func (z *zeo) flushEventq0() {
-	if z.at0 == 0 {
+	if !z.at0Initialized {
 		panic("flush, but .at0 not yet initialized")
 	}
 	if z.watchq != nil {
@@ -443,7 +445,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 		// close .watchq after serve is over
 		z.at0Mu.Lock()
 		defer z.at0Mu.Unlock()
-		if z.at0 != 0 {
+		if z.at0Initialized {
 			z.flushEventq0()
 		}
 		if z.watchq != nil {
@@ -485,6 +487,7 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb
 	// filter-out first < at0 messages for this reason.
 	z.at0Mu.Lock()
 	z.at0 = lastTid
+	z.at0Initialized = true
 	z.flushEventq0()
 	z.at0Mu.Unlock()
 
