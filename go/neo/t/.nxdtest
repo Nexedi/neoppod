@@ -1,5 +1,6 @@
 # setup to run neotest on Nexedi testing infrastructure.
 # https://stack.nexedi.com/test_status
+import re
 
 # xint converts number from neo/py test output to integer
 def xint(s):
