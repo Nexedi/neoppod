@@ -34,7 +34,7 @@ var helpTopics = prog.HelpRegistry{
 func main() {
 	prog := prog.MainProg{
 	        Name:       "neo",
-	        Summary:    "Neo is a tool for running NEO services and commands",
+	        Summary:    "Neo is a tool to run NEO services and commands",
 	        Commands:   commands,
 	        HelpTopics: helpTopics,
 	}
