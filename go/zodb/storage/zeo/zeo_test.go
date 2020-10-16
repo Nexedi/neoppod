@@ -192,6 +192,7 @@ func withZEOSrv(t *testing.T, f func(t *testing.T, zsrv ZEOSrv), optv ...tOption
 			needpy := []string{"ZEO"}
 			if msgpack {
 				needpy = append(needpy, "msgpack")
+				needpy = append(needpy, "ZEO.asyncio") // FIXME hack to check that ZEO ver >= 5
 			}
 			xtesting.NeedPy(t, needpy...)
 			withFS1(t, func(fs1path string) {
