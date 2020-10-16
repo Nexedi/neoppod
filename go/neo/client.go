@@ -401,16 +401,13 @@ func (c *Client) Sync(ctx context.Context) (_ zodb.Tid, err error) {
 }
 
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
-	// defer func() ...
-	buf, serial, err = c._Load(ctx, xid)
-	if err != nil {
-		err = &zodb.OpError{URL: c.URL(), Op: "load", Args: xid, Err: err}
-	}
-	return buf, serial, err
-}
+	defer func() {
+		if err != nil {
+			err = &zodb.OpError{URL: c.URL(), Op: "load", Args: xid, Err: err}
+		}
+	}()
 
-func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
-	err := c.withOperational(ctx)
+	err = c.withOperational(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -462,7 +459,7 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 		return nil, 0, err	// XXX err context
 	}
 
-	buf := resp.Data
+	buf = resp.Data
 
 	if !xsha1.Skip {
 		checksum := xsha1.Sum(buf.Data)
