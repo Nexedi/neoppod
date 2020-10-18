@@ -189,10 +189,6 @@ func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv), optv ...tOption
 		work, err := ioutil.TempDir("", "neo"); X(err)
 		defer os.RemoveAll(work)
 
-		if opt.Preload != "" {
-			panic("TODO: preload")
-		}
-
 		f(work)
 	}
 
@@ -209,6 +205,16 @@ func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv), optv ...tOption
 			defer func() {
 				err := npy.Close(); X(err)
 			}()
+
+			if opt.Preload != "" {
+				cmd := exec.Command("python", "-m", "neo.scripts.neomigrate",
+						    "-s", opt.Preload,
+						    "-d", npy.MasterAddr(), "-c", npy.ClusterName())
+				cmd.Stdin  = nil
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				err := cmd.Run(); X(err)
+			}
 
 			f(t, npy)
 		})
