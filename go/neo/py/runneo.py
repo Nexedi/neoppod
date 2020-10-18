@@ -27,6 +27,7 @@ from neo.tests.functional import NEOCluster
 from golang import func, defer
 
 import sys, os
+from time import sleep
 
 
 @func
@@ -53,7 +54,8 @@ def main():
     defer(_)
 
 
-    # XXX loop forever
+    while 1:
+        sleep(1)
 
 
 
