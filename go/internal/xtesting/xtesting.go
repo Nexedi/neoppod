@@ -138,6 +138,17 @@ func ZPyCommitRaw(zurl string, at zodb.Tid, objv ...ZRawObject) (_ zodb.Tid, err
 
 // ---- tests for storage drivers ----
 
+// DrvTestEmptyDB verifies that zdrv works correctly on empty database.
+func DrvTestEmptyDB(t *testing.T, zdrv zodb.IStorageDriver) {
+	X := FatalIf(t)
+	ctx := context.Background()
+	head, err := zdrv.Sync(ctx); X(err)
+	headOk := zodb.Tid(0)
+	if head != headOk {
+		t.Errorf("head=%s  ; expected %s", head, headOk)
+	}
+}
+
 // state of an object in the database for some particular revision
 type objState struct {
 	tid  zodb.Tid

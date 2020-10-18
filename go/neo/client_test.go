@@ -183,3 +183,11 @@ func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv)) { // XXX +optv 
 
 	// TODO NEO/go
 }
+
+// XXX withNeo
+
+func TestEmptyDB(t *testing.T) {
+	withNEO(t, func(t *testing.T, nsrv NEOSrv, n *Client) {
+		xtesting.DrvTestEmptyDB(t, n)
+	})
+}
