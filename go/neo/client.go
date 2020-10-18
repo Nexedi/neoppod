@@ -181,7 +181,7 @@ func (c *Client) updateOperational() (sendReady func()) {
 // If successful it returns with operational state RLocked (c.node.StateMu) and
 // unlocked otherwise.
 //
-// The only error possible is if provided ctx cancel.
+// The only error possible is if provided ctx cancels.
 // XXX and client stopped/closed? (ctx passed to Run cancelled)
 func (c *Client) withOperational(ctx context.Context) error {
 	for {
@@ -259,7 +259,7 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	c.mlinkMu.Unlock()
 	close(ready)
 
-	wg, ctx := errgroup.WithContext(ctx)
+	wg, ctx := errgroup.WithContext(ctx)	// XXX -> xsync.WorkGroup
 
 	defer xio.CloseWhenDone(ctx, mlink)()
 

@@ -138,7 +138,7 @@ func (z *ZEOPySrv) Close() (err error) {
 	<-z.done
 	err = z.errExit
 	if _, ok := err.(*exec.ExitError); ok {
-		err = nil // ignore exit statue - it is always !0 on kill
+		err = nil // ignore exit status - it is always !0 on kill
 	}
 	return err
 }
