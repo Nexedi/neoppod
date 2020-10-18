@@ -207,9 +207,10 @@ func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv), optv ...tOption
 			}()
 
 			if opt.Preload != "" {
-				cmd := exec.Command("python", "-m", "neo.scripts.neomigrate",
-						    "-s", opt.Preload,
-						    "-d", npy.MasterAddr(), "-c", npy.ClusterName())
+				cmd := exec.Command("python", "-c",
+					"from neo.scripts.neomigrate import main; main()",
+					"-s", opt.Preload,
+					"-d", npy.MasterAddr(), "-c", npy.ClusterName())
 				cmd.Stdin  = nil
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
