@@ -221,6 +221,7 @@ func (c *Client) talkMaster(ctx context.Context) (err error) {
 	for {
 		err := c.talkMaster1(ctx)
 		log.Warning(ctx, err)	// XXX Warning ok? -> Error?
+		// XXX if err == "reject identification / protocol error" -> shutdown client
 
 		// TODO if err = shutdown -> return
 

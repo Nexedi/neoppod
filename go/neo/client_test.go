@@ -227,6 +227,8 @@ func withNEO(t *testing.T, f func(t *testing.T, nsrv NEOSrv, ndrv *Client), optv
 	}, optv...)
 }
 
+// XXX connect with wrong clusterName -> rejected
+
 func TestEmptyDB(t *testing.T) {
 	withNEO(t, func(t *testing.T, nsrv NEOSrv, n *Client) {
 		xtesting.DrvTestEmptyDB(t, n)
