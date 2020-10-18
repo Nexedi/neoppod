@@ -248,7 +248,7 @@ func TestEmptyDB(t *testing.T) {
 func TestLoad(t *testing.T) {
 	X := xtesting.FatalIf(t)
 
-	data := "../fs1/testdata/1.fs"
+	data := "../zodb/storage/fs1/testdata/1.fs"
 	txnvOk, err := xtesting.LoadDBHistory(data); X(err)
 
 	withNEO(t, func(t *testing.T, nsrv NEOSrv, n *Client) {
