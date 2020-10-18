@@ -21,21 +21,24 @@ package neo
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
 
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // NEOSrv represents running NEO server.
 type NEOSrv interface {
-	MasterAddr() string // address of the master
-	// XXX +ClusterName
+	ClusterName() string // name of the cluster
+	MasterAddr()  string // address of the master
 }
 
 // NEOPySrv represents running NEO/py server.
@@ -130,6 +133,10 @@ func StartNEOPySrv(workdir string, opt NEOPyOptions) (_ *NEOPySrv, err error) {
 	return n, nil
 }
 
+func (n *NEOPySrv) ClusterName() string {
+	return "xxx" // FIXME stub
+}
+
 func (n *NEOPySrv) MasterAddr() string {
 	return n.masterAddr
 }
@@ -148,9 +155,23 @@ func (n *NEOPySrv) Close() (err error) {
 
 // ----------------
 
+// tOptions represents options for testing.
+// XXX dup in ZEO
+type tOptions struct {
+	Preload string // preload database with data from this location
+}
+
 // withNEOSrv tests f with all kind of NEO servers.
-func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv)) { // XXX +optv ?
+func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv), optv ...tOptions) {
 	t.Helper()
+
+	opt := tOptions{}
+	if len(optv) > 1 {
+		panic("multiple tOptions not allowed")
+	}
+	if len(optv) == 1 {
+		opt = optv[0]
+	}
 
 	// inWorkDir runs f under dedicated work directory.
 	inWorkDir := func(t *testing.T, f func(workdir string)) {
@@ -158,6 +179,10 @@ func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv)) { // XXX +optv 
 		X := xtesting.FatalIf(t)
 		work, err := ioutil.TempDir("", "neo"); X(err)
 		defer os.RemoveAll(work)
+
+		if opt.Preload != "" {
+			panic("TODO: preload")
+		}
 
 		f(work)
 	}
@@ -184,10 +209,40 @@ func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv)) { // XXX +optv 
 	// TODO NEO/go
 }
 
-// XXX withNeo
+// withNEO tests f on all kinds of NEO servers connected to by NEO client.
+func withNEO(t *testing.T, f func(t *testing.T, nsrv NEOSrv, ndrv *Client), optv ...tOptions) {
+	t.Helper()
+	withNEOSrv(t, func(t *testing.T, nsrv NEOSrv) {
+		t.Helper()
+		X := xtesting.FatalIf(t)
+		ndrv, _, err := neoOpen(fmt.Sprintf("%s@%s", nsrv.ClusterName(), nsrv.MasterAddr()),
+					&zodb.DriverOptions{ReadOnly: true}); X(err)
+		defer func() {
+			err := ndrv.Close(); X(err)
+		}()
+
+		f(t, nsrv, ndrv)
+	}, optv...)
+}
 
 func TestEmptyDB(t *testing.T) {
 	withNEO(t, func(t *testing.T, nsrv NEOSrv, n *Client) {
 		xtesting.DrvTestEmptyDB(t, n)
 	})
+}
+
+
+func neoOpen(zurl string, opt *zodb.DriverOptions) (_ *Client, at0 zodb.Tid, err error) {
+	defer xerr.Contextf(&err, "openneo %s", zurl)
+	u, err := url.Parse(zurl)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	n, at0, err := openClientByURL(context.Background(), u, opt)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return n.(*Client), at0, nil
 }

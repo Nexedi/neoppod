@@ -154,6 +154,7 @@ func (z *ZEOPySrv) Encoding() encoding {
 // ----------------
 
 // tOptions represents options for testing.
+// XXX dup in NEO
 type tOptions struct {
 	Preload string // preload database with data from this location
 }
