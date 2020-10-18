@@ -40,10 +40,11 @@ def main():
     defer(cluster.stop)
 
     cluster.expectClusterRunning()
+    print("I: runneo.py: Started master(s): %s" % cluster.master_nodes)
 
     # dump information about ready cluster into readyfile
     with open("%s.tmp" % readyf, "w") as f:
-        f.write(cluster.master_nodes)   # XXX ' ' separated if multiple masters
+        f.write(cluster.master_nodes)    # XXX ' ' separated if multiple masters
     os.rename("%s.tmp" % readyf, readyf) # atomic
 
     def _():

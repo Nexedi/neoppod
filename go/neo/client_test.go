@@ -215,7 +215,7 @@ func withNEO(t *testing.T, f func(t *testing.T, nsrv NEOSrv, ndrv *Client), optv
 	withNEOSrv(t, func(t *testing.T, nsrv NEOSrv) {
 		t.Helper()
 		X := xtesting.FatalIf(t)
-		ndrv, _, err := neoOpen(fmt.Sprintf("%s@%s", nsrv.ClusterName(), nsrv.MasterAddr()),
+		ndrv, _, err := neoOpen(fmt.Sprintf("neo://%s@%s", nsrv.ClusterName(), nsrv.MasterAddr()),
 					&zodb.DriverOptions{ReadOnly: true}); X(err)
 		defer func() {
 			err := ndrv.Close(); X(err)
