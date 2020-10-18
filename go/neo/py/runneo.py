@@ -26,11 +26,13 @@ XXX
 from neo.tests.functional import NEOCluster
 from golang import func, defer
 
+import sys, os
+
 
 @func
 def main():
     workdir = sys.argv[1]
-    readyf  = sys.argv[1]
+    readyf  = workdir + "/ready"
 
     cluster = NEOCluster(['1'], adapter='SQLite', temp_dir=workdir)   # XXX +kw
     cluster.start()
