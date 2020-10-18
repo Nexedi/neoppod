@@ -19,7 +19,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """runneo.py runs NEO/py cluster for NEO/go testing.
 
-Usage: runneopy <workdir> <readyfile>   XXX + (**kw for NEOCluster)
+Usage: runneo.py <workdir> <cluster-name>   XXX + (**kw for NEOCluster)
 XXX
 """
 
@@ -32,10 +32,11 @@ from time import sleep
 
 @func
 def main():
-    workdir = sys.argv[1]
-    readyf  = workdir + "/ready"
+    workdir     = sys.argv[1]
+    clusterName = sys.argv[2]
+    readyf      = workdir + "/ready"
 
-    cluster = NEOCluster(['1'], adapter='SQLite', temp_dir=workdir)   # XXX +kw
+    cluster = NEOCluster([clusterName], adapter='SQLite', temp_dir=workdir)   # XXX +kw
     cluster.start()
     defer(cluster.stop)
 

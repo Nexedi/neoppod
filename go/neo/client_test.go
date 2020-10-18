@@ -45,14 +45,15 @@ type NEOSrv interface {
 //
 // Create it with StartNEOPySrv(XXX).
 type NEOPySrv struct {
-	pysrv   *exec.Cmd	// spawned `XXX`
-	workdir string		// location for database and log files
-	opt     NEOPyOptions	// options for spawned server
-	cancel  func()		// to stop pysrv
-	done    chan struct{}	// ready after Wait completes
-	errExit error		// error from Wait
+	pysrv       *exec.Cmd     // spawned `runneo.py`
+	workdir     string        // location for database and log files
+	clusterName string        // name of the cluster
+	opt         NEOPyOptions  // options for spawned server
+	cancel      func()        // to stop pysrv
+	done        chan struct{} // ready after Wait completes
+	errExit     error         // error from Wait
 
-	masterAddr string       // address of master in spawned cluster
+	masterAddr string // address of master in spawned cluster
 }
 
 // NEOPySrv.Bugs
@@ -65,10 +66,10 @@ type NEOPyOptions struct {
 	// name
 }
 
-// StartNEOPySrv starts NEO/py server for NEO database located in workdir/.
+// StartNEOPySrv starts NEO/py server for clusterName NEO database located in workdir/.
 // XXX dup wrt zeo?
-func StartNEOPySrv(workdir string, opt NEOPyOptions) (_ *NEOPySrv, err error) {
-	defer xerr.Contextf(&err, "startneo %s", workdir)
+func StartNEOPySrv(workdir, clusterName string, opt NEOPyOptions) (_ *NEOPySrv, err error) {
+	defer xerr.Contextf(&err, "startneo %s/%s", workdir, clusterName)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -81,8 +82,8 @@ func StartNEOPySrv(workdir string, opt NEOPyOptions) (_ *NEOPySrv, err error) {
 		return nil, err
 	}
 
-	n := &NEOPySrv{workdir: workdir, cancel: cancel, done: make(chan struct{})}
-	n.pysrv = exec.CommandContext(ctx, "python", "./py/runneo.py", workdir) // XXX +opt
+	n := &NEOPySrv{workdir: workdir, clusterName: clusterName, cancel: cancel, done: make(chan struct{})}
+	n.pysrv = exec.CommandContext(ctx, "python", "./py/runneo.py", workdir, clusterName) // XXX +opt
 	n.opt = opt
 	// $TEMP -> workdir  (else NEO/py creates another one for e.g. coverage)
 	n.pysrv.Env = append(os.Environ(), "TEMP="+workdir)
@@ -136,7 +137,7 @@ func StartNEOPySrv(workdir string, opt NEOPyOptions) (_ *NEOPySrv, err error) {
 }
 
 func (n *NEOPySrv) ClusterName() string {
-	return "xxx" // FIXME stub
+	return n.clusterName
 }
 
 func (n *NEOPySrv) MasterAddr() string {
@@ -198,7 +199,7 @@ func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv), optv ...tOption
 		inWorkDir(t, func(workdir string) {
 			X := xtesting.FatalIf(t)
 
-			npy, err := StartNEOPySrv(workdir, NEOPyOptions{}); X(err)
+			npy, err := StartNEOPySrv(workdir, "1", NEOPyOptions{}); X(err)
 			defer func() {
 				err := npy.Close(); X(err)
 			}()
