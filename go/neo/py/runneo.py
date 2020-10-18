@@ -36,12 +36,12 @@ def main():
     clusterName = sys.argv[2]
     readyf      = workdir + "/ready"
 
-    cluster = NEOCluster([clusterName], adapter='SQLite', temp_dir=workdir)   # XXX +kw
+    cluster = NEOCluster([clusterName], adapter='SQLite', name=clusterName, temp_dir=workdir)   # XXX +kw
     cluster.start()
     defer(cluster.stop)
 
     cluster.expectClusterRunning()
-    print("I: runneo.py: Started master(s): %s" % cluster.master_nodes)
+    print("I: runneo.py: %s/%s: Started master(s): %s" % (workdir, clusterName, cluster.master_nodes))
 
     # dump information about ready cluster into readyfile
     with open("%s.tmp" % readyf, "w") as f:
