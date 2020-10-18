@@ -24,7 +24,10 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"testing"
 	"time"
+
+	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )
@@ -145,3 +148,38 @@ func (n *NEOPySrv) Close() (err error) {
 
 // ----------------
 
+// withNEOSrv tests f with all kind of NEO servers.
+func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv)) { // XXX +optv ?
+	t.Helper()
+
+	// inWorkDir runs f under dedicated work directory.
+	inWorkDir := func(t *testing.T, f func(workdir string)) {
+		t.Helper()
+		X := xtesting.FatalIf(t)
+		work, err := ioutil.TempDir("", "neo"); X(err)
+		defer os.RemoveAll(work)
+
+		f(work)
+	}
+
+	// TODO + all variants with nreplic=X, npartition=Y, nmaster=Z, ... ?
+
+	// NEO/py
+	t.Run("py", func(t *testing.T) {
+		t.Helper()
+		// XXX needpy
+		inWorkDir(t, func(workdir string) {
+			X := xtesting.FatalIf(t)
+
+			npy, err := StartNEOPySrv(workdir, NEOPyOptions{}); X(err)
+			defer func() {
+				err := npy.Close(); X(err)
+			}()
+
+			f(t, npy)
+		})
+	})
+
+
+	// TODO NEO/go
+}
