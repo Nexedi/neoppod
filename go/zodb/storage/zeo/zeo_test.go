@@ -253,7 +253,7 @@ func TestEmptyDB(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	X := exc.Raiseif
+	X := xtesting.FatalIf(t)
 
 	data := "../fs1/testdata/1.fs"
 	txnvOk, err := xtesting.LoadDBHistory(data); X(err)

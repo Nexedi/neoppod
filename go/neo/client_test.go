@@ -39,6 +39,8 @@ import (
 type NEOSrv interface {
 	ClusterName() string // name of the cluster
 	MasterAddr()  string // address of the master
+
+	Bugs() []string // list of known server bugs
 }
 
 // NEOPySrv represents running NEO/py server.
@@ -56,7 +58,11 @@ type NEOPySrv struct {
 	masterAddr string // address of master in spawned cluster
 }
 
-// NEOPySrv.Bugs
+func (_ *NEOPySrv) Bugs() []string {
+	return []string{
+		// XXX
+	}
+}
 
 type NEOPyOptions struct {
 	// nmaster
@@ -228,11 +234,33 @@ func withNEO(t *testing.T, f func(t *testing.T, nsrv NEOSrv, ndrv *Client), optv
 	}, optv...)
 }
 
+
+// XXX TestHandshake ?
+
 // XXX connect with wrong clusterName -> rejected
 
 func TestEmptyDB(t *testing.T) {
 	withNEO(t, func(t *testing.T, nsrv NEOSrv, n *Client) {
 		xtesting.DrvTestEmptyDB(t, n)
+	})
+}
+
+func TestLoad(t *testing.T) {
+	X := xtesting.FatalIf(t)
+
+	data := "../fs1/testdata/1.fs"
+	txnvOk, err := xtesting.LoadDBHistory(data); X(err)
+
+	withNEO(t, func(t *testing.T, nsrv NEOSrv, n *Client) {
+		xtesting.DrvTestLoad(t, n, txnvOk, nsrv.Bugs()...)
+	}, tOptions{
+		Preload: data,
+	})
+}
+
+func TestWatch(t *testing.T) {
+	withNEOSrv(t, func(t *testing.T, nsrv NEOSrv) {
+		xtesting.DrvTestWatch(t, fmt.Sprintf("neo://%s@%s", nsrv.ClusterName(), nsrv.MasterAddr()), openClientByURL)
 	})
 }
 
