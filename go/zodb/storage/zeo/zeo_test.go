@@ -72,6 +72,7 @@ type ZEOPyOptions struct {
 }
 
 // StartZEOPySrv starts ZEO/py server for FileStorage database located at fs1path.
+// XXX dup wrt neo?
 func StartZEOPySrv(fs1path string, opt ZEOPyOptions) (_ *ZEOPySrv, err error) {
 	defer xerr.Contextf(&err, "startzeo %s", fs1path)
 

@@ -60,6 +60,7 @@ type NEOPyOptions struct {
 }
 
 // StartNEOPySrv starts NEO/py server for NEO database located in workdir/.
+// XXX dup wrt zeo?
 func StartNEOPySrv(workdir string, opt NEOPyOptions) (_ *NEOPySrv, err error) {
 	defer xerr.Contextf(&err, "startneo %s", workdir)
 
@@ -141,3 +142,6 @@ func (n *NEOPySrv) Close() (err error) {
 	}
 	return err
 }
+
+// ----------------
+
