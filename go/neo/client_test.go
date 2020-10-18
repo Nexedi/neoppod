@@ -84,6 +84,8 @@ func StartNEOPySrv(workdir string, opt NEOPyOptions) (_ *NEOPySrv, err error) {
 	n := &NEOPySrv{workdir: workdir, cancel: cancel, done: make(chan struct{})}
 	n.pysrv = exec.CommandContext(ctx, "python", "./py/runneo.py", workdir) // XXX +opt
 	n.opt = opt
+	// $TEMP -> workdir  (else NEO/py creates another one for e.g. coverage)
+	n.pysrv.Env = append(os.Environ(), "TEMP="+workdir)
 	n.pysrv.Stdin = nil
 	n.pysrv.Stdout = os.Stdout
 	n.pysrv.Stderr = os.Stderr
