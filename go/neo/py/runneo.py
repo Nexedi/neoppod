@@ -40,13 +40,10 @@ def main():
     defer(cluster.stop)
 
     cluster.expectClusterRunning()
-    zstor = cluster.getZODBStorage()
 
     # dump information about ready cluster into readyfile
     with open("%s.tmp" % readyf, "w") as f:
-        # XXX master addresses
-        # XXX + addresses of other nodes?
-        f.write("...")
+        f.write(cluster.master_nodes)   # XXX ' ' separated if multiple masters
     os.rename("%s.tmp" % readyf, readyf) # atomic
 
     def _():
