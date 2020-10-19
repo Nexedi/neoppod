@@ -480,6 +480,13 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial z
 		buf = buf2
 	}
 
+	// deletion is returned as empty data
+	// https://lab.nexedi.com/nexedi/neoppod/blob/c1c26894/neo/client/app.py#L464-471
+	if len(buf.Data) == 0 {
+		buf.Release()
+		return nil, 0, &zodb.NoDataError{Oid: xid.Oid, DeletedAt: resp.Serial}
+	}
+
 	// reply.NextSerial
 	// reply.DataSerial
 	return buf, resp.Serial, nil
