@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -42,4 +42,15 @@ func Sum(b []byte) [sha1.Size]byte {
 	}
 
 	return [sha1.Size]byte{} // all 0
+}
+
+// NEOSum returns SHA1(b) computed by NEO rules.
+//
+// it is the same as regular SHA1, but returns all-zeros for empty b.
+// https://lab.nexedi.com/nexedi/neoppod/blob/c1c26894/neo/client/app.py#L464-468
+func NEOSum(b []byte) [sha1.Size]byte {
+	if len(b) == 0 {
+		return [sha1.Size]byte{} // all 0
+	}
+	return Sum(b)
 }

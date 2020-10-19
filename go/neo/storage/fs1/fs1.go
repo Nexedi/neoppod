@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -85,7 +85,7 @@ func (f *Backend) Load(ctx context.Context, xid zodb.Xid) (*proto.AnswerObject, 
 
 		Compression:	false,
 		Data:		buf,
-		Checksum:	xsha1.Sum(buf.Data),	// XXX computing every time
+		Checksum:	xsha1.NEOSum(buf.Data),	// XXX computing every time
 
 		// XXX .DataSerial
 	}, nil

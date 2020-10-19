@@ -463,7 +463,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial z
 	buf = resp.Data
 
 	if !xsha1.Skip {
-		checksum := xsha1.Sum(buf.Data)
+		checksum := xsha1.NEOSum(buf.Data)
 		if checksum != resp.Checksum {
 			return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
 		}
