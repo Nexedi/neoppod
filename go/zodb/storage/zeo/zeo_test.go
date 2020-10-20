@@ -33,7 +33,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
-	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 )
