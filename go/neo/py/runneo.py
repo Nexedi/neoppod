@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (C) 2020  Nexedi SA and Contributors.
 #                     Kirill Smelkov <kirr@nexedi.com>
@@ -20,7 +21,6 @@
 """runneo.py runs NEO/py cluster for NEO/go testing.
 
 Usage: runneo.py <workdir> <cluster-name>   XXX + (**kw for NEOCluster)
-XXX
 """
 
 from neo.tests.functional import NEOCluster
@@ -28,6 +28,7 @@ from golang import func, defer
 
 import sys, os
 from time import sleep
+from signal import signal, SIGTERM
 
 
 @func
@@ -36,12 +37,20 @@ def main():
     clusterName = sys.argv[2]
     readyf      = workdir + "/ready"
 
+    def sinfo(msg): return "I: runneo.py: %s/%s: %s" % (workdir, clusterName, msg)
+    def info(msg):  print(sinfo(msg))
+
+    # SIGTERM -> exit gracefully, so that defers are run
+    def _(sig, frame):
+        raise SystemExit(sinfo("terminated"))
+    signal(SIGTERM, _)
+
     cluster = NEOCluster([clusterName], adapter='SQLite', name=clusterName, temp_dir=workdir)   # XXX +kw
     cluster.start()
     defer(cluster.stop)
 
     cluster.expectClusterRunning()
-    print("I: runneo.py: %s/%s: Started master(s): %s" % (workdir, clusterName, cluster.master_nodes))
+    info("started master(s): %s" % (cluster.master_nodes,))
 
     # dump information about ready cluster into readyfile
     with open("%s.tmp" % readyf, "w") as f:

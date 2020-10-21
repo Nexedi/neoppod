@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"lab.nexedi.com/kirr/neo/go/internal/xexec"
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
@@ -50,7 +51,7 @@ type ZEOSrv interface {
 //
 // Create it with StartZEOPySrv(fs1path).
 type ZEOPySrv struct {
-	pysrv   *exec.Cmd	// spawned `runzeo -f fs1path`
+	pysrv   *xexec.Cmd	// spawned `runzeo -f fs1path`
 	fs1path string		// filestorage location
 	opt     ZEOPyOptions	// options for spawned server
 	cancel  func()		// to stop pysrv
@@ -78,7 +79,7 @@ func StartZEOPySrv(fs1path string, opt ZEOPyOptions) (_ *ZEOPySrv, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	z := &ZEOPySrv{fs1path: fs1path, cancel: cancel, done: make(chan struct{})}
-	z.pysrv = exec.CommandContext(ctx, "python", "-m", "ZEO.runzeo", "-f", fs1path, "-a", z.Addr())
+	z.pysrv = xexec.Command("python", "-m", "ZEO.runzeo", "-f", fs1path, "-a", z.Addr())
 	z.opt = opt
 	msgpack := ""
 	if opt.msgpack {
@@ -88,7 +89,7 @@ func StartZEOPySrv(fs1path string, opt ZEOPyOptions) (_ *ZEOPySrv, err error) {
 	z.pysrv.Stdin = nil
 	z.pysrv.Stdout = os.Stdout
 	z.pysrv.Stderr = os.Stderr
-	err = z.pysrv.Start()
+	err = z.pysrv.Start(ctx)
 	if err != nil {
 		return nil, err
 	}

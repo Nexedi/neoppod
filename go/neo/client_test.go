@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"lab.nexedi.com/kirr/neo/go/internal/xexec"
 	"lab.nexedi.com/kirr/neo/go/internal/xtesting"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
@@ -47,7 +48,7 @@ type NEOSrv interface {
 //
 // Create it with StartNEOPySrv(XXX).
 type NEOPySrv struct {
-	pysrv       *exec.Cmd     // spawned `runneo.py`
+	pysrv       *xexec.Cmd    // spawned `runneo.py`
 	workdir     string        // location for database and log files
 	clusterName string        // name of the cluster
 	opt         NEOPyOptions  // options for spawned server
@@ -89,14 +90,15 @@ func StartNEOPySrv(workdir, clusterName string, opt NEOPyOptions) (_ *NEOPySrv, 
 	}
 
 	n := &NEOPySrv{workdir: workdir, clusterName: clusterName, cancel: cancel, done: make(chan struct{})}
-	n.pysrv = exec.CommandContext(ctx, "python", "./py/runneo.py", workdir, clusterName) // XXX +opt
+	// XXX $PYTHONPATH to top, so that `import neo` works?
+	n.pysrv = xexec.Command("./py/runneo.py", workdir, clusterName) // XXX +opt
 	n.opt = opt
 	// $TEMP -> workdir  (else NEO/py creates another one for e.g. coverage)
 	n.pysrv.Env = append(os.Environ(), "TEMP="+workdir)
 	n.pysrv.Stdin = nil
 	n.pysrv.Stdout = os.Stdout
 	n.pysrv.Stderr = os.Stderr
-	err = n.pysrv.Start()
+	err = n.pysrv.Start(ctx)
 	if err != nil {
 		return nil, err
 	}
