@@ -21,6 +21,9 @@
 """runneo.py runs NEO/py cluster for NEO/go testing.
 
 Usage: runneo.py <workdir> <cluster-name>   XXX + (**kw for NEOCluster)
+
+<workdir>/ready is created with address of master after spawned cluster becomes
+operational.
 """
 
 from neo.tests.functional import NEOCluster
@@ -61,10 +64,8 @@ def main():
         os.unlink(readyf)
     defer(_)
 
-
     while 1:
         sleep(1)
-
 
 
 if __name__ == '__main__':

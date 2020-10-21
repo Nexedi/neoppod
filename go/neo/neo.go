@@ -299,7 +299,7 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *proto.NotifyNodeInfo
 		app.NodeTab.Update(nodeInfo)
 
 		// XXX we have to provide IdTime when requesting identification to other peers
-		// (e.g. Spy checks this is what master broadcast them and if not replis "unknown by master")
+		// (e.g. Spy checks this is what master broadcast them and if not replies "unknown by master")
 		if nodeInfo.UUID == app.MyInfo.UUID {
 			// XXX recheck locking
 			// XXX do .MyInfo = nodeInfo ?

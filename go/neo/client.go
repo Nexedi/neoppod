@@ -183,6 +183,7 @@ func (c *Client) updateOperational() (sendReady func()) {
 //
 // The only error possible is if provided ctx cancels.
 // XXX and client stopped/closed? (ctx passed to Run cancelled)
+// XXX change signature to call f from under withOperational ?
 func (c *Client) withOperational(ctx context.Context) error {
 	for {
 		c.node.StateMu.RLock()
@@ -314,14 +315,15 @@ func (c *Client) recvMaster1(ctx context.Context, req neonet.Request) error {
 		c.node.StateMu.Unlock()
 		return fmt.Errorf("unexpected message: %T", msg)
 
-	// M sends whole PT
+	// <- whole partTab
 	case *proto.SendPartitionTable:
 		c.node.UpdatePartTab(ctx, msg)
 
-	// M sends δPT
-	//case *proto.NotifyPartitionChanges:
-		// TODO
+	// <- δ(partTab)
+	case *proto.NotifyPartitionChanges:
+		panic("TODO δ(partTab)")
 
+	// <- δ(nodeTab)
 	case *proto.NotifyNodeInformation:
 		c.node.UpdateNodeTab(ctx, msg)
 

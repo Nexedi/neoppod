@@ -148,6 +148,8 @@ func (nt *NodeTable) Update(nodeInfo proto.NodeInfo) *Node {
 	}
 	*/
 
+	// XXX close link if .state becomes DOWN ?
+
 	traceNodeChanged(nt, node)
 
 	nt.notify(node.NodeInfo)
