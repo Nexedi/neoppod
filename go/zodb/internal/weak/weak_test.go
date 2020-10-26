@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 	"unsafe"
+
+	"lab.nexedi.com/kirr/go123/tracing"
 )
 
 // verify that interface <-> iface works ok.
@@ -60,6 +62,22 @@ func TestWeakRef(t *testing.T) {
 	w := NewRef(p)
 	pptr := uintptr(unsafe.Pointer(p))
 
+	wrelease := make(chan bool) // events from traceRelease(w)
+	tpg := &tracing.ProbeGroup{}
+	tracing.Lock()
+	traceRelease_Attach(tpg, func(w_ *Ref, released bool) {
+		if w_ != w {
+			panic("release: w != w_")
+		}
+		wrelease <- released
+	})
+	traceGotPre_Attach(tpg, func(w *Ref) {
+		// nop for now
+		//panic("TODO GotPre")
+	})
+	tracing.Unlock()
+	defer tpg.Done()
+
 	assertEq := func(a, b interface{}) {
 		t.Helper()
 		if a != b {
@@ -68,24 +86,39 @@ func TestWeakRef(t *testing.T) {
 	}
 
 	// perform GC + give finalizers a chance to run.
-	GC := func() {
+	GC := func(expectRelease bool) {
+		t.Helper()
 		runtime.GC()
 
 		// GC only queues finalizers, not runs them directly. Give it
 		// some time so that finalizers could have been run.
-		time.Sleep(10 * time.Millisecond) // XXX hack
+		if expectRelease {
+			select {
+			case <-wrelease:
+				// ok
+			case <-time.After(100 * time.Millisecond):
+				t.Fatal("no release event")
+			}
+		} else {
+			select {
+			case <-time.After(10 * time.Millisecond):
+				// ok
+			case <-wrelease:
+				t.Fatal("unexpected release event")
+			}
+		}
 	}
 
 	assertEq(w.state, objLive)
 	assertEq(w.Get(), p)
 	assertEq(w.state, objGot)
-	GC()
+	GC(false)
 	assertEq(w.state, objGot) // fin has not been run at all (p is live)
 	assertEq(w.Get(), p)
 	assertEq(w.state, objGot)
 
 	p = nil
-	GC()
+	GC(true)
 	assertEq(w.state, objLive) // fin ran and downgraded got -> live
 	switch p_ := w.Get().(type) {
 	default:
@@ -97,10 +130,10 @@ func TestWeakRef(t *testing.T) {
 	}
 	assertEq(w.state, objGot)
 
-	GC()
+	GC(true)
 	assertEq(w.state, objLive) // fin ran again and again downgraded got -> live
 
-	GC()
+	GC(true)
 	assertEq(w.state, objReleased) // fin ran again and released the object
 	assertEq(w.Get(), nil)
 }

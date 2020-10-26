@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // based on:
 // https://groups.google.com/d/msg/golang-nuts/PYWxjT2v6ps/dL71oJk1mXEJ
@@ -24,15 +24,20 @@
 // Package weak provides weak references for Go.
 package weak
 
+//go:generate gotrace gen .
+
 import (
+	"fmt"
 	"runtime"
 	"sync"
+//	"time"
 	"unsafe"
 )
 
 // iface is how Go runtime represents an interface.
 //
 // NOTE layout must be synchronized to Go runtime representation.
+// NOTE correctness depends on non-moving property of Go GC.
 type iface struct {
 	typ  uintptr // type
 	data uintptr // data
@@ -63,6 +68,8 @@ type Ref struct {
 	state weakRefState
 }
 
+//trace:event traceRelease(w *Ref, released bool)
+
 // NewRef creates new weak reference pointing to obj.
 //
 // TODO + onrelease callback?
@@ -77,6 +84,12 @@ func NewRef(obj interface{}) *Ref {
 
 	var release func(interface{})
 	release = func(obj interface{}) {
+		// assert that the object was not moved
+		iobj := *(*iface)(unsafe.Pointer(&obj))
+		if w.iface != iobj {
+			panic(fmt.Sprintf("weak: release: object moved:  w.iface=%x  obj=%x", w.iface, iobj))
+		}
+
 		// GC decided that the object is no longer reachable and
 		// scheduled us to run as finalizer. During the time till we
 		// actually run, Ref.Get might have been come to run and
@@ -87,15 +100,20 @@ func NewRef(obj interface{}) *Ref {
 		if w.state == objGot {
 			w.state = objLive
 			runtime.SetFinalizer(obj, release)
+			traceRelease(w, false)
 		} else {
 			w.state = objReleased
+			traceRelease(w, true)
 		}
 		w.mu.Unlock()
+
 	}
 
 	runtime.SetFinalizer(obj, release)
 	return w
 }
+
+//trace:event traceGotPre(w *Ref)
 
 // Get returns object pointed to by this weak reference.
 //
@@ -105,6 +123,12 @@ func (w *Ref) Get() (obj interface{}) {
 	w.mu.Lock()
 	if w.state != objReleased {
 		w.state = objGot
+
+		traceGotPre(w)
+		//time.Sleep(100*time.Nanosecond)
+		//time.Sleep(10*time.Millisecond)
+		//runtime.GC()
+		//runtime.GC()
 
 		// recreate interface{} from saved words.
 		// XXX do writes as pointers so that compiler emits write barriers to notify GC?
