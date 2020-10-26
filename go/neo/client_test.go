@@ -268,7 +268,6 @@ func TestLoad(t *testing.T) {
 }
 
 func TestWatch(t *testing.T) {
-	t.Skip("FIXME currently hangs")
 	withNEOSrv(t, func(t *testing.T, nsrv NEOSrv) {
 		xtesting.DrvTestWatch(t, fmt.Sprintf("neo://%s@%s", nsrv.ClusterName(), nsrv.MasterAddr()), openClientByURL)
 	})

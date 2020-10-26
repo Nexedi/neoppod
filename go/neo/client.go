@@ -331,6 +331,9 @@ func (c *Client) recvMaster1(ctx context.Context, req neonet.Request) error {
 		c.node.UpdateClusterState(ctx, msg)
 	}
 
+	// XXX
+	// *proto.InvalidateObjects -> watchq
+
 	// update .operational + notify those who was waiting for it
 	opready := c.updateOperational()
 	c.node.StateMu.Unlock()
