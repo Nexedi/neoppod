@@ -97,12 +97,14 @@ func NewRef(obj interface{}) *Ref {
 		// race with any Get in progress, and reschedule us to retry at
 		// next GC if we do.
 		w.mu.Lock()
+		old := w.state
 		if w.state == objGot {
 			w.state = objLive
 			runtime.SetFinalizer(obj, release)
 		} else {
 			w.state = objReleased
 		}
+		fmt.Printf("rel %p (state: %v -> %v)\n", w, old, w.state)
 		traceRelease(w)
 		w.mu.Unlock()
 
@@ -121,6 +123,7 @@ func NewRef(obj interface{}) *Ref {
 func (w *Ref) Get() (obj interface{}) {
 	w.mu.Lock()
 	if w.state != objReleased {
+		fmt.Printf("got %p (state: %v -> %v)\n", w, w.state, objGot)
 		w.state = objGot
 
 		traceGotPre(w)

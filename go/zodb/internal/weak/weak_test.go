@@ -115,7 +115,7 @@ func testWeakRef(t *testing.T) {
 		case state = <-wrelease:
 			// ok
 		case <-time.After(1 * time.Second):
-			t.Fatalf("no release event  (w.state=%v)", w.state)
+			t.Fatalf("no release event  (w.state=%v  stateOK=%v)", w.state, stateOK)
 		}
 
 		if state != stateOK {
