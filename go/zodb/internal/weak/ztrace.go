@@ -35,32 +35,32 @@ func traceGotPre_Attach(pg *tracing.ProbeGroup, probe func(w *Ref)) *tracing.Pro
 	return &p.Probe
 }
 
-// traceevent: traceRelease(w *Ref, released bool)
+// traceevent: traceRelease(w *Ref)
 
 type _t_traceRelease struct {
 	tracing.Probe
-	probefunc     func(w *Ref, released bool)
+	probefunc     func(w *Ref)
 }
 
 var _traceRelease *_t_traceRelease
 
-func traceRelease(w *Ref, released bool) {
+func traceRelease(w *Ref) {
 	if _traceRelease != nil {
-		_traceRelease_run(w, released)
+		_traceRelease_run(w)
 	}
 }
 
-func _traceRelease_run(w *Ref, released bool) {
+func _traceRelease_run(w *Ref) {
 	for p := _traceRelease; p != nil; p = (*_t_traceRelease)(unsafe.Pointer(p.Next())) {
-		p.probefunc(w, released)
+		p.probefunc(w)
 	}
 }
 
-func traceRelease_Attach(pg *tracing.ProbeGroup, probe func(w *Ref, released bool)) *tracing.Probe {
+func traceRelease_Attach(pg *tracing.ProbeGroup, probe func(w *Ref)) *tracing.Probe {
 	p := _t_traceRelease{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceRelease)), &p.Probe)
 	return &p.Probe
 }
 
 // trace export signature
-func _trace_exporthash_c65df3d81975319429a288a09095370dace6a87b() {}
+func _trace_exporthash_55416cf1cbcad92c4b4497269fa14b46e82469bd() {}

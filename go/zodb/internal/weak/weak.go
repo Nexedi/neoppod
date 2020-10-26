@@ -68,7 +68,7 @@ type Ref struct {
 	state weakRefState
 }
 
-//trace:event traceRelease(w *Ref, released bool)
+//trace:event traceRelease(w *Ref)
 
 // NewRef creates new weak reference pointing to obj.
 //
@@ -100,11 +100,10 @@ func NewRef(obj interface{}) *Ref {
 		if w.state == objGot {
 			w.state = objLive
 			runtime.SetFinalizer(obj, release)
-			traceRelease(w, false)
 		} else {
 			w.state = objReleased
-			traceRelease(w, true)
 		}
+		traceRelease(w)
 		w.mu.Unlock()
 
 	}

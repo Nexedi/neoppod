@@ -56,20 +56,27 @@ func TestIface(t *testing.T) {
 }
 
 func TestWeakRef(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		println(i)
+		testWeakRef(t)
+	}
+}
+
+func testWeakRef(t *testing.T) {
 	type T struct{ _ [8]int64 } // large enough not to go into tinyalloc
 
 	p := new(T)
 	w := NewRef(p)
 	pptr := uintptr(unsafe.Pointer(p))
 
-	wrelease := make(chan bool) // events from traceRelease(w)
+	wrelease := make(chan weakRefState) // w.state from traceRelease(w) event
 	tpg := &tracing.ProbeGroup{}
 	tracing.Lock()
-	traceRelease_Attach(tpg, func(w_ *Ref, released bool) {
+	traceRelease_Attach(tpg, func(w_ *Ref) {
 		if w_ != w {
 			panic("release: w != w_")
 		}
-		wrelease <- released
+		wrelease <- w.state
 	})
 	traceGotPre_Attach(tpg, func(w *Ref) {
 		// nop for now
@@ -86,40 +93,47 @@ func TestWeakRef(t *testing.T) {
 	}
 
 	// perform GC + give finalizers a chance to run.
-	GC := func(expectRelease bool) {
+	GCnofin := func() {
+		t.Helper()
+		runtime.GC()
+
+		select {
+		case <-time.After(10 * time.Millisecond):
+			// ok
+		case <-wrelease:
+			t.Fatal("unexpected release event")
+		}
+	}
+	GCfin := func(stateOK weakRefState) {
 		t.Helper()
 		runtime.GC()
 
 		// GC only queues finalizers, not runs them directly. Give it
 		// some time so that finalizers could have been run.
-		if expectRelease {
-			select {
-			case <-wrelease:
-				// ok
-			case <-time.After(100 * time.Millisecond):
-				t.Fatal("no release event")
-			}
-		} else {
-			select {
-			case <-time.After(10 * time.Millisecond):
-				// ok
-			case <-wrelease:
-				t.Fatal("unexpected release event")
-			}
+		var state weakRefState
+		select {
+		case state = <-wrelease:
+			// ok
+		case <-time.After(1 * time.Second):
+			t.Fatal("no release event")
+		}
+
+		if state != stateOK {
+			t.Fatalf("release: state != stateOK;  state=%v  stateOK=%v", state, stateOK)
 		}
 	}
 
 	assertEq(w.state, objLive)
 	assertEq(w.Get(), p)
 	assertEq(w.state, objGot)
-	GC(false)
+	GCnofin()
 	assertEq(w.state, objGot) // fin has not been run at all (p is live)
 	assertEq(w.Get(), p)
 	assertEq(w.state, objGot)
 
 	p = nil
-	GC(true)
-	assertEq(w.state, objLive) // fin ran and downgraded got -> live
+	GCfin(objLive) // fin ran and downgraded got -> live
+	assertEq(w.state, objLive)
 	switch p_ := w.Get().(type) {
 	default:
 		t.Fatalf("Get after objGot -> objLive: %#v", p_)
@@ -130,10 +144,8 @@ func TestWeakRef(t *testing.T) {
 	}
 	assertEq(w.state, objGot)
 
-	GC(true)
-	assertEq(w.state, objLive) // fin ran again and again downgraded got -> live
+	GCfin(objLive) // fin ran again and again downgraded got -> live
 
-	GC(true)
-	assertEq(w.state, objReleased) // fin ran again and released the object
+	GCfin(objReleased) // fin ran again and released the object
 	assertEq(w.Get(), nil)
 }
