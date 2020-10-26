@@ -100,8 +100,8 @@ func testWeakRef(t *testing.T) {
 		select {
 		case <-time.After(10 * time.Millisecond):
 			// ok
-		case <-wrelease:
-			t.Fatal("unexpected release event")
+		case state := <-wrelease:
+			t.Fatalf("unexpected release event: state=%v", state)
 		}
 	}
 	GCfin := func(stateOK weakRefState) {
@@ -115,7 +115,7 @@ func testWeakRef(t *testing.T) {
 		case state = <-wrelease:
 			// ok
 		case <-time.After(1 * time.Second):
-			t.Fatal("no release event")
+			t.Fatalf("no release event  (w.state=%v)", w.state)
 		}
 
 		if state != stateOK {
