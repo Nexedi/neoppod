@@ -84,13 +84,8 @@ var _ zodb.IStorageDriver = (*Client)(nil)
 // NewClient creates new client node.
 //
 // It will connect to master @masterAddr and identify with specified cluster name.
+// Use Run to actually start running the node.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
-	cli := newClient(clusterName, masterAddr, net)
-	go cli.run(context.Background())	// XXX bg hardcoded
-	return cli
-}
-
-func newClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	return &Client{
 		node:        NewNodeApp(net, proto.CLIENT, clusterName, masterAddr),
 		mlinkReady:  make(chan struct{}),
@@ -99,8 +94,9 @@ func newClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	}
 }
 
-// XXX make run public?
-func (cli *Client) run(ctx context.Context) error {
+// Run starts client node and runs it until either ctx is canceled or master
+// commands it to shutdown. (XXX verify M->shutdown)
+func (cli *Client) Run(ctx context.Context) error {
 	// run process which performs master talk
 	ctx, cancel := context.WithCancel(ctx)
 	cli.talkMasterCancel = cancel
@@ -253,7 +249,7 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 
 	// FIXME vvv dup from Storage.talkMaster1
 
-	// XXX -> node.Dial ?
+	// XXX -> node.Dial / node.DialMaster ?
 	if accept.YourUUID != c.node.MyInfo.UUID {
 		log.Infof(ctx, "master told us to have uuid=%v", accept.YourUUID)
 		c.node.MyInfo.UUID = accept.YourUUID
@@ -284,7 +280,8 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	})
 
 	// init partition table and lastTid from master
-	// XXX is this needed at all or we can expect master sending us pt/head via notify channel?
+	// TODO better change protocol for master to send us pt/head via notify
+	// channel right after identification.
 	wg.Go(func() error {
 		return c.initFromMaster(ctx, mlink)
 	})

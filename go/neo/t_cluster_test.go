@@ -70,7 +70,7 @@ type ITestStorage interface {
 }
 
 type ITestClient interface {
-	run(ctx context.Context) error
+	Run(ctx context.Context) error
 
 	zodb.IStorageDriver
 }
@@ -196,7 +196,7 @@ func (t *TestCluster) NewStorage(name, masterAddr string, back storage.Backend) 
 
 func (t *TestCluster) NewClient(name, masterAddr string) ITestClient {
 	node := t.registerNewNode(name)
-	c := newClient(t.name, masterAddr, node.net)
+	c := NewClient(t.name, masterAddr, node.net)
 	t.gotracer.RegisterNode(c.node, name)
 	return c
 }

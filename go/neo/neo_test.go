@@ -71,7 +71,7 @@ func TestMasterStorage(t0 *testing.T) {
 		return S.Run(ctx)
 	})
 	gwg.Go(func(ctx context.Context) error {
-		return C.run(ctx)
+		return C.Run(ctx)
 	})
 
 	tM  := t.Checker("m")
