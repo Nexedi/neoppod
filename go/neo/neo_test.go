@@ -40,7 +40,6 @@ import (
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/tracing"
-	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/go123/xnet/pipenet"
 	"lab.nexedi.com/kirr/go123/xsync"
@@ -51,6 +50,8 @@ import (
 
 // M drives cluster with 1 S & C through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t0 *testing.T) {
+	X := exc.Raiseif
+
 	t := NewTestCluster(t0, "abc1")
 	defer t.Stop()
 
@@ -59,6 +60,8 @@ func TestMasterStorage(t0 *testing.T) {
 	zback := xfs1back("../zodb/storage/fs1/testdata/1.fs")
 	S := t.NewStorage("s", "m:1", zback)	// XXX do we need to provide Mlist here?
 	C := t.NewClient("c", "m:1")
+
+	lastTid, err := zstor.Sync(bg);  X(err)
 
 	// start nodes		XXX move starting to TestCluster?
 	gwg := xsync.NewWorkGroup(bg)
@@ -143,8 +146,7 @@ func TestMasterStorage(t0 *testing.T) {
 	// M <- start cmd
 	wg := &errgroup.Group{}
 	gox(wg, func() {
-		err := M.Start()
-		exc.Raiseif(err)
+		err := M.Start();  X(err)
 	})
 
 	// trace
@@ -169,9 +171,7 @@ func TestMasterStorage(t0 *testing.T) {
 		TidDict: nil,	// map[zodb.Tid]zodb.Tid{},
 	}))
 
-	lastOid, err1 := zstor.LastOid(bg)
-	lastTid, err2 := zstor.Sync(bg)
-	exc.Raiseif(xerr.Merge(err1, err2))
+	lastOid, err := zstor.LastOid(bg);  X(err)
 	tMS.Expect(conntx("m:2", "s:2", 8, &proto.LastIDs{}))
 	tMS.Expect(conntx("s:2", "m:2", 8, &proto.AnswerLastIDs{
 		LastOid: lastOid,
@@ -221,7 +221,9 @@ func TestMasterStorage(t0 *testing.T) {
 		YourUUID:	proto.UUID(proto.CLIENT, 1),
 	}))
 
-	// C asks M about PT
+	println("\n\n\n")
+
+	// C asks M about PT and last_tid
 	// NOTE this might come in parallel with vvv "C <- M NotifyNodeInformation C1,M1,S1"
 	tCM.Expect(conntx("c:1", "m:3", 3, &proto.AskPartitionTable{}))
 	tCM.Expect(conntx("m:3", "c:1", 3, &proto.AnswerPartitionTable{
@@ -230,6 +232,8 @@ func TestMasterStorage(t0 *testing.T) {
 			{0, []proto.CellInfo{{proto.UUID(proto.STORAGE, 1), proto.UP_TO_DATE}}},
 		},
 	}))
+	tCM.Expect(conntx("c:1", "m:3", 5, &proto.LastTransaction{}))
+	tCM.Expect(conntx("m:3", "c:1", 5, &proto.AnswerLastTransaction{lastTid}))
 
 	// C <- M NotifyNodeInformation C1,M1,S1
 	// NOTE this might come in parallel with ^^^ "C asks M about PT"
@@ -251,8 +255,7 @@ func TestMasterStorage(t0 *testing.T) {
 	// C asks M about last tid	XXX better master sends it itself on new client connected
 	wg = &errgroup.Group{}
 	gox(wg, func() {
-		cLastTid, err := C.Sync(bg)
-		exc.Raiseif(err)
+		cLastTid, err := C.Sync(bg);  X(err)
 
 		if cLastTid != lastTid {
 			exc.Raisef("C.LastTid -> %v  ; want %v", cLastTid, lastTid)
@@ -272,11 +275,9 @@ func TestMasterStorage(t0 *testing.T) {
 	// C starts loading first object ...
 	wg = &errgroup.Group{}
 	xid1 := zodb.Xid{Oid: 1, At: zodb.TidMax}
-	buf1, serial1, err := zstor.Load(bg, xid1)
-	exc.Raiseif(err)
+	buf1, serial1, err := zstor.Load(bg, xid1);  X(err)
 	gox(wg, func() {
-		buf, serial, err := C.Load(bg, xid1)
-		exc.Raiseif(err)
+		buf, serial, err := C.Load(bg, xid1);  X(err)
 
 		if !(bytes.Equal(buf.Data, buf1.Data) && serial==serial1) {
 			exc.Raisef("C.Load(%v) ->\ndata:\n%s\nserial:\n%s\n", xid1,
@@ -330,11 +331,9 @@ func TestMasterStorage(t0 *testing.T) {
 	// (XXX we currently need NextSerial for neo/py client cache)
 	wg = &errgroup.Group{}
 	xid1prev := zodb.Xid{Oid: 1, At: serial1 - 1}
-	buf1prev, serial1prev, err := zstor.Load(bg, xid1prev)
-	exc.Raiseif(err)
+	buf1prev, serial1prev, err := zstor.Load(bg, xid1prev);  X(err)
 	gox(wg, func() {
-		buf, serial, err := C.Load(bg, xid1prev)
-		exc.Raiseif(err)
+		buf, serial, err := C.Load(bg, xid1prev);  X(err)
 
 		if !(bytes.Equal(buf.Data, buf1prev.Data) && serial==serial1prev) {
 			exc.Raisef("C.Load(%v) ->\ndata:\n%s\nserial:\n%s\n", xid1prev,
