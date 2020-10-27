@@ -390,7 +390,7 @@ func (r rpc) ereplyf(format string, argv ...interface{}) *errorUnexpectedReply {
 
 func openByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (_ zodb.IStorageDriver, at0 zodb.Tid, err error) {
 	url := u.String()
-	defer xerr.Contextf(&err, "open %s", url)
+	defer xerr.Contextf(&err, "zeo: open %s", url)
 
 	// zeo://host:port/path?storage=...&...
 	var net  xnet.Networker
