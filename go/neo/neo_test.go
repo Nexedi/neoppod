@@ -221,8 +221,6 @@ func TestMasterStorage(t0 *testing.T) {
 		YourUUID:	proto.UUID(proto.CLIENT, 1),
 	}))
 
-	println("\n\n\n")
-
 	// C asks M about PT and last_tid
 	// NOTE this might come in parallel with vvv "C <- M NotifyNodeInformation C1,M1,S1"
 	tCM.Expect(conntx("c:1", "m:3", 3, &proto.AskPartitionTable{}))
@@ -262,8 +260,8 @@ func TestMasterStorage(t0 *testing.T) {
 		}
 	})
 
-	tCM.Expect(conntx("c:1", "m:3", 5, &proto.LastTransaction{}))
-	tCM.Expect(conntx("m:3", "c:1", 5, &proto.AnswerLastTransaction{
+	tCM.Expect(conntx("c:1", "m:3", 7, &proto.LastTransaction{}))
+	tCM.Expect(conntx("m:3", "c:1", 7, &proto.AnswerLastTransaction{
 		Tid: lastTid,
 	}))
 
