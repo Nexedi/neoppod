@@ -620,6 +620,12 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (
 	errq := make(chan error, 1)
 	go func() {
 		err := c.Run(context.Background()) // NOTE not ctx
+		// Client.Close cancels talkMaster which makes Run to return
+		// `client: talk master(M): context canceled`
+		// do not propagate this error ZODB-level user.
+		if errors.Is(err, context.Canceled) {
+			err = nil
+		}
 
 		// close .watchq after serve is over
 		c.at0Mu.Lock()
