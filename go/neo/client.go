@@ -367,8 +367,8 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neonet.NodeLink) (er
 	opready()
 
 	// ask M about last_tid
-	lastTxn := AnswerLastTransaction{}
-	err = mlink.Ask1(&LastTransaction{}, &lastTxn)
+	lastTxn := proto.AnswerLastTransaction{}
+	err = mlink.Ask1(&proto.LastTransaction{}, &lastTxn)
 	if err != nil {
 		return err
 	}
@@ -394,7 +394,7 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neonet.NodeLink) (er
 	c.at0Mu.Lock()
 	c.at0 = lastTxn.Tid
 	c.at0Initialized = true
-	c.flushEventq0()
+//	c.flushEventq0()		XXX reenable
 	c.at0Mu.Unlock()
 
 	// XXX what next?

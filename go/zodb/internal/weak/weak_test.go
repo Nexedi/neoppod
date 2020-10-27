@@ -1,5 +1,5 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -55,6 +55,7 @@ func TestIface(t *testing.T) {
 	}
 }
 
+// FIXME currently fails.
 func TestWeakRef(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		println(i)
