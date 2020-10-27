@@ -73,6 +73,7 @@ type Client struct {
 	// driver client <- watcher: database commits | errors.
 	watchq chan<- zodb.Event
 	head   zodb.Tid          // last invalidation received from server
+	head0  zodb.Tid          // .head state on start of every talkMaster1
 
 	at0Mu          sync.Mutex
 	at0            zodb.Tid            // at0 obtained when initially connecting to server
@@ -276,6 +277,8 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 		c.mlinkMu.Unlock()
 	}()
 
+	c.head0 = c.head
+
 	// launch master notifications receiver
 	wg.Go(func() error {
 		return c.recvMaster(ctx, mlink)
@@ -318,9 +321,8 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neonet.NodeLink) (er
 	}
 
 	if c.at0Initialized {
-		// XXX c.head locking?
-		if lastTxn.Tid != c.head {
-			return fmt.Errorf("new transactions were committed while we were disconnected from master (%s -> %s)", c.head, lastTxn.Tid)
+		if lastTxn.Tid != c.head0 {
+			return fmt.Errorf("new transactions were committed while we were disconnected from master (%s -> %s)", c.head0, lastTxn.Tid)
 		}
 	} else {
 		// since we read lastTid, in separate protocol exchange there is a
