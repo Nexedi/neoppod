@@ -180,8 +180,7 @@ class NeoTestRunner(unittest.TextTestResult):
                 traceback.print_exc()
                 continue
             # NOTE it is also possible to run individual tests via `python -m unittest ...`
-            if 1 or test_module.__name__ == 'neo.tests.functional.testStorage':
-                suite.addTests(loader.loadTestsFromModule(test_module))
+            suite.addTests(loader.loadTestsFromModule(test_module))
         try:
             suite.run(self)
         finally:
