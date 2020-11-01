@@ -296,16 +296,13 @@ func (b *Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
 	return lastOid, nil
 }
 
-func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (*proto.AnswerObject, error) {
-	// XXX instead of defer
-	obj, err := b.load(xid)
-	if err != nil {
-		err = &zodb.OpError{URL: b.url, Op: "load", Err: err}
-	}
-	return obj, err
-}
+func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (_ *proto.AnswerObject, err error) {
+	defer func() {
+		if err != nil {
+			err = &zodb.OpError{URL: b.url, Op: "load", Err: err}
+		}
+	}()
 
-func (b *Backend) load(xid zodb.Xid) (*proto.AnswerObject, error) {
 	obj := &proto.AnswerObject{Oid: xid.Oid, DataSerial: 0}
 	// TODO reenable, but XXX we have to use Query, not QueryRow for RawBytes support
 	//var data sql.RawBytes
@@ -328,7 +325,7 @@ func (b *Backend) load(xid zodb.Xid) (*proto.AnswerObject, error) {
 
 	// XXX use conn for several query1 (see below) without intermediate returns to pool?
 
-	err := b.query1(
+	err = b.query1(
 		"SELECT tid, compression, data.hash, value, value_tid" +
 		" FROM obj LEFT JOIN data ON obj.data_id = data.id" +
 		" WHERE partition=? AND oid=? AND tid<=?" +
