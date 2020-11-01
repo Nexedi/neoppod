@@ -80,7 +80,7 @@ const (
 	// The protocol version must be increased whenever upgrading a node may require
 	// to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
 	// the high order byte 0 is different from TLS Handshake (0x16).
-	Version = 5
+	Version = 6
 
 	// length of packet header
 	PktHeaderLen = 10 // = unsafe.Sizeof(PktHeader{}), but latter gives typed constant (uintptr)
