@@ -30,8 +30,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         config = self.getMasterConfiguration(master_number=1, replicas=1)
         self.app = Application(config)
         self.app.em.close()
-        self.app.pt.clear()
-        self.app.pt.setID(1)
         self.app.em = Mock()
         self.app.loid = '\0' * 8
         self.app.tm.setLastTID('\0' * 8)

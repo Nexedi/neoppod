@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -505,7 +505,7 @@ func storCtlRecovery(ctx context.Context, stor *Node, res chan storRecovery) {
 	}
 
 	// reconstruct partition table from response
-	pt := PartTabFromDump(resp.PTid, resp.RowList)
+	pt := PartTabFromDump(resp.PTid, resp.RowList) // TODO handle resp.NumReplicas
 	res <- storRecovery{stor: stor, partTab: pt}
 }
 
@@ -695,8 +695,9 @@ func storCtlVerify(ctx context.Context, stor *Node, pt *PartitionTable, res chan
 
 	// send just recovered parttab so storage saves it
 	err = slink.Send1(&proto.SendPartitionTable{
-		PTid:    pt.PTid,
-		RowList: pt.Dump(),
+		PTid:	     pt.PTid,
+		NumReplicas: 0, // FIXME hardcoded
+		RowList:     pt.Dump(),
 	})
 	if err != nil {
 		return
@@ -898,6 +899,9 @@ func (m *Master) serveClient(ctx context.Context, cli *Node) (err error) {
 	wg, ctx := errgroup.WithContext(ctx)
 	defer xio.CloseWhenDone(ctx, clink)()	// XXX -> cli.CloseLink?
 
+	// FIXME send initial nodeTab and partTab before starting serveClient1
+	// (move those initial sends from keepPeerUpdated to here)
+
 	// M -> C notifications about cluster state
 	wg.Go(func() error {
 		return m.keepPeerUpdated(ctx, clink)
@@ -926,15 +930,6 @@ func (m *Master) serveClient(ctx context.Context, cli *Node) (err error) {
 // serveClient1 prepares response for 1 request from client
 func (m *Master) serveClient1(ctx context.Context, req proto.Msg) (resp proto.Msg) {
 	switch req := req.(type) {
-	case *proto.AskPartitionTable:
-		m.node.StateMu.RLock()
-		rpt := &proto.AnswerPartitionTable{
-			PTid:	 m.node.PartTab.PTid,
-			RowList: m.node.PartTab.Dump(),
-		}
-		m.node.StateMu.RUnlock()
-		return rpt
-
 	case *proto.LastTransaction:
 		// XXX lock
 		return &proto.AnswerLastTransaction{m.lastTid}
@@ -965,6 +960,10 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neonet.NodeLink) (er
 		nodeiv[i] = node.NodeInfo
 	}
 
+	ptid := m.node.PartTab.PTid
+	ptnr := uint32(0) // FIXME hardcoded NumReplicas; NEO/py keeps this as n(replica)-1
+	ptv  := m.node.PartTab.Dump()
+
 	// XXX RLock is not enough for subscribe - right?
 	nodech, nodeUnsubscribe := m.node.NodeTab.SubscribeBuffered()
 
@@ -989,6 +988,16 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neonet.NodeLink) (er
 	if err != nil {
 		return err
 	}
+
+	err = link.Send1(&proto.SendPartitionTable{
+		PTid:        ptid,
+		NumReplicas: ptnr,
+		RowList:     ptv,
+	})
+	if err != nil {
+		return err
+	}
+
 
 	// now proxy the updates until we are done
 	for {
@@ -1081,8 +1090,6 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *Node, resp pro
 	accept := &proto.AcceptIdentification{
 			NodeType:	proto.MASTER,
 			MyUUID:		m.node.MyInfo.UUID,
-			NumPartitions:	1,	// FIXME hardcoded
-			NumReplicas:	0,	// FIXME hardcoded  (neo/py meaning for n(replica) is `n(real-replica) - 1`)
 			YourUUID:	uuid,
 		}
 

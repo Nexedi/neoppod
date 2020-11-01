@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import ErrorCodes, Packets
 
@@ -44,8 +45,8 @@ class CommandEventHandler(EventHandler):
     def ack(self, conn, msg):
         self.__respond((Packets.Error, ErrorCodes.ACK, msg))
 
-    def protocolError(self, conn, msg):
-        self.__respond((Packets.Error, ErrorCodes.PROTOCOL_ERROR, msg))
+    def denied(self, conn, msg):
+        sys.exit(msg)
 
     def notReady(self, conn, msg):
         self.__respond((Packets.Error, ErrorCodes.NOT_READY, msg))
@@ -62,3 +63,4 @@ class CommandEventHandler(EventHandler):
     answerLastIDs = __answer(Packets.AnswerLastIDs)
     answerLastTransaction = __answer(Packets.AnswerLastTransaction)
     answerRecovery = __answer(Packets.AnswerRecovery)
+    answerTweakPartitionTable = __answer(Packets.AnswerTweakPartitionTable)

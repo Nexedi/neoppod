@@ -21,6 +21,7 @@ import gc
 import os
 import random
 import socket
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -41,7 +42,7 @@ from .mock import Mock
 from neo.lib import debug, logging, protocol
 from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property
-from time import time
+from time import time, sleep
 from struct import pack, unpack
 from unittest.case import _ExpectedFailure, _UnexpectedSuccess
 try:
@@ -72,6 +73,9 @@ DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
 DB_PASSWD = os.getenv('NEO_DB_PASSWD', '')
 DB_USER = os.getenv('NEO_DB_USER', 'test')
 DB_SOCKET = os.getenv('NEO_DB_SOCKET', '')
+DB_INSTALL = os.getenv('NEO_DB_INSTALL', 'mysql_install_db')
+DB_MYSQLD = os.getenv('NEO_DB_MYSQLD', '/usr/sbin/mysqld')
+DB_MYCNF = os.getenv('NEO_DB_MYCNF')
 
 IP_VERSION_FORMAT_DICT = {
     socket.AF_INET:  '127.0.0.1',
@@ -134,8 +138,12 @@ def getTempDirectory():
         print 'Using temp directory %r.' % temp_dir
     return temp_dir
 
-def setupMySQLdb(db_list, user=DB_USER, password='', clear_databases=True):
+def setupMySQLdb(db_list, clear_databases=True):
+    if mysql_pool:
+        return mysql_pool.setup(db_list, clear_databases)
     from MySQLdb.constants.ER import BAD_DB_ERROR
+    user = DB_USER
+    password = ''
     kw = {'unix_socket': os.path.expanduser(DB_SOCKET)} if DB_SOCKET else {}
     conn = MySQLdb.connect(user=DB_ADMIN, passwd=DB_PASSWD, **kw)
     cursor = conn.cursor()
@@ -154,6 +162,88 @@ def setupMySQLdb(db_list, user=DB_USER, password='', clear_databases=True):
     cursor.close()
     conn.commit()
     conn.close()
+    return '{}:{}@%s{}'.format(user, password, DB_SOCKET).__mod__
+
+class MySQLPool(object):
+
+    def __init__(self, pool_dir=None):
+        self._args = {}
+        self._mysqld_dict = {}
+        if not pool_dir:
+            pool_dir = getTempDirectory()
+        self._base = pool_dir + os.sep
+        self._sock_template = os.path.join(pool_dir, '%s', 'mysql.sock')
+
+    def __del__(self):
+        self.kill(*self._mysqld_dict)
+
+    def setup(self, db_list, clear_databases):
+        start_list = set(db_list).difference(self._mysqld_dict)
+        if start_list:
+            start_list = sorted(start_list)
+            x = []
+            with open(os.devnull, 'wb') as f:
+                for db in start_list:
+                    base = self._base + db
+                    datadir = os.path.join(base, 'datadir')
+                    sock = self._sock_template % db
+                    tmpdir = os.path.join(base, 'tmp')
+                    args = [DB_INSTALL,
+                        '--defaults-file=' + DB_MYCNF,
+                        '--datadir=' + datadir,
+                        '--socket=' + sock,
+                        '--tmpdir=' + tmpdir,
+                        '--log_error=' + os.path.join(base, 'error.log')]
+                    if os.path.exists(datadir):
+                        try:
+                            os.remove(sock)
+                        except OSError, e:
+                            if e.errno != errno.ENOENT:
+                                raise
+                    else:
+                        os.makedirs(tmpdir)
+                        x.append(subprocess.Popen(args,
+                            stdout=f, stderr=subprocess.STDOUT))
+                    args[0] = DB_MYSQLD
+                    self._args[db] = args
+            for x in x:
+                x = x.wait()
+                if x:
+                    raise subprocess.CalledProcessError(x, DB_INSTALL)
+            self.start(*start_list)
+            for db in start_list:
+                sock = self._sock_template % db
+                p = self._mysqld_dict[db]
+                while not os.path.exists(sock):
+                    sleep(1)
+                    x = p.poll()
+                    if x is not None:
+                        raise subprocess.CalledProcessError(x, DB_MYSQLD)
+        for db in db_list:
+            db = MySQLdb.connect(unix_socket=self._sock_template % db,
+                                 user='root')
+            if clear_databases:
+                db.query('DROP DATABASE IF EXISTS neo')
+            db.query('CREATE DATABASE IF NOT EXISTS neo')
+            db.close()
+        return ('root@neo' + self._sock_template).__mod__
+
+    def start(self, *db, **kw):
+        assert set(db).isdisjoint(self._mysqld_dict)
+        for db in db:
+            self._mysqld_dict[db] = subprocess.Popen(self._args[db], **kw)
+
+    def kill(self, *db):
+        processes = []
+        for db in db:
+            p = self._mysqld_dict.pop(db)
+            processes.append(p)
+            p.kill()
+        for p in processes:
+            p.wait()
+
+mysql_pool = MySQLPool() if DB_MYCNF else None
+
 
 def ImporterConfigParser(adapter, zodb, **kw):
     cfg = SafeConfigParser()
@@ -244,13 +334,15 @@ class NeoUnitTestBase(NeoTestBase):
         """ create empty databases """
         adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
         if adapter == 'MySQL':
-            setupMySQLdb([prefix + str(i) for i in xrange(number)])
+            db_template = setupMySQLdb(
+                [prefix + str(i) for i in xrange(number)])
+            self.db_template = lambda i: db_template(prefix + str(i))
         elif adapter == 'SQLite':
-            temp_dir = getTempDirectory()
+            self.db_template = os.path.join(getTempDirectory(),
+                                       prefix + '%s.sqlite').__mod__
             for i in xrange(number):
                 try:
-                    os.remove(os.path.join(temp_dir,
-                        '%s%s.sqlite' % (prefix, i)))
+                    os.remove(self.db_template(i))
                 except OSError, e:
                     if e.errno != errno.ENOENT:
                         raise
@@ -274,21 +366,14 @@ class NeoUnitTestBase(NeoTestBase):
     def getStorageConfiguration(self, cluster='main', master_number=2,
             index=0, prefix=DB_PREFIX, uuid=None):
         assert master_number >= 1 and master_number <= 10
-        assert index >= 0 and index <= 9
         masters = [(buildUrlFromString(self.local_ip),
                      10010 + i) for i in xrange(master_number)]
         adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
-        if adapter == 'MySQL':
-            db = '%s@%s%s%s' % (DB_USER, prefix, index, DB_SOCKET)
-        elif adapter == 'SQLite':
-            db = os.path.join(getTempDirectory(), 'test_neo%s.sqlite' % index)
-        else:
-            assert False, adapter
         return {
                 'cluster': cluster,
                 'bind': (masters[0], 10020 + index),
                 'masters': masters,
-                'database': db,
+                'database': self.db_template(index),
                 'uuid': uuid,
                 'adapter': adapter,
                 'wait': 0,

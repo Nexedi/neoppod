@@ -1,6 +1,41 @@
 Change History
 ==============
 
+1.12 (2019-04-28)
+-----------------
+
+Most changes in this version focus on the ability to migrate efficiently
+and reliably a big ZODB to NEO, which required changes in the protocol.
+See testSplitAndMakeResilientUsingClone for an example of scenario.
+
+Better cluster management:
+
+- New --new-nid storage option for fast cloning.
+- The number of wanted replicas is now a property of the database, which is
+  modifiable when the cluster is running, and reported by `neoctl print pt`.
+- Better error reporting from the master to neoctl for denied requests.
+- tweak: do not touch cells of nodes that are intended to be dropped.
+- tweak: do not crash when trying to remove all nodes.
+- tweak: new neoctl option to ask the master to simulate.
+- neoctl: better display of full partition tables.
+- master: reject drop/tweak commands that could lead to unwanted status.
+
+Importer:
+
+- Fix possible data loss on writeback.
+- v1.9 broke replication (as source) once the import is finished.
+- Speed up startup when the import is already finished.
+- Fix closure of ZODB, and also do it when the import is finished.
+- Fix hidden "maximum recursion depth exceeded" at startup.
+- Fix resumption when using SQLite.
+- v1.10 broke resumption when there are new transactions since the import
+  started.
+
+MySQL:
+
+- Better support of RocksDB by specifying column families.
+- Fix handling of connection strings (--database) without credentials.
+
 1.11 (2019-03-11)
 -----------------
 

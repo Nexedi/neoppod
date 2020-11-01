@@ -210,7 +210,7 @@ class BaseConnection(object):
 
     def _getReprInfo(self):
         r = [
-            ('uuid', uuid_str(self.getUUID())),
+            ('nid', uuid_str(self.getUUID())),
             ('address', ('[%s]:%s' if ':' in self.addr[0] else '%s:%s')
                         % self.addr if self.addr else '?'),
             ('handler', self.getHandler()),

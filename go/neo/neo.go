@@ -113,8 +113,9 @@ func (app *NodeApp) Dial(ctx context.Context, peerType proto.NodeType, addr stri
 		UUID:		app.MyInfo.UUID,
 		Address:	app.MyInfo.Addr,
 		ClusterName:	app.ClusterName,
-		DevPath:        nil,                    // XXX stub
 		IdTime:		app.MyInfo.IdTime,	// XXX ok?
+		DevPath:        nil,                    // XXX stub
+		NewNID:         nil,			// XXX stub
 	}
 	accept := &proto.AcceptIdentification{}
 	// FIXME error if peer sends us something with another connID
@@ -323,7 +324,7 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *proto.NotifyNodeInfo
 
 // UpdatePartTab applies updates to .PartTab from message and logs changes appropriately.
 func (app *NodeApp) UpdatePartTab(ctx context.Context, msg *proto.SendPartitionTable) {
-	pt := PartTabFromDump(msg.PTid, msg.RowList)
+	pt := PartTabFromDump(msg.PTid, msg.RowList) // FIXME handle msg.NumReplicas
 	// XXX logging under lock
 	log.Infof(ctx, "parttab update: %v", pt)
 	app.PartTab = pt
