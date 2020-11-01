@@ -587,8 +587,8 @@ class Application(BaseApplication):
         node.send(Packets.StartOperation(self.backup_tid))
         uuid = node.getUUID()
         assert uuid not in self.storage_starting_set
-        if uuid not in self.storage_ready_dict:
-            self.storage_starting_set.add(uuid)
+        assert uuid not in self.storage_ready_dict
+        self.storage_starting_set.add(uuid)
 
     def setStorageReady(self, uuid):
         self.storage_starting_set.remove(uuid)
