@@ -36,7 +36,7 @@ from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump, setproctitle
-from .. import (ADDRESS_TYPE, DB_SOCKET, DB_USER, IP_VERSION_FORMAT_DICT, SSL,
+from .. import (ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SSL,
     buildUrlFromString, cluster, getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch)
 from neo.client.Storage import Storage
@@ -282,7 +282,7 @@ class NEOProcess(Process):
     def _args(self):
         args = super(NEOProcess, self)._args()
         if self.uuid:
-            args[:0] = '--uuid', str(self.uuid)
+            args[:0] = '--nid', str(self.uuid)
         return args
 
     def run(self):
@@ -306,11 +306,11 @@ class NEOCluster(object):
     SSL = None
 
     def __init__(self, db_list, master_count=1, partitions=1, replicas=0,
-                 db_user=DB_USER, db_password='', name=None,
+                 name=None,
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
                  address_type=ADDRESS_TYPE, bind_ip=None, logger=True,
-                 importer=None, upstream_masters=None, upstream_cluster=None):
+                 importer=None, upstream_masters=None, upstream_cluster=None, storage_kw={}):
         if not adapter:
             adapter = 'MySQL'
         self.adapter = adapter
@@ -322,20 +322,28 @@ class NEOCluster(object):
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory ' + temp_dir
         if adapter == 'MySQL':
-            self.db_user = db_user
-            self.db_password = db_password
-            self.db_template = ('%s:%s@%%s%s' % (db_user, db_password,
-                                                 DB_SOCKET)).__mod__
+            self.db_template = setupMySQLdb(db_list, clear_databases)
         elif adapter == 'SQLite':
             self.db_template = (lambda t: lambda db:
                 ':memory:' if db is None else db if os.sep in db else t % db
                 )(os.path.join(temp_dir, '%s.sqlite'))
+            if clear_databases:
+                for db in self.db_list:
+                    if db is None:
+                        continue
+                    db = self.db_template(db)
+                    try:
+                        os.remove(db)
+                    except OSError, e:
+                        if e.errno != errno.ENOENT:
+                            raise
+                    else:
+                        logging.debug('%r deleted', db)
         else:
             assert False, adapter
         self.address_type = address_type
         self.local_ip = local_ip = bind_ip or \
             IP_VERSION_FORMAT_DICT[self.address_type]
-        self.setupDB(clear_databases)
         if importer:
             cfg = ImporterConfigParser(adapter, **importer)
             cfg.set("neo", "database", self.db_template(*db_list))
@@ -372,7 +380,8 @@ class NEOCluster(object):
         # create storage nodes
         for i, db in enumerate(db_list):
             self._newProcess(NodeTypes.STORAGE, logger and 'storage_%u' % i,
-                             0, adapter=adapter, database=self.db_template(db))
+                             0, adapter=adapter, database=self.db_template(db),
+                             **storage_kw)
         # create neoctl
         self.neoctl = NeoCTL((self.local_ip, admin_port), ssl=self.SSL)
 
@@ -390,23 +399,10 @@ class NEOCluster(object):
         self.process_dict.setdefault(node_type, []).append(
             NEOProcess(command_dict[node_type], uuid=uuid, **kw))
 
-    def setupDB(self, clear_databases=True):
-        if self.adapter == 'MySQL':
-            setupMySQLdb(self.db_list, self.db_user, self.db_password,
-                         clear_databases)
-        elif self.adapter == 'SQLite':
-            if clear_databases:
-                for db in self.db_list:
-                    if db is None:
-                        continue
-                    db = self.db_template(db)
-                    try:
-                        os.remove(db)
-                    except OSError, e:
-                        if e.errno != errno.ENOENT:
-                            raise
-                    else:
-                        logging.debug('%r deleted', db)
+    def resetDB(self):
+        for db in self.db_list:
+            dm = buildDatabaseManager(self.adapter, (self.db_template(db),))
+            dm.setup(True)
 
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
@@ -445,7 +441,7 @@ class NEOCluster(object):
                         pending_count += 1
                     if pending_count == target[0]:
                         neoctl.startCluster()
-            except (NotReadyException, RuntimeError):
+            except (NotReadyException, SystemExit):
                 pass
         if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
@@ -457,7 +453,7 @@ class NEOCluster(object):
         def start(last_try):
             try:
                 self.neoctl.startCluster()
-            except (NotReadyException, RuntimeError), e:
+            except (NotReadyException, SystemExit), e:
                 return False, e
             return True, None
         self.expectCondition(start)
@@ -661,10 +657,10 @@ class NEOCluster(object):
 
     def expectOudatedCells(self, number, *args, **kw):
         def callback(last_try):
-            row_list = self.neoctl.getPartitionRowList()[1]
+            row_list = self.neoctl.getPartitionRowList()[2]
             number_of_outdated = 0
             for row in row_list:
-                for cell in row[1]:
+                for cell in row:
                     if cell[1] == CellStates.OUT_OF_DATE:
                         number_of_outdated += 1
             return number_of_outdated == number, number_of_outdated
@@ -672,10 +668,10 @@ class NEOCluster(object):
 
     def expectAssignedCells(self, process, number, *args, **kw):
         def callback(last_try):
-            row_list = self.neoctl.getPartitionRowList()[1]
+            row_list = self.neoctl.getPartitionRowList()[2]
             assigned_cells_number = 0
             for row in row_list:
-                for cell in row[1]:
+                for cell in row:
                     if cell[0] == process.getUUID():
                         assigned_cells_number += 1
             return assigned_cells_number == number, assigned_cells_number

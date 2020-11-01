@@ -26,10 +26,10 @@ from . import BaseServiceHandler
 class StorageServiceHandler(BaseServiceHandler):
     """ Handler dedicated to storages during service state """
 
-    def connectionCompleted(self, conn, new):
+    def handlerSwitched(self, conn, new):
         app = self.app
         if new:
-            super(StorageServiceHandler, self).connectionCompleted(conn, new)
+            super(StorageServiceHandler, self).handlerSwitched(conn, new)
         node = app.nm.getByUUID(conn.getUUID())
         if node.isRunning(): # node may be PENDING
             app.startStorage(node)

@@ -32,7 +32,7 @@ class IdentificationHandler(EventHandler):
         return self.app.nm
 
     def requestIdentification(self, conn, node_type, uuid, address, name,
-                              devpath, id_timestamp):
+                              id_timestamp, devpath, new_nid):
         self.checkClusterName(name)
         app = self.app
         # reject any incoming connections if not ready
@@ -65,6 +65,6 @@ class IdentificationHandler(EventHandler):
             conn.setHandler(handler)
             node.setConnection(conn, force)
         # accept the identification and trigger an event
-        conn.answer(Packets.AcceptIdentification(NodeTypes.STORAGE, uuid and
-            app.uuid, app.pt.getPartitions(), app.pt.getReplicas(), uuid))
+        conn.answer(Packets.AcceptIdentification(
+            NodeTypes.STORAGE, uuid and app.uuid, uuid))
         handler.connectionCompleted(conn)

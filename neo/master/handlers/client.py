@@ -22,6 +22,10 @@ from . import MasterHandler
 class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """
 
+    def handlerSwitched(self, conn, new):
+        assert new
+        super(ClientServiceHandler, self).handlerSwitched(conn, new)
+
     def _connectionLost(self, conn):
         # cancel its transactions and forgot the node
         app = self.app
