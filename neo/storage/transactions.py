@@ -139,10 +139,11 @@ class TransactionManager(EventQueue):
 
     def replicating(self, offset_list):
         self._replicating.update(offset_list)
-        isdisjoint = set(offset_list).isdisjoint
-        assert isdisjoint(self._replicated), (offset_list, self._replicated)
-        assert isdisjoint(map(self.getPartition, self._store_lock_dict)), (
-            offset_list, self._store_lock_dict)
+        if __debug__:
+            isdisjoint = set(offset_list).isdisjoint
+            assert isdisjoint(self._replicated), (offset_list, self._replicated)
+            assert isdisjoint(map(self.getPartition, self._store_lock_dict)), (
+                offset_list, self._store_lock_dict)
         p = Packets.AskUnfinishedTransactions(offset_list)
         self._app.master_conn.ask(p, offset_list=offset_list)
 
