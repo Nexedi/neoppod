@@ -137,6 +137,7 @@ var ErrDecodeOverflow = errors.New("decode: buffer overflow")
 type ErrorCode int8
 const (
 	ACK ErrorCode = iota
+	DENIED
 	NOT_READY
 	OID_NOT_FOUND
 	TID_NOT_FOUND
