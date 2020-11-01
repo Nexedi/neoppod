@@ -118,8 +118,6 @@ func TestMasterStorage(t0 *testing.T) {
 	tSM.Expect(conntx("m:2", "s:2", 1, &proto.AcceptIdentification{
 		NodeType:	proto.MASTER,
 		MyUUID:		proto.UUID(proto.MASTER, 1),
-		NumPartitions:	1,
-		NumReplicas:	0,
 		YourUUID:	proto.UUID(proto.STORAGE, 1),
 	}))
 
@@ -137,6 +135,7 @@ func TestMasterStorage(t0 *testing.T) {
 	tMS.Expect(conntx("m:2", "s:2", 2, &proto.AskPartitionTable{}))
 	tMS.Expect(conntx("s:2", "m:2", 2, &proto.AnswerPartitionTable{
 		PTid:		0,
+		NumReplicas:	0,
 		RowList:	[]proto.RowInfo{},
 	}))
 
@@ -163,8 +162,9 @@ func TestMasterStorage(t0 *testing.T) {
 
 	tMS.Expect(conntx("m:2", "s:2", 4, &proto.SendPartitionTable{
 		PTid:		1,
+		NumReplicas:    0,
 		RowList:	[]proto.RowInfo{
-			{0, []proto.CellInfo{{proto.UUID(proto.STORAGE, 1), proto.UP_TO_DATE}}},
+			{[]proto.CellInfo{{proto.UUID(proto.STORAGE, 1), proto.UP_TO_DATE}}},
 		},
 	}))
 
@@ -220,25 +220,10 @@ func TestMasterStorage(t0 *testing.T) {
 	tCM.Expect(conntx("m:3", "c:1", 1, &proto.AcceptIdentification{
 		NodeType:	proto.MASTER,
 		MyUUID:		proto.UUID(proto.MASTER, 1),
-		NumPartitions:	1,
-		NumReplicas:	0,
 		YourUUID:	proto.UUID(proto.CLIENT, 1),
 	}))
 
-	// C asks M about PT and last_tid
-	// NOTE this might come in parallel with vvv "C <- M NotifyNodeInformation C1,M1,S1"
-	tCM.Expect(conntx("c:1", "m:3", 3, &proto.AskPartitionTable{}))
-	tCM.Expect(conntx("m:3", "c:1", 3, &proto.AnswerPartitionTable{
-		PTid:		1,
-		RowList:	[]proto.RowInfo{
-			{0, []proto.CellInfo{{proto.UUID(proto.STORAGE, 1), proto.UP_TO_DATE}}},
-		},
-	}))
-	tCM.Expect(conntx("c:1", "m:3", 5, &proto.LastTransaction{}))
-	tCM.Expect(conntx("m:3", "c:1", 5, &proto.AnswerLastTransaction{lastTid}))
-
 	// C <- M NotifyNodeInformation C1,M1,S1
-	// NOTE this might come in parallel with ^^^ "C asks M about PT"
 	tMC.Expect(conntx("m:3", "c:1", 0, &proto.NotifyNodeInformation{
 		IdTime:		proto.IdTimeNone,	// XXX ?
 		NodeList:	[]proto.NodeInfo{
@@ -248,9 +233,21 @@ func TestMasterStorage(t0 *testing.T) {
 		},
 	}))
 
+	tMC.Expect(conntx("m:3", "c:1", 2, &proto.SendPartitionTable{
+		PTid:		1,
+		NumReplicas:	0,
+		RowList:	[]proto.RowInfo{
+			{[]proto.CellInfo{{proto.UUID(proto.STORAGE, 1), proto.UP_TO_DATE}}},
+		},
+	}))
+
 	tC.Expect(δnode("c", "m:1", proto.MASTER,  1, proto.RUNNING, proto.IdTimeNone))
 	tC.Expect(δnode("c", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
 	tC.Expect(δnode("c", "",    proto.CLIENT,  1, proto.RUNNING, 0.02))
+
+	// C asks M last_tid
+	tCM.Expect(conntx("c:1", "m:3", 3, &proto.LastTransaction{}))
+	tCM.Expect(conntx("m:3", "c:1", 3, &proto.AnswerLastTransaction{lastTid}))
 
 	// ----------------------------------------
 
@@ -264,8 +261,8 @@ func TestMasterStorage(t0 *testing.T) {
 		}
 	})
 
-	tCM.Expect(conntx("c:1", "m:3", 7, &proto.LastTransaction{}))
-	tCM.Expect(conntx("m:3", "c:1", 7, &proto.AnswerLastTransaction{
+	tCM.Expect(conntx("c:1", "m:3", 5, &proto.LastTransaction{}))
+	tCM.Expect(conntx("m:3", "c:1", 5, &proto.AnswerLastTransaction{
 		Tid: lastTid,
 	}))
 
@@ -305,8 +302,6 @@ func TestMasterStorage(t0 *testing.T) {
 	tCS.Expect(conntx("s:3", "c:2", 1, &proto.AcceptIdentification{
 		NodeType:	proto.STORAGE,
 		MyUUID:		proto.UUID(proto.STORAGE, 1),
-		NumPartitions:	1,
-		NumReplicas:	0,
 		YourUUID:	proto.UUID(proto.CLIENT, 1),
 	}))
 

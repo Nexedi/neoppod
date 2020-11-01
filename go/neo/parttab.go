@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -254,7 +254,7 @@ func (pt *PartitionTable) Dump() []proto.RowInfo { // XXX also include .ptid? ->
 			cellv[j] = cell.CellInfo
 		}
 
-		rowv[i] = proto.RowInfo{Offset: uint32(i), CellList: cellv}	// XXX cast?
+		rowv[i] = proto.RowInfo{CellList: cellv}
 	}
 	return rowv
 }
@@ -264,9 +264,8 @@ func PartTabFromDump(ptid proto.PTid, rowv []proto.RowInfo) *PartitionTable {
 	pt := &PartitionTable{}
 	pt.PTid = ptid
 
-	for _, row := range rowv {
-		i := row.Offset
-		for i >= uint32(len(pt.tab)) {
+	for i, row := range rowv {
+		for i >= len(pt.tab) {
 			pt.tab = append(pt.tab, []Cell{})
 		}
 

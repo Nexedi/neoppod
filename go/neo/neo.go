@@ -324,7 +324,7 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *proto.NotifyNodeInfo
 
 // UpdatePartTab applies updates to .PartTab from message and logs changes appropriately.
 func (app *NodeApp) UpdatePartTab(ctx context.Context, msg *proto.SendPartitionTable) {
-	pt := PartTabFromDump(msg.PTid, msg.RowList)
+	pt := PartTabFromDump(msg.PTid, msg.RowList) // FIXME handle msg.NumReplicas
 	// XXX logging under lock
 	log.Infof(ctx, "parttab update: %v", pt)
 	app.PartTab = pt

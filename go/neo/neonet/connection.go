@@ -58,7 +58,7 @@
 // object. The Request contains the message received and internally the
 // connection. A response can be sent back via Request.Reply. Then once
 // Request.Close is called the connection object that was accepted is
-// immediately put back into pool for later reuse.
+// immediately put back into pool for later reuse. XXX Expect1
 package neonet
 
 // XXX neonet compatibility with NEO/py depends on the following small NEO/py patch:
@@ -1550,6 +1550,24 @@ func (link *NodeLink) Send1(msg proto.Msg) error {
 	err = conn.sendMsgDirect(msg)
 	conn.lightClose()
 	return err
+}
+
+// Expect1 receives notification in 1-1 model.
+//
+// See Conn.Expect for semantic details.
+//
+// See "Lightweight mode" in top-level package doc for overview.
+func (link *NodeLink) Expect1(msgv ...proto.Msg) (which int, err error) {
+	// XXX a bit dup wrt Recv1
+	conn, err := link.Accept()
+	if err != nil {
+		return -1, err
+	}
+
+	// NOTE serveRecv guaranty that when a conn is accepted, there is 1 message in conn.rxq
+	which, err = conn.Expect(msgv...)
+	conn.lightClose()
+	return which, err
 }
 
 

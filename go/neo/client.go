@@ -258,6 +258,37 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 		c.node.MyInfo.UUID = accept.YourUUID
 	}
 
+	wg, ctx := errgroup.WithContext(ctx)	// XXX -> xsync.WorkGroup
+	defer xio.CloseWhenDone(ctx, mlink)()
+
+	// master pushes nodeTab and partTab to us right after identification
+	// XXX merge into -> node.DialMaster?
+
+	// nodeTab
+	mnt := proto.NotifyNodeInformation{}
+	_, err = mlink.Expect1(&mnt)
+	if err != nil {
+		return fmt.Errorf("after identification: %w", err)
+	}
+
+	// partTab
+	mpt := proto.SendPartitionTable{}
+	_, err = mlink.Expect1(&mpt)
+	if err != nil {
+		return fmt.Errorf("after identification: %w", err)
+	}
+	pt := PartTabFromDump(mpt.PTid, mpt.RowList) // TODO handle mpt.NumReplicas
+	log.Infof(ctx, "master initialized us with next parttab:\n%s", pt)
+
+	c.node.StateMu.Lock()
+	c.node.UpdateNodeTab(ctx, &mnt)
+	c.node.PartTab = pt
+	opready := c.updateOperational()
+	c.node.StateMu.Unlock()
+	opready()
+
+
+
 	// set c.mlink and notify waiters
 	c.mlinkMu.Lock()
 	c.mlink = mlink
@@ -265,10 +296,6 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	c.mlinkReady = make(chan struct{})
 	c.mlinkMu.Unlock()
 	close(ready)
-
-	wg, ctx := errgroup.WithContext(ctx)	// XXX -> xsync.WorkGroup
-
-	defer xio.CloseWhenDone(ctx, mlink)()
 
 	// when we are done - reset .mlink
 	defer func() {
@@ -297,21 +324,6 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 // initFromMaster asks M for partTab and DB head right after identification.
 func (c *Client) initFromMaster(ctx context.Context, mlink *neonet.NodeLink) (err error) {
 	defer task.Running(&ctx, "init")(&err)
-
-	// query partTab
-	rpt := proto.AnswerPartitionTable{}
-	err = mlink.Ask1(&proto.AskPartitionTable{}, &rpt)
-	if err != nil {
-		return err
-	}
-
-	pt := PartTabFromDump(rpt.PTid, rpt.RowList)
-	log.Infof(ctx, "master initialized us with next parttab:\n%s", pt)
-	c.node.StateMu.Lock()
-	c.node.PartTab = pt
-	opready := c.updateOperational()
-	c.node.StateMu.Unlock()
-	opready()
 
 	// query last_tid
 	lastTxn := proto.AnswerLastTransaction{}

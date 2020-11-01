@@ -211,27 +211,23 @@ func (*AcceptIdentification) NEOMsgCode() uint16 {
 }
 
 func (p *AcceptIdentification) NEOMsgEncodedLen() int {
-	return 17
+	return 9
 }
 
 func (p *AcceptIdentification) NEOMsgEncode(data []byte) {
 	(data[0:])[0] = uint8(int8(p.NodeType))
 	binary.BigEndian.PutUint32(data[1:], uint32(int32(p.MyUUID)))
-	binary.BigEndian.PutUint32(data[5:], p.NumPartitions)
-	binary.BigEndian.PutUint32(data[9:], p.NumReplicas)
-	binary.BigEndian.PutUint32(data[13:], uint32(int32(p.YourUUID)))
+	binary.BigEndian.PutUint32(data[5:], uint32(int32(p.YourUUID)))
 }
 
 func (p *AcceptIdentification) NEOMsgDecode(data []byte) (int, error) {
-	if len(data) < 17 {
+	if len(data) < 9 {
 		goto overflow
 	}
 	p.NodeType = NodeType(int8((data[0 : 0+1])[0]))
 	p.MyUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[1 : 1+4])))
-	p.NumPartitions = binary.BigEndian.Uint32(data[5 : 5+4])
-	p.NumReplicas = binary.BigEndian.Uint32(data[9 : 9+4])
-	p.YourUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[13 : 13+4])))
-	return 17, nil
+	p.YourUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[5 : 5+4])))
+	return 9, nil
 
 overflow:
 	return 0, ErrDecodeOverflow
@@ -606,22 +602,22 @@ func (p *AnswerPartitionTable) NEOMsgEncodedLen() int {
 		a := &p.RowList[i]
 		size += len((*a).CellList) * 5
 	}
-	return 12 + len(p.RowList)*8 + size
+	return 16 + len(p.RowList)*4 + size
 }
 
 func (p *AnswerPartitionTable) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
+	binary.BigEndian.PutUint32(data[8:], p.NumReplicas)
 	{
 		l := uint32(len(p.RowList))
-		binary.BigEndian.PutUint32(data[8:], l)
-		data = data[12:]
+		binary.BigEndian.PutUint32(data[12:], l)
+		data = data[16:]
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			binary.BigEndian.PutUint32(data[0:], (*a).Offset)
 			{
 				l := uint32(len((*a).CellList))
-				binary.BigEndian.PutUint32(data[4:], l)
-				data = data[8:]
+				binary.BigEndian.PutUint32(data[0:], l)
+				data = data[4:]
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
 					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
@@ -636,23 +632,23 @@ func (p *AnswerPartitionTable) NEOMsgEncode(data []byte) {
 
 func (p *AnswerPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint64
-	if len(data) < 12 {
+	if len(data) < 16 {
 		goto overflow
 	}
 	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.NumReplicas = binary.BigEndian.Uint32(data[8 : 8+4])
 	{
-		l := binary.BigEndian.Uint32(data[8 : 8+4])
-		data = data[12:]
+		l := binary.BigEndian.Uint32(data[12 : 12+4])
+		data = data[16:]
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			if len(data) < 8 {
+			if len(data) < 4 {
 				goto overflow
 			}
-			(*a).Offset = binary.BigEndian.Uint32(data[0 : 0+4])
 			{
-				l := binary.BigEndian.Uint32(data[4 : 4+4])
-				data = data[8:]
+				l := binary.BigEndian.Uint32(data[0 : 0+4])
+				data = data[4:]
 				if uint64(len(data)) < uint64(l)*5 {
 					goto overflow
 				}
@@ -666,9 +662,9 @@ func (p *AnswerPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 				}
 			}
 		}
-		nread += uint64(l) * 8
+		nread += uint64(l) * 4
 	}
-	return 12 + int(nread), nil
+	return 16 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow
@@ -686,22 +682,22 @@ func (p *SendPartitionTable) NEOMsgEncodedLen() int {
 		a := &p.RowList[i]
 		size += len((*a).CellList) * 5
 	}
-	return 12 + len(p.RowList)*8 + size
+	return 16 + len(p.RowList)*4 + size
 }
 
 func (p *SendPartitionTable) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
+	binary.BigEndian.PutUint32(data[8:], p.NumReplicas)
 	{
 		l := uint32(len(p.RowList))
-		binary.BigEndian.PutUint32(data[8:], l)
-		data = data[12:]
+		binary.BigEndian.PutUint32(data[12:], l)
+		data = data[16:]
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			binary.BigEndian.PutUint32(data[0:], (*a).Offset)
 			{
 				l := uint32(len((*a).CellList))
-				binary.BigEndian.PutUint32(data[4:], l)
-				data = data[8:]
+				binary.BigEndian.PutUint32(data[0:], l)
+				data = data[4:]
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
 					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
@@ -716,23 +712,23 @@ func (p *SendPartitionTable) NEOMsgEncode(data []byte) {
 
 func (p *SendPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint64
-	if len(data) < 12 {
+	if len(data) < 16 {
 		goto overflow
 	}
 	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.NumReplicas = binary.BigEndian.Uint32(data[8 : 8+4])
 	{
-		l := binary.BigEndian.Uint32(data[8 : 8+4])
-		data = data[12:]
+		l := binary.BigEndian.Uint32(data[12 : 12+4])
+		data = data[16:]
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			if len(data) < 8 {
+			if len(data) < 4 {
 				goto overflow
 			}
-			(*a).Offset = binary.BigEndian.Uint32(data[0 : 0+4])
 			{
-				l := binary.BigEndian.Uint32(data[4 : 4+4])
-				data = data[8:]
+				l := binary.BigEndian.Uint32(data[0 : 0+4])
+				data = data[4:]
 				if uint64(len(data)) < uint64(l)*5 {
 					goto overflow
 				}
@@ -746,9 +742,9 @@ func (p *SendPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 				}
 			}
 		}
-		nread += uint64(l) * 8
+		nread += uint64(l) * 4
 	}
-	return 12 + int(nread), nil
+	return 16 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow
@@ -761,15 +757,16 @@ func (*NotifyPartitionChanges) NEOMsgCode() uint16 {
 }
 
 func (p *NotifyPartitionChanges) NEOMsgEncodedLen() int {
-	return 12 + len(p.CellList)*9
+	return 16 + len(p.CellList)*9
 }
 
 func (p *NotifyPartitionChanges) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
+	binary.BigEndian.PutUint32(data[8:], p.NumReplicas)
 	{
 		l := uint32(len(p.CellList))
-		binary.BigEndian.PutUint32(data[8:], l)
-		data = data[12:]
+		binary.BigEndian.PutUint32(data[12:], l)
+		data = data[16:]
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
 			binary.BigEndian.PutUint32(data[0:], (*a).Offset)
@@ -782,13 +779,14 @@ func (p *NotifyPartitionChanges) NEOMsgEncode(data []byte) {
 
 func (p *NotifyPartitionChanges) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint64
-	if len(data) < 12 {
+	if len(data) < 16 {
 		goto overflow
 	}
 	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.NumReplicas = binary.BigEndian.Uint32(data[8 : 8+4])
 	{
-		l := binary.BigEndian.Uint32(data[8 : 8+4])
-		data = data[12:]
+		l := binary.BigEndian.Uint32(data[12 : 12+4])
+		data = data[16:]
 		if uint64(len(data)) < uint64(l)*9 {
 			goto overflow
 		}
@@ -805,7 +803,7 @@ func (p *NotifyPartitionChanges) NEOMsgDecode(data []byte) (int, error) {
 			data = data[9:]
 		}
 	}
-	return 12 + int(nread), nil
+	return 16 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow
@@ -2381,7 +2379,7 @@ func (p *AnswerPartitionList) NEOMsgEncodedLen() int {
 		a := &p.RowList[i]
 		size += len((*a).CellList) * 5
 	}
-	return 12 + len(p.RowList)*8 + size
+	return 12 + len(p.RowList)*4 + size
 }
 
 func (p *AnswerPartitionList) NEOMsgEncode(data []byte) {
@@ -2392,11 +2390,10 @@ func (p *AnswerPartitionList) NEOMsgEncode(data []byte) {
 		data = data[12:]
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			binary.BigEndian.PutUint32(data[0:], (*a).Offset)
 			{
 				l := uint32(len((*a).CellList))
-				binary.BigEndian.PutUint32(data[4:], l)
-				data = data[8:]
+				binary.BigEndian.PutUint32(data[0:], l)
+				data = data[4:]
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
 					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
@@ -2421,13 +2418,12 @@ func (p *AnswerPartitionList) NEOMsgDecode(data []byte) (int, error) {
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			if len(data) < 8 {
+			if len(data) < 4 {
 				goto overflow
 			}
-			(*a).Offset = binary.BigEndian.Uint32(data[0 : 0+4])
 			{
-				l := binary.BigEndian.Uint32(data[4 : 4+4])
-				data = data[8:]
+				l := binary.BigEndian.Uint32(data[0 : 0+4])
+				data = data[4:]
 				if uint64(len(data)) < uint64(l)*5 {
 					goto overflow
 				}
@@ -2441,7 +2437,7 @@ func (p *AnswerPartitionList) NEOMsgDecode(data []byte) (int, error) {
 				}
 			}
 		}
-		nread += uint64(l) * 8
+		nread += uint64(l) * 4
 	}
 	return 12 + int(nread), nil
 
@@ -2682,10 +2678,35 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 41. SetClusterState
+// 41. SetNumReplicas
+
+func (*SetNumReplicas) NEOMsgCode() uint16 {
+	return 41
+}
+
+func (p *SetNumReplicas) NEOMsgEncodedLen() int {
+	return 4
+}
+
+func (p *SetNumReplicas) NEOMsgEncode(data []byte) {
+	binary.BigEndian.PutUint32(data[0:], p.NumReplicas)
+}
+
+func (p *SetNumReplicas) NEOMsgDecode(data []byte) (int, error) {
+	if len(data) < 4 {
+		goto overflow
+	}
+	p.NumReplicas = binary.BigEndian.Uint32(data[0 : 0+4])
+	return 4, nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 42. SetClusterState
 
 func (*SetClusterState) NEOMsgCode() uint16 {
-	return 41
+	return 42
 }
 
 func (p *SetClusterState) NEOMsgEncodedLen() int {
@@ -2707,10 +2728,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 42. Repair
+// 43. Repair
 
 func (*Repair) NEOMsgCode() uint16 {
-	return 42
+	return 43
 }
 
 func (p *Repair) NEOMsgEncodedLen() int {
@@ -2757,10 +2778,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 43. RepairOne
+// 44. RepairOne
 
 func (*RepairOne) NEOMsgCode() uint16 {
-	return 43
+	return 44
 }
 
 func (p *RepairOne) NEOMsgEncodedLen() int {
@@ -2782,10 +2803,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 44. NotifyClusterState
+// 45. NotifyClusterState
 
 func (*NotifyClusterState) NEOMsgCode() uint16 {
-	return 44
+	return 45
 }
 
 func (p *NotifyClusterState) NEOMsgEncodedLen() int {
@@ -2807,10 +2828,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 45. AskClusterState
+// 46. AskClusterState
 
 func (*AskClusterState) NEOMsgCode() uint16 {
-	return 45
+	return 46
 }
 
 func (p *AskClusterState) NEOMsgEncodedLen() int {
@@ -2824,10 +2845,10 @@ func (p *AskClusterState) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 45 | answerBit. AnswerClusterState
+// 46 | answerBit. AnswerClusterState
 
 func (*AnswerClusterState) NEOMsgCode() uint16 {
-	return 45 | answerBit
+	return 46 | answerBit
 }
 
 func (p *AnswerClusterState) NEOMsgEncodedLen() int {
@@ -2849,10 +2870,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 46. ObjectUndoSerial
+// 47. ObjectUndoSerial
 
 func (*ObjectUndoSerial) NEOMsgCode() uint16 {
-	return 46
+	return 47
 }
 
 func (p *ObjectUndoSerial) NEOMsgEncodedLen() int {
@@ -2903,10 +2924,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 46 | answerBit. AnswerObjectUndoSerial
+// 47 | answerBit. AnswerObjectUndoSerial
 
 func (*AnswerObjectUndoSerial) NEOMsgCode() uint16 {
-	return 46 | answerBit
+	return 47 | answerBit
 }
 
 func (p *AnswerObjectUndoSerial) NEOMsgEncodedLen() int {
@@ -2971,10 +2992,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 47. AskTIDsFrom
+// 48. AskTIDsFrom
 
 func (*AskTIDsFrom) NEOMsgCode() uint16 {
-	return 47
+	return 48
 }
 
 func (p *AskTIDsFrom) NEOMsgEncodedLen() int {
@@ -3002,10 +3023,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 47 | answerBit. AnswerTIDsFrom
+// 48 | answerBit. AnswerTIDsFrom
 
 func (*AnswerTIDsFrom) NEOMsgCode() uint16 {
-	return 47 | answerBit
+	return 48 | answerBit
 }
 
 func (p *AnswerTIDsFrom) NEOMsgEncodedLen() int {
@@ -3050,10 +3071,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 48. Pack
+// 49. Pack
 
 func (*Pack) NEOMsgCode() uint16 {
-	return 48
+	return 49
 }
 
 func (p *Pack) NEOMsgEncodedLen() int {
@@ -3075,10 +3096,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 48 | answerBit. AnswerPack
+// 49 | answerBit. AnswerPack
 
 func (*AnswerPack) NEOMsgCode() uint16 {
-	return 48 | answerBit
+	return 49 | answerBit
 }
 
 func (p *AnswerPack) NEOMsgEncodedLen() int {
@@ -3100,10 +3121,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 49. CheckReplicas
+// 50. CheckReplicas
 
 func (*CheckReplicas) NEOMsgCode() uint16 {
-	return 49
+	return 50
 }
 
 func (p *CheckReplicas) NEOMsgEncodedLen() int {
@@ -3158,10 +3179,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 50. CheckPartition
+// 51. CheckPartition
 
 func (*CheckPartition) NEOMsgCode() uint16 {
-	return 50
+	return 51
 }
 
 func (p *CheckPartition) NEOMsgEncodedLen() int {
@@ -3220,10 +3241,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 51. CheckTIDRange
+// 52. CheckTIDRange
 
 func (*CheckTIDRange) NEOMsgCode() uint16 {
-	return 51
+	return 52
 }
 
 func (p *CheckTIDRange) NEOMsgEncodedLen() int {
@@ -3251,10 +3272,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 51 | answerBit. AnswerCheckTIDRange
+// 52 | answerBit. AnswerCheckTIDRange
 
 func (*AnswerCheckTIDRange) NEOMsgCode() uint16 {
-	return 51 | answerBit
+	return 52 | answerBit
 }
 
 func (p *AnswerCheckTIDRange) NEOMsgEncodedLen() int {
@@ -3280,10 +3301,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 52. CheckSerialRange
+// 53. CheckSerialRange
 
 func (*CheckSerialRange) NEOMsgCode() uint16 {
-	return 52
+	return 53
 }
 
 func (p *CheckSerialRange) NEOMsgEncodedLen() int {
@@ -3313,10 +3334,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 52 | answerBit. AnswerCheckSerialRange
+// 53 | answerBit. AnswerCheckSerialRange
 
 func (*AnswerCheckSerialRange) NEOMsgCode() uint16 {
-	return 52 | answerBit
+	return 53 | answerBit
 }
 
 func (p *AnswerCheckSerialRange) NEOMsgEncodedLen() int {
@@ -3346,10 +3367,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 53. PartitionCorrupted
+// 54. PartitionCorrupted
 
 func (*PartitionCorrupted) NEOMsgCode() uint16 {
-	return 53
+	return 54
 }
 
 func (p *PartitionCorrupted) NEOMsgEncodedLen() int {
@@ -3396,10 +3417,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 54. NotifyReady
+// 55. NotifyReady
 
 func (*NotifyReady) NEOMsgCode() uint16 {
-	return 54
+	return 55
 }
 
 func (p *NotifyReady) NEOMsgEncodedLen() int {
@@ -3413,10 +3434,10 @@ func (p *NotifyReady) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 55. LastTransaction
+// 56. LastTransaction
 
 func (*LastTransaction) NEOMsgCode() uint16 {
-	return 55
+	return 56
 }
 
 func (p *LastTransaction) NEOMsgEncodedLen() int {
@@ -3430,10 +3451,10 @@ func (p *LastTransaction) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 55 | answerBit. AnswerLastTransaction
+// 56 | answerBit. AnswerLastTransaction
 
 func (*AnswerLastTransaction) NEOMsgCode() uint16 {
-	return 55 | answerBit
+	return 56 | answerBit
 }
 
 func (p *AnswerLastTransaction) NEOMsgEncodedLen() int {
@@ -3455,10 +3476,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 56. CheckCurrentSerial
+// 57. CheckCurrentSerial
 
 func (*CheckCurrentSerial) NEOMsgCode() uint16 {
-	return 56
+	return 57
 }
 
 func (p *CheckCurrentSerial) NEOMsgEncodedLen() int {
@@ -3484,10 +3505,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 56 | answerBit. AnswerCheckCurrentSerial
+// 57 | answerBit. AnswerCheckCurrentSerial
 
 func (*AnswerCheckCurrentSerial) NEOMsgCode() uint16 {
-	return 56 | answerBit
+	return 57 | answerBit
 }
 
 func (p *AnswerCheckCurrentSerial) NEOMsgEncodedLen() int {
@@ -3509,10 +3530,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 57. NotifyTransactionFinished
+// 58. NotifyTransactionFinished
 
 func (*NotifyTransactionFinished) NEOMsgCode() uint16 {
-	return 57
+	return 58
 }
 
 func (p *NotifyTransactionFinished) NEOMsgEncodedLen() int {
@@ -3536,10 +3557,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 58. Replicate
+// 59. Replicate
 
 func (*Replicate) NEOMsgCode() uint16 {
-	return 58
+	return 59
 }
 
 func (p *Replicate) NEOMsgEncodedLen() int {
@@ -3627,10 +3648,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 59. ReplicationDone
+// 60. ReplicationDone
 
 func (*ReplicationDone) NEOMsgCode() uint16 {
-	return 59
+	return 60
 }
 
 func (p *ReplicationDone) NEOMsgEncodedLen() int {
@@ -3654,10 +3675,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 60. FetchTransactions
+// 61. FetchTransactions
 
 func (*FetchTransactions) NEOMsgCode() uint16 {
-	return 60
+	return 61
 }
 
 func (p *FetchTransactions) NEOMsgEncodedLen() int {
@@ -3710,10 +3731,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 60 | answerBit. AnswerFetchTransactions
+// 61 | answerBit. AnswerFetchTransactions
 
 func (*AnswerFetchTransactions) NEOMsgCode() uint16 {
-	return 60 | answerBit
+	return 61 | answerBit
 }
 
 func (p *AnswerFetchTransactions) NEOMsgEncodedLen() int {
@@ -3762,10 +3783,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 61. FetchObjects
+// 62. FetchObjects
 
 func (*FetchObjects) NEOMsgCode() uint16 {
-	return 61
+	return 62
 }
 
 func (p *FetchObjects) NEOMsgEncodedLen() int {
@@ -3853,10 +3874,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 61 | answerBit. AnswerFetchObjects
+// 62 | answerBit. AnswerFetchObjects
 
 func (*AnswerFetchObjects) NEOMsgCode() uint16 {
-	return 61 | answerBit
+	return 62 | answerBit
 }
 
 func (p *AnswerFetchObjects) NEOMsgEncodedLen() int {
@@ -3940,10 +3961,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 62. AddTransaction
+// 63. AddTransaction
 
 func (*AddTransaction) NEOMsgCode() uint16 {
-	return 62
+	return 63
 }
 
 func (p *AddTransaction) NEOMsgEncodedLen() int {
@@ -4045,10 +4066,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 63. AddObject
+// 64. AddObject
 
 func (*AddObject) NEOMsgCode() uint16 {
-	return 63
+	return 64
 }
 
 func (p *AddObject) NEOMsgEncodedLen() int {
@@ -4097,10 +4118,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 64. Truncate
+// 65. Truncate
 
 func (*Truncate) NEOMsgCode() uint16 {
-	return 64
+	return 65
 }
 
 func (p *Truncate) NEOMsgEncodedLen() int {
@@ -4122,10 +4143,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 65. FlushLog
+// 66. FlushLog
 
 func (*FlushLog) NEOMsgCode() uint16 {
-	return 65
+	return 66
 }
 
 func (p *FlushLog) NEOMsgEncodedLen() int {
@@ -4206,39 +4227,40 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	38:             reflect.TypeOf(SetNodeState{}),
 	39:             reflect.TypeOf(AddPendingNodes{}),
 	40:             reflect.TypeOf(TweakPartitionTable{}),
-	41:             reflect.TypeOf(SetClusterState{}),
-	42:             reflect.TypeOf(Repair{}),
-	43:             reflect.TypeOf(RepairOne{}),
-	44:             reflect.TypeOf(NotifyClusterState{}),
-	45:             reflect.TypeOf(AskClusterState{}),
-	45 | answerBit: reflect.TypeOf(AnswerClusterState{}),
-	46:             reflect.TypeOf(ObjectUndoSerial{}),
-	46 | answerBit: reflect.TypeOf(AnswerObjectUndoSerial{}),
-	47:             reflect.TypeOf(AskTIDsFrom{}),
-	47 | answerBit: reflect.TypeOf(AnswerTIDsFrom{}),
-	48:             reflect.TypeOf(Pack{}),
-	48 | answerBit: reflect.TypeOf(AnswerPack{}),
-	49:             reflect.TypeOf(CheckReplicas{}),
-	50:             reflect.TypeOf(CheckPartition{}),
-	51:             reflect.TypeOf(CheckTIDRange{}),
-	51 | answerBit: reflect.TypeOf(AnswerCheckTIDRange{}),
-	52:             reflect.TypeOf(CheckSerialRange{}),
-	52 | answerBit: reflect.TypeOf(AnswerCheckSerialRange{}),
-	53:             reflect.TypeOf(PartitionCorrupted{}),
-	54:             reflect.TypeOf(NotifyReady{}),
-	55:             reflect.TypeOf(LastTransaction{}),
-	55 | answerBit: reflect.TypeOf(AnswerLastTransaction{}),
-	56:             reflect.TypeOf(CheckCurrentSerial{}),
-	56 | answerBit: reflect.TypeOf(AnswerCheckCurrentSerial{}),
-	57:             reflect.TypeOf(NotifyTransactionFinished{}),
-	58:             reflect.TypeOf(Replicate{}),
-	59:             reflect.TypeOf(ReplicationDone{}),
-	60:             reflect.TypeOf(FetchTransactions{}),
-	60 | answerBit: reflect.TypeOf(AnswerFetchTransactions{}),
-	61:             reflect.TypeOf(FetchObjects{}),
-	61 | answerBit: reflect.TypeOf(AnswerFetchObjects{}),
-	62:             reflect.TypeOf(AddTransaction{}),
-	63:             reflect.TypeOf(AddObject{}),
-	64:             reflect.TypeOf(Truncate{}),
-	65:             reflect.TypeOf(FlushLog{}),
+	41:             reflect.TypeOf(SetNumReplicas{}),
+	42:             reflect.TypeOf(SetClusterState{}),
+	43:             reflect.TypeOf(Repair{}),
+	44:             reflect.TypeOf(RepairOne{}),
+	45:             reflect.TypeOf(NotifyClusterState{}),
+	46:             reflect.TypeOf(AskClusterState{}),
+	46 | answerBit: reflect.TypeOf(AnswerClusterState{}),
+	47:             reflect.TypeOf(ObjectUndoSerial{}),
+	47 | answerBit: reflect.TypeOf(AnswerObjectUndoSerial{}),
+	48:             reflect.TypeOf(AskTIDsFrom{}),
+	48 | answerBit: reflect.TypeOf(AnswerTIDsFrom{}),
+	49:             reflect.TypeOf(Pack{}),
+	49 | answerBit: reflect.TypeOf(AnswerPack{}),
+	50:             reflect.TypeOf(CheckReplicas{}),
+	51:             reflect.TypeOf(CheckPartition{}),
+	52:             reflect.TypeOf(CheckTIDRange{}),
+	52 | answerBit: reflect.TypeOf(AnswerCheckTIDRange{}),
+	53:             reflect.TypeOf(CheckSerialRange{}),
+	53 | answerBit: reflect.TypeOf(AnswerCheckSerialRange{}),
+	54:             reflect.TypeOf(PartitionCorrupted{}),
+	55:             reflect.TypeOf(NotifyReady{}),
+	56:             reflect.TypeOf(LastTransaction{}),
+	56 | answerBit: reflect.TypeOf(AnswerLastTransaction{}),
+	57:             reflect.TypeOf(CheckCurrentSerial{}),
+	57 | answerBit: reflect.TypeOf(AnswerCheckCurrentSerial{}),
+	58:             reflect.TypeOf(NotifyTransactionFinished{}),
+	59:             reflect.TypeOf(Replicate{}),
+	60:             reflect.TypeOf(ReplicationDone{}),
+	61:             reflect.TypeOf(FetchTransactions{}),
+	61 | answerBit: reflect.TypeOf(AnswerFetchTransactions{}),
+	62:             reflect.TypeOf(FetchObjects{}),
+	62 | answerBit: reflect.TypeOf(AnswerFetchObjects{}),
+	63:             reflect.TypeOf(AddTransaction{}),
+	64:             reflect.TypeOf(AddObject{}),
+	65:             reflect.TypeOf(Truncate{}),
+	66:             reflect.TypeOf(FlushLog{}),
 }

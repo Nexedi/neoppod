@@ -203,10 +203,13 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 
 	// XXX add master UUID -> nodeTab ? or master will notify us with it himself ?
 
+// XXX move -> SetNumReplicas handler
+/*
 	// NumReplicas: neo/py meaning for n(replica) = `n(real-replica) - 1`
 	if !(accept.NumPartitions == 1 && accept.NumReplicas == 0) {
 		return fmt.Errorf("TODO for 1-storage POC: Npt: %v  Nreplica: %v", accept.NumPartitions, accept.NumReplicas)
 	}
+*/
 
 	// XXX -> node.Dial ?
 	if accept.YourUUID != stor.node.MyInfo.UUID {
@@ -284,8 +287,9 @@ func (stor *Storage) m1initialize1(ctx context.Context, req neonet.Request) erro
 	case *proto.AskPartitionTable:
 		// TODO initially read PT from disk
 		err = req.Reply(&proto.AnswerPartitionTable{
-			PTid:	 stor.node.PartTab.PTid,
-			RowList: stor.node.PartTab.Dump()})
+			PTid:	     stor.node.PartTab.PTid,
+			NumReplicas: 0, // FIXME hardcoded; NEO/py uses this as n(replica)-1
+			RowList:     stor.node.PartTab.Dump()})
 
 	case *proto.LockedTransactions:
 		// XXX r/o stub
@@ -304,7 +308,7 @@ func (stor *Storage) m1initialize1(ctx context.Context, req neonet.Request) erro
 
 	case *proto.SendPartitionTable:
 		// TODO M sends us whole PT -> save locally
-		stor.node.UpdatePartTab(ctx, msg)	// XXX lock?
+		stor.node.UpdatePartTab(ctx, msg)	// XXX lock?  XXX handle msg.NumReplicas
 
 	case *proto.NotifyPartitionChanges:
 		// TODO M sends us δPT -> save locally?
@@ -412,8 +416,6 @@ func (stor *Storage) identify(idReq *proto.RequestIdentification) (proto.Msg, bo
 	return &proto.AcceptIdentification{
 		NodeType:	stor.node.MyInfo.Type,
 		MyUUID:		stor.node.MyInfo.UUID,		// XXX lock wrt update
-		NumPartitions:	1,	// XXX
-		NumReplicas:	0,	// XXX
 		YourUUID:	idReq.UUID,
 	}, true
 }
