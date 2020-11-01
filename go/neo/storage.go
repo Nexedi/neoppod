@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -533,10 +533,10 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 	switch req := req.(type) {
 	case *proto.GetObject:
 		xid := zodb.Xid{Oid: req.Oid}
-		if req.Serial != proto.INVALID_TID {
-			xid.At = req.Serial
+		if req.At != proto.INVALID_TID {
+			xid.At = req.At
 		} else {
-			xid.At = before2At(req.Tid)
+			xid.At = before2At(req.Before)
 		}
 
 		obj, err := stor.back.Load(ctx, xid)
@@ -547,11 +547,11 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 
 		// compatibility with py side:
 		// for loadSerial - check we have exact hit - else "nodata"
-		if req.Serial != proto.INVALID_TID {
-		        if obj.Serial != req.Serial {
+		if req.At != proto.INVALID_TID {
+		        if obj.Serial != req.At {
 				return &proto.Error{
 					Code:    proto.OID_NOT_FOUND,
-					Message: fmt.Sprintf("%s: no data with serial %s", xid.Oid, req.Serial),
+					Message: fmt.Sprintf("%s: no data with serial %s", xid.Oid, req.At),
 				}
 		        }
 		}

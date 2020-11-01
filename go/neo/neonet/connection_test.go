@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -1015,8 +1015,8 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 			case *proto.GetObject:
 				err = req.Reply(&proto.AnswerObject{
 					Oid:        msg.Oid,
-					Serial:     msg.Serial,
-					DataSerial: msg.Tid,
+					Serial:     msg.At,
+					DataSerial: msg.Before,
 				})
 				if err != nil {
 					b.Fatal(err)
@@ -1033,15 +1033,15 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 		obj := &proto.AnswerObject{}
 
 		get.Oid = zodb.Oid(i)
-		get.Serial = zodb.Tid(i+1)
-		get.Tid = zodb.Tid(i+2)
+		get.At = zodb.Tid(i+1)
+		get.Before = zodb.Tid(i+2)
 
 		err := l1.Ask1(get, obj)
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		if !(obj.Oid == get.Oid && obj.Serial == get.Serial && obj.DataSerial == get.Tid) {
+		if !(obj.Oid == get.Oid && obj.Serial == get.At && obj.DataSerial == get.Before) {
 			b.Fatalf("read back: %v  ; requested %v", obj, get)
 		}
 

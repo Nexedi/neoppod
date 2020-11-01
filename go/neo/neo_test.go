@@ -307,8 +307,8 @@ func TestMasterStorage(t0 *testing.T) {
 	// ... -> GetObject(xid1)
 	tCS.Expect(conntx("c:2", "s:3", 3, &proto.GetObject{
 		Oid:	xid1.Oid,
-		Tid:	at2Before(xid1.At),
-		Serial: proto.INVALID_TID,
+		Before:	at2Before(xid1.At),
+		At:     proto.INVALID_TID,
 	}))
 	tCS.Expect(conntx("s:3", "c:2", 3, &proto.AnswerObject{
 		Oid:		xid1.Oid,
@@ -342,8 +342,8 @@ func TestMasterStorage(t0 *testing.T) {
 	// ... -> GetObject(xid1prev)
 	tCS.Expect(conntx("c:2", "s:3", 5, &proto.GetObject{
 		Oid:	xid1prev.Oid,
-		Tid:	serial1,
-		Serial: proto.INVALID_TID,
+		Before:	serial1,
+		At:     proto.INVALID_TID,
 	}))
 	tCS.Expect(conntx("s:3", "c:2", 5, &proto.AnswerObject{
 		Oid:		xid1prev.Oid,
