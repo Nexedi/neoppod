@@ -99,16 +99,16 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[UP_TO_DATE-0]
-	_ = x[OUT_OF_DATE-1]
+	_ = x[OUT_OF_DATE-0]
+	_ = x[UP_TO_DATE-1]
 	_ = x[FEEDING-2]
-	_ = x[DISCARDED-3]
-	_ = x[CORRUPTED-4]
+	_ = x[CORRUPTED-3]
+	_ = x[DISCARDED-4]
 }
 
-const _CellState_name = "UP_TO_DATEOUT_OF_DATEFEEDINGDISCARDEDCORRUPTED"
+const _CellState_name = "OUT_OF_DATEUP_TO_DATEFEEDINGCORRUPTEDDISCARDED"
 
-var _CellState_index = [...]uint8{0, 10, 21, 28, 37, 46}
+var _CellState_index = [...]uint8{0, 11, 21, 28, 37, 46}
 
 func (i CellState) String() string {
 	if i < 0 || i >= CellState(len(_CellState_index)-1) {
