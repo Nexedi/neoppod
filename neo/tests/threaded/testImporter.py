@@ -16,19 +16,18 @@
 
 from cPickle import Pickler, Unpickler
 from cStringIO import StringIO
-from itertools import islice, izip_longest
-import os, shutil, unittest
-import neo, transaction, ZODB
+from itertools import izip_longest
+import os, random, shutil, time, unittest
+import transaction, ZODB
 from neo.client.exception import NEOPrimaryMasterLost
 from neo.lib import logging
 from neo.lib.util import u64
-from neo.storage.database.importer import Repickler
-from ..fs2zodb import Inode
-from .. import expectedFailure, getTempDirectory
+from neo.storage.database import getAdapterKlass, importer, manager
+from neo.storage.database.importer import Repickler, TransactionRecord
+from .. import expectedFailure, getTempDirectory, random_tree, Patch
 from . import NEOCluster, NEOThreadedTest
 from ZODB import serialize
 from ZODB.FileStorage import FileStorage
-
 
 class Equal:
 
@@ -129,61 +128,58 @@ class ImporterTests(NEOThreadedTest):
         self.assertIs(Obj, load())
         self.assertDictEqual(state, load())
 
-    def test(self):
-        # XXX: Using NEO source files as test data was a bad idea because
-        #      the test breaks easily in case of massive changes in the code,
-        #      or if there are many untracked files.
-        importer = []
+    def _importFromFileStorage(self, multi=(),
+                               root_filter=None, sub_filter=None):
+        import_hash = '1d4ff03730fe6bcbf235e3739fbe5f5b'
+        txn_size = 10
+        tree = random_tree.generateTree(random.Random(0))
+        i = len(tree) // 3
+        assert i > txn_size
+        before_tree = tree[:i]
+        after_tree = tree[i:]
         fs_dir = os.path.join(getTempDirectory(), self.id())
         shutil.rmtree(fs_dir, 1) # for --loop
         os.mkdir(fs_dir)
-        src_root, = neo.__path__
-        fs_list = "root", "client", "master", "tests"
-        def not_pyc(name):
-            return not name.endswith(".pyc")
-        # We use 'hash' to skip roughly half of files.
-        # They'll be added after the migration has started.
-        def root_filter(name):
-            if not_pyc(name):
-                i = name.find(os.sep)
-                return (i < 0 or name[:i] not in fs_list) and (
-                    '.' not in name or hash(name) & 1)
-        def sub_filter(name):
-            return lambda n: not_pyc(n) and (
-                hash(n) & 1 if '.' in n else
-                os.sep in n or n in (name, "scripts"))
-        conn_list = []
         iter_list = []
+        db_list = []
         # Setup several FileStorage databases.
-        for i, name in enumerate(fs_list):
-            fs_path = os.path.join(fs_dir, name + ".fs")
+        for i, db in enumerate(('root',) + multi):
+            fs_path = os.path.join(fs_dir, '%s.fs' % db)
             c = ZODB.DB(FileStorage(fs_path)).open()
-            r = c.root()["neo"] = Inode()
+            r = c.root()['tree'] = random_tree.Node()
             transaction.commit()
-            conn_list.append(c)
-            iter_list.append(r.treeFromFs(src_root, 10,
-                sub_filter(name) if i else root_filter))
-            importer.append((name, {
+            iter_list.append(random_tree.importTree(r, before_tree, txn_size,
+                sub_filter(db) if i else root_filter))
+            db_list.append((db, r, {
                 "storage": "<filestorage>\npath %s\n</filestorage>" % fs_path
                 }))
         # Populate FileStorage databases.
-        for iter_list in izip_longest(*iter_list):
-            for i in iter_list:
-                if i:
+        for i, iter_list in enumerate(izip_longest(*iter_list)):
+            for r in iter_list:
+                if r:
                     transaction.commit()
-        del iter_list
         # Get oids of mount points and close.
-        for (name, cfg), c in zip(importer, conn_list):
-            r = c.root()["neo"]
-            if name == "root":
-                for name in fs_list[1:]:
-                    cfg[name] = str(u64(r[name]._p_oid))
+        zodb = []
+        importer = {'zodb': zodb}
+        for db, r, cfg in db_list:
+            if db == 'root':
+                if multi:
+                    for x in multi:
+                        cfg['_%s' % x] = str(u64(r[x]._p_oid))
+                else:
+                    h = random_tree.hashTree(r)
+                    h()
+                    self.assertEqual(import_hash, h.hexdigest())
+                    importer['writeback'] = 'true'
             else:
-                cfg["oid"] = str(u64(r[name]._p_oid))
-            c.db().close()
-        #del importer[0][1][importer.pop()[0]]
-        # Start NEO cluster with transparent import of a multi-base ZODB.
-        with NEOCluster(compress=False, importer=importer) as cluster:
+                cfg["oid"] = str(u64(r[db]._p_oid))
+                db = '_%s' % db
+            r._p_jar.db().close()
+            zodb.append((db, cfg))
+        del db_list, iter_list
+        #del zodb[0][1][zodb.pop()[0]]
+        # Start NEO cluster with transparent import.
+        with NEOCluster(importer=importer) as cluster:
             # Suspend import for a while, so that import
             # is finished in the middle of the below 'for' loop.
             # Use a slightly different main loop for storage so that it
@@ -202,7 +198,7 @@ class ImporterTests(NEOThreadedTest):
             dm.doOperation = doOperation
             cluster.start()
             t, c = cluster.getTransaction()
-            r = c.root()["neo"]
+            r = c.root()['tree']
             # Test retrieving of an object from ZODB when next serial is in NEO.
             r._p_changed = 1
             t.commit()
@@ -213,31 +209,81 @@ class ImporterTests(NEOThreadedTest):
             ##
             self.assertRaisesRegexp(NotImplementedError, " getObjectHistory$",
                                     c.db().history, r._p_oid)
-            i = r.walk()
-            next(islice(i, 4, None))
+            h = random_tree.hashTree(r)
+            h(30)
             logging.info("start migration")
             dm.doOperation(cluster.storage)
             # Adjust if needed. Must remain > 0.
-            assert 14 == sum(1 for i in i)
+            self.assertEqual(22, h())
+            self.assertEqual(import_hash, h.hexdigest())
+            # New writes after the switch to NEO.
             last_import = -1
-            for i, r in enumerate(r.treeFromFs(src_root, 6, not_pyc)):
+            for i, r in enumerate(random_tree.importTree(
+                    r, after_tree, txn_size)):
                 t.commit()
                 if cluster.storage.dm._import:
                     last_import = i
             self.tic()
             # Same as above. We want last_import smaller enough compared to i
-            assert i / 3 < last_import < i - 2, (last_import, i)
+            assert i < last_import * 3 < 2 * i, (last_import, i)
             self.assertFalse(cluster.storage.dm._import)
-            i = len(src_root) + 1
-            self.assertEqual(sorted(r.walk()), sorted(
-                (x[i:] or '.', sorted(y), sorted(filter(not_pyc, z)))
-                for x, y, z in os.walk(src_root)))
-            t.commit()
+            storage._cache.clear()
+            def finalCheck(r):
+                h = random_tree.hashTree(r)
+                self.assertEqual(93, h())
+                self.assertEqual('6bf0f0cb2d6c1aae9e52c412ef0e25b6',
+                                 h.hexdigest())
+            finalCheck(r)
+            if dm._writeback:
+                dm.commit()
+                dm._writeback.wait()
+        if dm._writeback:
+            db = ZODB.DB(FileStorage(fs_path, read_only=True))
+            finalCheck(db.open().root()['tree'])
+            db.close()
+
+    @unittest.skipUnless(importer.FORK, 'no os.fork')
+    def test1(self):
+        self._importFromFileStorage()
+
+    def testThreadedWriteback(self):
+        # Also check reconnection to the underlying DB for relevant backends.
+        tid_list = []
+        def __init__(orig, tr, db, tid):
+            orig(tr, db, tid)
+            tid_list.append(tid)
+        def fetchObject(orig, db, *args):
+            if len(tid_list) == 5:
+                if isinstance(db, getAdapterKlass('MySQL')):
+                    from neo.tests.storage.testStorageMySQL import ServerGone
+                    with ServerGone(db):
+                        orig(db, *args)
+                    self.fail()
+                else:
+                    tid_list.append(None)
+                    p.revert()
+            return orig(db, *args)
+        def sleep(orig, seconds):
+            self.assertEqual(len(tid_list), 5)
+            p.revert()
+        with Patch(importer, FORK=False), \
+             Patch(TransactionRecord, __init__=__init__), \
+             Patch(manager.DatabaseManager, fetchObject=fetchObject), \
+             Patch(time, sleep=sleep) as p:
+            self._importFromFileStorage()
+            self.assertFalse(p.applied)
+        self.assertEqual(len(tid_list), 11)
+
+    def testMerge(self):
+        multi = 1, 2, 3
+        self._importFromFileStorage(multi,
+            (lambda path: path[0] not in multi or len(path) == 1),
+            (lambda db: lambda path: path[0] in (db, 4)))
 
     if getattr(serialize, '_protocol', 1) > 1:
         # XXX: With ZODB5, we should at least keep a working test that does not
         #      merge several DB.
-        test = expectedFailure(NEOPrimaryMasterLost)(test)
+        testMerge = expectedFailure(NEOPrimaryMasterLost)(testMerge)
 
 if __name__ == "__main__":
     unittest.main()

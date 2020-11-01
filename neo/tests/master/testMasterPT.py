@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import random, time, unittest
-from collections import defaultdict
+from collections import Counter, defaultdict
 from .. import NeoUnitTestBase
 from neo.lib import logging
 from neo.lib.protocol import NodeStates, CellStates
@@ -291,26 +291,94 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         self.update(pt, self.tweak(pt, sn[:1]))
         self.assertPartitionTable(pt, '.U.|..U|.U.|..U|.U.|..U|.U.')
 
-    def test_18_tweak(self):
-        s = repr(time.time())
-        logging.info("using seed %r", s)
-        r = random.Random(s)
+    def test_18_tweakBigPT(self):
+        seed = repr(time.time())
+        logging.info("using seed %r", seed)
         sn_count = 11
         sn = [self.createStorage(None, i + 1, NodeStates.RUNNING)
               for i in xrange(sn_count)]
-        pt = PartitionTable(1000, 2)
-        pt.setID(1)
-        for offset in xrange(pt.np):
-            state = CellStates.UP_TO_DATE
-            k = r.randrange(1, sn_count)
-            for s in r.sample(sn, k):
-                pt._setCell(offset, s, state)
-                if k * r.random() < 1:
-                    state = CellStates.OUT_OF_DATE
-        pt.log()
-        self.tweak(pt)
-        self.update(pt)
+        for topo in 0, 1:
+            r = random.Random(seed)
+            if topo:
+                for i, s in enumerate(sn, sn_count):
+                    s.devpath = str(i % 5),
+            pt = PartitionTable(1000, 2)
+            pt.setID(1)
+            for offset in xrange(pt.np):
+                state = CellStates.UP_TO_DATE
+                k = r.randrange(1, sn_count)
+                for s in r.sample(sn, k):
+                    pt._setCell(offset, s, state)
+                    if k * r.random() < 1:
+                        state = CellStates.OUT_OF_DATE
+            pt.log()
+            self.tweak(pt)
+            self.update(pt)
 
+    def test_19_topology(self):
+        sn_count = 16
+        sn = [self.createStorage(None, i + 1, NodeStates.RUNNING)
+              for i in xrange(sn_count)]
+        pt = PartitionTable(48, 2)
+        pt.make(sn)
+        pt.log()
+        for i, s in enumerate(sn, sn_count):
+            s.devpath = tuple(bin(i)[3:-1])
+        self.assertEqual(Counter(x[2] for x in self.tweak(pt)), {
+            CellStates.OUT_OF_DATE: 96,
+            CellStates.FEEDING: 96,
+        })
+        self.update(pt)
+        x = lambda n, *x: ('|'.join(x[:1]*n), '|'.join(x[1:]*n))
+        for even, np, i, topo, expected in (
+            ## Optimal topology.
+            # All nodes have same number of cells.
+            (1, 2, 2, ("00", "01", "02", "10", "11", "12"), ('UU...U|..UUU.',
+                                                             'UU.U..|..U.UU')),
+            (1, 7, 1, "0001122", (
+                'U.....U|.U.U...|..U.U..|U....U.|.U....U|..UU...|....UU.',
+                'U..U...|.U...U.|..U.U..|U.....U|.U.U...|..U..U.|....U.U')),
+            (1, 4, 1, "00011122", ('U......U|.U.U....|..U.U...|.....UU.',
+                                   'U..U....|.U..U...|..U...U.|.....U.U')),
+            (1, 9, 1, "000111222", ('U.......U|.U.U.....|..U.U....|'
+                                    '.....UU..|U......U.|.U......U|'
+                                    '..UU.....|....U.U..|.....U.U.',
+                                    'U..U.....|.U....U..|..U.U....|'
+                                    '.....U.U.|U.......U|.U.U.....|'
+                                    '..U...U..|....U..U.|.....U..U')),
+            # Some nodes have a extra cell.
+            (0, 8, 1, "0001122", ('U.....U|.U.U...|..U.U..|U....U.|'
+                                  '.U....U|..UU...|....UU.|U.....U',
+                                  'U..U...|.U...U.|..U.U..|U.....U|'
+                                  '.U.U...|..U..U.|....U.U|U..U...')),
+            ## Topology ignored.
+            (1, 6, 1, ("00", "01", "1"), 'UU.|U.U|.UU|UU.|U.U|.UU'),
+            (1, 5, 2, "01233", 'UUU..|U..UU|.UUU.|UU..U|..UUU'),
+        ):
+            assert len(topo) <= sn_count
+            sn2 = sn[:len(topo)]
+            for s in sn2:
+                s.devpath = ()
+            k = (1,7)[even]
+            pt = PartitionTable(np*k, i)
+            pt.make(sn2)
+            for devpath, s in zip(topo, sn2):
+                s.devpath = tuple(devpath)
+            if type(expected) is tuple:
+                self.assertTrue(self.tweak(pt))
+                self.update(pt)
+                self.assertPartitionTable(pt, '|'.join(expected[:1]*k))
+                pt.clear()
+                pt.make(sn2)
+                self.assertPartitionTable(pt, '|'.join(expected[1:]*k))
+                self.assertFalse(pt.tweak())
+            else:
+                expected = '|'.join((expected,)*k)
+                self.assertFalse(pt.tweak())
+                self.assertPartitionTable(pt, expected)
+                pt.clear()
+                pt.make(sn2)
+                self.assertPartitionTable(pt, expected)
 
 if __name__ == '__main__':
     unittest.main()

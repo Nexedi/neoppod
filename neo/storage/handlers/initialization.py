@@ -28,21 +28,21 @@ class InitializationHandler(BaseMasterHandler):
             raise ProtocolError('Partial partition table received')
         # Install the partition table into the database for persistence.
         cell_list = []
-        offset_list = xrange(pt.getPartitions())
-        unassigned_set = set(offset_list)
-        for offset in offset_list:
+        unassigned = range(pt.getPartitions())
+        for offset in reversed(unassigned):
             for cell in pt.getCellList(offset):
                 cell_list.append((offset, cell.getUUID(), cell.getState()))
                 if cell.getUUID() == app.uuid:
-                    unassigned_set.remove(offset)
+                    unassigned.remove(offset)
         # delete objects database
         dm = app.dm
-        if unassigned_set:
+        if unassigned:
           if app.disable_drop_partitions:
-            logging.info("don't drop data for partitions %r", unassigned_set)
+            logging.info('partitions %r are discarded but actual deletion'
+                         ' of data is disabled', unassigned)
           else:
-            logging.debug('drop data for partitions %r', unassigned_set)
-            dm.dropPartitions(unassigned_set)
+            logging.debug('drop data for partitions %r', unassigned)
+            dm.dropPartitions(unassigned)
 
         dm.changePartitionTable(ptid, cell_list, reset=True)
         dm.commit()
@@ -63,7 +63,7 @@ class InitializationHandler(BaseMasterHandler):
     def askLastIDs(self, conn):
         dm = self.app.dm
         dm.truncate()
-        ltid, _, _, loid = dm.getLastIDs()
+        ltid, loid = dm.getLastIDs()
         conn.answer(Packets.AnswerLastIDs(loid, ltid))
 
     def askPartitionTable(self, conn):
@@ -77,18 +77,10 @@ class InitializationHandler(BaseMasterHandler):
     def validateTransaction(self, conn, ttid, tid):
         dm = self.app.dm
         dm.lockTransaction(tid, ttid)
-        dm.unlockTransaction(tid, ttid)
+        dm.unlockTransaction(tid, ttid, True, True)
         dm.commit()
 
     def startOperation(self, conn, backup):
-        self.app.operational = True
         # XXX: see comment in protocol
-        dm = self.app.dm
-        if backup:
-            if dm.getBackupTID():
-                return
-            tid = dm.getLastIDs()[0] or ZERO_TID
-        else:
-            tid = None
-        dm._setBackupTID(tid)
-        dm.commit()
+        self.app.operational = True
+        self.app.replicator.startOperation(backup)

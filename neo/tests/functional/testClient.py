@@ -202,9 +202,9 @@ class ClientTests(NEOFunctionalTest):
         self.neo.stop()
 
         self.neo = NEOCluster(db_list=['test_neo1'], partitions=3,
-            importer=[("root", {
+            importer={"zodb": [("root", {
                 "storage": "<filestorage>\npath %s\n</filestorage>"
-                            % dfs_storage.getName()})],
+                            % dfs_storage.getName()})]},
             temp_dir=self.getTempDirectory())
         self.neo.start()
         neo_db, neo_conn = self.neo.getZODBConnection()

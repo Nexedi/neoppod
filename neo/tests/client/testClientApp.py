@@ -21,6 +21,7 @@ from .. import NeoUnitTestBase, buildUrlFromString
 from neo.client.app import Application
 from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError
+from neo.lib.util import p64
 
 class ClientApplicationTests(NeoUnitTestBase):
 
@@ -51,9 +52,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def makeOID(self, value=None):
         from random import randint
-        if value is None:
-            value = randint(1, 255)
-        return '\00' * 7 + chr(value)
+        return p64(randint(1, 255) if value is None else value)
     makeTID = makeOID
 
     def makeTransactionObject(self, user='u', description='d', _extension='e'):

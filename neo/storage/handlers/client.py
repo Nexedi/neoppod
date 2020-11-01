@@ -42,11 +42,11 @@ class ClientOperationHandler(BaseHandler):
         # for read rpc
         return self.app.tm.read_queue
 
-    def askObject(self, conn, oid, serial, tid):
+    def askObject(self, conn, oid, at, before):
         app = self.app
         if app.tm.loadLocked(oid):
             raise DelayEvent
-        o = app.dm.getObject(oid, serial, tid)
+        o = app.dm.getObject(oid, at, before)
         try:
             serial, next_serial, compression, checksum, data, data_serial = o
         except TypeError:

@@ -537,8 +537,8 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial z
 	// on the wire it comes as "before", not "at"
 	req := proto.GetObject{
 		Oid:    xid.Oid,
-		Tid:    at2Before(xid.At),
-		Serial: proto.INVALID_TID,
+		Before: at2Before(xid.At),
+		At:     proto.INVALID_TID,
 	}
 
 	resp := proto.AnswerObject{}
