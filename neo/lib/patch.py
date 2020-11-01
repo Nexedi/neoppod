@@ -25,6 +25,7 @@ def speedupFileStorageTxnLookup():
     from array import array
     from bisect import bisect
     from collections import defaultdict
+    from neo.lib import logging
     from ZODB.FileStorage.FileStorage import FileStorage, FileIterator
 
     typecode = 'L' if array('I').itemsize < 4 else 'I'
@@ -44,6 +45,8 @@ def speedupFileStorageTxnLookup():
             try:
                 index = self._tidindex
             except AttributeError:
+                logging.info("Building index for faster lookup of"
+                             " transactions in the FileStorage DB.")
                 # Cache a sorted list of all the file pos from oid index.
                 # To reduce memory usage, the list is splitted in arrays of
                 # low order 32-bit words.
@@ -52,10 +55,10 @@ def speedupFileStorageTxnLookup():
                     tindex[x >> 32].append(x & 0xffffffff)
                 index = self._tidindex = []
                 for h, l in sorted(tindex.iteritems()):
-                    x = array('I')
-                    x.fromlist(sorted(l))
-                    l = self._read_data_header(h << 32 | x[0])
-                    index.append((l.tid, h, x))
+                    l = array(typecode, sorted(l))
+                    x = self._read_data_header(h << 32 | l[0])
+                    index.append((x.tid, h, l))
+                logging.info("... index built")
             x = bisect(index, (start,)) - 1
             if x >= 0:
                 x, h, index = index[x]

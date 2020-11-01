@@ -21,6 +21,8 @@ from neo.lib.util import ReadBuffer, parseNodeAddress
 
 class UtilTests(NeoUnitTestBase):
 
+    from neo.storage.shared_queue import test as testSharedQueue
+
     def test_parseNodeAddress(self):
         """ Parsing of addresses """
         def test(parsed, *args):

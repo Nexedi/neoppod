@@ -117,7 +117,7 @@ class Transaction(object):
         if uuid_list:
             return
         del self.data_dict[oid]
-        if type(data) is str:
+        if type(data) is bytes:
             size = len(data)
             self.data_size -= size
             size += self.cache_size

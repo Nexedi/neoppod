@@ -14,10 +14,14 @@
         Give the name of the cluster
       </description>
     </key>
-    <key name="compress" datatype="boolean">
+    <key name="compress" datatype=".compress">
       <description>
-        If true, data is automatically compressed (unless compressed size is
-        not smaller). This is the default behaviour.
+        The value is either of 'boolean' type or an explicit algorithm that
+        matches the regex 'zlib(=\d+)?', where the optional number is
+        the compression level.
+        Any record that is not smaller once compressed is stored uncompressed.
+        True is the default and its meaning may change over time:
+        currently, it is the same as 'zlib'.
       </description>
     </key>
     <key name="read-only" datatype="boolean">

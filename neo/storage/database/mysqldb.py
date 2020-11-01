@@ -16,6 +16,7 @@
 
 from binascii import a2b_hex
 from collections import OrderedDict
+from functools import wraps
 import MySQLdb
 from MySQLdb import DataError, IntegrityError, \
     OperationalError, ProgrammingError
@@ -33,24 +34,63 @@ import struct
 import sys
 import time
 
-from . import LOG_QUERIES
+from . import LOG_QUERIES, DatabaseFailure
 from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
-from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import implements
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
+from neo.lib.protocol import ZERO_OID, ZERO_TID, ZERO_HASH
+
+
+class MysqlError(DatabaseFailure):
+
+    def __init__(self, exc, query=None):
+        self.exc = exc
+        self.query = query
+
+    code = property(lambda self: self.exc.args[0])
+
+    def __str__(self):
+        msg = 'MySQL error %s: %s' % self.exc.args
+        return msg if self.query is None else '%s\nQuery: %s' % (
+            msg, getPrintableQuery(self.query[:1000]))
 
 
 def getPrintableQuery(query, max=70):
     return ''.join(c if c in string.printable and c not in '\t\x0b\x0c\r'
         else '\\x%02x' % ord(c) for c in query)
 
+def auto_reconnect(wrapped):
+    def wrapper(self, *args):
+        # Try 3 times at most. When it fails too often for the same
+        # query then the disconnection is likely caused by this query.
+        # We don't want to enter into an infinite loop.
+        retry = 2
+        while 1:
+            try:
+                return wrapped(self, *args)
+            except OperationalError as m:
+                # IDEA: Is it safe to retry in case of DISK_FULL ?
+                # XXX:  However, this would another case of failure that would
+                #       be unnoticed by other nodes (ADMIN & MASTER). When
+                #       there are replicas, it may be preferred to not retry.
+                if (self._active
+                    or SERVER_GONE_ERROR != m.args[0] != SERVER_LOST
+                    or not retry):
+                    if self.LOCK:
+                        raise MysqlError(m, *args)
+                    raise # caught upper for secondary connections
+                logging.info('the MySQL server is gone; reconnecting')
+                assert not self._deferred
+                self.close()
+                retry -= 1
+    return wraps(wrapped)(wrapper)
+
 
 @implements
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
-    VERSION = 2
+    VERSION = 3
     ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
@@ -65,9 +105,18 @@ class MySQLDatabaseManager(DatabaseManager):
             '(?:([^:]+)(?::(.*))?@)?([^~./]+)(.+)?$', database).groups()
 
     def _close(self):
-        self.conn.close()
+        try:
+            conn = self.__dict__.pop('conn')
+        except KeyError:
+            return
+        conn.close()
 
-    def _connect(self):
+    def __getattr__(self, attr):
+        if attr == 'conn':
+            self._tryConnect()
+        return super(MySQLDatabaseManager, self).__getattr__(attr)
+
+    def _tryConnect(self):
         kwd = {'db' : self.db, 'user' : self.user}
         if self.passwd is not None:
             kwd['passwd'] = self.passwd
@@ -75,6 +124,7 @@ class MySQLDatabaseManager(DatabaseManager):
             kwd['unix_socket'] = os.path.expanduser(self.socket)
         logging.info('connecting to MySQL on the database %s with user %s',
                      self.db, self.user)
+        self._active = 0
         if self._wait < 0:
             timeout_at = None
         else:
@@ -95,7 +145,6 @@ class MySQLDatabaseManager(DatabaseManager):
                     log = logging.exception
                 log('Connection to MySQL failed, retrying.')
                 time.sleep(1)
-        self._active = 0
         self._config = {}
         conn = self.conn
         conn.autocommit(False)
@@ -117,44 +166,55 @@ class MySQLDatabaseManager(DatabaseManager):
                 " Minimal value must be %uk."
                 % (name, self._max_allowed_packet // 1024))
         self._max_allowed_packet = int(value)
+        try:
+            self._dedup = bool(query(
+                "SHOW INDEX FROM data WHERE key_name='hash'"))
+        except ProgrammingError as e:
+            if e.args[0] != NO_SUCH_TABLE:
+                raise
+            self._dedup = None
+        if not self.LOCK:
+            # Prevent automatic reconnection for secondary connections.
+            self._active = 1
+            self._commit = self.conn.commit
+
+    _connect = auto_reconnect(_tryConnect)
+
+    def autoReconnect(self, f):
+        assert self._active and not self.LOCK
+        @auto_reconnect
+        def try_once(self):
+            if self._active:
+                try:
+                    f()
+                finally:
+                    self._active = 0
+                return True
+        while not try_once(self):
+            # Avoid reconnecting too often.
+            # Since this is used to wrap an arbitrary long process and
+            # not just a single query, we can't limit the number of retries.
+            time.sleep(5)
+            self._connect()
 
     def _commit(self):
         self.conn.commit()
         self._active = 0
 
+    @auto_reconnect
     def query(self, query):
         """Query data from a database."""
         if LOG_QUERIES:
             logging.debug('querying %s...',
                 getPrintableQuery(query.split('\n', 1)[0][:70]))
-        # Try 3 times at most. When it fails too often for the same
-        # query then the disconnection is likely caused by this query.
-        # We don't want to enter into an infinite loop.
-        retry = 2
-        while 1:
-            conn = self.conn
-            try:
-                conn.query(query)
-                if query.startswith("SELECT "):
-                    r = conn.store_result()
-                    return tuple([
-                        tuple([d.tostring() if isinstance(d, array) else d
-                              for d in row])
-                        for row in r.fetch_row(r.num_rows())])
-                break
-            except OperationalError as m:
-                code, m = m.args
-                # IDEA: Is it safe to retry in case of DISK_FULL ?
-                # XXX:  However, this would another case of failure that would
-                #       be unnoticed by other nodes (ADMIN & MASTER). When
-                #       there are replicas, it may be preferred to not retry.
-                if self._active or SERVER_GONE_ERROR != code != SERVER_LOST \
-                   or not retry:
-                    raise DatabaseFailure('MySQL error %d: %s\nQuery: %s'
-                        % (code, m, getPrintableQuery(query[:1000])))
-                logging.info('the MySQL server is gone; reconnecting')
-                self._connect()
-                retry -= 1
+        conn = self.conn
+        conn.query(query)
+        if query.startswith("SELECT "):
+            r = conn.store_result()
+            return tuple([
+                tuple([d.tostring() if isinstance(d, array) else d
+                      for d in row])
+                for row in r.fetch_row(r.num_rows())])
         r = query.split(None, 1)[0]
         if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
             self._active = 1
@@ -165,6 +225,11 @@ class MySQLDatabaseManager(DatabaseManager):
     def escape(self):
         """Escape special characters in a string."""
         return self.conn.escape_string
+
+    def _getDevPath(self):
+        # BBB: MySQL is moving to Performance Schema.
+        return self.query("SELECT * FROM information_schema.global_variables"
+                          " WHERE variable_name='datadir'")[0][1]
 
     def erase(self):
         self.query("DROP TABLE IF EXISTS"
@@ -177,20 +242,33 @@ class MySQLDatabaseManager(DatabaseManager):
             if e.args[0] != NO_SUCH_TABLE:
                 raise
 
+    def _alterTable(self, schema_dict, table, select="*"):
+        q = self.query
+        new = 'new_' + table
+        if self.nonempty(table) is None:
+            if self.nonempty(new) is None:
+                return
+        else:
+            q("DROP TABLE IF EXISTS " + new)
+            q(schema_dict.pop(table) % new
+              + " SELECT %s FROM %s" % (select, table))
+            q("DROP TABLE " + table)
+        q("ALTER TABLE %s RENAME TO %s" % (new, table))
+
     def _migrate1(self, _):
         self._checkNoUnfinishedTransactions()
         self.query("DROP TABLE IF EXISTS ttrans")
 
     def _migrate2(self, schema_dict):
-        q = self.query
-        if self.nonempty('obj') is None:
-            if self.nonempty('new_obj') is None:
-                return
-        else:
-            q("DROP TABLE IF EXISTS new_obj")
-            q(schema_dict.pop('obj') % 'new_obj' + " SELECT * FROM obj")
-            q("DROP TABLE obj")
-        q("ALTER TABLE new_obj RENAME TO obj")
+        self._alterTable(schema_dict, 'obj')
+
+    def _migrate3(self, schema_dict):
+        self._alterTable(schema_dict, 'pt', "rid as `partition`, nid,"
+            " CASE state"
+            " WHEN 0 THEN -1"  # UP_TO_DATE
+            " WHEN 2 THEN -2"  # FEEDING
+            " ELSE 1-state"
+            " END as tid")
 
     def _setup(self, dedup=False):
         self._config.clear()
@@ -207,10 +285,10 @@ class MySQLDatabaseManager(DatabaseManager):
 
         # The table "pt" stores a partition table.
         schema_dict['pt'] = """CREATE TABLE %s (
-                 rid INT UNSIGNED NOT NULL,
+                 `partition` SMALLINT UNSIGNED NOT NULL,
                  nid INT NOT NULL,
-                 state TINYINT UNSIGNED NOT NULL,
-                 PRIMARY KEY (rid, nid)
+                 tid BIGINT NOT NULL,
+                 PRIMARY KEY (`partition`, nid)
              ) ENGINE=""" + engine
 
         if self._use_partition:
@@ -292,6 +370,9 @@ class MySQLDatabaseManager(DatabaseManager):
         for table, schema in schema_dict.iteritems():
             q(schema % ('IF NOT EXISTS ' + table))
 
+        if self._dedup is None:
+            self._dedup = dedup
+
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
             " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))
 
@@ -326,42 +407,23 @@ class MySQLDatabaseManager(DatabaseManager):
             q("ALTER TABLE config MODIFY value VARBINARY(%s) NULL" % len(value))
             q(sql)
 
-    def getPartitionTable(self, *nid):
-        if nid:
-            return self.query("SELECT rid, state FROM pt WHERE nid=%u" % nid)
+    def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
-    def _getAssignedPartitionList(self):
-        nid = self.getUUID()
-        if nid is None:
-            return ()
-        return [p for p, in self.query("SELECT rid FROM pt WHERE nid=%s" % nid)]
+    def _getLastTID(self, partition, max_tid=None):
+        x = "WHERE `partition`=%s" % partition
+        if max_tid:
+            x += " AND tid<=%s" % max_tid
+        (tid,), = self.query(
+            "SELECT MAX(tid) as t FROM trans FORCE INDEX (PRIMARY)" + x)
+        return tid
 
-    def _sqlmax(self, sql, arg_list):
+    def _getLastIDs(self, partition):
         q = self.query
-        x = [x for x in arg_list for x, in q(sql % x) if x is not None]
-        if x: return max(x)
-
-    def getLastTID(self, max_tid):
-        return self._sqlmax(
-            "SELECT MAX(tid) as t FROM trans FORCE INDEX (PRIMARY)"
-            " WHERE tid<=%s and `partition`=%%s" % max_tid,
-            self._getAssignedPartitionList())
-
-    def _getLastIDs(self):
-        offset_list = self._getAssignedPartitionList()
-        p64 = util.p64
-        q = self.query
-        sql = "SELECT MAX(tid) FROM %s WHERE `partition`=%s"
-        trans, obj = ({partition: p64(tid)
-            for partition in offset_list
-            for tid, in q(sql % (t, partition))
-            if tid is not None}
-            for t in ('trans FORCE INDEX (PRIMARY)', 'obj FORCE INDEX (tid)'))
-        oid = self._sqlmax(
-            "SELECT MAX(oid) FROM obj FORCE INDEX (PRIMARY)"
-            " WHERE `partition`=%s", offset_list)
-        return trans, obj, None if oid is None else p64(oid)
+        x = "WHERE `partition`=%s" % partition
+        (oid,), = q("SELECT MAX(oid) FROM obj FORCE INDEX (PRIMARY)" + x)
+        (tid,), = q("SELECT MAX(tid) FROM obj FORCE INDEX (tid)" + x)
+        return tid, oid
 
     def _getDataLastId(self, partition):
         return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
@@ -427,26 +489,26 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         if reset:
             q("DELETE FROM pt")
-        for offset, nid, state in cell_list:
+        for offset, nid, tid in cell_list:
             # TODO: this logic should move out of database manager
             # add 'dropCells(cell_list)' to API and use one query
-            if state == CellStates.DISCARDED:
-                q("DELETE FROM pt WHERE rid = %d AND nid = %d"
+            if tid is None:
+                q("DELETE FROM pt WHERE `partition` = %d AND nid = %d"
                   % (offset, nid))
             else:
                 offset_list.append(offset)
                 q("INSERT INTO pt VALUES (%d, %d, %d)"
-                  " ON DUPLICATE KEY UPDATE state = %d"
-                  % (offset, nid, state, state))
+                  " ON DUPLICATE KEY UPDATE tid = %d"
+                  % (offset, nid, tid, tid))
         if self._use_partition:
             for offset in offset_list:
                 add = """ALTER TABLE %%s ADD PARTITION (
                     PARTITION p%u VALUES IN (%u))""" % (offset, offset)
                 for table in 'trans', 'obj':
                     try:
-                        self.conn.query(add % table)
-                    except OperationalError as e:
-                        if e.args[0] != SAME_NAME_PARTITION:
+                        self.query(add % table)
+                    except MysqlError as e:
+                        if e.code != SAME_NAME_PARTITION:
                             raise
 
     def dropPartitions(self, offset_list):
@@ -468,9 +530,9 @@ class MySQLDatabaseManager(DatabaseManager):
                 ','.join(' p%u' % i for i in offset_list)
             for table in 'trans', 'obj':
                 try:
-                    self.conn.query(drop % table)
-                except OperationalError as e:
-                    if e.args[0] != DROP_LAST_PARTITION:
+                    self.query(drop % table)
+                except MysqlError as e:
+                    if e.code != DROP_LAST_PARTITION:
                         raise
 
     def _getUnfinishedDataIdList(self):
@@ -578,18 +640,19 @@ class MySQLDatabaseManager(DatabaseManager):
         if 0x1000000 <= len(data): # 16M (MEDIUMBLOB limit)
             compression |= 0x80
             q = self.query
-            for r, d in q("SELECT id, value FROM data"
-                          " WHERE hash='%s' AND compression=%s"
-                          % (checksum, compression)):
-                i = 0
-                for d in self._bigData(d):
-                    j = i + len(d)
-                    if data[i:j] != d:
+            if self._dedup:
+                for r, d in q("SELECT id, value FROM data"
+                              " WHERE hash='%s' AND compression=%s"
+                              % (checksum, compression)):
+                    i = 0
+                    for d in self._bigData(d):
+                        j = i + len(d)
+                        if data[i:j] != d:
+                            raise IntegrityError(DUP_ENTRY)
+                        i = j
+                    if j != len(data):
                         raise IntegrityError(DUP_ENTRY)
-                    i = j
-                if j != len(data):
-                    raise IntegrityError(DUP_ENTRY)
-                return r
+                    return r
             i = 'NULL'
             length = len(data)
             for j in xrange(0, length, 0x800000): # 8M
@@ -647,18 +710,21 @@ class MySQLDatabaseManager(DatabaseManager):
                    % (u64(tid), u64(ttid)))
         self.commit()
 
-    def unlockTransaction(self, tid, ttid):
+    def unlockTransaction(self, tid, ttid, trans, obj):
         q = self.query
         u64 = util.u64
         tid = u64(tid)
+        if trans:
+            q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
+            q("DELETE FROM ttrans WHERE tid=%d" % tid)
+            if not obj:
+                return
         sql = " FROM tobj WHERE tid=%d" % u64(ttid)
         data_id_list = [x for x, in q("SELECT data_id%s AND data_id IS NOT NULL"
                                       % sql)]
         q("INSERT INTO obj SELECT `partition`, oid, %d, data_id, value_tid %s"
           % (tid, sql))
         q("DELETE" + sql)
-        q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
-        q("DELETE FROM ttrans WHERE tid=%d" % tid)
         self.releaseData(data_id_list)
 
     def abortTransaction(self, ttid):
@@ -687,10 +753,10 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         sql = " WHERE `partition`=%d" % partition
-        if min_tid:
-            sql += " AND %d < tid" % util.u64(min_tid)
-        if max_tid:
-            sql += " AND tid <= %d" % util.u64(max_tid)
+        if min_tid is not None:
+            sql += " AND %d < tid" % min_tid
+        if max_tid is not None:
+            sql += " AND tid <= %d" % max_tid
         q = self.query
         q("DELETE FROM trans" + sql)
         sql = " FROM obj" + sql
@@ -742,7 +808,7 @@ class MySQLDatabaseManager(DatabaseManager):
             compression = r[1]
             if compression and compression & 0x80:
                 return (r[0], compression & 0x7f, r[2],
-                    ''.join(self._bigData(data)), r[4])
+                    ''.join(self._bigData(r[3])), r[4])
             return r
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
@@ -886,3 +952,25 @@ class MySQLDatabaseManager(DatabaseManager):
                     sha1(','.join(str(x[1]) for x in r)).digest(),
                     p64(r[-1][1]))
         return 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID
+
+    def _cmdline(self):
+        for x in ('u', self.user), ('p', self.passwd), ('S', self.socket):
+            if x[1]:
+                yield '-%s%s' % x
+        yield self.db
+
+    def dump(self):
+        import subprocess
+        cmd = ['mysqldump', '--compact', '--hex-blob']
+        cmd += self._cmdline()
+        return subprocess.check_output(cmd)
+
+    def restore(self, sql):
+        import subprocess
+        cmd = ['mysql']
+        cmd += self._cmdline()
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+        p.communicate(sql)
+        retcode = p.wait()
+        if retcode:
+            raise subprocess.CalledProcessError(retcode, cmd)

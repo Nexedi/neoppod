@@ -23,3 +23,11 @@ class NeoStorage(BaseConfig):
         config = self.config
         return Storage(**{k: getattr(config, k)
                           for k in config.getSectionAttributes()})
+
+def compress(value):
+    from ZConfig.datatypes import asBoolean
+    try:
+        return asBoolean(value)
+    except ValueError:
+        from neo.lib.compress import parseOption
+    return parseOption(value)

@@ -19,7 +19,6 @@
 import os, random, select, socket, sys, tempfile
 import thread, threading, time, traceback, weakref
 from collections import deque
-from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 from itertools import count
 from functools import partial, wraps
@@ -37,8 +36,9 @@ from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
-from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
-    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER
+from .. import (getTempDirectory, setupMySQLdb,
+    ImporterConfigParser, NeoTestBase, Patch,
+    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER)
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
@@ -171,6 +171,8 @@ class Serialized(object):
             #      a single-core CPU, other threads are still busy and haven't
             #      sent anything yet on the network. This causes tic() to
             #      return prematurely. Passing a non-zero value is a hack.
+            #      We also increase SocketConnector.SOMAXCONN in tests so that
+            #      a connection attempt is never delayed inside the kernel.
             timeout=0):
         # If you're in a pdb here, 'n' switches to another thread
         # (the following lines are not supposed to be debugged into)
@@ -612,6 +614,7 @@ class NEOCluster(object):
         Patch(BaseConnection, getTimeout=lambda orig, self: None),
         Patch(SimpleQueue, __init__=__init__),
         Patch(SocketConnector, CONNECT_LIMIT=0),
+        Patch(SocketConnector, SOMAXCONN=128), # see Serialized.tic comment
         Patch(SocketConnector, _bind=lambda orig, self, addr: orig(self, BIND)),
         Patch(SocketConnector, _connect = lambda orig, self, addr:
             orig(self, ServerNode.resolv(addr))))
@@ -652,8 +655,8 @@ class NEOCluster(object):
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
                        db_user=DB_USER, db_password='', compress=True,
-                       importer=None, autostart=None, dedup=False):
-        self.name = 'neo_%s' % self._allocate('name',
+                       importer=None, autostart=None, dedup=False, name=None):
+        self.name = name or 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
         self.compress = compress
         self.num_partitions = partitions
@@ -685,14 +688,8 @@ class NEOCluster(object):
         else:
             assert False, adapter
         if importer:
-            cfg = SafeConfigParser()
-            cfg.add_section("neo")
-            cfg.set("neo", "adapter", adapter)
+            cfg = ImporterConfigParser(adapter, **importer)
             cfg.set("neo", "database", db % tuple(db_list))
-            for name, zodb in importer:
-                cfg.add_section(name)
-                for x in zodb.iteritems():
-                    cfg.set(name, *x)
             db = os.path.join(getTempDirectory(), '%s.conf')
             with open(db % tuple(db_list), "w") as f:
                 cfg.write(f)
@@ -777,7 +774,7 @@ class NEOCluster(object):
             else NodeStates.RUNNING)
         for node in self.storage_list if storage_list is None else storage_list:
             state = self.getNodeState(node)
-            assert state == expected_state, (node, state)
+            assert state == expected_state, (repr(node), state)
 
     def stop(self, clear_database=False, __print_exc=traceback.print_exc, **kw):
         if self.started:
@@ -897,10 +894,9 @@ class NEOCluster(object):
         if dummy_zodb is None:
             from ..stat_zodb import PROD1
             dummy_zodb = PROD1(random)
-        preindex = {}
         as_storage = dummy_zodb.as_storage
-        return lambda count: self.getZODBStorage().importFrom(
-            as_storage(count), preindex=preindex)
+        return lambda count: self.getZODBStorage().copyTransactionsFrom(
+            as_storage(count))
 
     def populate(self, transaction_list, tid=lambda i: p64(i+1),
                                          oid=lambda i: p64(i+1)):
@@ -1025,8 +1021,12 @@ class NEOThreadedTest(NeoTestBase):
         with Patch(client, _getFinalTID=lambda *_: None):
             self.assertRaises(ConnectionClosed, txn.commit)
 
-    def assertPartitionTable(self, cluster, expected, pt_node=None):
-        index = [x.uuid for x in cluster.storage_list].index
+    def assertPartitionTable(self, cluster, expected, pt_node=None,
+                                   sort_by_nid=False):
+        if sort_by_nid:
+            index = lambda x: x
+        else:
+            index = [x.uuid for x in cluster.storage_list].index
         super(NEOThreadedTest, self).assertPartitionTable(
             (pt_node or cluster.admin).pt, expected,
             lambda x: index(x.getUUID()))

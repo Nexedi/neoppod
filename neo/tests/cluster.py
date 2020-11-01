@@ -221,7 +221,7 @@ class ClusterPdb(object):
 
     def wait(self, test, timeout):
         end_time = time() + timeout
-        period = 0.1
+        period = 0.01
         while not test():
             cluster_dict.acquire()
             try:
@@ -232,7 +232,6 @@ class ClusterPdb(object):
                     next_sleep = max(last_pdb + timeout, end_time) - time()
                     if next_sleep > period:
                         next_sleep = period
-                        period *= 1.5
                     elif next_sleep < 0:
                         return False
             finally:

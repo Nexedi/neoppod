@@ -37,6 +37,11 @@ class SSLTests(SSLMixin, test.Test):
     testStorageDataLock2 = None
     testUndoConflictDuringStore = None
 
+    # With MySQL, this test is expensive.
+    # Let's check deduplication of big oids here.
+    def testBasicStore(self):
+        super(SSLTests, self).testBasicStore(True)
+
     def testAbortConnection(self, after_handshake=1):
         with self.getLoopbackConnection() as conn:
             conn.ask(Packets.Ping())

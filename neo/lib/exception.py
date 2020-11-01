@@ -26,9 +26,6 @@ class PrimaryFailure(NeoException):
 class StoppedOperation(NeoException):
     pass
 
-class DatabaseFailure(NeoException):
-    pass
-
 class NodeNotReady(NeoException):
     pass
 

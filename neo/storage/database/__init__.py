@@ -16,8 +16,6 @@
 
 LOG_QUERIES = False
 
-from neo.lib.exception import DatabaseFailure
-
 DATABASE_MANAGER_DICT = {
     'Importer': 'importer.ImporterDatabaseManager',
     'MySQL': 'mysqldb.MySQLDatabaseManager',
@@ -33,3 +31,6 @@ def getAdapterKlass(name):
 
 def buildDatabaseManager(name, args=(), kw={}):
     return getAdapterKlass(name)(*args, **kw)
+
+class DatabaseFailure(Exception):
+    pass

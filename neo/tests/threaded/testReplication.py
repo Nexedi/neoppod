@@ -20,16 +20,18 @@ from ZODB.POSException import ReadOnlyError, POSKeyError
 import unittest
 from collections import defaultdict
 from functools import wraps
+from itertools import product
 from neo.lib import logging
 from neo.client.exception import NEOStorageError
 from neo.master.handlers.backup import BackupHandler
 from neo.storage.checker import CHECK_COUNT
-from neo.storage.replicator import Replicator
+from neo.storage.database.manager import DatabaseManager
+from neo.storage import replicator
 from neo.lib.connector import SocketConnector
 from neo.lib.connection import ClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
-from neo.lib.util import p64, u64
+from neo.lib.util import add64, p64, u64
 from .. import expectedFailure, Patch, TransactionalResource
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
     predictable_random, with_cluster
@@ -39,9 +41,9 @@ from .test import PCounter, PCounterWithResolution # XXX
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     def decorator(wrapped):
         def wrapper(self):
-            with NEOCluster(partitions, **upstream_kw) as upstream:
+            with NEOCluster(partitions=partitions, **upstream_kw) as upstream:
                 upstream.start()
-                with NEOCluster(partitions, upstream=upstream,
+                with NEOCluster(partitions=partitions, upstream=upstream,
                                 **backup_kw) as backup:
                     backup.start()
                     backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
@@ -248,6 +250,7 @@ class ReplicationTests(NEOThreadedTest):
                 storage_list = [x.uuid for x in backup.storage_list]
                 slave = set(xrange(len(storage_list))).difference
                 for event in xrange(10):
+                    logging.info("event=%s", event)
                     counts = [0]
                     if event == 5:
                         p = Patch(upstream.master.tm,
@@ -344,6 +347,35 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertTrue(backup.master.is_alive())
 
     @backup_test()
+    def testCreationUndone(self, backup):
+        """
+        Check both IStorage.history and replication when the DB contains a
+        deletion record.
+
+        XXX: This test reveals that without --dedup, the replication does not
+             preserve the deduplication that is done by the 'undo' code.
+        """
+        storage = backup.upstream.getZODBStorage()
+        oid = storage.new_oid()
+        txn = transaction.Transaction()
+        storage.tpc_begin(txn)
+        storage.store(oid, None, 'foo', '', txn)
+        storage.tpc_vote(txn)
+        tid1 = storage.tpc_finish(txn)
+        storage.tpc_begin(txn)
+        storage.undo(tid1, txn)
+        tid2 = storage.tpc_finish(txn)
+        storage.tpc_begin(txn)
+        storage.undo(tid2, txn)
+        tid3 = storage.tpc_finish(txn)
+        expected = [(tid1, 3), (tid2, 0), (tid3, 3)]
+        for x in storage.history(oid, 10):
+            self.assertEqual((x['tid'], x['size']), expected.pop())
+        self.assertFalse(expected)
+        self.tic()
+        self.assertEqual(1, self.checkBackup(backup))
+
+    @backup_test()
     def testBackupTid(self, backup):
         """
         Check that the backup cluster does not claim it has all the data just
@@ -375,19 +407,24 @@ class ReplicationTests(NEOThreadedTest):
             orig(*args)
             sys.exit()
         s0, s1, s2 = cluster.storage_list
-        if 1:
-            cluster.start([s0, s1])
-            s2.start()
+        cluster.start([s0, s1])
+        s2.start()
+        self.tic()
+        cluster.enableStorageList([s2])
+        # 2 UP_TO_DATE cells become FEEDING:
+        # they are "normally" (see below) dropped only when the replication
+        # is done, so that 1 storage can still die without data loss.
+        with Patch(s0.dm, changePartitionTable=changePartitionTable):
+            cluster.neoctl.tweakPartitionTable()
             self.tic()
-            cluster.enableStorageList([s2])
-            # 2 UP_TO_DATE cells become FEEDING:
-            # they are dropped only when the replication is done,
-            # so that 1 storage can still die without data loss.
-            with Patch(s0.dm, changePartitionTable=changePartitionTable):
-                cluster.neoctl.tweakPartitionTable()
-                self.tic()
-            self.assertEqual(cluster.neoctl.getClusterState(),
-                             ClusterStates.RUNNING)
+        self.assertEqual(cluster.neoctl.getClusterState(),
+                         ClusterStates.RUNNING)
+        # 1 of the FEEDING cells was actually discarded immediately when it got
+        # out-of-date, so that we don't end up with too many up-to-date cells.
+        s0.resetNode()
+        s0.start()
+        self.tic()
+        self.assertPartitionTable(cluster, 'UU.|U.U|.UU', sort_by_nid=True)
 
     @with_cluster(start_cluster=0, partitions=3, replicas=1, storage_count=3)
     def testReplicationAbortedBySource(self, cluster):
@@ -488,6 +525,29 @@ class ReplicationTests(NEOThreadedTest):
         for s in cluster.storage_list:
             self.assertTrue(s.is_alive())
         self.checkReplicas(cluster)
+
+    def testTopology(self):
+        """
+        In addition to MasterPartitionTableTests.test_19_topology, this checks
+        correct propagation of the paths from storage nodes to tweak().
+        """
+        with Patch(DatabaseManager, getTopologyPath=lambda *_: next(topology)):
+            for topology, expected in (
+                    (iter("0" * 9),
+                        'UU.......|..UU.....|....UU...|'
+                        '......UU.|U.......U|.UU......|'
+                        '...UU....|.....UU..|.......UU'),
+                    (product("012", "012"),
+                        'U..U.....|.U....U..|..U.U....|'
+                        '.....U.U.|U.......U|.U.U.....|'
+                        '..U...U..|....U..U.|.....U..U'),
+                ):
+                with NEOCluster(replicas=1, partitions=9,
+                                storage_count=9) as cluster:
+                    for i, s in enumerate(cluster.storage_list, 1):
+                        s.uuid = i
+                    cluster.start()
+                    self.assertPartitionTable(cluster, expected)
 
     @with_cluster(start_cluster=0, replicas=1, storage_count=4, partitions=2)
     def testTweakVsReplication(self, cluster, done=False):
@@ -624,33 +684,200 @@ class ReplicationTests(NEOThreadedTest):
         self.assertEqual(2, s0.sqlCount('obj'))
         expectedFailure(self.assertEqual)(2, count)
 
-    @with_cluster(start_cluster=0, replicas=1)
+    @with_cluster(replicas=1)
     def testResumingReplication(self, cluster):
-        if 1:
-            s0, s1 = cluster.storage_list
-            cluster.start(storage_list=(s0,))
-            t, c = cluster.getTransaction()
-            r = c.root()
+        """
+        Check from where replication resumes for an OUT_OF_DATE cell that has
+        a hole, which is possible because OUT_OF_DATE cells are writable.
+        """
+        ask = []
+        def logReplication(conn, packet):
+            if isinstance(packet, (Packets.AskFetchTransactions,
+                                   Packets.AskFetchObjects)):
+                ask.append(packet.decode()[2:])
+        def getTIDList():
+            return [t.tid for t in c.db().storage.iterator()]
+        s0, s1 = cluster.storage_list
+        t, c = cluster.getTransaction()
+        r = c.root()
+        # s1 is UP_TO_DATE and it has the initial transaction.
+        # Let's outdate it: replication will have to resume just after this
+        # transaction, regardless of future written transactions.
+        # To make sure, we get a hole in the cell, we block replication.
+        s1.stop()
+        cluster.join((s1,))
+        r._p_changed = 1
+        t.commit()
+        s1.resetNode()
+        with Patch(replicator.Replicator, connected=lambda *_: None):
+            s1.start()
+            self.tic()
             r._p_changed = 1
             t.commit()
+            self.tic()
+            s1.stop()
+            cluster.join((s1,))
+        tids = getTIDList()
+        s1.resetNode()
+        # Initialization done. Now we check that replication is correct
+        # and efficient.
+        with ConnectionFilter() as f:
+            f.add(logReplication)
             s1.start()
             self.tic()
-            with Patch(Replicator, connected=lambda *_: None):
-                cluster.enableStorageList((s1,))
-                cluster.neoctl.tweakPartitionTable()
-                r._p_changed = 1
+        self.assertEqual([], cluster.getOutdatedCells())
+        s0.stop()
+        cluster.join((s0,))
+        self.assertEqual(tids, getTIDList())
+        t0_next = add64(tids[0], 1)
+        self.assertEqual(ask, [
+            (t0_next, tids[2], tids[2:]),
+            (t0_next, tids[2], ZERO_OID, {tids[2]: [ZERO_OID]}),
+        ])
+
+    @backup_test(2, backup_kw=dict(replicas=1))
+    def testResumingBackupReplication(self, backup):
+        upstream = backup.upstream
+        t, c = upstream.getTransaction()
+        r = c.root()
+        r[1] = PCounter()
+        t.commit()
+        r[2] = ob = PCounter()
+        tids = []
+        def newTransaction():
+            r._p_changed = ob._p_changed = 1
+            with upstream.moduloTID(0):
                 t.commit()
-                self.tic()
-                s1.stop()
-                cluster.join((s1,))
-            t0, t1, t2 = c.db().storage.iterator()
-            s1.resetNode()
-            s1.start()
             self.tic()
-            self.assertEqual([], cluster.getOutdatedCells())
-            s0.stop()
-            cluster.join((s0,))
-            t0, t1, t2 = c.db().storage.iterator()
+            tids.append(r._p_serial)
+        def getTIDList(storage):
+            return storage.dm.getReplicationTIDList(tids[0], MAX_TID, 9, 0)
+        newTransaction()
+        self.assertEqual(u64(ob._p_oid), 2)
+        getBackupTid = backup.master.pt.getBackupTid
+
+        # Check when an OUT_OF_DATE cell has more data than an UP_TO_DATE one.
+        primary = backup.master.backup_app.primary_partition_dict[0]._uuid
+        slave, primary = sorted(backup.storage_list,
+            key=lambda x: x.uuid == primary)
+        with ConnectionFilter() as f:
+            @f.delayAnswerFetchTransactions
+            def delay(conn, x={None: 0, primary.uuid: 0}):
+                return x.pop(conn.getUUID(), 1)
+            newTransaction()
+            self.assertEqual(getBackupTid(), tids[1])
+            primary.stop()
+            backup.join((primary,))
+            primary.resetNode()
+            primary.start()
+            self.tic()
+            primary, slave = slave, primary
+            self.assertEqual(tids, getTIDList(slave))
+            self.assertEqual(tids[:1], getTIDList(primary))
+            self.assertEqual(getBackupTid(), add64(tids[1], -1))
+            self.assertEqual(f.filtered_count, 3)
+        self.tic()
+        self.assertEqual(4, self.checkBackup(backup))
+        self.assertEqual(getBackupTid(min), tids[1])
+
+        # Check that replication resumes from the maximum possible tid
+        # (for UP_TO_DATE cells of a backup cluster). More precisely:
+        # - cells are handled independently (done here by blocking replication
+        #   of partition 1 to keep the backup TID low)
+        # - trans and obj are also handled independently (with FETCH_COUNT=1,
+        #   we interrupt replication of obj in the middle of a transaction)
+        slave.stop()
+        backup.join((slave,))
+        ask = []
+        def delayReplicate(conn, packet):
+            if isinstance(packet, Packets.AskFetchObjects):
+                if len(ask) == 6:
+                    return True
+            elif not isinstance(packet, Packets.AskFetchTransactions):
+                return
+            ask.append(packet.decode())
+        conn, = upstream.master.getConnectionList(backup.master)
+        with ConnectionFilter() as f, Patch(replicator.Replicator,
+                _nextPartitionSortKey=lambda orig, self, offset: offset):
+            f.add(delayReplicate)
+            delayReconnect = f.delayAskLastTransaction()
+            conn.close()
+            newTransaction()
+            newTransaction()
+            newTransaction()
+            self.assertFalse(ask)
+            self.assertEqual(f.filtered_count, 1)
+            with Patch(replicator, FETCH_COUNT=1):
+                f.remove(delayReconnect)
+                self.tic()
+            t1_next = add64(tids[1], 1)
+            self.assertEqual(ask, [
+                # trans
+                (0, 1, t1_next, tids[4], []),
+                (0, 1, tids[3], tids[4], []),
+                (0, 1, tids[4], tids[4], []),
+                # obj
+                (0, 1, t1_next, tids[4], ZERO_OID, {}),
+                (0, 1, tids[2], tids[4], p64(2), {}),
+                (0, 1, tids[3], tids[4], ZERO_OID, {}),
+            ])
+            del ask[:]
+            max_ask = None
+            backup.stop()
+            newTransaction()
+            backup.start((primary,))
+            n = replicator.FETCH_COUNT
+            t4_next = add64(tids[4], 1)
+            self.assertEqual(ask, [
+                (0, n, t4_next, tids[5], []),
+                (0, n, tids[3], tids[5], ZERO_OID, {tids[3]: [ZERO_OID]}),
+                (1, n, t1_next, tids[5], []),
+                (1, n, t1_next, tids[5], ZERO_OID, {}),
+            ])
+        self.tic()
+        self.assertEqual(2, self.checkBackup(backup))
+
+    @with_cluster(start_cluster=0, replicas=1)
+    def testStoppingDuringReplication(self, cluster):
+        """
+        When a node is stopped while it is replicating obj from ZERO_TID,
+        check that replication does not resume from the beginning.
+        """
+        s1, s2 = cluster.storage_list
+        cluster.start(storage_list=(s1,))
+        t, c = cluster.getTransaction()
+        r = c.root()
+        r._p_changed = 1
+        t.commit()
+        ltid = r._p_serial
+        trans = []
+        obj = []
+        with ConnectionFilter() as f, Patch(replicator, FETCH_COUNT=1):
+            @f.add
+            def delayReplicate(conn, packet):
+                if isinstance(packet, Packets.AskFetchTransactions):
+                    trans.append(packet.decode()[2])
+                elif isinstance(packet, Packets.AskFetchObjects):
+                    if obj:
+                        return True
+                    obj.append(packet.decode()[2])
+            s2.start()
+            self.tic()
+            cluster.neoctl.enableStorageList([s2.uuid])
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            self.assertEqual(trans, [ZERO_TID, ltid])
+            self.assertEqual(obj, [ZERO_TID])
+            self.assertPartitionTable(cluster, 'UO')
+            s2.stop()
+            cluster.join((s2,))
+            s2.resetNode()
+            del trans[:], obj[:]
+            s2.start()
+            self.tic()
+            self.assertEqual(trans, [ltid])
+            self.assertEqual(obj, [ltid])
+            self.assertPartitionTable(cluster, 'UU')
 
     @with_cluster(start_cluster=0, replicas=1, partitions=2)
     def testReplicationBlockedByUnfinished1(self, cluster,
