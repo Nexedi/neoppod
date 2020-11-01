@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -62,7 +62,8 @@ class BaseMasterHandler(BaseHandler):
             elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:
                 logging.info('Notified of non-running client, abort (%s)',
                         uuid_str(uuid))
-                self.app.tm.abortFor(uuid)
+                # See comment in ClientOperationHandler.connectionClosed
+                self.app.tm.abortFor(uuid, even_if_voted=True)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that

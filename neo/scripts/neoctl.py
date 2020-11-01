@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 #
-# neoadmin - run an administrator node of NEO
+# neoctl - command-line interface to an administrator node of NEO
 #
-# Copyright (C) 2009-2017  Nexedi SA
+# Copyright (C) 2009-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,30 +18,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.config import getOptionParser
-from neo.lib.util import parseNodeAddress
-
-parser = getOptionParser()
-parser.add_option('-a', '--address', help = 'specify the address (ip:port) ' \
-    'of an admin node', default = '127.0.0.1:9999')
 
 def main(args=None):
-    (options, args) = parser.parse_args(args=args)
-    if options.address is not None:
-        address = parseNodeAddress(options.address, 9999)
-    else:
-        address = ('127.0.0.1', 9999)
+    from neo.neoctl.neoctl import NeoCTL
+    config = NeoCTL.option_parser.parse(args)
 
-    if options.logfile:
+    logfile = config.get('logfile')
+    if logfile:
         # Contrary to daemons, we log everything to disk automatically
         # because a user using -l option here:
         # - is certainly debugging an issue and wants everything,
         # - would not have to time to send SIGRTMIN before neoctl exits.
         logging.backlog(None)
-        logging.setup(options.logfile)
-    from neo.neoctl.app import Application
+        logging.setup(logfile)
 
-    ssl = options.ca, options.cert, options.key
-    r = Application(address, ssl=ssl if any(ssl) else None).execute(args)
+    from neo.neoctl.app import Application
+    app = Application(config['address'], ssl=config.get('ssl'))
+    r = app.execute(config['cmd'])
     if r is not None:
         print r

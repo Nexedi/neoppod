@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2009-2017  Nexedi SA
+# Copyright (C) 2009-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import argparse
 import traceback
 import unittest
 import time
@@ -275,41 +276,43 @@ class NeoTestRunner(unittest.TextTestResult):
 class TestRunner(BenchmarkRunner):
 
     def add_options(self, parser):
-        parser.add_option('-c', '--coverage', action='store_true',
+        x = parser.add_mutually_exclusive_group().add_argument
+        x('-c', '--coverage', action='store_true',
             help='Enable coverage')
-        parser.add_option('-C', '--cov-unit', action='store_true',
+        x('-C', '--cov-unit', action='store_true',
             help='Same as -c but output 1 file per test,'
                  ' in the temporary test directory')
-        parser.add_option('-L', '--log', action='store_true',
+        _ = parser.add_argument
+        _('-L', '--log', action='store_true',
             help='Force all logs to be emitted immediately and keep'
                  ' packet body in logs of successful threaded tests')
-        parser.add_option('-l', '--loop', type='int', default=1,
+        _('-l', '--loop', type=int, default=1,
             help='Repeat tests several times')
-        parser.add_option('-f', '--functional', action='store_true',
+        _('-f', '--functional', action='store_true',
             help='Functional tests')
-        parser.add_option('-s', '--stop-on-error', action='store_false',
-            dest='stop_on_success',
+        x = parser.add_mutually_exclusive_group().add_argument
+        x('-s', '--stop-on-error', action='store_false',
+            dest='stop_on_success', default=None,
             help='Continue as long as tests pass successfully.'
                  ' It is usually combined with --loop, to check that tests'
                  ' do not fail randomly.')
-        parser.add_option('-S', '--stop-on-success', action='store_true',
+        x('-S', '--stop-on-success', action='store_true', default=None,
             help='Opposite of --stop-on-error: stop as soon as a test'
                  ' passes. Details about errors are not printed at exit.')
-        parser.add_option('-r', '--readable-tid', action='store_true',
+        _('-r', '--readable-tid', action='store_true',
             help='Change master behaviour to generate readable TIDs for easier'
                  ' debugging (rather than from current time).')
-        parser.add_option('-u', '--unit', action='store_true',
+        _('-u', '--unit', action='store_true',
             help='Unit & threaded tests')
-        parser.add_option('-z', '--zodb', action='store_true',
+        _('-z', '--zodb', action='store_true',
             help='ZODB test suite running on a NEO')
-        parser.add_option('-v', '--verbose', action='store_true',
+        _('-v', '--verbose', action='store_true',
             help='Verbose output')
-        parser.usage += " [[!] module [test...]]"
-        parser.format_epilog = lambda _: """
-Positional:
-  Filter by given module/test. These arguments are shell patterns.
-  This implies -ufz if none of this option is passed.
-
+        _('only', nargs=argparse.REMAINDER, metavar='[[!] module [test...]]',
+            help="Filter by given module/test. These arguments are shell"
+                 " patterns. This implies -ufz if none of this option is"
+                 " passed.")
+        parser.epilog = """
 Environment Variables:
   NEO_TESTS_ADAPTER           Default is SQLite for threaded clusters,
                               MySQL otherwise.
@@ -330,25 +333,23 @@ Environment Variables:
     NEO_TEST_ZODB_STORAGES    default: 1
 """ % neo_tests__dict__
 
-    def load_options(self, options, args):
-        if options.coverage and options.cov_unit:
-            sys.exit('-c conflicts with -C')
-        if not (options.unit or options.functional or options.zodb):
-            if not args:
+    def load_options(self, args):
+        if not (args.unit or args.functional or args.zodb):
+            if not args.only:
                 sys.exit('Nothing to run, please give one of -f, -u, -z')
-            options.unit = options.functional = options.zodb = True
+            args.unit = args.functional = args.zodb = True
         return dict(
-            log = options.log,
-            loop = options.loop,
-            unit = options.unit,
-            functional = options.functional,
-            zodb = options.zodb,
-            verbosity = 2 if options.verbose else 1,
-            coverage = options.coverage,
-            cov_unit = options.cov_unit,
-            only = args,
-            stop_on_success = options.stop_on_success,
-            readable_tid = options.readable_tid,
+            log = args.log,
+            loop = args.loop,
+            unit = args.unit,
+            functional = args.functional,
+            zodb = args.zodb,
+            verbosity = 2 if args.verbose else 1,
+            coverage = args.coverage,
+            cov_unit = args.cov_unit,
+            only = args.only,
+            stop_on_success = args.stop_on_success,
+            readable_tid = args.readable_tid,
         )
 
     def start(self):

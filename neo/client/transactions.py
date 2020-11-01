@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017  Nexedi SA
+# Copyright (C) 2017-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,10 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import defaultdict
 from ZODB.POSException import StorageTransactionError
 from neo.lib.connection import ConnectionClosed
 from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import Packets
+from neo.lib.util import dump
 from .exception import NEOStorageError
 
 @apply
@@ -35,6 +37,7 @@ class Transaction(object):
     locking_tid = None
     voted = False
     ttid = None     # XXX: useless, except for testBackupReadOnlyAccess
+    lockless_dict = None                    # {partition: {uuid}}
 
     def __init__(self, txn):
         self.queue = SimpleQueue()
@@ -47,73 +50,86 @@ class Transaction(object):
         self.conflict_dict = {}             # {oid: serial}
         # resolved conflicts
         self.resolved_dict = {}             # {oid: serial}
-        # Keys are node ids instead of Node objects because a node may
-        # disappear from the cluster. In any case, we always have to check
-        # if the id is still known by the NodeManager.
-        # status: 0 -> check only, 1 -> store, 2 -> failed
-        self.involved_nodes = {}            # {node_id: status}
+        # involved storage nodes; connection is None is connection was lost
+        self.conn_dict = {}                 # {node_id: connection}
+
+    def __repr__(self):
+        error = self.error
+        return ("<%s ttid=%s locking_tid=%s voted=%u"
+                " #queue=%s #writing=%s #written=%s%s>") % (
+            self.__class__.__name__,
+            dump(self.ttid), dump(self.locking_tid), self.voted,
+            len(self.queue._queue), len(self.data_dict), len(self.cache_dict),
+            ' error=%r' % error if error else '')
 
     def wakeup(self, conn):
         self.queue.put((conn, _WakeupPacket, {}))
 
-    def write(self, app, packet, object_id, store=1, **kw):
+    def write(self, app, packet, object_id, **kw):
         uuid_list = []
         pt = app.pt
-        involved = self.involved_nodes
+        conn_dict = self.conn_dict
         object_id = pt.getPartition(object_id)
         for cell in pt.getCellList(object_id):
             node = cell.getNode()
             uuid = node.getUUID()
-            status = involved.get(uuid, -1)
-            if status < store:
-                involved[uuid] = store
-            elif status > 1:
-                continue
-            conn = app.cp.getConnForNode(node)
-            if conn is not None:
+            try:
                 try:
-                    if status < 0 and self.locking_tid and 'oid' in kw:
+                    conn = conn_dict[uuid]
+                except KeyError:
+                    conn = conn_dict[uuid] = app.getStorageConnection(node)
+                    if self.locking_tid and 'oid' in kw:
                         # A deadlock happened but this node is not aware of it.
                         # Tell it to write-lock with the same locking tid as
-                        # for the other nodes. The condition on kw is because
-                        # we don't need that for transaction metadata.
+                        # for the other nodes. The condition on kw is to
+                        # distinguish whether we're writing an oid or
+                        # transaction metadata.
                         conn.ask(Packets.AskRebaseTransaction(
                             self.ttid, self.locking_tid), queue=self.queue)
-                    conn.ask(packet, queue=self.queue, **kw)
-                    uuid_list.append(uuid)
-                    continue
-                except ConnectionClosed:
-                    pass
-            involved[uuid] = 2
+                conn.ask(packet, queue=self.queue, **kw)
+                uuid_list.append(uuid)
+            except AttributeError:
+                if conn is not None:
+                    raise
+            except ConnectionClosed:
+                conn_dict[uuid] = None
         if uuid_list:
             return uuid_list
         raise NEOStorageError(
             'no storage available for write to partition %s' % object_id)
 
-    def written(self, app, uuid, oid):
-        # When a node that is being disconnected by the master because it was
+    def written(self, app, uuid, oid, lockless=None):
+        # When a node is being disconnected by the master because it was
         # not part of the transaction that caused a conflict, we may receive a
         # positive answer (not to be confused with lockless stores) before the
         # conflict. Because we have no way to identify such case, we must keep
         # the data in self.data_dict until all nodes have answered so we remain
         # able to resolve conflicts.
+        data, serial, uuid_list = self.data_dict[oid]
         try:
-            data, serial, uuid_list = self.data_dict[oid]
             uuid_list.remove(uuid)
-        except KeyError:
-            # 1. store to S1 and S2
-            # 2. S2 reports a conflict
-            # 3. store to S1 and S2 # conflict resolution
-            # 4. S1 does not report a conflict (lockless)
-            # 5. S2 answers before S1 for the second store
-            return
         except ValueError:
             # The most common case for this exception is because nodeLost()
-            # tries all oids blindly. Other possible cases:
-            # - like above (KeyError), but with S2 answering last
-            # - answer to resolved conflict before the first answer from a
-            #   node that was being disconnected by the master
+            # tries all oids blindly.
+            # Another possible case is when we receive several positive answers
+            # from a node that is being disconnected by the master, whereas the
+            # first one (at least) should actually be conflict answer.
             return
+        if lockless:
+            if lockless != serial: # late lockless write
+                assert lockless < serial, (lockless, serial)
+                uuid_list.append(uuid)
+                return
+            # It's safe to do this after the above excepts: either the cell is
+            # already marked as lockless or the node will be reported as failed.
+            lockless = self.lockless_dict
+            if not lockless:
+                lockless = self.lockless_dict = defaultdict(set)
+            lockless[app.pt.getPartition(oid)].add(uuid)
+            if oid in self.conflict_dict:
+                # In the case of a rebase, uuid_list may not contain the id
+                # of the node reporting a conflict.
+                return
         if uuid_list:
             return
         del self.data_dict[oid]
@@ -121,7 +137,7 @@ class Transaction(object):
             size = len(data)
             self.data_size -= size
             size += self.cache_size
-            if size < app._cache._max_size:
+            if size < app._cache.max_size:
                 self.cache_size = size
             else:
                 # Do not cache data past cache max size, as it
@@ -131,9 +147,14 @@ class Transaction(object):
         self.cache_dict[oid] = data
 
     def nodeLost(self, app, uuid):
-        self.involved_nodes[uuid] = 2
+        # The following line is sometimes redundant
+        # with the one in `except ConnectionClosed:` clauses.
+        self.conn_dict[uuid] = None
         for oid in list(self.data_dict):
-            self.written(app, uuid, oid)
+            # Exclude case of 1 conflict error immediately followed by a
+            # connection loss, possibly with lockless writes to replicas.
+            if oid not in self.conflict_dict:
+                self.written(app, uuid, oid)
 
 
 class TransactionContainer(dict):

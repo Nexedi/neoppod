@@ -1,6 +1,32 @@
 Change History
 ==============
 
+1.11 (2019-03-11)
+-----------------
+
+This release continues the work in v1.8 to stabilize NEO. A new 'stress'
+tool was added: it kills storage nodes and resets TCP connections randomly,
+while causing high concurrency activity. It revealed many bugs of all kinds,
+including crashes and corruptions. Most of them happened after network
+disconnection. In order to fix them all, several improvements have also been
+done to logging:
+
+- New neoctl command to flush the logs of all nodes in the cluster.
+- In logs, dump the partition table in a more compact and readable way.
+- client: log_flush most exceptions raised from Application to ZODB
+- More RTMIN+2 (log) information for clients and connections.
+- New log format to show node id (and optionally cluster name) in node column.
+- neolog: add support for zstd-compressed logs.
+- neolog: do not die when a table is corrupted.
+
+Other changes:
+
+- sqlite: optimize storage of metadata (the speed up in v1.9 about indexing
+  'obj' primarily by 'oid' was only effective for MySQL).
+- Fix error handling when setting up a listening connector.
+- The command line parsing of all executables has been completely rewritten,
+  fixing a few minor bugs.
+
 1.10 (2018-07-16)
 -----------------
 

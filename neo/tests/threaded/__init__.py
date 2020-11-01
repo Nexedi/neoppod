@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2011-2017  Nexedi SA
+# Copyright (C) 2011-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,10 +23,10 @@ from contextlib import contextmanager
 from itertools import count
 from functools import partial, wraps
 from zlib import decompress
-from ..mock import Mock
 import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
+from neo.admin.handler import MasterEventHandler
 from neo.client import Storage
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, \
@@ -34,8 +34,10 @@ from neo.lib.connection import BaseConnection, \
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
-from neo.lib.protocol import ClusterStates, Enum, NodeStates, NodeTypes, Packets
+from neo.lib.protocol import uuid_str, \
+    ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
+from neo.master.recovery import  RecoveryManager
 from .. import (getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch,
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER)
@@ -133,9 +135,12 @@ class Serialized(object):
     detect which node has a readable epoll object.
     """
     check_timeout = False
+    _disabled = False
 
     @classmethod
     def init(cls):
+        if cls._disabled:
+            return
         cls._busy = set()
         cls._busy_cond = threading.Condition(threading.Lock())
         cls._epoll = select.epoll()
@@ -152,6 +157,8 @@ class Serialized(object):
 
     @classmethod
     def stop(cls):
+        if cls._disabled:
+            return
         assert not cls._fd_dict, ("file descriptor leak (%r)\nThis may happen"
             " when a test fails, in which case you can see the real exception"
             " by disabling this one." % cls._fd_dict)
@@ -161,6 +168,25 @@ class Serialized(object):
     @classmethod
     def _sort_key(cls, fd_event):
         return -cls._fd_dict[fd_event[0]]._last     # NOTE ._last set to time.time()
+
+    @classmethod
+    @contextmanager
+    def until(cls, patched=None, **patch):
+        if cls._disabled:
+            if patched is None:
+                yield int
+            else:
+                l = threading.Lock()
+                l.acquire()
+                (name, patch), = patch.iteritems()
+                def release():
+                    p.revert()
+                    l.release()
+                with Patch(patched, **{name: lambda *args, **kw:
+                        patch(release, *args, **kw)}) as p:
+                    yield l.acquire
+        else:
+            yield cls.tic
 
     @classmethod
     @contextmanager
@@ -188,6 +214,10 @@ class Serialized(object):
             #      We also increase SocketConnector.SOMAXCONN in tests so that
             #      a connection attempt is never delayed inside the kernel.
             timeout=0):
+        if cls._disabled:
+            if timeout:
+                time.sleep(timeout)
+            return
         # If you're in a pdb here, 'n' switches to another thread
         # (the following lines are not supposed to be debugged into)
         with cls._tic_lock, cls.pdb():
@@ -223,6 +253,8 @@ class Serialized(object):
                 cls._sched_lock.acquire()
 
     def __init__(self, app, busy=True):
+        if self._disabled:
+            return
         self._epoll = app.em.epoll
         app.em.epoll = self
         # XXX: It may have been initialized before the SimpleQueue is patched.
@@ -281,15 +313,12 @@ class TestSerialized(Serialized):   # NOTE used only in .NeoCTL
                 if r:
                     return r
                 Serialized.tic(step=1, timeout=.001)
+            ConnectionFilter.log()
             raise Exception("tic is looping forever")
         return self._epoll.poll(timeout)
 
 
 class Node(object):
-
-    @staticmethod
-    def convertInitArgs(**kw):
-        return {'get' + k.capitalize(): v for k, v in kw.iteritems()}
 
     def getConnectionList(self, *peers):
         addr = lambda c: c and (c.addr if c.is_server else c.getAddress())
@@ -354,19 +383,18 @@ class ServerNode(Node):
         threading.Thread.__init__(self)
         self.daemon = True
         self.node_name = '%s_%u' % (self.node_type, port)
-        kw.update(getCluster=name, getBind=address,
-            getMasters=master_nodes and parseMasterList(master_nodes))
-        # -> app.__init__()  ; Mock serves as config
-        super(ServerNode, self).__init__(Mock(kw))
+        kw.update(cluster=name, bind=address,
+            masters=master_nodes and parseMasterList(master_nodes))
+        # -> app.__init__()
+        super(ServerNode, self).__init__(kw)
 
     def getVirtualAddress(self):
         return self._init_args['address']
 
     def resetNode(self, **kw):
         assert not self.is_alive()
-        kw = self.convertInitArgs(**kw)
         init_args = self._init_args
-        init_args['getReset'] = False
+        init_args['reset'] = False
         assert set(kw).issubset(init_args), (kw, init_args)
         init_args.update(kw)
         self.close()
@@ -382,7 +410,8 @@ class ServerNode(Node):
         finally:
             self._afterRun()
             logging.debug('stopping %r', self)
-            self.em.epoll.exit()
+            if isinstance(self.em.epoll, Serialized):
+                self.em.epoll.exit()
 
     def _afterRun(self):
         try:
@@ -421,7 +450,7 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
             self.master_conn.close()
 
     def getAdapter(self):
-        return self._init_args['getAdapter']
+        return self._init_args['adapter']
 
     # get {} oid -> nlocks     ; !0 - in staging area for commit (and for how many txn), oid from whole DB
     def getDataLockInfo(self):
@@ -444,13 +473,14 @@ class ClientApplication(Node, neo.client.app.Application):
         self.poll_thread.node_name = name
         # Smaller cache to speed up tests that checks behaviour when it's too
         # small. See also NEOCluster.cache_size
-        self._cache._max_size //= 1024
+        self._cache.max_size //= 1024
 
     def _run(self):
         try:
             super(ClientApplication, self)._run()
         finally:
-            self.em.epoll.exit()
+            if isinstance(self.em.epoll, Serialized):
+                self.em.epoll.exit()
 
     def start(self):
         isinstance(self.em.epoll, Serialized) or Serialized(self)
@@ -462,12 +492,19 @@ class ClientApplication(Node, neo.client.app.Application):
                 conn = self._getMasterConnection()
             else:
                 assert isinstance(peer, StorageApplication)
-                conn = self.cp.getConnForNode(self.nm.getByUUID(peer.uuid))
+                conn = self.getStorageConnection(self.nm.getByUUID(peer.uuid))
             yield conn
 
     def extraCellSortKey(self, key):
-        return Patch(self.cp, getCellSortKey=lambda orig, cell:
+        return Patch(self, getCellSortKey=lambda orig, cell:
             (orig(cell, lambda: key(cell)), random.random()))
+
+    def closeAllStorageConnections(self):
+        for node in self.nm.getStorageList():
+            conn = node._connection # XXX
+            if conn is not None:
+                conn.setReconnectionNoDelay()
+                conn.close()
 
 class NeoCTL(neo.neoctl.app.NeoCTL):
 
@@ -577,6 +614,20 @@ class ConnectionFilter(object):
             else:
                 del cls.filter_queue[conn]
 
+    @classmethod
+    def log(cls):
+        try:
+            if cls.filter_queue:
+                logging.info('%s:', cls.__name__)
+                for conn, queue in cls.filter_queue.iteritems():
+                    app = NEOThreadedTest.getConnectionApp(conn)
+                    logging.info('  %s %s:', uuid_str(app.uuid), conn)
+                    for p in queue:
+                        logging.info('    #0x%04x %s',
+                                     p.getId(), p.__class__.__name__)
+        except Exception:
+            logging.exception('')
+
     def add(self, filter, *patches):
         with self.lock:
             self.filter_dict[filter] = patches
@@ -621,6 +672,8 @@ class NEOCluster(object):
 
     def __init__(orig, self): # temporary definition for SimpleQueue patch
         orig(self)
+        if Serialized._disabled:
+            return
         lock = self._lock
         def _lock(blocking=True):
             if blocking:
@@ -629,6 +682,7 @@ class NEOCluster(object):
                     if lock(False):
                         return True
                     Serialized.tic(step=1, quiet=True, timeout=.001)
+                ConnectionFilter.log()
                 raise Exception("tic is looping forever")
             return lock(False)
         self._lock = _lock
@@ -685,15 +739,15 @@ class NEOCluster(object):
         master_list = [MasterApplication.newAddress()
                        for _ in xrange(master_count)]
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
-        kw = Node.convertInitArgs(replicas=replicas, adapter=adapter,
+        kw = dict(replicas=replicas, adapter=adapter,
             partitions=partitions, reset=clear_databases, dedup=dedup)
         kw['cluster'] = weak_self = weakref.proxy(self)
-        kw['getSSL'] = self.SSL
+        kw['ssl'] = self.SSL
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
-            kw.update(getUpstreamCluster=upstream.name,
-                getUpstreamMasters=parseMasterList(upstream.master_nodes))
-        self.master_list = [MasterApplication(getAutostart=autostart,
+            kw.update(upstream_cluster=upstream.name,
+                upstream_masters=parseMasterList(upstream.master_nodes))
+        self.master_list = [MasterApplication(autostart=autostart,
                                               address=x, **kw)
                             for x in master_list]
         if db_list is None:
@@ -715,8 +769,9 @@ class NEOCluster(object):
             db = os.path.join(getTempDirectory(), '%s.conf')
             with open(db % tuple(db_list), "w") as f:
                 cfg.write(f)
-            kw["getAdapter"] = "Importer"
-        self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
+            kw["adapter"] = "Importer"
+        kw['wait'] = 0
+        self.storage_list = [StorageApplication(database=db % x, **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
 
@@ -769,7 +824,7 @@ class NEOCluster(object):
 
     @property
     def cache_size(self):
-        return self.client._cache._max_size
+        return self.client._cache.max_size
     ###
 
     def __enter__(self):
@@ -782,22 +837,41 @@ class NEOCluster(object):
         self.started = True
         self._patch()
         self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
-        for node in self.master_list if master_list is None else master_list:
-            node.start()
-        for node in self.admin_list:
-            node.start()
-        Serialized.tic()
+        if master_list is None:
+            master_list = self.master_list
         if storage_list is None:
             storage_list = self.storage_list
-        for node in storage_list:
-            node.start()
-        Serialized.tic()
-        if recovering:
-            expected_state = ClusterStates.RECOVERING
-        else:
-            self.startCluster()
-            Serialized.tic()
-            expected_state = ClusterStates.RUNNING, ClusterStates.BACKINGUP
+        def answerPartitionTable(release, orig, *args):
+            orig(*args)
+            release()
+        def dispatch(release, orig, handler, *args):
+            orig(handler, *args)
+            node_list = handler.app.nm.getStorageList(only_identified=True)
+            if len(node_list) == len(storage_list) and not any(
+                    node.getConnection().isPending() for node in node_list):
+                release()
+        expected_state = (ClusterStates.RECOVERING,) if recovering else (
+            ClusterStates.RUNNING, ClusterStates.BACKINGUP)
+        def notifyClusterInformation(release, orig, handler, conn, state):
+            orig(handler, conn, state)
+            if state in expected_state:
+                release()
+        with Serialized.until(MasterEventHandler,
+                answerPartitionTable=answerPartitionTable) as tic1, \
+             Serialized.until(RecoveryManager, dispatch=dispatch) as tic2, \
+             Serialized.until(MasterEventHandler,
+                notifyClusterInformation=notifyClusterInformation) as tic3:
+            for node in master_list:
+                node.start()
+            for node in self.admin_list:
+                node.start()
+            tic1()
+            for node in storage_list:
+                node.start()
+            tic2()
+            if not recovering:
+                self.startCluster()
+                tic3()
         self.checkStarted(expected_state, storage_list)
 
     def checkStarted(self, expected_state, storage_list=None):
@@ -989,6 +1063,7 @@ class NEOThreadedTest(NeoTestBase):
         self.__run_count[test_id] = 1 + i
         if i:
             test_id += '-%s' % i
+        logging._nid_dict.clear()
         logging.setup(os.path.join(getTempDirectory(), test_id + '.log'))
         return LoggerThreadName()
 
@@ -1005,7 +1080,7 @@ class NEOThreadedTest(NeoTestBase):
     @contextmanager
     def getLoopbackConnection(self):
         app = MasterApplication(address=BIND,
-            getSSL=NEOCluster.SSL, getReplicas=0, getPartitions=1)
+            ssl=NEOCluster.SSL, replicas=0, partitions=1)
         try:
             handler = EventHandler(app)
             app.listening_conn = ListeningConnection(app, handler, app.server)
@@ -1069,8 +1144,13 @@ class NEOThreadedTest(NeoTestBase):
 
     @staticmethod
     def noConnection(jar, storage):
-        return Patch(jar.db().storage.app.cp, getConnForNode=lambda orig, node:
-            None if node.getUUID() == storage.uuid else orig(node))
+        return Patch(jar.db().storage.app,
+            getStorageConnection=lambda orig, node:
+                None if node.getUUID() == storage.uuid else orig(node))
+
+    @staticmethod
+    def getConnectionApp(conn):
+        return getattr(conn.getHandler(), 'app', None)
 
     @staticmethod
     def readCurrent(ob):
@@ -1132,12 +1212,16 @@ def predictable_random(seed=None):
         return wraps(wrapped)(wrapper)
     return decorator
 
-def with_cluster(start_cluster=True, **cluster_kw):
+def with_cluster(serialized=True, start_cluster=True, **cluster_kw):
     def decorator(wrapped):
         def wrapper(self, *args, **kw):
-            with NEOCluster(**cluster_kw) as cluster:
-                if start_cluster:
-                    cluster.start()
-                return wrapped(self, cluster, *args, **kw)
+            try:
+                Serialized._disabled = not serialized
+                with NEOCluster(**cluster_kw) as cluster:
+                    if start_cluster:
+                        cluster.start()
+                    return wrapped(self, cluster, *args, **kw)
+            finally:
+                Serialized._disabled = False
         return wraps(wrapped)(wrapper)
     return decorator

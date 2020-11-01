@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -444,7 +444,9 @@ class TransactionManager(EventQueue):
     def clientLost(self, node):
         for txn in self._ttid_dict.values():
             if txn.clientLost(node):
-                del self[txn.getTTID()]
+                tid = txn.getTTID()
+                del self[tid]
+                yield tid, txn.getNotificationUUIDList()
 
     def log(self):
         logging.info('Transactions:')

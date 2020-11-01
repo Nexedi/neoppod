@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,6 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
+from collections import defaultdict
+from functools import partial
 from . import logging, protocol
 from .locking import Lock
 from .protocol import uuid_str, CellStates
@@ -256,39 +258,32 @@ class PartitionTable(object):
     def _format(self):
         """Help debugging partition table management.
 
-        Output sample:
-          pt: node 0: S1, R
-          pt: node 1: S2, R
-          pt: node 2: S3, R
-          pt: node 3: S4, R
-          pt: 00: .UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.
-          pt: 11: U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U
+        Output sample (np=48, nr=0, just after a 3rd node is added):
+          pt:              10v       20v       30v       40v
+          pt: S1 R U.FOF.U.FOF.U.FOF.U.FOF.U.FOF.U.FOF.U.FOF.U.FOF.
+          pt: S2 R .U.FOF.U.FOF.U.FOF.U.FOF.U.FOF.U.FOF.U.FOF.U.FOF
+          pt: S3 R ..O..O..O..O..O..O..O..O..O..O..O..O..O..O..O..O
 
-        Here, there are 4 nodes in RUNNING state.
-        The first partition has 2 replicas in UP_TO_DATE state, on nodes 1 and
-        2 (nodes 0 and 3 are displayed as unused for that partition by
-        displaying a dot).
-        The first number on the left represents the number of the first
-        partition on the line (here, line length is 11 to keep the docstring
-        width under 80 column).
+        The first line helps to locate a nth partition ('v' is an bottom arrow)
+        and it is omitted when the table has less than 10 partitions.
         """
         node_list = sorted(self.count_dict)
-        result = ['pt: node %u: %s, %s' % (i, uuid_str(node.getUUID()),
-                     protocol.node_state_prefix_dict[node.getState()])
-                  for i, node in enumerate(node_list)]
-        append = result.append
-        line = []
-        max_line_len = 20 # XXX: hardcoded number of partitions per line
-        prefix = 0
-        prefix_len = int(math.ceil(math.log10(self.np)))
-        for offset, row in enumerate(self._formatRows(node_list)):
-            if len(line) == max_line_len:
-                append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
-                line = []
-                prefix = offset
-            line.append(row)
-        if line:
-            append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
+        if not node_list:
+            return ()
+        cell_state_dict = protocol.cell_state_prefix_dict
+        node_dict = defaultdict(partial(bytearray, '.' * self.np))
+        for offset, row in enumerate(self.partition_list):
+            for cell in row:
+                node_dict[cell.getNode()][offset] = \
+                    cell_state_dict[cell.getState()]
+        n = len(uuid_str(node_list[-1].getUUID()))
+        result = [''.join('%9sv' % x if x else 'pt:' + ' ' * (5 + n)
+                          for x in xrange(0, self.np, 10))
+            ] if self.np > 10 else []
+        result.extend('pt: %-*s %s %s' % (n, uuid_str(node.getUUID()),
+                protocol.node_state_prefix_dict[node.getState()],
+                node_dict[node])
+            for node in node_list)
         return result
 
     def _formatRows(self, node_list):

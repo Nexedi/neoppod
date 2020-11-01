@@ -81,7 +81,7 @@ const (
 	// The protocol version must be increased whenever upgrading a node may require
 	// to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
 	// the high order byte 0 is different from TLS Handshake (0x16).
-	Version = 4
+	Version = 5
 
 	// length of packet header
 	PktHeaderLen = 10 // = unsafe.Sizeof(PktHeader{}), but latter gives typed constant (uintptr)
@@ -1174,6 +1174,12 @@ type Truncate struct {
 
 	// answer = Error
 }
+
+// Request all nodes to flush their logs.
+//
+//neo:nodes ctl -> A -> M -> *
+type FlushLog struct {}
+
 
 // ---- runtime support for protogen and custom codecs ----
 

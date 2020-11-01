@@ -26,7 +26,7 @@ from Queue import Empty
 
 class LockUser(object):
 
-    def __init__(self, message, level=0):
+    def __init__(self, message=None, level=0):
         t = threading.currentThread()
         ident = getattr(t, 'node_name', t.name)
         # This class is instantiated from a place desiring to known what
@@ -42,9 +42,10 @@ class LockUser(object):
         # current Neo directory structure.
         path = os.path.join('...', *path.split(os.path.sep)[-3:])
         self.time = time()
-        self.ident = "%s@%r %s:%s %s" % (
-            ident, self.time, path, line_number, line)
-        self.note(message)
+        if message is not None:
+            self.ident = "%s@%r %s:%s %s" % (
+                ident, self.time, path, line_number, line)
+            self.note(message)
         self.ident = ident
 
     def __eq__(self, other):

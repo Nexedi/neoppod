@@ -99,7 +99,7 @@ const trans = `
 	ttid		INTEGER NOT NULL,
 
 	PRIMARY KEY (partition, tid)
-`
+` // TODO create "WITHOUT ROWID"
 
 // table "obj" stores committed object metadata.
 const obj = `
@@ -111,7 +111,7 @@ const obj = `
 						-- XXX ^^^ can be NOT NULL with 0 serving instead
 
 	PRIMARY KEY (partition, oid, tid)
-`
+` // TODO create "WITHOUT ROWID"
 //	`(partition, tid, oid)`
 //	`(data_id)`
 

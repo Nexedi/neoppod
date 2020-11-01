@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,7 +27,8 @@ class ClientServiceHandler(MasterHandler):
         app = self.app
         node = app.nm.getByUUID(conn.getUUID())
         assert node is not None, conn
-        app.tm.clientLost(node)
+        for x in app.tm.clientLost(node):
+            app.notifyTransactionAborted(*x)
         node.setUnknown()
         app.broadcastNodesInformation([node])
 
@@ -37,7 +38,7 @@ class ClientServiceHandler(MasterHandler):
         """
         app = self.app
         # Delay new transaction as long as we are waiting for NotifyReady
-        # answers, otherwise we can know if the client is expected to commit
+        # answers, otherwise we can't know if the client is expected to commit
         # the transaction in full to all these storage nodes.
         if app.storage_starting_set:
             raise DelayEvent
@@ -121,12 +122,7 @@ class ClientServiceHandler(MasterHandler):
         app = self.app
         involved = app.tm.abort(tid, conn.getUUID())
         involved.update(uuid_list)
-        involved.intersection_update(app.getStorageReadySet())
-        if involved:
-            p = Packets.AbortTransaction(tid, ())
-            getByUUID = app.nm.getByUUID
-            for involved in involved:
-                getByUUID(involved).send(p)
+        app.notifyTransactionAborted(tid, involved)
 
 
 # like ClientServiceHandler but read-only & only for tid <= backup_tid

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -175,9 +175,7 @@ class EventHandler(object):
                 if your_uuid is None:
                     raise ProtocolError('No UUID supplied')
                 logging.info('connected to a primary master node')
-                if app.uuid != your_uuid:
-                    app.uuid = your_uuid
-                    logging.info('Got a new UUID: %s', uuid_str(your_uuid))
+                app.setUUID(your_uuid)
                 app.id_timestamp = None
             elif node.getUUID() != uuid or app.uuid != your_uuid != None:
                 raise ProtocolError('invalid uuids')
@@ -200,6 +198,9 @@ class EventHandler(object):
         conn.server = False
         if not conn.client:
             conn.close()
+
+    def flushLog(self, conn):
+        logging.flush()
 
     # Error packet handlers.
 

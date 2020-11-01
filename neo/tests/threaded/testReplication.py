@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012-2017  Nexedi SA
+# Copyright (C) 2012-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -32,7 +32,7 @@ from neo.lib.connection import ClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import add64, p64, u64
-from .. import expectedFailure, Patch, TransactionalResource
+from .. import Patch, TransactionalResource
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
     predictable_random, with_cluster
 from .test import PCounter, PCounterWithResolution # XXX
@@ -733,7 +733,8 @@ class ReplicationTests(NEOThreadedTest):
         s0.start()
         self.tic()
         self.assertEqual(2, s0.sqlCount('obj'))
-        expectedFailure(self.assertEqual)(2, count)
+        with self.expectedFailure(): \
+        self.assertEqual(2, count)
 
     @with_cluster(replicas=1)
     def testResumingReplication(self, cluster):
@@ -1097,7 +1098,7 @@ class ReplicationTests(NEOThreadedTest):
 
                 # try to commit something to backup storage and make sure it is
                 # really read-only
-                Zb._cache._max_size = 0     # make store() do work in sync way
+                Zb._cache.max_size = 0     # make store() do work in sync way
                 txn = transaction.Transaction()
                 self.assertRaises(ReadOnlyError, Zb.tpc_begin, txn)
                 self.assertRaises(ReadOnlyError, Zb.new_oid)
