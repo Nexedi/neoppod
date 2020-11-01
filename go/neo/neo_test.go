@@ -107,6 +107,7 @@ func TestMasterStorage(t0 *testing.T) {
 		UUID:		0,
 		Address:	xnaddr("s:1"),
 		ClusterName:	"abc1",
+		DevPath:        nil,
 		IdTime:		proto.IdTimeNone,
 	}))
 
@@ -208,6 +209,7 @@ func TestMasterStorage(t0 *testing.T) {
 		UUID:		0,
 		Address:	xnaddr(""),
 		ClusterName:	"abc1",
+		DevPath:        nil,
 		IdTime:		proto.IdTimeNone,
 	}))
 
@@ -293,6 +295,7 @@ func TestMasterStorage(t0 *testing.T) {
 		UUID:		proto.UUID(proto.CLIENT, 1),
 		Address:	xnaddr(""),
 		ClusterName:	"abc1",
+		DevPath:        nil,
 		IdTime:		0.02,
 	}))
 

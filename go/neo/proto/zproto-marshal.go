@@ -65,7 +65,12 @@ func (*RequestIdentification) NEOMsgCode() uint16 {
 }
 
 func (p *RequestIdentification) NEOMsgEncodedLen() int {
-	return 9 + p.Address.neoEncodedLen() + len(p.ClusterName) + p.IdTime.neoEncodedLen()
+	var size int
+	for i := 0; i < len(p.DevPath); i++ {
+		a := &p.DevPath[i]
+		size += len((*a))
+	}
+	return 13 + p.Address.neoEncodedLen() + len(p.ClusterName) + len(p.DevPath)*4 + p.IdTime.neoEncodedLen() + size
 }
 
 func (p *RequestIdentification) NEOMsgEncode(data []byte) {
@@ -81,6 +86,22 @@ func (p *RequestIdentification) NEOMsgEncode(data []byte) {
 		data = data[4:]
 		copy(data, p.ClusterName)
 		data = data[l:]
+	}
+	{
+		l := uint32(len(p.DevPath))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.DevPath[i]
+			{
+				l := uint32(len((*a)))
+				binary.BigEndian.PutUint32(data[0:], l)
+				data = data[4:]
+				copy(data, (*a))
+				data = data[l:]
+			}
+			data = data[0:]
+		}
 	}
 	{
 		n := p.IdTime.neoEncode(data[0:])
@@ -110,12 +131,34 @@ func (p *RequestIdentification) NEOMsgDecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
-		if uint64(len(data)) < uint64(l) {
+		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
 		}
-		nread += uint64(l)
+		nread += 4 + uint64(l)
 		p.ClusterName = string(data[:l])
 		data = data[l:]
+	}
+	{
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
+		data = data[4:]
+		p.DevPath = make([]string, l)
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.DevPath[i]
+			if len(data) < 4 {
+				goto overflow
+			}
+			{
+				l := binary.BigEndian.Uint32(data[0 : 0+4])
+				data = data[4:]
+				if uint64(len(data)) < uint64(l) {
+					goto overflow
+				}
+				nread += uint64(l)
+				(*a) = string(data[:l])
+				data = data[l:]
+			}
+		}
+		nread += uint64(l) * 4
 	}
 	{
 		n, ok := p.IdTime.neoDecode(data)

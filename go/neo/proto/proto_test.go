@@ -250,11 +250,12 @@ func TestMsgMarshal(t *testing.T) {
 		},
 
 		// uint32, Address, string, IdTime
-		{&RequestIdentification{CLIENT, 17, Address{"localhost", 7777}, "myname", 0.12345678},
+		{&RequestIdentification{CLIENT, 17, Address{"localhost", 7777}, "myname", []string{"room1", "rack234"}, 0.12345678},
 
 			u8(2) + u32(17) + u32(9) +
 			"localhost" + u16(7777) +
 			u32(6) + "myname" +
+			u32(2) + u32(5)+"room1" + u32(7)+"rack234" +
 			hex("3fbf9add1091c895"),
 		},
 

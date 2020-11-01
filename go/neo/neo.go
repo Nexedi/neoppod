@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -113,6 +113,7 @@ func (app *NodeApp) Dial(ctx context.Context, peerType proto.NodeType, addr stri
 		UUID:		app.MyInfo.UUID,
 		Address:	app.MyInfo.Addr,
 		ClusterName:	app.ClusterName,
+		DevPath:        nil,                    // XXX stub
 		IdTime:		app.MyInfo.IdTime,	// XXX ok?
 	}
 	accept := &proto.AcceptIdentification{}
