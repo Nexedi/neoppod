@@ -1,6 +1,6 @@
-// Copyright (C) 2018  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
-//                     schema & queries are based on neo/storage/database/sqlite.py
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
+//                          schema & queries are based on neo/storage/database/sqlite.py
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -67,7 +67,7 @@ import (
 
 // ---- schema ----
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 // table "config" stores configuration parameters which affect the persistent data.
 //
@@ -80,11 +80,11 @@ const config = `
 
 // table "pt" stores a partition table.
 const pt = `
-	rid	INTEGER NOT NULL,	-- row id
-	nid	INTEGER NOT NULL,	-- node id
-	state	INTEGER NOT NULL,	-- cell state
+	partition	INTEGER NOT NULL,	-- row id
+	nid		INTEGER NOT NULL,	-- node id
+	tid		INTEGER NOT NULL,
 
-	PRIMARY KEY (rid, nid)
+	PRIMARY KEY (partition, nid)
 `
 
 // table "trans" stores information on committed transactions.
@@ -260,12 +260,10 @@ func (b *Backend) query1(query string, argv ...interface{}) *row1 {
 func (b *Backend) LastTid(ctx context.Context) (zodb.Tid, error) {
 	var lastTid zodb.Tid
 
-	// FIXME nodeID <- my node UUID
-	myID := proto.UUID(proto.STORAGE, 1)
-
-	err := b.query1("SELECT MAX(tid) FROM pt, trans" +
-			" WHERE nid=? AND rid=partition" /* XXX AND tid<=? (max_tid) */,
-			myID).Scan(&lastTid)
+	err := b.query1("SELECT MAX(tid) FROM trans",
+			// FIXME + " WHERE partition=?" and caller looping over partitions from readable set
+			// XXX AND tid<=? (max_tid)
+			).Scan(&lastTid)
 
 	if err != nil {
 		// no transaction have been committed
@@ -282,11 +280,9 @@ func (b *Backend) LastTid(ctx context.Context) (zodb.Tid, error) {
 func (b *Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
 	var lastOid zodb.Oid
 
-	// FIXME nodeID <- my node UUID
-	myID := proto.UUID(proto.STORAGE, 1)
-
-	err := b.query1("SELECT MAX(oid) FROM pt, obj WHERE nid=? AND rid=partition",
-			myID).Scan(&lastOid)
+	err := b.query1("SELECT MAX(oid) FROM obj",
+			// FIXME + " WHERE `partition=?`" and caller looping over partitions from readable set
+			).Scan(&lastOid)
 
 	if err != nil {
 		// no objects
