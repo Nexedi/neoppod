@@ -801,7 +801,8 @@ type PartitionList struct {
 
 type AnswerPartitionList struct {
 	PTid
-	RowList []RowInfo
+	NumReplicas uint32 // PNumber
+	RowList     []RowInfo
 }
 
 // Ask information about nodes.
