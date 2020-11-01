@@ -134,7 +134,7 @@ var ErrDecodeOverflow = errors.New("decode: buffer overflow")
 
 // ---- messages ----
 
-type ErrorCode uint32
+type ErrorCode int8
 const (
 	ACK ErrorCode = iota
 	NOT_READY
@@ -150,7 +150,7 @@ const (
 	INCOMPLETE_TRANSACTION
 )
 
-type ClusterState int32
+type ClusterState int8
 const (
 	// The cluster is initially in the RECOVERING state, and it goes back to
 	// this state whenever the partition table becomes non-operational again.
@@ -183,7 +183,7 @@ const (
 	STOPPING_BACKUP
 )
 
-type NodeType int32
+type NodeType int8
 const (
 	MASTER NodeType = iota
 	STORAGE
@@ -191,7 +191,7 @@ const (
 	ADMIN
 )
 
-type NodeState int32
+type NodeState int8
 const (
 	UNKNOWN NodeState = iota //short: U     // XXX tag prefix name ?
 	DOWN                     //short: D
@@ -199,7 +199,7 @@ const (
 	PENDING                  //short: P
 )
 
-type CellState int32
+type CellState int8
 const (
 	// Write-only cell. Last transactions are missing because storage is/was down
 	// for a while, or because it is new for the partition. It usually becomes

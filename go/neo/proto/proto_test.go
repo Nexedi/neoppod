@@ -42,6 +42,11 @@ func hex(s string) string {
 	return string(b)
 }
 
+// uint8 -> string as encoded on the wire
+func u8(v uint8) string {
+	return string(v)
+}
+
 // uint16 -> string as encoded on the wire
 func u16(v uint16) string {
 	var b [2]byte
@@ -163,8 +168,8 @@ func TestMsgMarshal(t *testing.T) {
 		// empty
 		{&Ping{}, ""},
 
-		// uint32, string
-		{&Error{Code: 0x01020304, Message: "hello"}, "\x01\x02\x03\x04\x00\x00\x00\x05hello"},
+		// uint8, string
+		{&Error{Code: 0x04, Message: "hello"}, "\x04\x00\x00\x00\x05hello"},
 
 		// Oid, Tid, bool, Checksum, []byte
 		{&StoreObject{
@@ -194,9 +199,9 @@ func TestMsgMarshal(t *testing.T) {
 
 			hex("0102030405060708") +
 			hex("00000003") +
-				hex("00000001000000020000000b000000010000001100000000") +
-				hex("00000002000000010000000b00000002") +
-				hex("00000007000000030000000b000000030000000f000000040000001700000001"),
+				hex("00000001000000020000000b010000001100") +
+				hex("00000002000000010000000b02") +
+				hex("00000007000000030000000b030000000f040000001701"),
 		},
 
 		// map[Oid]struct {Tid,Tid,bool}
@@ -247,7 +252,7 @@ func TestMsgMarshal(t *testing.T) {
 		// uint32, Address, string, IdTime
 		{&RequestIdentification{CLIENT, 17, Address{"localhost", 7777}, "myname", 0.12345678},
 
-			u32(2) + u32(17) + u32(9) +
+			u8(2) + u32(17) + u32(9) +
 			"localhost" + u16(7777) +
 			u32(6) + "myname" +
 			hex("3fbf9add1091c895"),
@@ -258,7 +263,7 @@ func TestMsgMarshal(t *testing.T) {
 			{CLIENT, Address{}, UUID(CLIENT, 1), RUNNING, 1504466245.925599}}},
 
 			hex("41d66b15517b469d") + u32(1) +
-				u32(2) + u32(0) /* <- ø Address */ + hex("e0000001") + u32(2) +
+				u8(2) + u32(0) /* <- ø Address */ + hex("e0000001") + u8(2) +
 				hex("41d66b15517b3d04"),
 		},
 
