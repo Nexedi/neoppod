@@ -1175,6 +1175,12 @@ type Truncate struct {
 	// answer = Error
 }
 
+// Request all nodes to flush their logs.
+//
+//neo:nodes ctl -> A -> M -> *
+type FlushLog struct {}
+
+
 // ---- runtime support for protogen and custom codecs ----
 
 // customCodec is the interface that is implemented by types with custom encodings.

@@ -66,6 +66,7 @@ var pyMsgRegistry = map[uint16]string{
 	62:	"AddTransaction",
 	63:	"AddObject",
 	64:	"Truncate",
+	65:	"FlushLog",
 	32768:	"Error",
 	32769:	"AcceptIdentification",
 	32770:	"Pong",
