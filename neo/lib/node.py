@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -118,8 +118,8 @@ class Node(object):
             if connection.isServer():
                 self.setIdentified()
         else:
-            assert force is not None, \
-                attributeTracker.whoSet(self, '_connection')
+            assert force is not None, (conn,
+                attributeTracker.whoSet(self, '_connection'))
             # The test on peer_id is there to protect against buggy nodes.
             # XXX: handler comparison does not cover all cases: there may
             # be a pending handler change, which won't be detected, or a future
@@ -130,6 +130,10 @@ class Node(object):
             # the full-fledged functionality, and it is simpler this way.
             if not force or conn.getPeerId() is not None or \
                type(conn.getHandler()) is not type(connection.getHandler()):
+                # It may also happen in case of a network failure that is only
+                # noticed by the peer. We'd like to accept the new connection
+                # immediately but it's quite complicated. At worst (keepalive
+                # packets dropped), 'conn' will be closed in ~ 1 minute.
                 raise ProtocolError("already connected")
             def on_closed():
                 self._connection = connection
@@ -137,7 +141,6 @@ class Node(object):
                 self.setIdentified()
             conn.setOnClose(on_closed)
             conn.close()
-        assert not connection.isClosed(), connection
         connection.setOnClose(self.onConnectionClosed)
 
     def getConnection(self):

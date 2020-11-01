@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -314,6 +314,11 @@ class EpollEventManager(object):
         for fd, conn in self.connection_dict.items():
             logging.info('    %r: %r (pending=%r)', fd, conn,
                 conn in pending_set)
+            for request_dict, handler in conn._handlers._pending:
+                handler = handler.__class__.__name__
+                for msg_id, (klass, kw) in sorted(request_dict.items()):
+                    logging.info('      #0x%04x %s (%s)', msg_id,
+                                 klass.__name__, handler)
 
 
 # Default to EpollEventManager.

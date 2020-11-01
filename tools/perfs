@@ -16,21 +16,22 @@ class ImportBenchmark(BenchmarkRunner):
     """ Test import of a datafs """
 
     def add_options(self, parser):
-        parser.add_option('-d', '--datafs')
-        parser.add_option('-m', '--masters')
-        parser.add_option('-s', '--storages')
-        parser.add_option('-p', '--partitions')
-        parser.add_option('-r', '--replicas')
+        _ = parser.add_argument
+        _('-d', '--datafs')
+        _('-m', '--masters', type=int, default=1)
+        _('-s', '--storages', type=int, default=1)
+        _('-p', '--partitions', type=int, default=10)
+        _('-r', '--replicas', type=int, default=0)
 
-    def load_options(self, options, args):
-        if options.datafs and not os.path.exists(options.datafs):
+    def load_options(self, args):
+        if args.datafs and not os.path.exists(args.datafs):
             sys.exit('Missing or wrong data.fs argument')
         return dict(
-            datafs = options.datafs,
-            masters = int(options.masters or 1),
-            storages = int(options.storages or 1),
-            partitions = int(options.partitions or 10),
-            replicas = int(options.replicas or 0),
+            datafs = args.datafs,
+            masters = args.masters,
+            storages = args.storages,
+            partitions = args.partitions,
+            replicas = args.replicas,
         )
 
     def start(self):

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 from .neoctl import NeoCTL, NotReadyException
 from neo.lib.util import p64, u64, tidFromTime, timeStringFromTID
 from neo.lib.protocol import uuid_str, formatNodeList, \
@@ -38,6 +39,7 @@ action_dict = {
     'kill': 'killNode',
     'prune_orphan': 'pruneOrphan',
     'truncate': 'truncate',
+    'flush_log': 'flushLog',
 }
 
 uuid_int = (lambda ns: lambda uuid:
@@ -252,6 +254,15 @@ class TerminalNeoCTL(object):
                 partition_dict = dict.fromkeys(xrange(np), source)
         self.neoctl.checkReplicas(partition_dict, min_tid, max_tid)
 
+    def flushLog(self, params):
+        """
+          Ask all nodes in the cluster to flush their logs.
+
+          If there are backup clusters, only their primary masters flush.
+        """
+        assert not params
+        self.neoctl.flushLog()
+
 class Application(object):
     """The storage node application."""
 
@@ -266,18 +277,18 @@ class Application(object):
         # state (RUNNING, DOWN...) and modify the partition if asked
         # set cluster name [shutdown|operational] : either shutdown the
         # cluster or mark it as operational
+        if not args:
+            return self.usage()
         current_action = action_dict
         level = 0
-        while current_action is not None and \
-              level < len(args) and \
-              isinstance(current_action, dict):
-            current_action = current_action.get(args[level])
-            level += 1
-        action = None
-        if isinstance(current_action, basestring):
-            action = getattr(self.neoctl, current_action, None)
-        if action is None:
-            return self.usage('unknown command')
+        try:
+            while level < len(args) and \
+                  isinstance(current_action, dict):
+                current_action = current_action[args[level]]
+                level += 1
+        except KeyError:
+            sys.exit('invalid command: ' + ' '.join(args))
+        action = getattr(self.neoctl, current_action)
         try:
             return action(args[level:])
         except NotReadyException, message:
@@ -312,8 +323,8 @@ class Application(object):
                                for x in docstring_line_list])
         return '\n'.join(result)
 
-    def usage(self, message):
-        output_list = (message, 'Available commands:', self._usage(action_dict),
+    def usage(self):
+        output_list = ('Available commands:', self._usage(action_dict),
             "TID arguments can be either integers or timestamps as floats,"
             " e.g. '257684787499560686', '0x3937af2eeeeeeee' or '1325421296.'"
             " for 2012-01-01 12:34:56 UTC")

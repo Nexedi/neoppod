@@ -2,7 +2,7 @@
 #
 # neostorage - run a storage node of NEO
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,49 +18,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.config import getServerOptionParser, ConfigurationManager
-
-
-parser = getServerOptionParser()
-parser.add_option('-u', '--uuid', help='specify an UUID to use for this ' \
-                  'process. Previously assigned UUID takes precedence (ie ' \
-                  'you should always use --reset with this switch)')
-parser.add_option('-a', '--adapter', help = 'database adapter to use')
-parser.add_option('-d', '--database', help = 'database connections string')
-parser.add_option('-e', '--engine', help = 'database engine')
-parser.add_option('-w', '--wait', help='seconds to wait for backend to be '
-    'available, before erroring-out (-1 = infinite)', type='float', default=0)
-parser.add_option('--dedup', action='store_true',
-                  help = 'enable deduplication of data when setting'
-                         ' up a new storage node (for RocksDB, check'
-                         ' https://github.com/facebook/mysql-5.6/issues/702)')
-parser.add_option('--disable-drop-partitions', action='store_true',
-                  help = 'do not delete data of discarded cells, which is'
-                         ' useful for big databases because the current'
-                         ' implementation is inefficient (this option should'
-                         ' disappear in the future)')
-parser.add_option('--reset', action='store_true',
-                  help='remove an existing database if any, and exit')
-
-defaults = dict(
-    bind = '127.0.0.1',
-    masters = '127.0.0.1:10000',
-    adapter = 'MySQL',
-)
 
 def main(args=None):
-    # TODO: Forbid using "reset" along with any unneeded argument.
-    #       "reset" is too dangerous to let user a chance of accidentally
-    #       letting it slip through in a long option list.
-    #       We should drop support configuration files to make such check useful.
-    (options, args) = parser.parse_args(args=args)
-    config = ConfigurationManager(defaults, options, 'storage')
+    from neo.storage.app import Application
+    config = Application.option_parser.parse(args)
 
     # setup custom logging
-    logging.setup(config.getLogfile())
+    logging.setup(config.get('logfile'))
 
     # and then, load and run the application
-    from neo.storage.app import Application
     app = Application(config)
-    if not config.getReset():
+    if not config.get('reset'):
         app.run()

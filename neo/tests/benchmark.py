@@ -1,7 +1,7 @@
 from __future__ import print_function
+import argparse
 import sys
 import smtplib
-import optparse
 import platform
 import datetime
 from email.mime.multipart import MIMEMultipart
@@ -22,28 +22,28 @@ class BenchmarkRunner(object):
     def __init__(self):
         self._successful = True
         self._status = []
-        parser = optparse.OptionParser()
+        parser = argparse.ArgumentParser(
+            formatter_class=argparse.RawDescriptionHelpFormatter)
         # register common options
-        parser.add_option('', '--title')
-        parser.add_option('', '--mail-to', action='append')
-        parser.add_option('', '--mail-from')
-        parser.add_option('', '--mail-server')
-        parser.add_option('', '--repeat', type='int', default=1)
+        _ = parser.add_argument
+        _('--title')
+        _('--mail-to', action='append')
+        _('--mail-from')
+        _('--mail-server')
         self.add_options(parser)
         # check common arguments
-        options, args = parser.parse_args()
-        if bool(options.mail_to) ^ bool(options.mail_from):
+        args = parser.parse_args()
+        if bool(args.mail_to) ^ bool(args.mail_from):
             sys.exit('Need a sender and recipients to mail report')
-        mail_server = options.mail_server or MAIL_SERVER
+        mail_server = args.mail_server or MAIL_SERVER
         # check specifics arguments
         self._config = AttributeDict()
-        self._config.update(self.load_options(options, args))
+        self._config.update(self.load_options(args))
         self._config.update(
-            title = options.title or self.__class__.__name__,
-            mail_from = options.mail_from,
-            mail_to = options.mail_to,
+            title = args.title or self.__class__.__name__,
+            mail_from = args.mail_from,
+            mail_to = args.mail_to,
             mail_server = mail_server.split(':'),
-            repeat = options.repeat,
         )
 
     def add_status(self, key, value):
@@ -104,7 +104,7 @@ class BenchmarkRunner(object):
         """ Append options to command line parser """
         raise NotImplementedError
 
-    def load_options(self, options, args):
+    def load_options(self, args):
         """ Check options and return a configuration dict """
         raise NotImplementedError
 

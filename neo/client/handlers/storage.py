@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,7 +18,8 @@ from ZODB.TimeStamp import TimeStamp
 
 from neo.lib import logging
 from neo.lib.compress import decompress_list
-from neo.lib.protocol import Packets, uuid_str
+from neo.lib.connection import ConnectionClosed
+from neo.lib.protocol import Packets, uuid_str, ZERO_TID
 from neo.lib.util import dump, makeChecksum
 from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
@@ -28,19 +29,6 @@ from ..exception import NEOStorageError, NEOStorageNotFoundError
 from ..exception import NEOStorageReadRetry, NEOStorageDoesNotExistError
 
 class StorageEventHandler(MTEventHandler):
-
-    def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByAddress(conn.getAddress())
-        assert node is not None
-        self.app.cp.removeConnection(node)
-        super(StorageEventHandler, self).connectionLost(conn, new_state)
-
-    def connectionFailed(self, conn):
-        # Connection to a storage node failed
-        node = self.app.nm.getByAddress(conn.getAddress())
-        assert node is not None
-        self.app.cp.removeConnection(node)
-        super(StorageEventHandler, self).connectionFailed(conn)
 
     def _acceptIdentification(*args):
         pass
@@ -58,9 +46,12 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerObject(self, conn, oid, *args):
         self.app.setHandlerData(args)
 
-    def answerStoreObject(self, conn, conflict, oid):
+    def answerStoreObject(self, conn, conflict, oid, serial):
         txn_context = self.app.getHandlerData()
         if conflict:
+            if conflict == ZERO_TID:
+                txn_context.written(self.app, conn.getUUID(), oid, serial)
+                return
             # Conflicts can not be resolved now because 'conn' is locked.
             # We must postpone the resolution (by queuing the conflict in
             # 'conflict_dict') to avoid any deadlock with another thread that
@@ -94,7 +85,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 conn.ask(Packets.AskRebaseObject(ttid, oid),
                          queue=queue, oid=oid)
         except ConnectionClosed:
-            txn_context.involved_nodes[conn.getUUID()] = 2
+            txn_context.conn_dict[conn.getUUID()] = None
 
     def answerRebaseObject(self, conn, conflict, oid):
         if conflict:
@@ -106,8 +97,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 cached = txn_context.cache_dict.pop(oid)
             except KeyError:
                 if resolved:
-                    # We should still be waiting for an answer from this node.
-                    assert conn.uuid in txn_context.data_dict[oid][2]
+                    # We should still be waiting for an answer from this node,
+                    # unless we lost connection.
+                    assert conn.uuid in txn_context.data_dict[oid][2] or \
+                           txn_context.conn_dict[conn.uuid] is None
                     return
                 assert oid in txn_context.data_dict
                 if serial <= txn_context.conflict_dict.get(oid, ''):
@@ -135,7 +128,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                     if cached:
                         assert cached == data
                         txn_context.cache_size -= size
-                txn_context.data_dict[oid] = data, serial, None
+                txn_context.data_dict[oid] = data, serial, []
             txn_context.conflict_dict[oid] = conflict
 
     def answerStoreTransaction(self, conn):
@@ -144,6 +137,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
     answerVoteTransaction = answerStoreTransaction
 
     def connectionClosed(self, conn):
+        # only called if we were waiting for an answer
         txn_context = self.app.getHandlerData()
         if type(txn_context) is Transaction:
             txn_context.nodeLost(self.app, conn.getUUID())

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,6 +45,13 @@ class AdministrationHandler(MasterHandler):
         node = self.app.nm.getByUUID(conn.getUUID())
         if node is not None:
             self.app.nm.remove(node)
+
+    def flushLog(self, conn):
+        p = Packets.FlushLog()
+        for node in self.app.nm.getConnectedList():
+            c = node.getConnection()
+            c is conn or c.send(p)
+        super(AdministrationHandler, self).flushLog(conn)
 
     def setClusterState(self, conn, state):
         app = self.app

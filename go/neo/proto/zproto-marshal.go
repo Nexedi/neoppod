@@ -4092,6 +4092,23 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
+// 65. FlushLog
+
+func (*FlushLog) NEOMsgCode() uint16 {
+	return 65
+}
+
+func (p *FlushLog) NEOMsgEncodedLen() int {
+	return 0
+}
+
+func (p *FlushLog) NEOMsgEncode(data []byte) {
+}
+
+func (p *FlushLog) NEOMsgDecode(data []byte) (int, error) {
+	return 0, nil
+}
+
 // registry of message types
 var msgTypeRegistry = map[uint16]reflect.Type{
 	0 | answerBit:  reflect.TypeOf(Error{}),
@@ -4193,4 +4210,5 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	62:             reflect.TypeOf(AddTransaction{}),
 	63:             reflect.TypeOf(AddObject{}),
 	64:             reflect.TypeOf(Truncate{}),
+	65:             reflect.TypeOf(FlushLog{}),
 }
