@@ -70,7 +70,7 @@ func (p *RequestIdentification) NEOMsgEncodedLen() int {
 		a := &p.DevPath[i]
 		size += len((*a))
 	}
-	return 13 + p.Address.neoEncodedLen() + len(p.ClusterName) + len(p.DevPath)*4 + p.IdTime.neoEncodedLen() + size
+	return 17 + p.Address.neoEncodedLen() + len(p.ClusterName) + p.IdTime.neoEncodedLen() + len(p.DevPath)*4 + len(p.NewNID)*4 + size
 }
 
 func (p *RequestIdentification) NEOMsgEncode(data []byte) {
@@ -86,6 +86,10 @@ func (p *RequestIdentification) NEOMsgEncode(data []byte) {
 		data = data[4:]
 		copy(data, p.ClusterName)
 		data = data[l:]
+	}
+	{
+		n := p.IdTime.neoEncode(data[0:])
+		data = data[0+n:]
 	}
 	{
 		l := uint32(len(p.DevPath))
@@ -104,8 +108,14 @@ func (p *RequestIdentification) NEOMsgEncode(data []byte) {
 		}
 	}
 	{
-		n := p.IdTime.neoEncode(data[0:])
-		data = data[0+n:]
+		l := uint32(len(p.NewNID))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.NewNID[i]
+			binary.BigEndian.PutUint32(data[0:], (*a))
+			data = data[4:]
+		}
 	}
 }
 
@@ -131,12 +141,23 @@ func (p *RequestIdentification) NEOMsgDecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
-		if uint64(len(data)) < 4+uint64(l) {
+		if uint64(len(data)) < uint64(l) {
 			goto overflow
 		}
-		nread += 4 + uint64(l)
+		nread += uint64(l)
 		p.ClusterName = string(data[:l])
 		data = data[l:]
+	}
+	{
+		n, ok := p.IdTime.neoDecode(data)
+		if !ok {
+			goto overflow
+		}
+		data = data[n:]
+		nread += n
+	}
+	if len(data) < 4 {
+		goto overflow
 	}
 	{
 		l := binary.BigEndian.Uint32(data[0 : 0+4])
@@ -158,17 +179,26 @@ func (p *RequestIdentification) NEOMsgDecode(data []byte) (int, error) {
 				data = data[l:]
 			}
 		}
+		if len(data) < 4 {
+			goto overflow
+		}
 		nread += uint64(l) * 4
 	}
 	{
-		n, ok := p.IdTime.neoDecode(data)
-		if !ok {
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
+		data = data[4:]
+		if uint64(len(data)) < uint64(l)*4 {
 			goto overflow
 		}
-		data = data[n:]
-		nread += n
+		nread += uint64(l) * 4
+		p.NewNID = make([]uint32, l)
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.NewNID[i]
+			(*a) = binary.BigEndian.Uint32(data[0 : 0+4])
+			data = data[4:]
+		}
 	}
-	return 9 + int(nread), nil
+	return 17 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow

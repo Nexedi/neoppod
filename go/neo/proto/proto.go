@@ -372,8 +372,10 @@ type RequestIdentification struct {
 	UUID        NodeUUID
 	Address     Address // where requesting node is also accepting connections
 	ClusterName string
-	DevPath     []string // [] of devid
 	IdTime      IdTime
+	// storage
+	DevPath     []string // [] of devid
+	NewNID      []uint32 // [] of PNumber
 }
 
 //neo:proto answer

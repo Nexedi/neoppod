@@ -107,8 +107,9 @@ func TestMasterStorage(t0 *testing.T) {
 		UUID:		0,
 		Address:	xnaddr("s:1"),
 		ClusterName:	"abc1",
-		DevPath:        nil,
 		IdTime:		proto.IdTimeNone,
+		DevPath:        nil,
+		NewNID:         nil,
 	}))
 
 
@@ -209,8 +210,9 @@ func TestMasterStorage(t0 *testing.T) {
 		UUID:		0,
 		Address:	xnaddr(""),
 		ClusterName:	"abc1",
-		DevPath:        nil,
 		IdTime:		proto.IdTimeNone,
+		DevPath:        nil,
+		NewNID:         nil,
 	}))
 
 	tM.Expect(δnode("m", "", proto.CLIENT, 1, proto.RUNNING, 0.02))
@@ -295,8 +297,9 @@ func TestMasterStorage(t0 *testing.T) {
 		UUID:		proto.UUID(proto.CLIENT, 1),
 		Address:	xnaddr(""),
 		ClusterName:	"abc1",
-		DevPath:        nil,
 		IdTime:		0.02,
+		DevPath:        nil,
+		NewNID:         nil,
 	}))
 
 	tCS.Expect(conntx("s:3", "c:2", 1, &proto.AcceptIdentification{
