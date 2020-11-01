@@ -1,5 +1,5 @@
 
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,7 +22,7 @@ from struct import Struct
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
 # the high order byte 0 is different from TLS Handshake (0x16).
-PROTOCOL_VERSION = 4
+PROTOCOL_VERSION = 5
 ENCODED_VERSION = Struct('!L').pack(PROTOCOL_VERSION)
 
 # Avoid memory errors on corrupted data.
@@ -1631,6 +1631,13 @@ class Truncate(Packet):
 
     _answer = Error
 
+class FlushLog(Packet):
+    """
+    Request all nodes to flush their logs.
+
+    :nodes: ctl -> A -> M -> *
+    """
+
 
 _next_code = 0
 def register(request, ignore_when_closed=None):
@@ -1806,6 +1813,8 @@ class Packets(dict):
                     AddObject)
     Truncate = register(
                     Truncate)
+    FlushLog = register(
+                    FlushLog)
 
 def Errors():
     registry_dict = {}

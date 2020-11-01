@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from ZODB import BaseStorage, ConflictResolution, POSException
+from ZODB.POSException import ConflictError, UndoError
 from zope.interface import implementer
 import ZODB.interfaces
 
@@ -81,31 +82,68 @@ class Storage(BaseStorage.BaseStorage,
             return self.app.load(oid)[:2]
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
+        except Exception:
+            logging.exception('oid=%r', oid)
+            raise
 
     def new_oid(self):
-        return self.app.new_oid()
+        try:
+            return self.app.new_oid()
+        except Exception:
+            logging.exception('')
+            raise
 
     def tpc_begin(self, transaction, tid=None, status=' '):
         """
         Note: never blocks in NEO.
         """
-        return self.app.tpc_begin(self, transaction, tid, status)
+        try:
+            return self.app.tpc_begin(self, transaction, tid, status)
+        except Exception:
+            logging.exception('transaction=%r, tid=%r', transaction, tid)
+            raise
 
     def tpc_vote(self, transaction):
-        return self.app.tpc_vote(transaction)
+        try:
+            return self.app.tpc_vote(transaction)
+        except ConflictError:
+            raise
+        except Exception:
+            logging.exception('transaction=%r', transaction)
+            raise
 
     def tpc_abort(self, transaction):
-        return self.app.tpc_abort(transaction)
+        try:
+            return self.app.tpc_abort(transaction)
+        except Exception:
+            logging.exception('transaction=%r', transaction)
+            raise
 
     def tpc_finish(self, transaction, f=None):
-        return self.app.tpc_finish(transaction, f)
+        try:
+            return self.app.tpc_finish(transaction, f)
+        except Exception:
+            logging.exception('transaction=%r', transaction)
+            raise
 
     def store(self, oid, serial, data, version, transaction):
         assert version == '', 'Versions are not supported'
-        return self.app.store(oid, serial, data, version, transaction)
+        try:
+            return self.app.store(oid, serial, data, version, transaction)
+        except ConflictError:
+            raise
+        except Exception:
+            logging.exception('oid=%r, serial=%r, transaction=%r',
+                              oid, serial, transaction)
+            raise
 
     def deleteObject(self, oid, serial, transaction):
-        self.app.store(oid, serial, None, None, transaction)
+        try:
+            self.app.store(oid, serial, None, None, transaction)
+        except Exception:
+            logging.exception('oid=%r, serial=%r, transaction=%r',
+                              oid, serial, transaction)
+            raise
 
     # multiple revisions
     def loadSerial(self, oid, serial):
@@ -113,6 +151,9 @@ class Storage(BaseStorage.BaseStorage,
             return self.app.load(oid, serial)[0]
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
+        except Exception:
+            logging.exception('oid=%r, serial=%r', oid, serial)
+            raise
 
     def loadBefore(self, oid, tid):
         try:
@@ -121,6 +162,9 @@ class Storage(BaseStorage.BaseStorage,
             raise POSException.POSKeyError(oid)
         except NEOStorageNotFoundError:
             return None
+        except Exception:
+            logging.exception('oid=%r, tid=%r', oid, tid)
+            raise
 
     @property
     def iterator(self):
@@ -128,10 +172,20 @@ class Storage(BaseStorage.BaseStorage,
 
     # undo
     def undo(self, transaction_id, txn):
-        return self.app.undo(transaction_id, txn)
+        try:
+            return self.app.undo(transaction_id, txn)
+        except (ConflictError, UndoError):
+            raise
+        except Exception:
+            logging.exception('transaction_id=%r, txn=%r', transaction_id, txn)
+            raise
 
     def undoLog(self, first=0, last=-20, filter=None):
-        return self.app.undoLog(first, last, filter)
+        try:
+            return self.app.undoLog(first, last, filter)
+        except Exception:
+            logging.exception('first=%r, last=%r', first, last)
+            raise
 
     def supportsUndo(self):
         return True
@@ -141,10 +195,17 @@ class Storage(BaseStorage.BaseStorage,
             data, serial, _ = self.app.load(oid)
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
+        except Exception:
+            logging.exception('oid=%r', oid)
+            raise
         return data, serial, ''
 
     def __len__(self):
-        return self.app.getObjectCount()
+        try:
+            return self.app.getObjectCount()
+        except Exception:
+            logging.exception('')
+            raise
 
     def registerDB(self, db, limit=None):
         self.app.registerDB(db, limit)
@@ -154,19 +215,30 @@ class Storage(BaseStorage.BaseStorage,
             return self.app.history(oid, *args, **kw)
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
+        except Exception:
+            logging.exception('oid=%r', oid)
+            raise
 
     def sync(self):
         return self.app.sync()
 
     def copyTransactionsFrom(self, source, verbose=False):
         """ Zope compliant API """
-        return self.app.importFrom(self, source)
+        try:
+            return self.app.importFrom(self, source)
+        except Exception:
+            logging.exception('source=%r', source)
+            raise
 
     def pack(self, t, referencesf, gc=False):
         if gc:
             logging.warning('Garbage Collection is not available in NEO,'
                 ' please use an external tool. Packing without GC.')
-        self.app.pack(t)
+        try:
+            self.app.pack(t)
+        except Exception:
+            logging.exception('pack_time=%r', t)
+            raise
 
     def lastSerial(self):
         # seems unused
@@ -198,6 +270,14 @@ class Storage(BaseStorage.BaseStorage,
             return self.app.getLastTID(oid)
         except NEOStorageNotFoundError:
             raise KeyError
+        except Exception:
+            logging.exception('oid=%r', oid)
+            raise
 
     def checkCurrentSerialInTransaction(self, oid, serial, transaction):
-        self.app.checkCurrentSerialInTransaction(oid, serial, transaction)
+        try:
+            self.app.checkCurrentSerialInTransaction(oid, serial, transaction)
+        except Exception:
+            logging.exception('oid=%r, serial=%r, transaction=%r',
+                              oid, serial, transaction)
+            raise

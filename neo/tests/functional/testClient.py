@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2017  Nexedi SA
+# Copyright (C) 2009-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import os
 import unittest
 import transaction
@@ -25,7 +26,7 @@ from neo.lib.util import makeChecksum, u64
 from ZODB.FileStorage import FileStorage
 from ZODB.tests.StorageTestBase import zodb_pickle
 from persistent import Persistent
-from . import NEOCluster, NEOFunctionalTest
+from . import NEOCluster, NEOFunctionalTest, NEOProcess
 
 TREE_SIZE = 6
 
@@ -120,13 +121,13 @@ class ClientTests(NEOFunctionalTest):
         self.__checkTree(tree.right, depth)
         self.__checkTree(tree.left, depth)
 
-    def __getDataFS(self, reset=False):
+    def __getDataFS(self):
         name = os.path.join(self.getTempDirectory(), 'data.fs')
-        if reset and os.path.exists(name):
+        if os.path.exists(name):
             os.remove(name)
         return FileStorage(file_name=name)
 
-    def __populate(self, db, tree_size=TREE_SIZE):
+    def __populate(self, db, tree_size=TREE_SIZE, with_undo=True):
         if isinstance(db.storage, FileStorage):
             from base64 import b64encode as undo_tid
         else:
@@ -146,13 +147,14 @@ class ClientTests(NEOFunctionalTest):
         t2 = db.lastTransaction()
         ob.left = left
         transaction.commit()
-        undo()
-        t4 = db.lastTransaction()
-        undo(t2)
-        undo()
-        undo(t4)
-        undo()
-        undo()
+        if with_undo:
+            undo()
+            t4 = db.lastTransaction()
+            undo(t2)
+            undo()
+            undo(t4)
+            undo()
+            undo()
         conn.close()
 
     def testImport(self):
@@ -174,10 +176,37 @@ class ClientTests(NEOFunctionalTest):
         (neo_db, neo_conn) = self.neo.getZODBConnection()
         self.__checkTree(neo_conn.root()['trees'])
 
-    def __dump(self, storage):
-        return {u64(t.tid): [(u64(o.oid), o.data_txn and u64(o.data_txn),
+    def testMigrationTool(self):
+        dfs_storage  = self.__getDataFS()
+        dfs_db = ZODB.DB(dfs_storage)
+        self.__populate(dfs_db, with_undo=False)
+        dump = self.__dump(dfs_storage)
+        fs_path = dfs_storage.__name__
+        dfs_db.close()
+
+        neo = self.neo
+        neo.start()
+
+        kw = {'cluster': neo.cluster_name, 'quiet': None}
+        master_nodes = neo.master_nodes.replace('/', ' ')
+        if neo.SSL:
+            kw['ca'], kw['cert'], kw['key'] = neo.SSL
+
+        p = NEOProcess('neomigrate', fs_path, master_nodes, **kw)
+        p.start()
+        p.wait()
+
+        os.remove(fs_path)
+        p = NEOProcess('neomigrate', master_nodes, fs_path, **kw)
+        p.start()
+        p.wait()
+
+        self.assertEqual(dump, self.__dump(FileStorage(fs_path)))
+
+    def __dump(self, storage, sorted=sorted):
+        return {u64(t.tid): sorted((u64(o.oid), o.data_txn and u64(o.data_txn),
                               None if o.data is None else makeChecksum(o.data))
-                             for o in t]
+                            for o in t)
                 for t in storage.iterator()}
 
     def testExport(self):
@@ -186,10 +215,10 @@ class ClientTests(NEOFunctionalTest):
         self.neo.start()
         (neo_db, neo_conn) = self.neo.getZODBConnection()
         self.__populate(neo_db)
-        dump = self.__dump(neo_db.storage)
+        dump = self.__dump(neo_db.storage, list)
 
         # copy neo to data fs
-        dfs_storage  = self.__getDataFS(reset=True)
+        dfs_storage  = self.__getDataFS()
         neo_storage = self.neo.getZODBStorage()
         dfs_storage.copyTransactionsFrom(neo_storage)
 
@@ -209,7 +238,10 @@ class ClientTests(NEOFunctionalTest):
         self.neo.start()
         neo_db, neo_conn = self.neo.getZODBConnection()
         self.__checkTree(neo_conn.root()['trees'])
-        self.assertEqual(dump, self.__dump(neo_db.storage))
+        # BUG: The following check is sometimes done whereas the import is not
+        #      finished, resulting in a failure because getReplicationTIDList
+        #      is not implemented by the Importer backend.
+        self.assertEqual(dump, self.__dump(neo_db.storage, list))
 
     def testIPv6Client(self):
         """ Test the connectivity of an IPv6 connection for neo client """

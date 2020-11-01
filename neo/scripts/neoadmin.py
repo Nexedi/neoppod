@@ -2,7 +2,7 @@
 #
 # neoadmin - run an administrator  node of NEO
 #
-# Copyright (C) 2009-2017  Nexedi SA
+# Copyright (C) 2009-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,27 +18,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.config import getServerOptionParser, ConfigurationManager
-
-parser = getServerOptionParser()
-parser.add_option('-u', '--uuid', help='specify an UUID to use for this ' \
-                  'process')
-
-defaults = dict(
-    bind = '127.0.0.1:9999',
-    masters = '127.0.0.1:10000',
-)
 
 def main(args=None):
-    # build configuration dict from command line options
-    (options, args) = parser.parse_args(args=args)
-    config = ConfigurationManager(defaults, options, 'admin')
+    from neo.admin.app import Application
+    config = Application.option_parser.parse(args)
 
     # setup custom logging
-    logging.setup(config.getLogfile())
+    logging.setup(config.get('logfile'))
 
     # and then, load and run the application
-    from neo.admin.app import Application
     app = Application(config)
     app.run()
 

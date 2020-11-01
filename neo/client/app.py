@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import heapq
+import random
 import time
 
 try:
@@ -35,16 +36,20 @@ from neo.lib.protocol import NodeTypes, Packets, \
 from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Empty, Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
+from neo.lib.exception import NodeNotReady
 from .exception import (NEOStorageError, NEOStorageCreationUndoneError,
     NEOStorageReadRetry, NEOStorageNotFoundError, NEOPrimaryMasterLost)
 from .handlers import storage, master
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
-from .pool import ConnectionPool
 from .transactions import TransactionContainer
 from neo.lib.util import p64, u64, parseMasterList
 
 CHECKED_SERIAL = object()
+
+# How long before we might retry a connection to a node to which connection
+# failed in the past.
+MAX_FAILURE_AGE = 600
 
 try:
     from Signals.Signals import SignalHandler
@@ -68,7 +73,6 @@ class Application(ThreadedApplication):
                                           name, **kw)
         # Internal Attributes common to all thread
         self._db = None
-        self.cp = ConnectionPool(self)
         self.primary_master_node = None
         self.trying_master_node = None
 
@@ -102,6 +106,9 @@ class Application(ThreadedApplication):
         # _connecting_to_master_node is used to prevent simultaneous master
         # node connection attempts
         self._connecting_to_master_node = Lock()
+        # same for storage nodes
+        self._connecting_to_storage_node = Lock()
+        self._node_failure_dict = {}
         self.compress = getCompress(compress)
 
     def __getattr__(self, attr):
@@ -116,6 +123,8 @@ class Application(ThreadedApplication):
     def log(self):
         super(Application, self).log()
         logging.info("%r", self._cache)
+        for txn_context in self._txn_container.itervalues():
+            logging.info("%r", txn_context)
 
     @property
     def txn_contexts(self):
@@ -246,6 +255,53 @@ class Application(ThreadedApplication):
         logging.info("Connected and ready")
         return conn
 
+    def getStorageConnection(self, node):
+        conn = node._connection # XXX
+        if node.isRunning() if conn is None else not node._identified:
+            with self._connecting_to_storage_node:
+                conn = node._connection # XXX
+                if conn is None:
+                    return self._connectToStorageNode(node)
+        return conn
+
+    def _connectToStorageNode(self, node):
+        if self.master_conn is None:
+            raise NEOPrimaryMasterLost
+        conn = MTClientConnection(self, self.storage_event_handler, node,
+                                  dispatcher=self.dispatcher)
+        p = Packets.RequestIdentification(NodeTypes.CLIENT,
+            self.uuid, None, self.name, (), self.id_timestamp)
+        try:
+            self._ask(conn, p, handler=self.storage_bootstrap_handler)
+        except ConnectionClosed:
+            logging.error('Connection to %r failed', node)
+        except NodeNotReady:
+            logging.info('%r not ready', node)
+        else:
+            logging.info('Connected %r', node)
+            # Make sure this node will be considered for the next reads
+            # even if there was a previous recent failure.
+            self._node_failure_dict.pop(node.getUUID(), None)
+            return conn
+        self._node_failure_dict[node.getUUID()] = time.time() + MAX_FAILURE_AGE
+
+    def getCellSortKey(self, cell, random=random.random):
+        # Prefer a node that didn't fail recently.
+        failure = self._node_failure_dict.get(cell.getUUID())
+        if failure:
+            if time.time() < failure:
+                # Or order by date of connection failure.
+                return failure
+            # Do not use 'del' statement: we didn't lock, so another
+            # thread might have removed uuid from _node_failure_dict.
+            self._node_failure_dict.pop(cell.getUUID(), None)
+        # A random one, connected or not, is a trivial and quite efficient way
+        # to distribute the load evenly. On write accesses, a client connects
+        # to all nodes of touched cells, but before that, or if a client is
+        # specialized to only do read-only accesses, it should not limit
+        # itself to only use the first connected nodes.
+        return random()
+
     def registerDB(self, db, limit):
         self._db = db
 
@@ -274,7 +330,6 @@ class Application(ThreadedApplication):
         return int(u64(self.last_oid))
 
     def _askStorageForRead(self, object_id, packet, askStorage=None):
-        cp = self.cp
         pt = self.pt
         # BBB: On Py2, it can be a subclass of bytes (binary from zodbpickle).
         if isinstance(object_id, bytes):
@@ -287,10 +342,10 @@ class Application(ThreadedApplication):
         failed = 0
         while 1:
             cell_list = pt.getCellList(object_id, True)
-            cell_list.sort(key=cp.getCellSortKey)
+            cell_list.sort(key=self.getCellSortKey)
             for cell in cell_list:
                 node = cell.getNode()
-                conn = cp.getConnForNode(node)
+                conn = self.getStorageConnection(node)
                 if conn is not None:
                     try:
                         return askStorage(conn, packet)
@@ -355,8 +410,16 @@ class Application(ThreadedApplication):
                 if result:
                     return result
                 self._loading_oid = oid
+                self._loading_invalidated = []
             finally:
                 release()
+            # While the cache lock is released, an arbitrary number of
+            # invalidations may be processed, for this oid or not. And at this
+            # precise moment, if both tid and before_tid are None (which is
+            # unlikely to happen with recent ZODB), self.last_tid can be any
+            # new tid. Since we can get any serial from storage, fixing
+            # next_tid requires to keep a list of all possible serials.
+
             # When not bound to a ZODB Connection, load() may be the
             # first method called and last_tid may still be None.
             # This happens, for example, when opening the DB.
@@ -368,12 +431,11 @@ class Application(ThreadedApplication):
             acquire()
             try:
                 if self._loading_oid:
-                    # Common case (no race condition).
-                    self._cache.store(oid, data, tid, next_tid)
-                elif self._loading_invalidated:
-                    # oid has just been invalidated.
                     if not next_tid:
-                        next_tid = self._loading_invalidated
+                        for t in self._loading_invalidated:
+                            if tid < t:
+                                next_tid = t
+                                break
                     self._cache.store(oid, data, tid, next_tid)
                 # Else, we just reconnected to the master.
             finally:
@@ -445,9 +507,9 @@ class Application(ThreadedApplication):
         packet = Packets.AskStoreObject(oid, serial, compression,
             checksum, compressed_data, data_serial, ttid)
         txn_context.data_dict[oid] = data, serial, txn_context.write(
-            self, packet, oid, oid=oid)
+            self, packet, oid, oid=oid, serial=serial)
 
-        while txn_context.data_size >= self._cache._max_size:
+        while txn_context.data_size >= self._cache.max_size:
             self._waitAnyTransactionMessage(txn_context)
         self._waitAnyTransactionMessage(txn_context, False)
 
@@ -482,9 +544,8 @@ class Application(ThreadedApplication):
                   ' with new locking TID %s', dump(ttid), dump(serial))
                 txn_context.locking_tid = serial
                 packet = Packets.AskRebaseTransaction(ttid, serial)
-                for uuid, status in txn_context.involved_nodes.iteritems():
-                    if status < 2:
-                        self._askStorageForWrite(txn_context, uuid, packet)
+                for uuid in txn_context.conn_dict:
+                    self._askStorageForWrite(txn_context, uuid, packet)
             else:
                 if data is CHECKED_SERIAL:
                     raise ReadConflictError(oid=oid,
@@ -515,15 +576,14 @@ class Application(ThreadedApplication):
                     self._store(txn_context, oid, serial, data)
 
     def _askStorageForWrite(self, txn_context, uuid, packet):
-          node = self.nm.getByUUID(uuid)
-          if node is not None:
-              conn = self.cp.getConnForNode(node)
+          conn = txn_context.conn_dict[uuid]
+          try:
+              return conn.ask(packet, queue=txn_context.queue)
+          except AttributeError:
               if conn is not None:
-                  try:
-                      return conn.ask(packet, queue=txn_context.queue)
-                  except ConnectionClosed:
-                      pass
-          txn_context.involved_nodes[uuid] = 2
+                  raise
+          except ConnectionClosed:
+              txn_context.conn_dict[uuid] = None
 
     def waitResponses(self, queue):
         """Wait for all requests to be answered (or their connection to be
@@ -554,26 +614,44 @@ class Application(ThreadedApplication):
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), ext, txn_context.cache_dict)
         queue = txn_context.queue
-        involved_nodes = txn_context.involved_nodes
+        conn_dict = txn_context.conn_dict
         # Ask in parallel all involved storage nodes to commit object metadata.
         # Nodes that store the transaction metadata get a special packet.
         trans_nodes = txn_context.write(self, packet, ttid)
         packet = Packets.AskVoteTransaction(ttid)
-        for uuid, status in involved_nodes.iteritems():
-            if status == 1 and uuid not in trans_nodes:
+        for uuid in conn_dict:
+            if uuid not in trans_nodes:
                 self._askStorageForWrite(txn_context, uuid, packet)
-        self.waitResponses(txn_context.queue)
-        # If there are failed nodes, ask the master whether they can be
-        # disconnected while keeping the cluster operational. If possible,
-        # this will happen during tpc_finish.
-        failed = [node.getUUID()
-            for node in self.nm.getStorageList()
-            if node.isRunning() and involved_nodes.get(node.getUUID()) == 2]
-        if failed:
-            try:
-                self._askPrimary(Packets.FailedVote(ttid, failed))
-            except ConnectionClosed:
-                pass
+        self.waitStoreResponses(txn_context)
+        if None in conn_dict.itervalues(): # unlikely
+            # If some writes failed, we must first check whether
+            # all oids have been locked by at least one node.
+            failed = {node.getUUID(): node.isRunning()
+                for node in self.nm.getStorageList()
+                if conn_dict.get(node.getUUID(), 0) is None}
+            if txn_context.lockless_dict:
+                getCellList = self.pt.getCellList
+                for offset, uuid_set in txn_context.lockless_dict.iteritems():
+                    for cell in getCellList(offset):
+                        uuid = cell.getUUID()
+                        if not (uuid in failed or uuid in uuid_set):
+                            break
+                    else:
+                        # Very unlikely. Instead of raising, we could recover
+                        # the transaction by doing something similar to
+                        # deadlock avoidance; that would be done before voting.
+                        # But it's not worth the complexity.
+                        raise NEOStorageError(
+                            'partition %s not fully write-locked' % offset)
+            failed = [uuid for uuid, running in failed.iteritems() if running]
+            # If there are running nodes for which some writes failed, ask the
+            # master whether they can be disconnected while keeping the cluster
+            # operational. If possible, this will happen during tpc_finish.
+            if failed:
+                try:
+                    self._askPrimary(Packets.FailedVote(ttid, failed))
+                except ConnectionClosed:
+                    pass
         txn_context.voted = True
         # We must not go further if connection to master was lost since
         # tpc_begin, to lower the probability of failing during tpc_finish.
@@ -600,11 +678,12 @@ class Application(ThreadedApplication):
         # condition. The consequence would be that storage nodes lock oids
         # forever.
         p = Packets.AbortTransaction(txn_context.ttid, ())
-        for uuid in txn_context.involved_nodes:
-            try:
-                self.cp.connection_dict[uuid].send(p)
-            except (KeyError, ConnectionClosed):
-                pass
+        for conn in txn_context.conn_dict.itervalues():
+            if conn is not None:
+                try:
+                    conn.send(p)
+                except ConnectionClosed:
+                    pass
         # Because we want to be sure that the involved nodes are notified,
         # we still have to send the full list to the master. Most of the
         # time, the storage nodes get 2 AbortTransaction packets, and the
@@ -618,7 +697,7 @@ class Application(ThreadedApplication):
         else:
             try:
                 notify(Packets.AbortTransaction(txn_context.ttid,
-                                                txn_context.involved_nodes))
+                                                txn_context.conn_dict))
             except ConnectionClosed:
                 pass
         # We don't need to flush queue, as it won't be reused by future
@@ -708,8 +787,8 @@ class Application(ThreadedApplication):
         # Ask storage the undo serial (serial at which object's previous data
         # is)
         getCellList = self.pt.getCellList
-        getCellSortKey = self.cp.getCellSortKey
-        getConnForNode = self.cp.getConnForNode
+        getCellSortKey = self.getCellSortKey
+        getConnForNode = self.getStorageConnection
         queue = self._thread_container.queue
         ttid = txn_context.ttid
         undo_object_tid_dict = {}
@@ -727,7 +806,7 @@ class Application(ThreadedApplication):
                     # conflicts. For example, if a network failure happened
                     # only between the client and the storage, the latter would
                     # still be readable until we commit.
-                    if txn_context.involved_nodes.get(cell.getUUID(), 0) < 2]
+                    if txn_context.conn_dict.get(cell.getUUID(), 0) is not None]
                 storage_conn = getConnForNode(
                     min(cell_list, key=getCellSortKey).getNode())
                 storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
@@ -799,7 +878,7 @@ class Application(ThreadedApplication):
         packet = Packets.AskTIDs(first, last, INVALID_PARTITION)
         tid_set = set()
         for storage_node in self.pt.getNodeSet(True):
-            conn = self.cp.getConnForNode(storage_node)
+            conn = self.getStorageConnection(storage_node)
             if conn is None:
                 continue
             conn.ask(packet, queue=queue, tid_set=tid_set)
@@ -934,6 +1013,6 @@ class Application(ThreadedApplication):
         assert oid not in txn_context.data_dict, oid
         packet = Packets.AskCheckCurrentSerial(ttid, oid, serial)
         txn_context.data_dict[oid] = CHECKED_SERIAL, serial, txn_context.write(
-            self, packet, oid, 0, oid=oid)
+            self, packet, oid, oid=oid, serial=serial)
         self._waitAnyTransactionMessage(txn_context, False)
 

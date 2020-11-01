@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2011-2017  Nexedi SA
+# Copyright (C) 2011-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -64,7 +64,7 @@ class ClientCache(object):
       - The history queue only contains items with counter > 0
     """
 
-    __slots__ = ('_life_time', '_max_history_size', '_max_size',
+    __slots__ = ('max_size', '_life_time', '_max_history_size',
                  '_queue_list', '_oid_dict', '_time', '_size', '_history_size',
                  '_nhit', '_nmiss')
 
@@ -72,7 +72,7 @@ class ClientCache(object):
                                         max_size=20*1024*1024):
         self._life_time = life_time
         self._max_history_size = max_history_size
-        self._max_size = max_size
+        self.max_size = max_size
         self.clear()
 
     def clear(self):
@@ -94,7 +94,7 @@ class ClientCache(object):
             [self._history_size] + [
                 sum(1 for _ in self._iterQueue(level))
                 for level in xrange(1, len(self._queue_list))],
-            self._life_time, self._max_history_size, self._max_size)
+            self._life_time, self._max_history_size, self.max_size)
 
     def _iterQueue(self, level):
         """for debugging purpose"""
@@ -168,7 +168,7 @@ class ClientCache(object):
         # XXX It might be better to adjust the level according to the object
         # size. See commented factor for example.
         item.level = 1 + int(_log(counter, 2)
-                             # * (1.01 - len(item.data) / self._max_size)
+                             # * (1.01 - len(item.data) / self.max_size)
                             )
         self._add(item)
 
@@ -212,7 +212,7 @@ class ClientCache(object):
     def store(self, oid, data, tid, next_tid):
         """Store a new data record in the cache"""
         size = len(data)
-        max_size = self._max_size
+        max_size = self.max_size
         if size < max_size:
             item = self._load(oid, next_tid)
             if item:
@@ -331,7 +331,7 @@ def test(self):
     # Test late invalidations.
     cache.clear()
     cache.store(1, '10*', 10, None)
-    cache._max_size = cache._size
+    cache.max_size = cache._size
     cache.store(2, '10', 10, 15)
     self.assertEqual(cache._queue_list[0].oid, 1)
     cache.store(2, '15', 15, None)

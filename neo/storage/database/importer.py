@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2014-2017  Nexedi SA
+# Copyright (C) 2014-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,6 +31,7 @@ except ImportError:
     _protocol = 1
 from ZODB.FileStorage import FileStorage
 
+from ..app import option_defaults
 from . import buildDatabaseManager, DatabaseFailure
 from .manager import DatabaseManager
 from neo.lib import compress, logging, patch, util
@@ -359,8 +360,7 @@ class ImporterDatabaseManager(DatabaseManager):
         config = SafeConfigParser()
         config.read(os.path.expanduser(database))
         sections = config.sections()
-        # XXX: defaults copy & pasted from elsewhere - refactoring needed
-        main = self._conf = {'adapter': 'MySQL', 'wait': 0}
+        main = self._conf = option_defaults.copy()
         main.update(config.items(sections.pop(0)))
         self.zodb = [(x, dict(config.items(x))) for x in sections]
         x = main.get('compress', 'true')

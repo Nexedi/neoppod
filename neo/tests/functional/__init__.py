@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2017  Nexedi SA
+# Copyright (C) 2009-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -118,13 +118,15 @@ class PortAllocator(object):
 class Process(object):
 
     _coverage_fd = None
-    _coverage_prefix = os.path.join(getTempDirectory(), 'coverage-')
+    _coverage_prefix = None
     _coverage_index = 0
+    on_fork = [logging.resetNids]
     pid = 0
 
-    def __init__(self, command, arg_dict={}):
+    def __init__(self, command, *args, **kw):
         self.command = command
-        self.arg_dict = arg_dict
+        self.args = args
+        self.arg_dict = kw
 
     def _args(self):
         args = []
@@ -132,6 +134,7 @@ class Process(object):
             args.append('--' + arg)
             if param is not None:
                 args.append(str(param))
+        args += self.args
         return args
 
     def start(self):
@@ -144,6 +147,9 @@ class Process(object):
         if coverage:
             cls = self.__class__
             cls._coverage_index += 1
+            if not cls._coverage_prefix:
+                cls._coverage_prefix = os.path.join(
+                    getTempDirectory(), 'coverage-')
             coverage_data_path = cls._coverage_prefix + str(cls._coverage_index)
         self._coverage_fd, w = os.pipe()
         def save_coverage(*args):
@@ -169,11 +175,21 @@ class Process(object):
                     from coverage import Coverage
                     coverage = Coverage(coverage_data_path)
                     coverage.start()
+                # XXX: Sometimes, the handler is not called immediately.
+                #      The process is stuck at an unknown place and the test
+                #      never ends. strace unlocks:
+                #        strace: Process 5520 attached
+                #        close(25)                               = 0
+                #        getpid()                                = 5520
+                #        kill(5520, SIGSTOP)                     = 0
+                #        ...
                 signal.signal(signal.SIGUSR2, save_coverage)
                 os.close(self._coverage_fd)
                 os.write(w, '\0')
                 sys.argv = [command] + args
                 setproctitle(self.command)
+                for on_fork in self.on_fork:
+                    on_fork()
                 self.run()
                 status = 0
             except SystemExit, e:
@@ -239,8 +255,8 @@ class Process(object):
         self.pid = 0
         self.child_coverage()
         if result:
-            raise NodeProcessError('%r %r exited with status %r' % (
-                self.command, self.arg_dict, result))
+            raise NodeProcessError('%r %r %r exited with status %r' % (
+                self.command, self.args, self.arg_dict, result))
         return result
 
     def stop(self):
@@ -255,18 +271,18 @@ class Process(object):
 
 class NEOProcess(Process):
 
-    def __init__(self, command, uuid, arg_dict):
+    def __init__(self, command, *args, **kw):
         try:
             __import__('neo.scripts.' + command, level=0)
         except ImportError:
             raise NotFound(command + ' not found')
-        super(NEOProcess, self).__init__(command, arg_dict)
-        self.setUUID(uuid)
+        self.setUUID(kw.pop('uuid', None))
+        super(NEOProcess, self).__init__(command, *args, **kw)
 
     def _args(self):
         args = super(NEOProcess, self)._args()
         if self.uuid:
-            args += '--uuid', str(self.uuid)
+            args[:0] = '--uuid', str(self.uuid)
         return args
 
     def run(self):
@@ -280,6 +296,10 @@ class NEOProcess(Process):
           Note: for this change to take effect, the node must be restarted.
         """
         self.uuid = uuid
+
+    @property
+    def logfile(self):
+        return self.arg_dict['logfile']
 
 class NEOCluster(object):
 
@@ -368,7 +388,7 @@ class NEOCluster(object):
         if self.SSL:
             kw['ca'], kw['cert'], kw['key'] = self.SSL
         self.process_dict.setdefault(node_type, []).append(
-            NEOProcess(command_dict[node_type], uuid, kw))
+            NEOProcess(command_dict[node_type], uuid=uuid, **kw))
 
     def setupDB(self, clear_databases=True):
         if self.adapter == 'MySQL':
@@ -480,14 +500,15 @@ class NEOCluster(object):
                 except (AlreadyStopped, NodeProcessError):
                     pass
 
-    def getZODBStorage(self, **kw):
-        master_nodes = self.master_nodes.replace('/', ' ')
+    def getClientConfig(self, **kw):
+        kw['name'] = self.cluster_name
+        kw['master_nodes'] = self.master_nodes.replace('/', ' ')
         if self.SSL:
             kw['ca'], kw['cert'], kw['key'] = self.SSL
-        result = Storage(
-            master_nodes=master_nodes,
-            name=self.cluster_name,
-            **kw)
+        return kw
+
+    def getZODBStorage(self, **kw):
+        result = Storage(**self.getClientConfig(**kw))
         result.app.max_reconnection_to_master = 10
         self.zodb_storage_list.append(result)
         return result
@@ -718,6 +739,7 @@ class NEOFunctionalTest(NeoTestBase):
 
     def setupLog(self):
         logging.setup(os.path.join(self.getTempDirectory(), 'test.log'))
+        logging.resetNids()
 
     def getTempDirectory(self):
         # build the full path based on test case and current test method

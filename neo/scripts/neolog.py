@@ -2,7 +2,7 @@
 #
 # neolog - read a NEO log
 #
-# Copyright (C) 2012-2017  Nexedi SA
+# Copyright (C) 2012-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,25 +17,40 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import bz2, gzip, errno, optparse, os, signal, sqlite3, sys, time
+import argparse, bz2, gzip, errno, os, signal, sqlite3, sys, time
 from bisect import insort
+from itertools import chain
 from logging import getLevelName
 from zlib import decompress
 
-comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat')
+try:
+    import zstd
+except ImportError:
+    zstdcat = 'zstdcat'
+else:
+    from cStringIO import StringIO
+    def zstdcat(path):
+        with open(path, 'rb') as f:
+            return StringIO(zstd.decompress(f.read()))
+
+comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat', zst=zstdcat)
 
 class Log(object):
 
-    _log_id = _packet_id = -1
+    _log_date = _packet_date = 0
     _protocol_date = None
 
     def __init__(self, db_path, decode=0, date_format=None,
-                       filter_from=None, node_column=True, node_list=None):
+                       filter_from=None, show_cluster=False, no_nid=False,
+                       node_column=True, node_list=None):
         self._date_format = '%F %T' if date_format is None else date_format
         self._decode = decode
         self._filter_from = filter_from
+        self._no_nid = no_nid
         self._node_column = node_column
         self._node_list = node_list
+        self._node_dict = {}
+        self._show_cluster = show_cluster
         name = os.path.basename(db_path)
         try:
             name, ext = name.rsplit(os.extsep, 1)
@@ -57,35 +72,78 @@ class Log(object):
         self._default_name = name
 
     def __iter__(self):
-        db =  self._db
+        q = self._db.execute
         try:
-            db.execute("BEGIN")
+            q("BEGIN")
             yield
-            nl = "SELECT * FROM log WHERE id>?"
-            np = "SELECT * FROM packet WHERE id>?"
             date = self._filter_from
-            if date:
-                date = " AND date>=%f" % date
-                nl += date
-                np += date
-            nl = db.execute(nl, (self._log_id,))
-            np = db.execute(np, (self._packet_id,))
+            if date and max(self._log_date, self._packet_date) < date:
+                log_args = packet_args = date,
+                date = " WHERE date>=?"
+            else:
+                self._filter_from = None
+                log_args = self._log_date,
+                packet_args = self._packet_date,
+                date = " WHERE date>?"
+            old = "SELECT date, name, NULL, NULL, %s FROM %s" + date
+            new = ("SELECT date, name, cluster, nid, %s"
+                   " FROM %s LEFT JOIN node ON node=id" + date)
+            log = 'level, pathname, lineno, msg'
+            pkt = 'msg_id, code, peer, body'
+            try:
+                nl = q(new % (log, 'log'), log_args)
+            except sqlite3.OperationalError:
+                nl = q(old % (log, 'log'), log_args)
+                np = q(old % (pkt, 'packet'), packet_args)
+            else:
+                np = q(new % (pkt, 'packet'), packet_args)
+                try:
+                    nl = chain(q(old % (log, 'log1'), log_args), nl)
+                    np = chain(q(old % (pkt, 'packet1'), packet_args), np)
+                except sqlite3.OperationalError:
+                    pass
             try:
                 p = np.next()
-                self._reload(p[1])
+                self._reload(p[0])
             except StopIteration:
                 p = None
-            for self._log_id, date, name, level, pathname, lineno, msg in nl:
-                while p and p[1] < date:
-                    yield self._packet(*p)
-                    p = np.fetchone()
-                yield date, name, getLevelName(level), msg.splitlines()
+            except sqlite3.DatabaseError, e:
+                yield time.time(), None, 'PACKET', self._exc(e)
+                p = None
+            try:
+                for date, name, cluster, nid, level, pathname, lineno, msg in nl:
+                    while p and p[0] < date:
+                        yield self._packet(*p)
+                        try:
+                            p = next(np, None)
+                        except sqlite3.DatabaseError, e:
+                            yield time.time(), None, 'PACKET', self._exc(e)
+                            p = None
+                    self._log_date = date
+                    yield (date, self._node(name, cluster, nid),
+                           getLevelName(level), msg.splitlines())
+            except sqlite3.DatabaseError, e:
+                yield time.time(), None, 'LOG', self._exc(e)
             if p:
                 yield self._packet(*p)
-                for p in np:
-                    yield self._packet(*p)
+                try:
+                    for p in np:
+                        yield self._packet(*p)
+                except sqlite3.DatabaseError, e:
+                    yield time.time(), None, 'PACKET', self._exc(e)
         finally:
-            db.rollback()
+            self._db.rollback()
+
+    @staticmethod
+    def _exc(e):
+        return ('%s: %s' % (type(e).__name__, e)).splitlines()
+
+    def _node(self, name, cluster, nid):
+        if nid and not self._no_nid:
+            name = self.uuid_str(nid)
+            if self._show_cluster:
+                name = cluster + '/' + name
+        return name
 
     def _reload(self, date):
         q = self._db.execute
@@ -143,8 +201,8 @@ class Log(object):
         for msg in msg_list:
             print prefix + msg
 
-    def _packet(self, id, date, name, msg_id, code, peer, body):
-        self._packet_id = id
+    def _packet(self, date, name, cluster, nid, msg_id, code, peer, body):
+        self._packet_date = date
         if self._next_protocol <= date:
             self._reload(date)
         try:
@@ -174,7 +232,7 @@ class Log(object):
                             args = self._decompress(args, path)
                     if args and self._decode:
                         msg[0] += ' \t| ' + repr(args)
-        return date, name, 'PACKET', msg
+        return date, self._node(name, cluster, nid), 'PACKET', msg
 
     def _decompress(self, args, path):
         if args:
@@ -225,38 +283,43 @@ def emit_many(log_list):
                 insort(event_list, (-event[0], next, emit, event))
 
 def main():
-    parser = optparse.OptionParser()
-    parser.add_option('-a', '--all', action="store_true",
+    parser = argparse.ArgumentParser(description='NEO Log Reader')
+    _ = parser.add_argument
+    _('-a', '--all', action="store_true",
         help='decode body of packets')
-    parser.add_option('-A', '--decompress', action="store_true",
+    _('-A', '--decompress', action="store_true",
         help='decompress data when decode body of packets (implies --all)')
-    parser.add_option('-d', '--date', metavar='FORMAT',
+    _('-d', '--date', metavar='FORMAT',
         help='custom date format, according to strftime(3)')
-    parser.add_option('-f', '--follow', action="store_true",
+    _('-f', '--follow', action="store_true",
         help='output appended data as the file grows')
-    parser.add_option('-F', '--flush', action="append", type="int",
+    _('-F', '--flush', action="append", type=int, metavar='PID',
         help='with -f, tell process PID to flush logs approximately N'
-              ' seconds (see -s)', metavar='PID')
-    parser.add_option('-n', '--node', action="append",
+              ' seconds (see -s)')
+    _('-n', '--node', action="append",
         help='only show log entries from the given node'
              ' (only useful for logs produced by threaded tests),'
              " special value '-' hides the column")
-    parser.add_option('-s', '--sleep-interval', type="float", default=1,
-        help='with -f, sleep for approximately N seconds (default 1.0)'
-              ' between iterations', metavar='N')
-    parser.add_option('--from', dest='filter_from',
-        help='show records more recent that timestamp N if N > 0,'
-             ' or now+N if N < 0; N can also be a string that is'
-             ' parseable by dateutil ', metavar='N')
-    options, args = parser.parse_args()
-    if options.sleep_interval <= 0:
+    _('-s', '--sleep-interval', type=float, default=1., metavar='N',
+        help='with -f, sleep for approximately N seconds (default %(default)s)'
+             ' between iterations')
+    _('--from', dest='filter_from', metavar='N',
+        help='show records more recent that timestamp N if N > 0, or now+N'
+             ' if N < 0; N can also be a string that is parseable by dateutil')
+    _('file', nargs='+',
+        help='log file, compressed (gz, bz2 or xz) or not')
+    _ = parser.add_mutually_exclusive_group().add_argument
+    _('-C', '--cluster', action="store_true",
+        help='show cluster name in node column')
+    _('-N', '--no-nid', action="store_true",
+        help='always show node name (instead of NID) in node column')
+    args = parser.parse_args()
+    if args.sleep_interval <= 0:
         parser.error("sleep_interval must be positive")
-    if not args:
-        parser.error("no log specified")
-    filter_from = options.filter_from
+    filter_from = args.filter_from
     if filter_from:
         try:
-            filter_from = float(options.filter_from)
+            filter_from = float(args.filter_from)
         except ValueError:
             from dateutil.parser import parse
             x = parse(filter_from)
@@ -267,24 +330,25 @@ def main():
         else:
             if filter_from < 0:
                 filter_from += time.time()
-    node_list = options.node or []
+    node_list = args.node or []
     try:
         node_list.remove('-')
         node_column = False
     except ValueError:
         node_column = True
     log_list = [Log(db_path,
-                    2 if options.decompress else 1 if options.all else 0,
-                    options.date, filter_from, node_column, node_list)
-                for db_path in args]
-    if options.follow:
+                    2 if args.decompress else 1 if args.all else 0,
+                    args.date, filter_from, args.cluster, args.no_nid,
+                    node_column, node_list)
+                for db_path in args.file]
+    if args.follow:
         try:
-            pid_list = options.flush or ()
+            pid_list = args.flush or ()
             while True:
                 emit_many(log_list)
                 for pid in pid_list:
                     os.kill(pid, signal.SIGRTMIN)
-                time.sleep(options.sleep_interval)
+                time.sleep(args.sleep_interval)
         except KeyboardInterrupt:
             pass
     else:

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,10 +18,10 @@ import sys
 from collections import defaultdict
 from time import time
 
-from neo.lib import logging
-from neo.lib.app import BaseApplication
+from neo.lib import logging, util
+from neo.lib.app import BaseApplication, buildOptionParser
 from neo.lib.debug import register as registerLiveDebugger
-from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID
+from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.handler import EventHandler
 from neo.lib.connection import ListeningConnection, ClientConnection
@@ -47,6 +47,7 @@ from .transactions import TransactionManager
 from .verification import VerificationManager
 
 
+@buildOptionParser
 class Application(BaseApplication):
     """The master node application."""
     packing = None
@@ -57,7 +58,7 @@ class Application(BaseApplication):
     backup_app = None
     truncate_tid = None
 
-    def uuid(self, uuid):
+    def setUUID(self, uuid):
         node = self.nm.getByUUID(uuid)
         if node is not self._node:
             if node:
@@ -65,33 +66,56 @@ class Application(BaseApplication):
                 if node.isConnected(True):
                     node.getConnection().close()
             self._node.setUUID(uuid)
-    uuid = property(lambda self: self._node.getUUID(), uuid)
+        logging.node(self.name, uuid)
+    uuid = property(lambda self: self._node.getUUID(), setUUID)
 
     @property
     def election(self):
         if self.primary and self.cluster_state == ClusterStates.RECOVERING:
             return self.primary
 
+    @classmethod
+    def _buildOptionParser(cls):
+        _ = cls.option_parser
+        _.description = "NEO Master node"
+        cls.addCommonServerOptions('master', '127.0.0.1:10000', '')
+
+        _ = _.group('master')
+        _.int('r', 'replicas', default=0, help="replicas number")
+        _.int('p', 'partitions', default=100, help="partitions number")
+        _.int('A', 'autostart',
+            help="minimum number of pending storage nodes to automatically"
+                 " start new cluster (to avoid unwanted recreation of the"
+                 " cluster, this should be the total number of storage nodes)")
+        _('C', 'upstream-cluster',
+            help='the name of cluster to backup')
+        _('M', 'upstream-masters', parse=util.parseMasterList,
+            help='list of master nodes in the cluster to backup')
+        _.int('u', 'uuid',
+            help="specify an UUID to use for this process (testing purpose)")
+
     def __init__(self, config):
         super(Application, self).__init__(
-            config.getSSL(), config.getDynamicMasterList())
+            config.get('ssl'), config.get('dynamic_master_list'))
         self.tm = TransactionManager(self.onTransactionCommitted)
 
-        self.name = config.getCluster()
-        self.server = config.getBind()
-        self.autostart = config.getAutostart()
+        self.name = config['cluster']
+        self.server = config['bind']
+        self.autostart = config.get('autostart')
 
         self.storage_ready_dict = {}
         self.storage_starting_set = set()
-        for master_address in config.getMasters():
+        for master_address in config['masters']:
             self.nm.createMaster(address=master_address)
         self._node = self.nm.createMaster(address=self.server,
-                                          uuid=config.getUUID())
+                                          uuid=config.get('uuid'))
+        logging.node(self.name, self.uuid)
 
         logging.debug('IP address is %s, port is %d', *self.server)
 
         # Partition table
-        replicas, partitions = config.getReplicas(), config.getPartitions()
+        replicas = config['replicas']
+        partitions = config['partitions']
         if replicas < 0:
             raise RuntimeError, 'replicas must be a positive integer'
         if partitions <= 0:
@@ -107,13 +131,13 @@ class Application(BaseApplication):
         self._current_manager = None
 
         # backup
-        upstream_cluster = config.getUpstreamCluster()
+        upstream_cluster = config.get('upstream_cluster')
         if upstream_cluster:
             if upstream_cluster == self.name:
                 raise ValueError("upstream cluster name must be"
                                  " different from cluster name")
             self.backup_app = BackupApplication(self, upstream_cluster,
-                                                config.getUpstreamMasters())
+                                                config['upstream_masters'])
 
         self.administration_handler = administration.AdministrationHandler(
             self)
@@ -242,7 +266,6 @@ class Application(BaseApplication):
 
         if self.uuid is None:
             self.uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
-            logging.info('My UUID: ' + uuid_str(self.uuid))
         self._node.setRunning()
         self._node.id_timestamp = None
         self.primary = monotonic_time()
@@ -575,3 +598,12 @@ class Application(BaseApplication):
     def getStorageReadySet(self, readiness=float('inf')):
         return {k for k, v in self.storage_ready_dict.iteritems()
                   if v <= readiness}
+
+    def notifyTransactionAborted(self, ttid, uuids):
+        uuid_set = self.getStorageReadySet()
+        uuid_set.intersection_update(uuids)
+        if uuid_set:
+            p = Packets.AbortTransaction(ttid, ())
+            getByUUID = self.nm.getByUUID
+            for uuid in uuid_set:
+                getByUUID(uuid).send(p)

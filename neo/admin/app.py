@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.app import BaseApplication
+from neo.lib.app import BaseApplication, buildOptionParser
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import PrimaryFailure
 from .handler import AdminEventHandler, MasterEventHandler, \
@@ -25,24 +25,36 @@ from neo.lib.pt import PartitionTable
 from neo.lib.protocol import ClusterStates, Errors, NodeTypes, Packets
 from neo.lib.debug import register as registerLiveDebugger
 
+@buildOptionParser
 class Application(BaseApplication):
     """The storage node application."""
 
+    @classmethod
+    def _buildOptionParser(cls):
+        _ = cls.option_parser
+        _.description = "NEO Admin node"
+        cls.addCommonServerOptions('admin', '127.0.0.1:9999')
+
+        _ = _.group('admin')
+        _.int('u', 'uuid',
+            help="specify an UUID to use for this process (testing purpose)")
+
     def __init__(self, config):
         super(Application, self).__init__(
-            config.getSSL(), config.getDynamicMasterList())
-        for address in config.getMasters():
+            config.get('ssl'), config.get('dynamic_master_list'))
+        for address in config['masters']:
             self.nm.createMaster(address=address)
 
-        self.name = config.getCluster()
-        self.server = config.getBind()
+        self.name = config['cluster']
+        self.server = config['bind']
 
         logging.debug('IP address is %s, port is %d', *self.server)
 
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
-        self.uuid = config.getUUID()
+        self.uuid = config.get('uuid')
+        logging.node(self.name, self.uuid)
         self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)
         self.cluster_state = None

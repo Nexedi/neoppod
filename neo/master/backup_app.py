@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2012-2017  Nexedi SA
+# Copyright (C) 2012-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -81,6 +81,11 @@ class BackupApplication(object):
     def close(self):
         self.nm.close()
         del self.__dict__
+
+    def setUUID(self, uuid):
+        if self.uuid != uuid:
+            self.uuid = uuid
+            logging.info('Upstream Node ID: %s', uuid_str(uuid))
 
     def log(self):
         self.nm.log()

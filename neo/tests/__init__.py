@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2017  Nexedi SA
+# Copyright (C) 2009-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,6 +28,7 @@ import weakref
 import MySQLdb
 import transaction
 
+from contextlib import contextmanager
 from ConfigParser import SafeConfigParser
 from cStringIO import StringIO
 try:
@@ -85,8 +86,6 @@ SSL = SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"
 logging.default_root_handler.handle = lambda record: None
 
 debug.register()
-# prevent "signal only works in main thread" errors in subprocesses
-debug.register = lambda on_log=None: None
 
 def mockDefaultValue(name, function):
     def method(self, *args, **kw):
@@ -215,6 +214,14 @@ class NeoTestBase(unittest.TestCase):
             expected if isinstance(expected, str) else '|'.join(expected),
             '|'.join(pt._formatRows(sorted(pt.count_dict, key=key))))
 
+    @contextmanager
+    def expectedFailure(self, exception=AssertionError, regex=None):
+        with self.assertRaisesRegexp(exception, regex) as cm:
+            yield
+            raise _UnexpectedSuccess
+        # XXX: passing sys.exc_info() causes deadlocks
+        raise _ExpectedFailure((type(cm.exception), None, None))
+
 class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """
 
@@ -255,14 +262,14 @@ class NeoUnitTestBase(NeoTestBase):
         assert master_number >= 1 and master_number <= 10
         masters = ([(self.local_ip, 10010 + i)
                     for i in xrange(master_number)])
-        return Mock({
-                'getCluster': cluster,
-                'getBind': masters[0],
-                'getMasters': masters,
-                'getReplicas': replicas,
-                'getPartitions': partitions,
-                'getUUID': uuid,
-        })
+        return {
+                'cluster': cluster,
+                'bind': masters[0],
+                'masters': masters,
+                'replicas': replicas,
+                'partitions': partitions,
+                'uuid': uuid,
+        }
 
     def getStorageConfiguration(self, cluster='main', master_number=2,
             index=0, prefix=DB_PREFIX, uuid=None):
@@ -277,15 +284,15 @@ class NeoUnitTestBase(NeoTestBase):
             db = os.path.join(getTempDirectory(), 'test_neo%s.sqlite' % index)
         else:
             assert False, adapter
-        return Mock({
-                'getCluster': cluster,
-                'getBind': (masters[0], 10020 + index),
-                'getMasters': masters,
-                'getDatabase': db,
-                'getUUID': uuid,
-                'getReset': False,
-                'getAdapter': adapter,
-        })
+        return {
+                'cluster': cluster,
+                'bind': (masters[0], 10020 + index),
+                'masters': masters,
+                'database': db,
+                'uuid': uuid,
+                'adapter': adapter,
+                'wait': 0,
+        }
 
     def getNewUUID(self, node_type):
         """

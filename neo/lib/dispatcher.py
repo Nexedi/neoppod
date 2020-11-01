@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -87,21 +87,21 @@ class Dispatcher:
     def unregister(self, conn):
         """ Unregister a connection and put fake packet in queues to unlock
         threads expecting responses from that connection """
+        notified_set = set()
+        _decrefQueue = self._decrefQueue
         self.lock_acquire()
         try:
             message_table = self.message_table.pop(id(conn), EMPTY)
+            for queue in message_table.itervalues():
+                if queue is NOBODY:
+                    continue
+                queue_id = id(queue)
+                if queue_id not in notified_set:
+                    queue.put((conn, _ConnectionClosed, EMPTY))
+                    notified_set.add(queue_id)
+                _decrefQueue(queue)
         finally:
             self.lock_release()
-        notified_set = set()
-        _decrefQueue = self._decrefQueue
-        for queue in message_table.itervalues():
-            if queue is NOBODY:
-                continue
-            queue_id = id(queue)
-            if queue_id not in notified_set:
-                queue.put((conn, _ConnectionClosed, EMPTY))
-                notified_set.add(queue_id)
-            _decrefQueue(queue)
 
     @giant_lock
     def forget_queue(self, queue, flush_queue=True):
