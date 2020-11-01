@@ -842,9 +842,15 @@ type AddPendingNodes struct {
 //
 //neo:nodes ctl -> A -> M
 type TweakPartitionTable struct {
+	DryRun   bool
 	NodeList []NodeUUID
 
 	// answer = Error
+}
+
+type AnswerTweakPartitionTable struct {
+	Changed  bool
+	RowList  []RowInfo
 }
 
 // Set the number of replicas.

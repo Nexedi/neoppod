@@ -93,6 +93,7 @@ var pyMsgRegistry = map[uint16]string{
 	32803:	"AnswerObjectHistory",
 	32804:	"AnswerPartitionList",
 	32805:	"AnswerNodeList",
+	32808:	"AnswerTweakPartitionTable",
 	32814:	"AnswerClusterState",
 	32815:	"AnswerObjectUndoSerial",
 	32816:	"AnswerTIDsFrom",
