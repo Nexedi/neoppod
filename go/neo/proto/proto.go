@@ -1,4 +1,4 @@
-// Copyright (C) 2006-2018  Nexedi SA and Contributors.
+// Copyright (C) 2006-2020  Nexedi SA and Contributors.
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -209,7 +209,7 @@ const (
 	OUT_OF_DATE                 //short: O
 	// Same as UP_TO_DATE, except that it will be discarded as soon as another
 	// node finishes to replicate it. It means a partition is moved from 1 node
-	// to another.
+	// to another. It is also discarded immediately if out-of-date.
 	FEEDING                     //short: F
 	// Not really a state: only used in network messages to tell storages to drop
 	// partitions.
