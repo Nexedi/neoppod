@@ -205,22 +205,22 @@ const (
 
 type CellState int32
 const (
-	// Normal state: cell is writable/readable, and it isn't planned to drop it.
-	UP_TO_DATE CellState = iota //short: U     // XXX tag prefix name ?
 	// Write-only cell. Last transactions are missing because storage is/was down
 	// for a while, or because it is new for the partition. It usually becomes
 	// UP_TO_DATE when replication is done.
-	OUT_OF_DATE                 //short: O
+	OUT_OF_DATE CellState = iota //short: O    // XXX tag prefix name ?
+	// Normal state: cell is writable/readable, and it isn't planned to drop it.
+	UP_TO_DATE                   //short: U
 	// Same as UP_TO_DATE, except that it will be discarded as soon as another
 	// node finishes to replicate it. It means a partition is moved from 1 node
 	// to another. It is also discarded immediately if out-of-date.
-	FEEDING                     //short: F
-	// Not really a state: only used in network messages to tell storages to drop
-	// partitions.
-	DISCARDED                   //short: D
+	FEEDING                      //short: F
 	// A check revealed that data differs from other replicas. Cell is neither
 	// readable nor writable.
-	CORRUPTED                   //short: C
+	CORRUPTED                    //short: C
+	// Not really a state: only used in network messages to tell storages to drop
+	// partitions.
+	DISCARDED                    //short: D
 )
 
 // NodeUUID is a node identifier, 4-bytes signed integer

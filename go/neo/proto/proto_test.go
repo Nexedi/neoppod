@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -194,9 +194,9 @@ func TestMsgMarshal(t *testing.T) {
 
 			hex("0102030405060708") +
 			hex("00000003") +
-				hex("00000001000000020000000b000000000000001100000001") +
+				hex("00000001000000020000000b000000010000001100000000") +
 				hex("00000002000000010000000b00000002") +
-				hex("00000007000000030000000b000000040000000f000000030000001700000000"),
+				hex("00000007000000030000000b000000030000000f000000040000001700000001"),
 		},
 
 		// map[Oid]struct {Tid,Tid,bool}
