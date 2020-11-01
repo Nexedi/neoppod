@@ -71,7 +71,6 @@ class ClusterTests(NEOFunctionalTest):
     def testClusterBreaks(self):
         self.neo = NEOCluster(['test_neo1'],
                 master_count=1, temp_dir=self.getTempDirectory())
-        self.neo.setupDB()
         self.neo.start()
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
@@ -82,7 +81,6 @@ class ClusterTests(NEOFunctionalTest):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
                  partitions=2, master_count=1, replicas=0,
                  temp_dir=self.getTempDirectory())
-        self.neo.setupDB()
         self.neo.start()
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
@@ -93,7 +91,6 @@ class ClusterTests(NEOFunctionalTest):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
                          partitions=2, replicas=1, master_count=1,
                          temp_dir=self.getTempDirectory())
-        self.neo.setupDB()
         self.neo.start()
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)

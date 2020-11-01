@@ -26,10 +26,6 @@ from ..exception import NEOStorageError
 class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
 
-    def answerPartitionTable(self, conn, ptid, row_list):
-        assert row_list
-        self.app.pt.load(ptid, row_list, self.app.nm)
-
     def answerLastTransaction(*args):
         pass
 
@@ -41,9 +37,6 @@ class PrimaryNotificationsHandler(MTEventHandler):
             super(PrimaryNotificationsHandler, self).notPrimaryMaster(*args)
         except PrimaryElected, e:
             self.app.primary_master_node, = e.args
-
-    def _acceptIdentification(self, node, num_partitions, num_replicas):
-        self.app.pt = PartitionTable(num_partitions, num_replicas)
 
     def answerLastTransaction(self, conn, ltid):
         app = self.app
@@ -134,9 +127,12 @@ class PrimaryNotificationsHandler(MTEventHandler):
         finally:
             app._cache_lock_release()
 
-    def notifyPartitionChanges(self, conn, ptid, cell_list):
-        if self.app.pt.filled():
-            self.app.pt.update(ptid, cell_list, self.app.nm)
+    def sendPartitionTable(self, conn, ptid, num_replicas, row_list):
+        pt = self.app.pt = object.__new__(PartitionTable)
+        pt.load(ptid, num_replicas, row_list, self.app.nm)
+
+    def notifyPartitionChanges(self, conn, ptid, num_replicas, cell_list):
+        self.app.pt.update(ptid, num_replicas, cell_list, self.app.nm)
 
     def notifyNodeInformation(self, conn, timestamp, node_list):
         super(PrimaryNotificationsHandler, self).notifyNodeInformation(

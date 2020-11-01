@@ -16,6 +16,7 @@
 
 import sys
 from collections import defaultdict
+from functools import partial
 from time import time
 
 from neo.lib import logging, util
@@ -76,13 +77,11 @@ class Application(BaseApplication):
 
     @classmethod
     def _buildOptionParser(cls):
-        _ = cls.option_parser
-        _.description = "NEO Master node"
+        parser = cls.option_parser
+        parser.description = "NEO Master node"
         cls.addCommonServerOptions('master', '127.0.0.1:10000', '')
 
-        _ = _.group('master')
-        _.int('r', 'replicas', default=0, help="replicas number")
-        _.int('p', 'partitions', default=100, help="partitions number")
+        _ = parser.group('master')
         _.int('A', 'autostart',
             help="minimum number of pending storage nodes to automatically"
                  " start new cluster (to avoid unwanted recreation of the"
@@ -91,8 +90,12 @@ class Application(BaseApplication):
             help='the name of cluster to backup')
         _('M', 'upstream-masters', parse=util.parseMasterList,
             help='list of master nodes in the cluster to backup')
-        _.int('u', 'uuid',
-            help="specify an UUID to use for this process (testing purpose)")
+        _.int('i', 'nid',
+            help="specify an NID to use for this process (testing purpose)")
+
+        _ = parser.group('database creation')
+        _.int('r', 'replicas', default=0, help="replicas number")
+        _.int('p', 'partitions', default=100, help="partitions number")
 
     def __init__(self, config):
         super(Application, self).__init__(
@@ -108,7 +111,7 @@ class Application(BaseApplication):
         for master_address in config['masters']:
             self.nm.createMaster(address=master_address)
         self._node = self.nm.createMaster(address=self.server,
-                                          uuid=config.get('uuid'))
+                                          uuid=config.get('nid'))
         logging.node(self.name, self.uuid)
 
         logging.debug('IP address is %s, port is %d', *self.server)
@@ -117,14 +120,14 @@ class Application(BaseApplication):
         replicas = config['replicas']
         partitions = config['partitions']
         if replicas < 0:
-            raise RuntimeError, 'replicas must be a positive integer'
+            sys.exit('replicas must be a positive integer')
         if partitions <= 0:
-            raise RuntimeError, 'partitions must be more than zero'
-        self.pt = PartitionTable(partitions, replicas)
+            sys.exit('partitions must be more than zero')
         logging.info('Configuration:')
         logging.info('Partitions: %d', partitions)
         logging.info('Replicas  : %d', replicas)
         logging.info('Name      : %s', self.name)
+        self.newPartitionTable = partial(PartitionTable, partitions, replicas)
 
         self.listening_conn = None
         self.cluster_state = None
@@ -196,7 +199,7 @@ class Application(BaseApplication):
             node_dict[NodeTypes.MASTER].append(node_info)
         return node_dict
 
-    def broadcastNodesInformation(self, node_list, exclude=None):
+    def broadcastNodesInformation(self, node_list):
         """
           Broadcast changes for a set a nodes
           Send only one packet per connection to reduce bandwidth
@@ -209,20 +212,26 @@ class Application(BaseApplication):
             # We don't skip pending storage nodes because we don't send them
             # the full list of nodes when they're added, and it's also quite
             # useful to notify them about new masters.
-            if node_list and node is not exclude:
+            if node_list:
                 node.send(Packets.NotifyNodeInformation(now, node_list))
 
-    def broadcastPartitionChanges(self, cell_list):
+    def broadcastPartitionChanges(self, cell_list, num_replicas=None):
         """Broadcast a Notify Partition Changes packet."""
-        if cell_list:
-            ptid = self.pt.setNextID()
-            self.pt.logUpdated()
-            packet = Packets.NotifyPartitionChanges(ptid, cell_list)
-            for node in self.nm.getIdentifiedList():
-                # As for broadcastNodesInformation, we don't send the full PT
-                # when pending storage nodes are added, so keep them notified.
-                if not node.isMaster():
-                    node.send(packet)
+        pt = self.pt
+        if num_replicas is not None:
+            pt.setReplicas(num_replicas)
+        elif cell_list:
+            num_replicas = pt.getReplicas()
+        else:
+            return
+        packet = Packets.NotifyPartitionChanges(
+            pt.setNextID(), num_replicas, cell_list)
+        pt.logUpdated()
+        for node in self.nm.getIdentifiedList():
+            # As for broadcastNodesInformation, we don't send the full PT
+            # when pending storage nodes are added, so keep them notified.
+            if not node.isMaster():
+                node.send(packet)
 
     def provideService(self):
         """
@@ -437,16 +446,7 @@ class Application(BaseApplication):
                 conn.send(notification_packet)
             elif conn.isServer():
                 continue
-            if node.isClient():
-                if state == ClusterStates.RUNNING:
-                    handler = self.client_service_handler
-                elif state == ClusterStates.BACKINGUP:
-                    handler = self.client_ro_service_handler
-                else:
-                    if state != ClusterStates.STOPPING:
-                        conn.abort()
-                    continue
-            elif node.isMaster():
+            if node.isMaster():
                 if state == ClusterStates.RECOVERING:
                     handler = self.election_handler
                 else:
@@ -454,10 +454,16 @@ class Application(BaseApplication):
             elif node.isStorage() and storage_handler:
                 handler = storage_handler
             else:
+                # There's a single handler type for admins.
+                # Client can't change handler without being first disconnected.
+                assert state in (
+                    ClusterStates.STOPPING,
+                    ClusterStates.STOPPING_BACKUP,
+                    ) or not node.isClient(), (state, node)
                 continue # keep handler
             if type(handler) is not type(conn.getLastHandler()):
                 conn.setHandler(handler)
-                handler.connectionCompleted(conn, new=False)
+                handler.handlerSwitched(conn, new=False)
         self.cluster_state = state
 
     def getNewUUID(self, uuid, address, node_type):

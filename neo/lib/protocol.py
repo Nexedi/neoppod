@@ -22,7 +22,7 @@ from struct import Struct
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
 # the high order byte 0 is different from TLS Handshake (0x16).
-PROTOCOL_VERSION = 5
+PROTOCOL_VERSION = 6
 ENCODED_VERSION = Struct('!L').pack(PROTOCOL_VERSION)
 
 # Avoid memory errors on corrupted data.
@@ -62,6 +62,7 @@ class Enum(tuple):
 @Enum
 def ErrorCodes():
     ACK
+    DENIED
     NOT_READY
     OID_NOT_FOUND
     TID_NOT_FOUND
@@ -616,10 +617,7 @@ PFCellList = PList('cell_list',
 )
 
 PFRowList = PList('row_list',
-    PStruct('row',
-        PNumber('offset'),
-        PFCellList,
-    ),
+    PFCellList,
 )
 
 PFHistoryList = PList('history_list',
@@ -685,15 +683,15 @@ class RequestIdentification(Packet):
         PUUID('uuid'),
         PAddress('address'),
         PString('name'),
-        PList('devpath', PString('devid')),
         PFloat('id_timestamp'),
+        # storage:
+            PList('devpath', PString('devid')),
+            PList('new_nid', PNumber('offset')),
     )
 
     _answer = PStruct('accept_identification',
         PFNodeType,
         PUUID('my_uuid'),
-        PNumber('num_partitions'),
-        PNumber('num_replicas'),
         PUUID('your_uuid'),
     )
 
@@ -749,23 +747,24 @@ class LastIDs(Packet):
 class PartitionTable(Packet):
     """
     Ask storage node the remaining data needed by master to recover.
-    This is also how the clients get the full partition table on connection.
 
-    :nodes: M -> S; C -> M
+    :nodes: M -> S
     """
     _answer = PStruct('answer_partition_table',
         PPTID('ptid'),
+        PNumber('num_replicas'),
         PFRowList,
     )
 
 class NotifyPartitionTable(Packet):
     """
-    Send the full partition table to admin/storage nodes on connection.
+    Send the full partition table to admin/client/storage nodes on connection.
 
-    :nodes: M -> A, S
+    :nodes: M -> A, C, S
     """
     _fmt = PStruct('send_partition_table',
         PPTID('ptid'),
+        PNumber('num_replicas'),
         PFRowList,
     )
 
@@ -777,6 +776,7 @@ class PartitionChanges(Packet):
     """
     _fmt = PStruct('notify_partition_changes',
         PPTID('ptid'),
+        PNumber('num_replicas'),
         PList('cell_list',
             PStruct('cell',
                 PNumber('offset'),
@@ -1202,6 +1202,7 @@ class PartitionList(Packet):
 
     _answer = PStruct('answer_partition_list',
         PPTID('ptid'),
+        PNumber('num_replicas'),
         PFRowList,
     )
 
@@ -1253,10 +1254,14 @@ class TweakPartitionTable(Packet):
     :nodes: ctl -> A -> M
     """
     _fmt = PStruct('tweak_partition_table',
+        PBoolean('dry_run'),
         PFUUIDList,
     )
 
-    _answer = Error
+    _answer = PStruct('answer_tweak_partition_table',
+        PBoolean('changed'),
+        PFRowList,
+    )
 
 class NotifyNodeInformation(Packet):
     """
@@ -1268,6 +1273,18 @@ class NotifyNodeInformation(Packet):
         PFloat('id_timestamp'),
         PFNodeList,
     )
+
+class SetNumReplicas(Packet):
+    """
+    Set the number of replicas.
+
+    :nodes: ctl -> A -> M
+    """
+    _fmt = PStruct('set_num_replicas',
+        PNumber('num_replicas'),
+    )
+
+    _answer = Error
 
 class SetClusterState(Packet):
     """
@@ -1762,8 +1779,10 @@ class Packets(dict):
                     SetNodeState, ignore_when_closed=False)
     AddPendingNodes = register(
                     AddPendingNodes, ignore_when_closed=False)
-    TweakPartitionTable = register(
-                    TweakPartitionTable, ignore_when_closed=False)
+    TweakPartitionTable, AnswerTweakPartitionTable = register(
+                    TweakPartitionTable)
+    SetNumReplicas = register(
+                    SetNumReplicas, ignore_when_closed=False)
     SetClusterState = register(
                     SetClusterState, ignore_when_closed=False)
     Repair = register(

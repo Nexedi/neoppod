@@ -17,11 +17,12 @@
 from neo.lib import logging, protocol
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import uuid_str, Packets
+from neo.lib.pt import PartitionTable
 from neo.lib.exception import PrimaryFailure
 
 def check_primary_master(func):
     def wrapper(self, *args, **kw):
-        if self.app.bootstrapped:
+        if self.app.master_conn is not None:
             return func(self, *args, **kw)
         raise protocol.NotReadyError('Not connected to a primary master.')
     return wrapper
@@ -74,6 +75,7 @@ class AdminEventHandler(EventHandler):
     tweakPartitionTable = forward_ask(Packets.TweakPartitionTable)
     setClusterState = forward_ask(Packets.SetClusterState)
     setNodeState = forward_ask(Packets.SetNodeState)
+    setNumReplicas = forward_ask(Packets.SetNumReplicas)
     checkReplicas = forward_ask(Packets.CheckReplicas)
     truncate = forward_ask(Packets.Truncate)
     repair = forward_ask(Packets.Repair)
@@ -112,16 +114,12 @@ class MasterEventHandler(EventHandler):
     def answerClusterState(self, conn, state):
         self.app.cluster_state = state
 
-    def notifyPartitionChanges(self, conn, ptid, cell_list):
-        self.app.pt.update(ptid, cell_list, self.app.nm)
+    def sendPartitionTable(self, conn, ptid, num_replicas, row_list):
+        pt = self.app.pt = object.__new__(PartitionTable)
+        pt.load(ptid, num_replicas, row_list, self.app.nm)
 
-    def answerPartitionTable(self, conn, ptid, row_list):
-        self.app.pt.load(ptid, row_list, self.app.nm)
-        self.app.bootstrapped = True
-
-    def sendPartitionTable(self, conn, ptid, row_list):
-        if self.app.bootstrapped:
-            self.app.pt.load(ptid, row_list, self.app.nm)
+    def notifyPartitionChanges(self, conn, ptid, num_replicas, cell_list):
+        self.app.pt.update(ptid, num_replicas, cell_list, self.app.nm)
 
     def notifyClusterInformation(self, conn, cluster_state):
         self.app.cluster_state = cluster_state
