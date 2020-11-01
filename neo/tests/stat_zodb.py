@@ -19,11 +19,13 @@ PROD1 = lambda random=random: DummyZODB(6.04237779991, 1.55811487853,
                                         1.04108991045, 0.906703192546,
                                         0.810080409164, random)
 
-def DummyData(random=random):
+def _DummyData(random, size):
     # returns data that gzip at about 28.5 %
+    return bytearray(int(random.gauss(0, .8)) % 256 for x in xrange(size))
+
+def DummyData(random=random):
     # make sure sample is bigger than dictionary of compressor
-    data = ''.join(chr(int(random.gauss(0, .8)) % 256) for x in xrange(100000))
-    return StringIO(data)
+    return StringIO(_DummyData(random, 100000))
 
 
 class DummyZODB(object):

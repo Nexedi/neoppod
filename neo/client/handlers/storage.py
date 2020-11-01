@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from zlib import decompress
 from ZODB.TimeStamp import TimeStamp
 
 from neo.lib import logging
+from neo.lib.compress import decompress_list
 from neo.lib.protocol import Packets, uuid_str
 from neo.lib.util import dump, makeChecksum
 from neo.lib.exception import NodeNotReady
@@ -129,8 +129,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                             'wrong checksum while getting back data for'
                             ' object %s during rebase of transaction %s'
                             % (dump(oid), dump(txn_context.ttid)))
-                    if compression:
-                        data = decompress(data)
+                    data = decompress_list[compression](data)
                     size = len(data)
                     txn_context.data_size += size
                     if cached:

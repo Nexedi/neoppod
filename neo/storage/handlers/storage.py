@@ -75,9 +75,6 @@ class StorageOperationHandler(EventHandler):
                 deleteTransaction(tid)
         assert not pack_tid, "TODO"
         if next_tid:
-            # More than one chunk ? This could be a full replication so avoid
-            # restarting from the beginning by committing now.
-            self.app.dm.commit()
             self.app.replicator.fetchTransactions(next_tid)
         else:
             self.app.replicator.fetchObjects()
@@ -97,15 +94,12 @@ class StorageOperationHandler(EventHandler):
             for serial, oid_list in object_dict.iteritems():
                 for oid in oid_list:
                     deleteObject(oid, serial)
-        # XXX: It should be possible not to commit here if it was the last
-        #      chunk, because we'll either commit again when updating
-        #      'backup_tid' or the partition table.
-        self.app.dm.commit()
         assert not pack_tid, "TODO"
         if next_tid:
             # TODO also provide feedback to master about current replication state (tid)
             self.app.replicator.fetchObjects(next_tid, next_oid)
         else:
+            # This will also commit.
             self.app.replicator.finish()
 
     @checkConnectionIsReplicatorConnection
@@ -267,6 +261,8 @@ class StorageOperationHandler(EventHandler):
                             "partition %u dropped or truncated"
                             % partition), msg_id)
                         return
+                    if not object[2]: # creation undone
+                        object = object[0], 0, ZERO_HASH, '', object[4]
                     # Same as in askFetchTransactions.
                     conn.send(Packets.AddObject(oid, *object), msg_id)
                     yield conn.buffering

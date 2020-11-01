@@ -26,10 +26,7 @@ class MasterOperationHandler(BaseMasterHandler):
     def startOperation(self, conn, backup):
         # XXX: see comment in protocol
         assert self.app.operational and backup
-        dm = self.app.dm
-        if not dm.getBackupTID():
-            dm._setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
-            dm.commit()
+        self.app.replicator.startOperation(backup)
 
     def askLockInformation(self, conn, ttid, tid):
         self.app.tm.lock(ttid, tid)

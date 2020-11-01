@@ -178,7 +178,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
     def tweak(self, drop_list=()):
         """Optimize partition table
 
-        This reassigns cells in 3 ways:
+        This reassigns cells in 4 ways:
         - Discard cells of nodes listed in 'drop_list'. For partitions with too
           few readable cells, some cells are instead marked as FEEDING. This is
           a preliminary step to drop these nodes, otherwise the partition table
@@ -187,6 +187,8 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         - When a transaction creates new objects (oids are roughly allocated
           sequentially), we expect better performance by maximizing the number
           of involved nodes (i.e. parallelizing writes).
+        - For maximum resiliency, cells of each partition are assigned as far
+          as possible from each other, by checking the topology path of nodes.
 
         Examples of optimal partition tables with np=10, nr=1 and 5 nodes:
 
@@ -215,6 +217,17 @@ class PartitionTable(neo.lib.pt.PartitionTable):
           U.  .U  U.
           .U  U.  U.
           U.  U.  .U
+
+        For the topology, let's consider an example with paths of the form
+        (room, machine, disk):
+        - if there are more rooms than the number of replicas, 2 cells of the
+          same partition must not be assigned in the same room;
+        - otherwise, topology paths are checked at a deeper depth,
+          e.g. not on the same machine and distributed evenly
+               (off by 1) among rooms.
+        But the topology is expected to be optimal, otherwise it is ignored.
+        In some cases, we could fall back to a non-optimal topology but
+        that would cause extra replication if the user wants to fix it.
         """
         # Collect some data in a usable form for the rest of the method.
         node_list = {node: {} for node in self.count_dict
@@ -241,6 +254,67 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 x[i % node_count].append(offset)
                 i += 1
         option_dict = Counter(map(tuple, x))
+
+        # Initialize variables/functions to optimize the topology.
+        devpath_max = []
+        devpaths = [()] * node_count
+        if repeats > 1:
+            _devpaths = [x[0].devpath for x in node_list]
+            max_depth = min(map(len, _devpaths))
+            depth = 0
+            while 1:
+                if depth < max_depth:
+                    depth += 1
+                    x = Counter(x[:depth] for x in _devpaths)
+                    n = len(x)
+                    x = set(x.itervalues())
+                    # TODO: Prove it works. If the code turns out to be:
+                    #       - too pessimistic, the topology is ignored when
+                    #         resiliency could be maximized;
+                    #       - or worse too optimistic, in which case this
+                    #         method raises, possibly after a very long time.
+                    if len(x) == 1 or max(x) * repeats <= node_count:
+                        i, x = divmod(repeats, n)
+                        devpath_max.append((i + 1, x) if x else (i, n))
+                        if n < repeats:
+                            continue
+                        devpaths = [x[:depth] for x in _devpaths]
+                        break
+                logging.warning("Can't maximize resiliency: fix the topology"
+                    " of your storage nodes and make sure they're all running."
+                    " %s storage device failure(s) may be enough to lose all"
+                    " the database." % (repeats - 1))
+                break
+        topology = [{} for _ in xrange(self.np)]
+        def update_topology():
+            for offset in option:
+                n = topology[offset]
+                for i, (j, k) in zip(devpath, devpath_max):
+                    try:
+                        i, x = n[i]
+                    except KeyError:
+                        n[i] = i, x = [0, {}]
+                    if i == j or i + 1 == j and k == sum(
+                          1 for i in n.itervalues() if i[0] == j):
+                        # Too many cells would be assigned at this topology
+                        # node.
+                        return False
+                    n = x
+            # The topology may be optimal with this option. Apply it.
+            for offset in option:
+                n = topology[offset]
+                for i in devpath:
+                    n = n[i]
+                    n[0] += 1
+                    n = n[1]
+            return True
+        def revert_topology():
+            for offset in option:
+                n = topology[offset]
+                for i in devpath:
+                    n = n[i]
+                    n[0] -= 1
+                    n = n[1]
 
         # Strategies to find the "best" permutation of nodes.
         def node_options():
@@ -291,24 +365,27 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         new = []   # the solution
         stack = [] # data recursion
         def options():
-            return iter(node_options[len(new)][-1])
+            x = node_options[len(new)]
+            return devpaths[x[-2]], iter(x[-1])
         for node_options in node_options(): # for each strategy
-            iter_option = options()
+            devpath, iter_option = options()
             while 1:
                 try:
                     option = next(iter_option)
-                except StopIteration: # 1st strategy only
+                except StopIteration:
                     if new:
-                        iter_option = stack.pop()
-                        option_dict[new.pop()] += 1
+                        devpath, iter_option = stack.pop()
+                        option = new.pop()
+                        revert_topology()
+                        option_dict[option] += 1
                         continue
                     break
-                if option_dict[option]:
+                if option_dict[option] and update_topology():
                     new.append(option)
-                    if len(new) == len(node_list):
+                    if len(new) == node_count:
                         break
-                    stack.append(iter_option)
-                    iter_option = options()
+                    stack.append((devpath, iter_option))
+                    devpath, iter_option = options()
                     option_dict[option] -= 1
             if new:
                 break
@@ -384,13 +461,18 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 if cell.isReadable():
                     if cell.getNode().isRunning():
                         lost = None
-                    else :
+                    else:
                         cell_list.append(cell)
             for cell in cell_list:
-                if cell.getNode() is not lost:
-                    cell.setState(CellStates.OUT_OF_DATE)
-                    change_list.append((offset, cell.getUUID(),
-                        CellStates.OUT_OF_DATE))
+                node = cell.getNode()
+                if node is not lost:
+                    if cell.isFeeding():
+                        self.removeCell(offset, node)
+                        state = CellStates.DISCARDED
+                    else:
+                        state = CellStates.OUT_OF_DATE
+                        cell.setState(state)
+                    change_list.append((offset, node.getUUID(), state))
         if fully_readable and change_list:
             logging.warning(self._first_outdated_message)
         return change_list

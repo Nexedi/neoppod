@@ -281,3 +281,16 @@ class NEOLogger(Logger):
 logging = NEOLogger()
 signal.signal(signal.SIGRTMIN, lambda signum, frame: logging.flush())
 signal.signal(signal.SIGRTMIN+1, lambda signum, frame: logging.reopen())
+
+def patch():
+    def fork():
+        with logging:
+            pid = os_fork()
+            if not pid:
+                logging._setup()
+        return pid
+    os_fork = os.fork
+    os.fork = fork
+
+patch()
+del patch

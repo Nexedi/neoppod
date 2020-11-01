@@ -71,6 +71,7 @@ class Application(BaseApplication):
 
         self.dm.setup(reset=config.getReset(), dedup=config.getDedup())
         self.loadConfiguration()
+        self.devpath = self.dm.getTopologyPath()
 
         # force node uuid from command line argument, for testing purpose only
         if config.getUUID() is not None:
@@ -203,7 +204,8 @@ class Application(BaseApplication):
         pt = self.pt
 
         # search, find, connect and identify to the primary master
-        bootstrap = BootstrapManager(self, NodeTypes.STORAGE, self.server)
+        bootstrap = BootstrapManager(self, NodeTypes.STORAGE, self.server,
+                                     self.devpath)
         self.master_node, self.master_conn, num_partitions, num_replicas = \
             bootstrap.getPrimaryConnection()
         uuid = self.uuid

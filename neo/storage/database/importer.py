@@ -15,22 +15,38 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import cPickle, pickle, time
+import cPickle, pickle, sys, time
 from bisect import bisect, insort
 from collections import deque
 from cStringIO import StringIO
 from ConfigParser import SafeConfigParser
-from ZODB.config import storageFromString
+from ZConfig import loadConfigFile
+from ZODB import BaseStorage
+from ZODB.config import getStorageSchema, storageFromString
 from ZODB.POSException import POSKeyError
+try:
+    from ZODB._compat import dumps, loads, _protocol
+except ImportError:
+    from cPickle import dumps, loads
+    _protocol = 1
+from ZODB.FileStorage import FileStorage
 
-from . import buildDatabaseManager
+from . import buildDatabaseManager, DatabaseFailure
 from .manager import DatabaseManager
-from neo.lib import logging, patch, util
-from neo.lib.exception import DatabaseFailure
+from neo.lib import compress, logging, patch, util
 from neo.lib.interfaces import implements
 from neo.lib.protocol import BackendNotImplemented, MAX_TID
 
 patch.speedupFileStorageTxnLookup()
+
+FORK = sys.platform != 'win32'
+
+def transactionAsTuple(txn):
+    ext = txn.extension
+    return (txn.user, txn.description,
+        dumps(ext, _protocol) if ext else '',
+        txn.status == 'p', txn.tid)
+
 
 class Reference(object):
 
@@ -146,7 +162,7 @@ class Repickler(pickle.Unpickler):
         args = self.stack[k+1:]
         self.stack[k:] = self._obj(klass, *args),
 
-    del dispatch[pickle.NEWOBJ] # ZODB has never used protocol 2
+    del dispatch[pickle.NEWOBJ] # ZODB < 5 has never used protocol 2
 
     @_noload
     def find_class(self, args):
@@ -187,12 +203,37 @@ class ZODB(object):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state["data_tid"], state["storage"]
+        del state["_connect"], state["data_tid"], state["storage"]
         return state
 
     def connect(self, storage):
         self.data_tid = {}
-        self.storage = storageFromString(storage)
+        config, _ = loadConfigFile(getStorageSchema(), StringIO(storage))
+        section = config.storage
+        def _connect():
+            self.storage = section.open()
+        self._connect = _connect
+        config = section.config
+        if 'read_only' in config.getSectionAttributes():
+            has_next_oid = config.read_only = hasattr(self, 'next_oid')
+            if not has_next_oid:
+                import gc
+                # This will reopen read-only as soon as we know the last oid.
+                def new_oid():
+                    del self.new_oid
+                    new_oid = self.storage.new_oid()
+                    self.storage.close()
+                    # A FileStorage index can be huge, and close() does not
+                    # delete it. Stop reference it before loading it again,
+                    # to avoid having it twice in memory.
+                    del self.storage
+                    gc.collect()  # to be sure (maybe only required for PyPy,
+                                  #             if one day we support it)
+                    config.read_only = True
+                    self._connect()
+                    return new_oid
+                self.new_oid = new_oid
+        self._connect()
 
     def setup(self, zodb_dict, shift_oid=0):
         self.shift_oid = shift_oid
@@ -221,7 +262,7 @@ class ZODB(object):
                 oid = u64(obj[0])
                 # If this oid pointed to a mount point, drop 2nd item because
                 # it's probably different than the real class of the new oid.
-            elif isinstance(obj, str):
+            elif isinstance(obj, bytes):
                 oid = u64(obj)
             else:
                 raise NotImplementedError(
@@ -232,7 +273,7 @@ class ZODB(object):
                 if not self.shift_oid:
                     return obj # common case for root db
             oid = p64(oid + self.shift_oid)
-            return oid if isinstance(obj, str) else (oid, obj[1])
+            return oid if isinstance(obj, bytes) else (oid, obj[1])
         self.repickle = Repickler(map_oid)
         return self.repickle(data)
 
@@ -259,13 +300,35 @@ class ZODB(object):
 
 class ZODBIterator(object):
 
-    def __init__(self, zodb, *args, **kw):
-        iterator = zodb.iterator(*args, **kw)
-        def _next():
-            self.transaction = next(iterator)
-        _next()
-        self.zodb = zodb
-        self.next = _next
+    def __new__(cls, zodb_list, *args):
+        def _init(zodb):
+            self = object.__new__(cls)
+            iterator = zodb.iterator(*args)
+            def _next():
+                self.transaction = next(iterator)
+            self.zodb = zodb
+            self.next = _next
+            return self
+        def init(zodb):
+            # FileStorage is fork-safe and in case we don't start iteration
+            # from the beginning, we want the tid index built at most once
+            # (by speedupFileStorageTxnLookup).
+            if FORK and not isinstance(zodb.storage, FileStorage):
+                def init():
+                    zodb._connect()
+                    return _init(zodb)
+                return init
+            return _init(zodb)
+        def result(zodb_list):
+            for self in zodb_list:
+                if callable(self):
+                    self = self()
+                try:
+                    self.next()
+                    yield self
+                except StopIteration:
+                    pass
+        return result(map(init, zodb_list))
 
     tid = property(lambda self: self.transaction.tid)
 
@@ -274,15 +337,18 @@ class ZODBIterator(object):
             and self.zodb.shift_oid < other.zodb.shift_oid
 
 
+is_true = ('false', 'true').index
+
 class ImporterDatabaseManager(DatabaseManager):
     """Proxy that transparently imports data from a ZODB storage
     """
+    _writeback = None
     _last_commit = 0
 
     def __init__(self, *args, **kw):
         super(ImporterDatabaseManager, self).__init__(*args, **kw)
         implements(self, """_getNextTID checkSerialRange checkTIDRange
-            deleteObject deleteTransaction dropPartitions getLastTID
+            deleteObject deleteTransaction dropPartitions _getLastTID
             getReplicationObjectList _getTIDList nonempty""".split())
 
     _getPartition = property(lambda self: self.db._getPartition)
@@ -294,30 +360,58 @@ class ImporterDatabaseManager(DatabaseManager):
         config.read(os.path.expanduser(database))
         sections = config.sections()
         # XXX: defaults copy & pasted from elsewhere - refactoring needed
-        main = {'adapter': 'MySQL', 'wait': 0}
+        main = self._conf = {'adapter': 'MySQL', 'wait': 0}
         main.update(config.items(sections.pop(0)))
-        self.zodb = ((x, dict(config.items(x))) for x in sections)
-        self.compress = main.get('compress', 1)
-        self.db = buildDatabaseManager(main['adapter'],
-            (main['database'], main.get('engine'), main['wait']))
-        for x in """getConfiguration _setConfiguration setNumPartitions
-                    query erase getPartitionTable changePartitionTable
-                    getUnfinishedTIDDict dropUnfinishedData abortTransaction
-                    storeTransaction lockTransaction unlockTransaction
-                    loadData storeData getOrphanList _pruneData deferCommit
-                    dropPartitionsTemporary
-                 """.split():
-            setattr(self, x, getattr(self.db, x))
+        self.zodb = [(x, dict(config.items(x))) for x in sections]
+        x = main.get('compress', 'true')
+        try:
+            self.compress = bool(is_true(x))
+        except ValueError:
+            self.compress = compress.parseOption(x)
+        if is_true(main.get('writeback', 'false')):
+            if len(self.zodb) > 1:
+                raise Exception(
+                    "Can not forward new transactions to splitted DB.")
+            self._writeback = self.zodb[0][1]['storage']
 
     def _connect(self):
-        pass
+        conf = self._conf
+        db = self.db = buildDatabaseManager(conf['adapter'],
+            (conf['database'], conf.get('engine'), conf['wait']))
+        for x in """getConfiguration _setConfiguration setNumPartitions
+                    query erase getPartitionTable _iterAssignedCells
+                    updateCellTID getUnfinishedTIDDict dropUnfinishedData
+                    abortTransaction storeTransaction lockTransaction
+                    loadData storeData getOrphanList _pruneData deferCommit
+                    _getDevPath dropPartitionsTemporary
+                 """.split():
+            setattr(self, x, getattr(db, x))
+        if self._writeback:
+            self._writeback = WriteBack(db, self._writeback)
+        db_commit = db.commit
+        def commit():
+            db_commit()
+            self._last_commit = time.time()
+            if self._writeback:
+                self._writeback.committed()
+        self.commit = db.commit = commit
 
-    def commit(self):
-        self.db.commit()
-        # XXX: This misses commits done internally by self.db (lockTransaction).
-        self._last_commit = time.time()
+    def _updateReadable(self):
+        raise AssertionError
+
+    def changePartitionTable(self, *args, **kw):
+        self.db.changePartitionTable(*args, **kw)
+        if self._writeback:
+            self._writeback.changed()
+
+    def unlockTransaction(self, *args):
+        self.db.unlockTransaction(*args)
+        if self._writeback:
+            self._writeback.changed()
 
     def close(self):
+        if self._writeback:
+            self._writeback.close()
         self.db.close()
         if isinstance(self.zodb, list): # _setup called
             for zodb in self.zodb:
@@ -343,7 +437,8 @@ class ImporterDatabaseManager(DatabaseManager):
         zodb = self.zodb[-1]
         self.zodb_loid = zodb.shift_oid + zodb.next_oid - 1
         self.zodb_tid = self.db.getLastTID(self.zodb_ltid) or 0
-        self._import = self._import()
+        if callable(self._import):
+            self._import = self._import()
 
     def doOperation(self, app):
         if self._import:
@@ -352,62 +447,31 @@ class ImporterDatabaseManager(DatabaseManager):
     def _import(self):
         p64 = util.p64
         u64 = util.u64
-        tid = p64(self.zodb_tid + 1)
-        zodb_list = []
-        for zodb in self.zodb:
-            try:
-                zodb_list.append(ZODBIterator(zodb, tid, p64(self.zodb_ltid)))
-            except StopIteration:
-                pass
-        tid = None
-        def finish():
-            if tid:
-                self.storeTransaction(tid, object_list, (
-                    (x[0] for x in object_list),
-                    str(txn.user), str(txn.description),
-                    cPickle.dumps(txn.extension),
-                    txn.status == 'p', tid),
-                    False)
-                self.releaseData(data_id_list)
-                logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
-                    util.dump(tid), txn.user, txn.description, len(object_list))
-                del object_list[:], data_id_list[:]
-                if self._last_commit + 1 < time.time():
-                    self.commit()
-                self.zodb_tid = u64(tid)
-        if self.compress:
-            from zlib import compress
+        tid = p64(self.zodb_tid + 1) if self.zodb_tid else None
+        zodb_list = ZODBIterator(self.zodb, tid, p64(self.zodb_ltid))
+        if FORK:
+            from multiprocessing import Process
+            from ..shared_queue import Queue
+            queue = Queue(1<<24)
+            process = self._import_process = Process(
+                target=lambda zodb_list: queue(self._iter_zodb(zodb_list)),
+                args=(zodb_list,))
+            process.daemon = True
+            process.start()
         else:
-            compress = None
-            compression = 0
+            queue = self._iter_zodb(zodb_list)
+            process = None
+        del zodb_list
         object_list = []
         data_id_list = []
-        while zodb_list:
-            zodb_list.sort()
-            z = zodb_list[0]
-            # Merge transactions with same tid. Only
-            # user/desc/ext from first ZODB are kept.
-            if tid != z.tid:
-                finish()
-                txn = z.transaction
-                tid = txn.tid
-                yield
-            zodb = z.zodb
-            for r in z.transaction:
-                oid = p64(u64(r.oid) + zodb.shift_oid)
-                data_tid = r.data_txn
-                if data_tid or r.data is None:
-                    data_id = None
-                else:
-                    data = zodb.repickle(r.data)
-                    if compress:
-                        compressed_data = compress(data)
-                        compression = len(compressed_data) < len(data)
-                        if compression:
-                            data = compressed_data
-                    checksum = util.makeChecksum(data)
-                    data_id = self.holdData(util.makeChecksum(data), oid, data,
-                                            compression)
+        for txn in queue:
+            if txn is None:
+                break
+            if len(txn) == 3:
+                oid, data_id, data_tid = txn
+                if data_id is not None:
+                    checksum, data, compression = data_id
+                    data_id = self.holdData(checksum, oid, data, compression)
                     data_id_list.append(data_id)
                 object_list.append((oid, data_id, data_tid))
                 # Give the main loop the opportunity to process requests
@@ -416,19 +480,67 @@ class ImporterDatabaseManager(DatabaseManager):
                 # update 'obj' with 'object_list', some rows in 'data' may be
                 # unreferenced. This is not a problem because the leak is
                 # solved when resuming the migration.
-                yield
-            try:
-                z.next()
-            except StopIteration:
-                del zodb_list[0]
-        self._last_commit = 0
-        finish()
+                # XXX: The leak was solved by the deduplication,
+                #      but it was disabled by default.
+            else:
+                tid = txn[-1]
+                self.storeTransaction(tid, object_list,
+                    ((x[0] for x in object_list),) + txn,
+                    False)
+                self.releaseData(data_id_list)
+                logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
+                    util.dump(tid), txn[0], txn[1], len(object_list))
+                del object_list[:], data_id_list[:]
+                if self._last_commit + 1 < time.time():
+                    self.commit()
+                self.zodb_tid = u64(tid)
+            yield
+        if process:
+            process.join()
+        self.commit()
         logging.warning("All data are imported. You should change"
             " your configuration to use the native backend and restart.")
         self._import = None
         for x in """getObject getReplicationTIDList getReplicationObjectList
                  """.split():
             setattr(self, x, getattr(self.db, x))
+
+    def _iter_zodb(self, zodb_list):
+        util.setproctitle('neostorage: import')
+        p64 = util.p64
+        u64 = util.u64
+        zodb_list = list(zodb_list)
+        if zodb_list:
+            tid = None
+            _compress = compress.getCompress(self.compress)
+            while 1:
+                zodb_list.sort()
+                z = zodb_list[0]
+                # Merge transactions with same tid. Only
+                # user/desc/ext from first ZODB are kept.
+                if tid != z.tid:
+                    if tid:
+                        yield txn
+                    txn = transactionAsTuple(z.transaction)
+                    tid = txn[-1]
+                zodb = z.zodb
+                for r in z.transaction:
+                    oid = p64(u64(r.oid) + zodb.shift_oid)
+                    data_tid = r.data_txn
+                    if data_tid or r.data is None:
+                        data = None
+                    else:
+                        _, compression, data = _compress(zodb.repickle(r.data))
+                        data = util.makeChecksum(data), data, compression
+                    yield oid, data, data_tid
+                try:
+                    z.next()
+                except StopIteration:
+                    del zodb_list[0]
+                    if not zodb_list:
+                        break
+            yield txn
+        yield
 
     def inZodb(self, oid, tid=None, before_tid=None):
         return oid <= self.zodb_loid and (
@@ -440,8 +552,8 @@ class ImporterDatabaseManager(DatabaseManager):
         return zodb, oid - zodb.shift_oid
 
     def getLastIDs(self):
-        tid, _, _, oid = self.db.getLastIDs()
-        return (max(tid, util.p64(self.zodb_ltid)), None, None,
+        tid, oid = self.db.getLastIDs()
+        return (max(tid, util.p64(self.zodb_ltid)),
                 max(oid, util.p64(self.zodb_loid)))
 
     def getObject(self, oid, tid=None, before_tid=None):
@@ -479,7 +591,7 @@ class ImporterDatabaseManager(DatabaseManager):
             checksum = util.makeChecksum(value)
         else:
             # CAVEAT: Although we think loadBefore should not return an empty
-            #         value for a deleted object (see comment in NEO Storage),
+            #         value for a deleted object (BBB: fixed in ZODB4),
             #         there's no need to distinguish this case in the above
             #         except clause because it would be crazy to import a
             #         NEO DB using this backend.
@@ -499,20 +611,19 @@ class ImporterDatabaseManager(DatabaseManager):
                     p64 = util.p64
                     shift_oid = zodb.shift_oid
                     return ([p64(u64(x.oid) + shift_oid) for x in txn],
-                        txn.user, txn.description,
-                        cPickle.dumps(txn.extension), 0, tid)
+                           ) + transactionAsTuple(txn)
         else:
             return self.db.getTransaction(tid, all)
 
     def getFinalTID(self, ttid):
-        if u64(ttid) <= self.zodb_ltid and self._import:
+        if util.u64(ttid) <= self.zodb_ltid and self._import:
             raise NotImplementedError
         return self.db.getFinalTID(ttid)
 
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         # Even if everything is imported, we can't truncate below
         # because it would import again if we restart with this backend.
-        if u64(min_tid) < self.zodb_ltid:
+        if min_tid < self.zodb_ltid:
             raise NotImplementedError
         self.db._deleteRange(partition, min_tid, max_tid)
 
@@ -561,3 +672,120 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def pack(self, *args, **kw):
         raise BackendNotImplemented(self.pack)
+
+
+class WriteBack(object):
+
+    _changed = False
+    _process = None
+
+    def __init__(self, db, storage):
+        self._db = db
+        self._storage = storage
+
+    def close(self):
+        if self._process:
+            self._stop.set()
+            self._event.set()
+            self._process.join()
+
+    def changed(self):
+        self._changed = True
+
+    def committed(self):
+        if self._changed:
+            self._changed = False
+            if self._process:
+                self._event.set()
+            else:
+                if FORK:
+                    from multiprocessing import Process, Event
+                else:
+                    from threading import Thread as Process, Event
+                self._event = Event()
+                self._idle = Event()
+                self._stop = Event()
+                self._np = self._db.getNumPartitions()
+                self._db = cPickle.dumps(self._db, 2)
+                self._process = Process(target=self._run)
+                self._process.daemon = True
+                self._process.start()
+
+    @property
+    def wait(self):
+        # For unit tests.
+        return self._idle.wait
+
+    def _run(self):
+        util.setproctitle('neostorage: write back')
+        self._db = cPickle.loads(self._db)
+        try:
+            @self._db.autoReconnect
+            def _():
+                # Unfortunately, copyTransactionsFrom does not abort in case
+                # of failure, so we have to reopen.
+                zodb = storageFromString(self._storage)
+                try:
+                    self.min_tid = util.add64(zodb.lastTransaction(), 1)
+                    zodb.copyTransactionsFrom(self)
+                finally:
+                    zodb.close()
+        finally:
+            self._idle.set()
+            self._db.close()
+
+    def iterator(self):
+        db = self._db
+        np = self._np
+        chunk_size = max(2, 1000 // np)
+        offset_list = xrange(np)
+        while 1:
+            with db:
+                # Check the partition table at the beginning of every
+                # transaction. Once the import is finished and at least one
+                # cell is replicated, it is possible that some of this node
+                # get outdated. In this case, wait for the next PT change.
+                if np == len(db._readable_set):
+                    while 1:
+                        tid_list = []
+                        loop = False
+                        for offset in offset_list:
+                            x = db.getReplicationTIDList(
+                                self.min_tid, MAX_TID, chunk_size, offset)
+                            tid_list += x
+                            if len(x) == chunk_size:
+                                loop = True
+                        if tid_list:
+                            tid_list.sort()
+                            for tid in tid_list:
+                                if self._stop.is_set():
+                                    return
+                                yield TransactionRecord(db, tid)
+                            self.min_tid = util.add64(tid, 1)
+                            if loop:
+                                continue
+                        break
+            if not self._event.is_set():
+                self._idle.set()
+                self._event.wait()
+                self._idle.clear()
+            self._event.clear()
+            if self._stop.is_set():
+                break
+
+
+class TransactionRecord(BaseStorage.TransactionRecord):
+
+    def __init__(self, db, tid):
+        self._oid_list, user, desc, ext, _, _ = db.getTransaction(tid)
+        super(TransactionRecord, self).__init__(tid, ' ', user, desc,
+            loads(ext) if ext else {})
+        self._db = db
+
+    def __iter__(self):
+        tid = self.tid
+        for oid in self._oid_list:
+            _, compression, _, data, data_tid = self._db.fetchObject(oid, tid)
+            if data is not None:
+                data = compress.decompress_list[compression](data)
+            yield BaseStorage.DataRecord(oid, tid, data, data_tid)
