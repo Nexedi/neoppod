@@ -15,12 +15,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import socket
+import os, socket
 from binascii import a2b_hex, b2a_hex
 from datetime import timedelta, datetime
 from hashlib import sha1
 from Queue import deque
-from struct import pack, unpack
+from struct import pack, unpack, Struct
 from time import gmtime
 
 TID_LOW_OVERFLOW = 2**32
@@ -102,11 +102,10 @@ def addTID(ptid, offset):
         higher = (d.year, d.month, d.day, d.hour, d.minute)
     return packTID(higher, lower)
 
-def u64(s):
-    return unpack('!Q', s)[0]
-
-def p64(n):
-    return pack('!Q', n)
+p64, u64 = (lambda unpack: (
+    unpack.__self__.pack,
+    lambda s: unpack(s)[0]
+))(Struct('!Q').unpack)
 
 def add64(packed, offset):
     """Add a python number to a 64-bits packed value"""
@@ -226,3 +225,25 @@ class cached_property(object):
         if obj is None: return self
         value = obj.__dict__[self.func.__name__] = self.func(obj)
         return value
+
+# This module is always imported before multiprocessing is used, and the
+# main process does not want to change name when task are run in threads.
+spt_pid = os.getpid()
+
+def setproctitle(title):
+    global spt_pid
+    pid = os.getpid()
+    if spt_pid == pid:
+        return
+    spt_pid = pid
+    # Try using https://pypi.org/project/setproctitle/
+    try:
+        # On Linux, this is done by clobbering argv, and the main process
+        # usually has a longer command line than the title of subprocesses.
+        os.environ['SPT_NOENV'] = '1'
+        from setproctitle import setproctitle
+    except ImportError:
+        return
+    finally:
+        del os.environ['SPT_NOENV']
+    setproctitle(title)

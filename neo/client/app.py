@@ -14,11 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from cPickle import dumps, loads
-from zlib import compress, decompress
 import heapq
 import time
 
+try:
+    from ZODB._compat import dumps, loads, _protocol
+except ImportError:
+    from cPickle import dumps, loads
+    _protocol = 1
 from ZODB.POSException import UndoError, ConflictError, ReadConflictError
 from . import OLD_ZODB
 if OLD_ZODB:
@@ -26,6 +29,7 @@ if OLD_ZODB:
 from persistent.TimeStamp import TimeStamp
 
 from neo.lib import logging
+from neo.lib.compress import decompress_list, getCompress
 from neo.lib.protocol import NodeTypes, Packets, \
     INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_TID
 from neo.lib.util import makeChecksum, dump
@@ -49,7 +53,6 @@ except ImportError:
 if SignalHandler:
     import signal
     SignalHandler.registerHandler(signal.SIGUSR2, logging.reopen)
-
 
 class Application(ThreadedApplication):
     """The client node application."""
@@ -99,7 +102,7 @@ class Application(ThreadedApplication):
         # _connecting_to_master_node is used to prevent simultaneous master
         # node connection attempts
         self._connecting_to_master_node = Lock()
-        self.compress = compress
+        self.compress = getCompress(compress)
 
     def __getattr__(self, attr):
         if attr in ('last_tid', 'pt'):
@@ -215,7 +218,7 @@ class Application(ThreadedApplication):
                         node=node,
                         dispatcher=self.dispatcher)
                 p = Packets.RequestIdentification(
-                    NodeTypes.CLIENT, self.uuid, None, self.name, None)
+                    NodeTypes.CLIENT, self.uuid, None, self.name, (), None)
                 try:
                     ask(conn, p, handler=handler)
                 except ConnectionClosed:
@@ -388,7 +391,7 @@ class Application(ThreadedApplication):
                     logging.error('wrong checksum from %s for oid %s',
                               conn, dump(oid))
                     raise NEOStorageReadRetry(False)
-                return (decompress(data) if compression else data,
+                return (decompress_list[compression](data),
                         tid, next_tid, data_tid)
             raise NEOStorageCreationUndoneError(dump(oid))
         return self._askStorageForRead(oid,
@@ -435,17 +438,7 @@ class Application(ThreadedApplication):
             checksum = ZERO_HASH
         else:
             assert data_serial is None
-            size = len(data)
-            if self.compress:
-                compressed_data = compress(data)
-                if size < len(compressed_data):
-                    compressed_data = data
-                    compression = 0
-                else:
-                    compression = 1
-            else:
-                compression = 0
-                compressed_data = data
+            size, compression, compressed_data = self.compress(data)
             checksum = makeChecksum(compressed_data)
             txn_context.data_size += size
         # Store object in tmp cache
@@ -554,9 +547,12 @@ class Application(ThreadedApplication):
         txn_context = self._txn_container.get(transaction)
         self.waitStoreResponses(txn_context)
         ttid = txn_context.ttid
+        ext = transaction._extension
+        ext = dumps(ext, _protocol) if ext else ''
+        # user and description are cast to str in case they're unicode.
+        # BBB: This is not required anymore with recent ZODB.
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
-            str(transaction.description), dumps(transaction._extension),
-            txn_context.cache_dict)
+            str(transaction.description), ext, txn_context.cache_dict)
         queue = txn_context.queue
         involved_nodes = txn_context.involved_nodes
         # Ask in parallel all involved storage nodes to commit object metadata.
@@ -786,10 +782,6 @@ class Application(ThreadedApplication):
         self.waitStoreResponses(txn_context)
         return None, txn_oid_list
 
-    def _insertMetadata(self, txn_info, extension):
-        for k, v in loads(extension).items():
-            txn_info[k] = v
-
     def _getTransactionInformation(self, tid):
         return self._askStorageForRead(tid,
             Packets.AskTransactionInformation(tid))
@@ -829,7 +821,8 @@ class Application(ThreadedApplication):
             if filter is None or filter(txn_info):
                 txn_info.pop('packed')
                 txn_info.pop("oids")
-                self._insertMetadata(txn_info, txn_ext)
+                if txn_ext:
+                    txn_info.update(loads(txn_ext))
                 append(txn_info)
                 if len(undo_info) >= last - first:
                     break
@@ -857,7 +850,7 @@ class Application(ThreadedApplication):
         tid = None
         for tid in tid_list:
             (txn_info, txn_ext) = self._getTransactionInformation(tid)
-            txn_info['ext'] = loads(txn_ext)
+            txn_info['ext'] = loads(txn_ext) if txn_ext else {}
             append(txn_info)
         return (tid, txn_list)
 
@@ -876,23 +869,29 @@ class Application(ThreadedApplication):
                 txn_info['size'] = size
                 if filter is None or filter(txn_info):
                     result.append(txn_info)
-                self._insertMetadata(txn_info, txn_ext)
+                if txn_ext:
+                    txn_info.update(loads(txn_ext))
         return result
 
-    def importFrom(self, storage, source, start, stop, preindex=None):
+    def importFrom(self, storage, source):
         # TODO: The main difference with BaseStorage implementation is that
         #       preindex can't be filled with the result 'store' (tid only
         #       known after 'tpc_finish'. This method could be dropped if we
         #       implemented IStorageRestoreable (a wrapper around source would
         #       still be required for partial import).
-        if preindex is None:
-            preindex = {}
-        for transaction in source.iterator(start, stop):
+        preindex = {}
+        for transaction in source.iterator():
             tid = transaction.tid
             self.tpc_begin(storage, transaction, tid, transaction.status)
             for r in transaction:
                 oid = r.oid
-                pre = preindex.get(oid)
+                try:
+                    pre = preindex[oid]
+                except KeyError:
+                    try:
+                        pre = self.load(oid)[1]
+                    except NEOStorageNotFoundError:
+                        pre = ZERO_TID
                 self.store(oid, pre, r.data, r.version, transaction)
                 preindex[oid] = tid
             conflicted = self.tpc_vote(transaction)

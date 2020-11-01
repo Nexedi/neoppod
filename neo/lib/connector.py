@@ -34,6 +34,7 @@ class SocketConnector(object):
     is_closed = is_server = None
     connect_limit = {}
     CONNECT_LIMIT = 1   # XXX actually this is (RE-)CONNECT_THROTTLE
+    SOMAXCONN = 5 # for threaded tests
 
     def __new__(cls, addr, s=None):
         if s is None:
@@ -78,7 +79,8 @@ class SocketConnector(object):
     def queue(self, data):
         was_empty = not self.queued
         self.queued += data
-        self.queue_size += len(data)
+        for data in data:
+            self.queue_size += len(data)
         return was_empty
 
     def _error(self, op, exc=None):
@@ -123,7 +125,7 @@ class SocketConnector(object):
         try:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self._bind(self.addr)
-            self.socket.listen(5)
+            self.socket.listen(self.SOMAXCONN)
         except socket.error, e:
             self.socket.close()
             self._error('listen', e)

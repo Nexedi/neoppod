@@ -47,7 +47,7 @@ class ConnectionPool(object):
         conn = MTClientConnection(app, app.storage_event_handler, node,
                                   dispatcher=app.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
-            app.uuid, None, app.name, app.id_timestamp)
+            app.uuid, None, app.name, (), app.id_timestamp)
         try:
             app._ask(conn, p, handler=app.storage_bootstrap_handler)
         except ConnectionClosed:

@@ -160,11 +160,7 @@ class Storage(BaseStorage.BaseStorage,
 
     def copyTransactionsFrom(self, source, verbose=False):
         """ Zope compliant API """
-        return self.importFrom(source)
-
-    def importFrom(self, source, start=None, stop=None, preindex=None):
-        """ Allow import only a part of the source storage """
-        return self.app.importFrom(self, source, start, stop, preindex)
+        return self.app.importFrom(self, source)
 
     def pack(self, t, referencesf, gc=False):
         if gc:

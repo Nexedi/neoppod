@@ -1,6 +1,70 @@
 Change History
 ==============
 
+1.10 (2018-07-16)
+-----------------
+
+A important performance improvement is that the replication now remembers where
+it was interrupted: a storage node that gets disconnected for a short time now
+gets fully operational quite instantaneously because it only has to replicate
+the new data. Before, the time to recover depended on the size of the DB, just
+to verify that most of the data are already transferred.
+
+As a small optimization, an empty transaction extension is now serialized with
+an empty string.
+
+The above 2 changes required a bump of the protocol version, as well as an
+upgrade of the storage format. Once upgraded (this is done automatically as
+usual), databases can't be opened anymore by older versions of NEO.
+
+Other general changes:
+
+- Add support for custom compression levels.
+- Maximize resiliency by taking into account the topology of storage nodes.
+- Fix a few issues with ZODB5. Note however that merging several DB with the
+  Importer backend only works if they were only used with ZODB < 5.
+
+Master:
+
+- Automatically discard feeding cells that get out-of-date.
+
+Client:
+
+- Fix partial import from a source storage.
+- Store uncompressed if compressed size is equal.
+
+Storage:
+
+- Fixed v1.9 code that sped up the replication by sending bigger network
+  packets.
+- Fix replication of creation undone.
+- Stop logging 'Abort TXN' for txn that have been locked.
+- Clarify log about data deletion of discarded cells.
+
+MySQL backend:
+
+- Fix replication of big OIDs (> 16M).
+- Do not full-scan for duplicates of big OIDs if deduplication is disabled.
+- Fix remaining places where a server disconnection was not catched.
+
+SQlite backend:
+
+- Fix indexes of upgraded databases.
+
+Importer backend:
+
+- Fetch and process the data to import in a separate process. It is even
+  usually free to use the best compression level.
+- New option to write back new transactions to the source database.
+  See 'importer.conf' for more information.
+- Give a title to the 'import' and 'writeback' subprocesses,
+  if the 'setproctitle' egg is installed.
+- Log when the transaction index for FileStorage DB is built.
+- Open imported database in read-only whenever possible.
+- Do not trigger speedupFileStorageTxnLookup uselessly.
+- Do not checksum data twice.
+- Fix NameError when recovering during tpc_finish.
+
 1.9 (2018-03-13)
 ----------------
 

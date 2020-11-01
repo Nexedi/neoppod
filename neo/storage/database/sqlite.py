@@ -25,7 +25,7 @@ from . import LOG_QUERIES
 from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.interfaces import implements
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
+from neo.lib.protocol import ZERO_OID, ZERO_TID, ZERO_HASH
 
 def unique_constraint_message(table, *columns):
     c = sqlite3.connect(":memory:")
@@ -68,7 +68,7 @@ class SQLiteDatabaseManager(DatabaseManager):
              never be used for small requests.
     """
 
-    VERSION = 2
+    VERSION = 3
 
     def _parse(self, database):
         self.db = os.path.expanduser(database)
@@ -85,6 +85,9 @@ class SQLiteDatabaseManager(DatabaseManager):
             q("PRAGMA synchronous = OFF")
             q("PRAGMA journal_mode = MEMORY")
         self._config = {}
+
+    def _getDevPath(self):
+        return self.db
 
     def _commit(self):
         retry_if_locked(self.conn.commit)
@@ -113,23 +116,33 @@ class SQLiteDatabaseManager(DatabaseManager):
             if not e.args[0].startswith("no such table:"):
                 raise
 
+    def _alterTable(self, schema_dict, table, select="*"):
+        # BBB: As explained in _setup, no transactional DDL
+        #      so let's do the same dance as for MySQL.
+        q = self.query
+        new = 'new_' + table
+        if self.nonempty(table) is None:
+            if self.nonempty(new) is None:
+                return
+        else:
+            q("DROP TABLE IF EXISTS " + new)
+            q(schema_dict.pop(table) % new)
+            q("INSERT INTO %s SELECT %s FROM %s" % (new, select, table))
+            q("DROP TABLE " + table)
+        q("ALTER TABLE %s RENAME TO %s" % (new, table))
+
     def _migrate1(self, *_):
         self._checkNoUnfinishedTransactions()
         self.query("DROP TABLE IF EXISTS ttrans")
 
     def _migrate2(self, schema_dict, index_dict):
-        # BBB: As explained in _setup, no transactional DDL
-        #      so let's do the same dance as for MySQL.
-        q = self.query
-        if self.nonempty('obj') is None:
-            if self.nonempty('new_obj') is None:
-                return
-        else:
-            q("DROP TABLE IF EXISTS new_obj")
-            q(schema_dict.pop('obj') % 'new_obj')
-            q("INSERT INTO new_obj SELECT * FROM obj")
-            q("DROP TABLE obj")
-        q("ALTER TABLE new_obj RENAME TO obj")
+        self._alterTable(schema_dict, 'obj')
+
+    def _migrate3(self, schema_dict, index_dict):
+        self._alterTable(schema_dict, 'pt', "rid, nid, CASE state"
+            " WHEN 0 THEN -1"  # UP_TO_DATE
+            " WHEN 2 THEN -2"  # FEEDING
+            " ELSE 1-state END")
 
     def _setup(self, dedup=False):
         # BBB: SQLite has transactional DDL but before Python 3.6,
@@ -150,10 +163,10 @@ class SQLiteDatabaseManager(DatabaseManager):
 
         # The table "pt" stores a partition table.
         schema_dict['pt'] = """CREATE TABLE %s (
-                 rid INTEGER NOT NULL,
+                 partition INTEGER NOT NULL,
                  nid INTEGER NOT NULL,
-                 state INTEGER NOT NULL,
-                 PRIMARY KEY (rid, nid))
+                 tid INTEGER NOT NULL,
+                 PRIMARY KEY (partition, nid))
             """
 
         # The table "trans" stores information on committed transactions.
@@ -223,7 +236,8 @@ class SQLiteDatabaseManager(DatabaseManager):
 
         for table, schema in schema_dict.iteritems():
             q(schema % ('IF NOT EXISTS ' + table))
-            for i, index in enumerate(index_dict.get(table, ()), 1):
+        for table, index in index_dict.iteritems():
+            for i, index in enumerate(index, 1):
                 q(index % ('IF NOT EXISTS _%s_i%s' % (table, i), table))
 
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
@@ -249,42 +263,23 @@ class SQLiteDatabaseManager(DatabaseManager):
         else:
             q("REPLACE INTO config VALUES (?,?)", (key, str(value)))
 
-    def getPartitionTable(self, *nid):
-        if nid:
-            return self.query("SELECT rid, state FROM pt WHERE nid=?", nid)
+    def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
-    # A test with a table of 20 million lines and SQLite 3.8.7.1 shows that
-    # it's not worth changing getLastTID:
-    # - It already returns the result in less than 2 seconds, without reading
-    #   the whole table (this is 4-7 times faster than MySQL).
-    # - Strangely, a "GROUP BY partition" clause makes SQLite almost twice
-    #   slower.
-    # - Getting MAX(tid) is immediate with a "AND partition=?" condition so one
-    #   way to speed up the following 2 methods is to repeat the queries for
-    #   each partition (and finish in Python with max() for getLastTID).
+    def _getLastTID(self, partition, max_tid=None):
+        x = self.query
+        if max_tid is None:
+            x = x("SELECT MAX(tid) FROM trans WHERE partition=?", (partition,))
+        else:
+            x = x("SELECT MAX(tid) FROM trans WHERE partition=? AND tid<=?",
+                  (partition, max_tid))
+        return x.next()[0]
 
-    def getLastTID(self, max_tid):
-        return self.query(
-            "SELECT MAX(tid) FROM pt, trans"
-            " WHERE nid=? AND rid=partition AND tid<=?",
-            (self.getUUID(), max_tid,)).next()[0]
-
-    def _getLastIDs(self):
-        p64 = util.p64
+    def _getLastIDs(self, *args):
         q = self.query
-        args = self.getUUID(),
-        trans = {partition: p64(tid)
-            for partition, tid in q(
-                "SELECT partition, MAX(tid) FROM pt, trans"
-                " WHERE nid=? AND rid=partition GROUP BY partition", args)}
-        obj = {partition: p64(tid)
-            for partition, tid in q(
-                "SELECT partition, MAX(tid) FROM pt, obj"
-                " WHERE nid=? AND rid=partition GROUP BY partition", args)}
-        oid = q("SELECT MAX(oid) oid FROM pt, obj"
-                " WHERE nid=? AND rid=partition", args).next()[0]
-        return trans, obj, None if oid is None else p64(oid)
+        (oid,), = q("SELECT MAX(oid) FROM obj WHERE `partition`=?", args)
+        (tid,), = q("SELECT MAX(tid) FROM obj WHERE `partition`=?", args)
+        return tid, oid
 
     def _getDataLastId(self, partition):
         return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
@@ -352,8 +347,8 @@ class SQLiteDatabaseManager(DatabaseManager):
             #       whereas we try to replace only 1 value ?
             #       We don't want to remove the 'NOT NULL' constraint
             #       so we must simulate a "REPLACE OR FAIL".
-            q("DELETE FROM pt WHERE rid=? AND nid=?", (offset, nid))
-            if state != CellStates.DISCARDED:
+            q("DELETE FROM pt WHERE partition=? AND nid=?", (offset, nid))
+            if state is not None:
                 q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
                   (offset, nid, int(state)))
 
@@ -478,10 +473,15 @@ class SQLiteDatabaseManager(DatabaseManager):
                    (u64(tid), u64(ttid)))
         self.commit()
 
-    def unlockTransaction(self, tid, ttid):
+    def unlockTransaction(self, tid, ttid, trans, obj):
         q = self.query
         u64 = util.u64
         tid = u64(tid)
+        if trans:
+            q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=?", (tid,))
+            q("DELETE FROM ttrans WHERE tid=?", (tid,))
+            if not obj:
+                return
         ttid = u64(ttid)
         sql = " FROM tobj WHERE tid=?"
         data_id_list = [x for x, in q("SELECT data_id%s AND data_id IS NOT NULL"
@@ -489,8 +489,6 @@ class SQLiteDatabaseManager(DatabaseManager):
         q("INSERT INTO obj SELECT partition, oid, ?, data_id, value_tid" + sql,
           (tid, ttid))
         q("DELETE" + sql, (ttid,))
-        q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=?", (tid,))
-        q("DELETE FROM ttrans WHERE tid=?", (tid,))
         self.releaseData(data_id_list)
 
     def abortTransaction(self, ttid):
@@ -520,12 +518,12 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         sql = " WHERE partition=?"
         args = [partition]
-        if min_tid:
+        if min_tid is not None:
             sql += " AND ? < tid"
-            args.append(util.u64(min_tid))
-        if max_tid:
+            args.append(min_tid)
+        if max_tid is not None:
             sql += " AND tid <= ?"
-            args.append(util.u64(max_tid))
+            args.append(max_tid)
         q = self.query
         q("DELETE FROM trans" + sql, args)
         sql = " FROM obj" + sql
@@ -693,3 +691,24 @@ class SQLiteDatabaseManager(DatabaseManager):
                     sha1(','.join(str(x[1]) for x in r)).digest(),
                     p64(r[-1][1]))
         return 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID
+
+    def dump(self):
+        main = []
+        data = []
+        for line in self.conn.iterdump():
+            if line.startswith('INSERT '):
+                assert line.endswith(';'), line
+                data.append(line)
+                continue
+            if line.startswith('CREATE TABLE '):
+                # ALTER TABLE adds quotes.
+                create, table, name, tail = line.split(' ', 3)
+                line = ' '.join((create, table, name.strip('"'), tail))
+            main.append(line)
+        assert line == 'COMMIT;', line
+        data.sort()
+        main[-1:-1] = data
+        return '\n'.join(main) + '\n'
+
+    def restore(self, sql):
+        self.conn.executescript(sql)

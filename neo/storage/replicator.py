@@ -93,7 +93,7 @@ from neo.lib import logging
 from neo.lib.protocol import CellStates, NodeTypes, NodeStates, \
     Packets, INVALID_TID, ZERO_TID, ZERO_OID
 from neo.lib.connection import ClientConnection, ConnectionClosed
-from neo.lib.util import add64, dump
+from neo.lib.util import add64, dump, p64
 from .handlers.storage import StorageOperationHandler
 
 FETCH_COUNT = 1000
@@ -190,42 +190,51 @@ class Replicator(object):
             return add64(tid, -1)
         return ZERO_TID
 
-    def updateBackupTID(self):
+    def updateBackupTID(self, commit=False):
         dm = self.app.dm
         tid = dm.getBackupTID()
         if tid:
             new_tid = self.getBackupTID()
             if tid != new_tid:
                 dm._setBackupTID(new_tid)
-                dm.commit()
+                if commit:
+                    dm.commit()
+
+    def startOperation(self, backup):
+        dm = self.app.dm
+        if backup:
+            if dm.getBackupTID():
+                assert not hasattr(self, 'partition_dict'), self.partition_dict
+                return
+            tid = dm.getLastIDs()[0] or ZERO_TID
+        else:
+            tid = None
+        dm._setBackupTID(tid)
+        dm.commit()
+        try:
+            partition_dict = self.partition_dict
+        except AttributeError:
+            return
+        for offset, next_tid in dm.iterCellNextTIDs():
+            if type(next_tid) is not bytes: # readable
+                p = partition_dict[offset]
+                p.next_trans, p.next_obj = next_tid
 
     def populate(self):
-        app = self.app
-        pt = app.pt
-        uuid = app.uuid
         self.partition_dict = {}
         self.replicate_dict = {}
         self.source_dict = {}
         self.ttid_set = set()
-        last_tid, last_trans_dict, last_obj_dict, _ = app.dm.getLastIDs()
-        next_tid = app.dm.getBackupTID() or last_tid
-        next_tid = add64(next_tid, 1) if next_tid else ZERO_TID
         outdated_list = []
-        for offset in xrange(pt.getPartitions()):
-            for cell in pt.getCellList(offset):
-                if cell.getUUID() == uuid and not cell.isCorrupted():
-                    self.partition_dict[offset] = p = Partition()
-                    if cell.isOutOfDate():
-                        outdated_list.append(offset)
-                        try:
-                            p.next_trans = add64(last_trans_dict[offset], 1)
-                        except KeyError:
-                            p.next_trans = ZERO_TID
-                        p.next_obj = last_obj_dict.get(offset, ZERO_TID)
-                        p.max_ttid = INVALID_TID
-                    else:
-                        p.next_trans = p.next_obj = next_tid
-                        p.max_ttid = None
+        for offset, next_tid in self.app.dm.iterCellNextTIDs():
+            self.partition_dict[offset] = p = Partition()
+            if type(next_tid) is bytes: # OUT_OF_DATE
+                outdated_list.append(offset)
+                p.next_trans = p.next_obj = next_tid
+                p.max_ttid = INVALID_TID
+            else: # readable
+                p.next_trans, p.next_obj = next_tid or (None, None)
+                p.max_ttid = None
         if outdated_list:
             self.app.tm.replicating(outdated_list)
 
@@ -236,7 +245,6 @@ class Replicator(object):
         discarded_list = []
         readable_list = []
         app = self.app
-        last_tid, last_trans_dict, last_obj_dict, _ = app.dm.getLastIDs()
         for offset, uuid, state in cell_list:
             if uuid == app.uuid:
                 if state in (CellStates.DISCARDED, CellStates.CORRUPTED):
@@ -251,11 +259,9 @@ class Replicator(object):
                 elif state == CellStates.OUT_OF_DATE:
                     assert offset not in self.partition_dict
                     self.partition_dict[offset] = p = Partition()
-                    try:
-                        p.next_trans = add64(last_trans_dict[offset], 1)
-                    except KeyError:
-                        p.next_trans = ZERO_TID
-                    p.next_obj = last_obj_dict.get(offset, ZERO_TID)
+                    # New cell. 0 is also what should be stored by the backend.
+                    # Nothing to optimize.
+                    p.next_trans = p.next_obj = ZERO_TID
                     p.max_ttid = INVALID_TID
                     added_list.append(offset)
                 else:
@@ -289,7 +295,7 @@ class Replicator(object):
                     next_tid = add64(tid, 1)
                 p.next_trans = p.next_obj = next_tid
         if next_tid:
-            self.updateBackupTID()
+            self.updateBackupTID(True)
         self._nextPartition()
 
     def _nextPartitionSortKey(self, offset):
@@ -344,7 +350,7 @@ class Replicator(object):
             try:
                 conn.ask(Packets.RequestIdentification(NodeTypes.STORAGE,
                     None if name else app.uuid, app.server, name or app.name,
-                    app.id_timestamp))
+                    (), app.id_timestamp))
             except ConnectionClosed:
                 if previous_node is self.current_node:
                     return
@@ -360,6 +366,9 @@ class Replicator(object):
         offset = self.current_partition
         p = self.partition_dict[offset]
         if min_tid:
+            # More than one chunk ? This could be a full replication so avoid
+            # restarting from the beginning by committing now.
+            self.app.dm.commit()
             p.next_trans = min_tid
         else:
             try:
@@ -384,13 +393,17 @@ class Replicator(object):
         offset = self.current_partition
         p = self.partition_dict[offset]
         max_tid = self.replicate_tid
+        dm = self.app.dm
         if min_tid:
             p.next_obj = min_tid
+            self.updateBackupTID()
+            dm.updateCellTID(offset, add64(min_tid, -1))
+            dm.commit() # like in fetchTransactions
         else:
             min_tid = p.next_obj
             p.next_trans = add64(max_tid, 1)
         object_dict = {}
-        for serial, oid in self.app.dm.getReplicationObjectList(min_tid,
+        for serial, oid in dm.getReplicationObjectList(min_tid,
                 max_tid, FETCH_COUNT, offset, min_oid):
             try:
                 object_dict[serial].append(oid)
@@ -406,11 +419,14 @@ class Replicator(object):
         p = self.partition_dict[offset]
         p.next_obj = add64(tid, 1)
         self.updateBackupTID()
+        app = self.app
+        app.dm.updateCellTID(offset, tid)
+        app.dm.commit()
         if p.max_ttid or offset in self.replicate_dict and \
                          offset not in self.source_dict:
             logging.debug("unfinished transactions: %r", self.ttid_set)
         else:
-            self.app.tm.replicated(offset, tid)
+            app.tm.replicated(offset, tid)
         logging.debug("partition %u replicated up to %s from %r",
                       offset, dump(tid), self.current_node)
         self.getCurrentConnection().setReconnectionNoDelay()

@@ -17,11 +17,14 @@
 import os, errno, socket, struct, sys, threading
 from collections import defaultdict
 from contextlib import contextmanager
+from copy import copy
 from functools import wraps
 from neo.lib import logging, util
-from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import abstract, requires
-from neo.lib.protocol import CellStates, NonReadableCell, ZERO_TID
+from neo.lib.protocol import CellStates, NonReadableCell, MAX_TID, ZERO_TID
+from . import DatabaseFailure
+
+READABLE = CellStates.UP_TO_DATE, CellStates.FEEDING
 
 def lazymethod(func):
     def getter(self):
@@ -60,7 +63,7 @@ class DatabaseManager(object):
     LOCKED = "error: database is locked"
 
     _deferred = 0
-    _duplicating = _repairing = None
+    _repairing = None
 
     def __init__(self, database, engine=None, wait=None):
         """
@@ -75,29 +78,55 @@ class DatabaseManager(object):
         #      But for unit tests, we really want to never retry.
         self._wait = wait or 0
         self._parse(database)
+        self._init_attrs = tuple(self.__dict__)
         self._connect()
 
-    def __getattr__(self, attr):
-        if self._duplicating is None:
-            return self.__getattribute__(attr)
-        value = getattr(self._duplicating, attr)
-        setattr(self, attr, value)
-        return value
+    def __getstate__(self):
+        state = {x: getattr(self, x) for x in self._init_attrs}
+        assert state # otherwise, __setstate__ is not called
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # For the moment, no need to duplicate secondary connections.
+        #self._init_attrs = tuple(self.__dict__)
+        # Secondary connections don't lock.
+        self.LOCK = None
+        self._connect()
 
     @contextmanager
     def _duplicate(self):
-        cls = self.__class__
-        db = cls.__new__(cls)
-        db.LOCK = None
-        db._duplicating = self
-        try:
-            db._connect()
-        finally:
-            del db._duplicating
+        db = copy(self)
         try:
             yield db
         finally:
             db.close()
+
+    def __getattr__(self, attr):
+        if attr in ('_readable_set', '_getPartition', '_getReadablePartition'):
+            self._updateReadable()
+        return self.__getattribute__(attr)
+
+    def _partitionTableChanged(self):
+        try:
+            del (self._readable_set,
+                 self._getPartition,
+                 self._getReadablePartition)
+        except AttributeError:
+            pass
+
+    def __enter__(self):
+        assert not self.LOCK, "not a secondary connection"
+        # XXX: All config caching should be done in this class,
+        #      rather than in backend classes.
+        self._config.clear()
+        self._partitionTableChanged()
+
+    def __exit__(self, t, v, tb):
+        if v is None:
+            # Deferring commits make no sense for secondary connections.
+            assert not self._deferred
+            self._commit()
 
     @abstract
     def _parse(self, database):
@@ -106,6 +135,17 @@ class DatabaseManager(object):
     @abstract
     def _connect(self):
         """Connect to the database"""
+
+    def autoReconnect(self, f):
+        """
+        Placeholder for backends that may lose connection to the underlying
+        database: although a primary connection is reestablished transparently
+        when possible, secondary connections use transactions and they must
+        restart from the beginning.
+        For other backends, there's no expected transient failure so the
+        default implementation is to execute the given task exactly once.
+        """
+        f()
 
     def lock(self, db_path):
         if self.LOCK:
@@ -127,6 +167,15 @@ class DatabaseManager(object):
                     raise
                 sys.exit(self.LOCKED)
 
+    def _getDevPath(self):
+        """
+        """
+
+    @requires(_getDevPath)
+    def getTopologyPath(self):
+        # On Windows, st_dev only exists since Python 3.4
+        return socket.gethostname(), str(os.stat(self._getDevPath()).st_dev)
+
     @abstract
     def erase(self):
         """"""
@@ -147,7 +196,6 @@ class DatabaseManager(object):
         """
         if reset:
             self.erase()
-        self._readable_set = set()
         self._uncommitted_data = defaultdict(int)
         self._setup(dedup)
 
@@ -250,10 +298,7 @@ class DatabaseManager(object):
             Store the number of partitions into a database.
         """
         self.setConfiguration('partitions', num_partitions)
-        try:
-            del self._getPartition, self._getReadablePartition
-        except AttributeError:
-            pass
+        self._partitionTableChanged()
 
     def getNumReplicas(self):
         """
@@ -314,52 +359,47 @@ class DatabaseManager(object):
         except TypeError:
             return -1
 
-    @abstract
-    def getPartitionTable(self, *nid):
-        """Return a whole partition table as a sequence of rows. Each row
-        is again a tuple of an offset (row ID), the NID of a storage
-        node, and a cell state."""
+    # XXX: Consider splitting getLastIDs/_getLastIDs because
+    #      sometimes the last oid is not wanted.
 
-    @abstract
-    def getLastTID(self, max_tid):
-        """Return greatest tid in trans table that is <= given 'max_tid'
+    def _getLastTID(self, partition, max_tid=None):
+        """Return tid of last transaction <= 'max_tid' in given 'partition'
 
-        Required only to import a DB using Importer backend.
-        max_tid must be in unpacked format.
-
-        Data from unassigned partitions must be ignored.
-        This is important because there may remain data from cells that have
-        been discarded, either due to --disable-drop-partitions option,
-        or in the future when dropping partitions is done in background
-        (because this is an expensive operation).
-
-        XXX: Given the TODO comment in getLastIDs, getting ids
-             from readable partitions should be enough.
+        tids are in unpacked format.
         """
 
-    def _getLastIDs(self):
-        """Return (trans, obj, max(oid)) where
-        both 'trans' and 'obj' are {partition: max(tid)}
+    @requires(_getLastTID)
+    def getLastTID(self, max_tid=None):
+        """Return tid of last transaction <= 'max_tid'
 
-        Same as in getLastTID: data from unassigned partitions must be ignored.
+        tids are in unpacked format.
+        """
+        if self.getNumPartitions():
+            return max(map(self._getLastTID, self._readable_set))
+
+    def _getLastIDs(self, partition):
+        """Return max(tid) & max(oid) for objects of given partition
+
+        Results are in unpacked format
         """
 
     @requires(_getLastIDs)
     def getLastIDs(self):
-        trans, obj, oid = self._getLastIDs()
-        if trans:
-            tid = max(trans.itervalues())
-            if obj:
-                tid = max(tid, max(obj.itervalues()))
-        else:
-            tid = max(obj.itervalues()) if obj else None
-        # TODO: Replication can't be resumed from the tids in 'trans' and 'obj'
-        #       because outdated cells are writable and may contain recently
-        #       committed data. We must save somewhere where replication was
-        #       interrupted and return this information. For the moment, we
-        #       tell the replicator to resume from the beginning.
-        trans = obj = {}
-        return tid, trans, obj, oid
+        """Return max(tid) & max(oid) for readable data
+
+        It is important to ignore unassigned partitions because there may
+        remain data from cells that have been discarded, either due to
+        --disable-drop-partitions option, or in the future when dropping
+        partitions is done in background (as it is an expensive operation).
+        """
+        x = self._readable_set
+        if x:
+            tid, oid = zip(*map(self._getLastIDs, x))
+            tid = max(self.getLastTID(None), max(tid))
+            oid = max(oid)
+            return (None if tid is None else util.p64(tid),
+                    None if oid is None else util.p64(oid))
+        return None, None
 
     def _getUnfinishedTIDDict(self):
         """"""
@@ -471,6 +511,22 @@ class DatabaseManager(object):
             return (util.p64(serial), compression, checksum, data,
                 None if data_serial is None else util.p64(data_serial))
 
+    def _getPartitionTable(self):
+        """Return a whole partition table as a sequence of rows. Each row
+        is again a tuple of an offset (row ID), the NID of a storage
+        node, and a cell state."""
+
+    @requires(_getPartitionTable)
+    def _iterAssignedCells(self):
+        my_nid = self.getUUID()
+        return ((offset, tid) for offset, nid, tid in self._getPartitionTable()
+                              if my_nid == nid)
+
+    @requires(_getPartitionTable)
+    def getPartitionTable(self):
+        return [(offset, nid, max(0, -state))
+            for offset, nid, state in self._getPartitionTable()]
+
     @contextmanager
     def replicated(self, offset):
         readable_set = self._readable_set
@@ -492,11 +548,12 @@ class DatabaseManager(object):
         """
         """
 
-    @requires(_changePartitionTable, _getDataLastId)
-    def changePartitionTable(self, ptid, cell_list, reset=False):
-        readable_set = self._readable_set
-        if reset:
-            readable_set.clear()
+    @requires(_getDataLastId)
+    def _updateReadable(self):
+        try:
+            readable_set = self.__dict__['_readable_set']
+        except KeyError:
+            readable_set = self._readable_set = set()
             np = self.getNumPartitions()
             def _getPartition(x, np=np):
                 return x % np
@@ -511,16 +568,79 @@ class DatabaseManager(object):
             for p in xrange(np):
                 i = self._getDataLastId(p)
                 d.append(p << 48 if i is None else i + 1)
-        me = self.getUUID()
-        for offset, nid, state in cell_list:
-            if nid == me:
-                if CellStates.UP_TO_DATE != state != CellStates.FEEDING:
-                    readable_set.discard(offset)
-                else:
-                    readable_set.add(offset)
+        else:
+            readable_set.clear()
+        readable_set.update(x[0] for x in self._iterAssignedCells()
+                                 if -x[1] in READABLE)
+
+    @requires(_changePartitionTable, _getLastIDs, _getLastTID)
+    def changePartitionTable(self, ptid, cell_list, reset=False):
+        my_nid = self.getUUID()
+        pt = dict(self._iterAssignedCells())
+        # In backup mode, the last transactions of a readable cell may be
+        # incomplete.
+        backup_tid = self.getBackupTID()
+        if backup_tid:
+            backup_tid = util.u64(backup_tid)
+        def outofdate_tid(offset):
+            tid = pt.get(offset, 0)
+            if tid >= 0:
+                return tid
+            return -tid in READABLE and (backup_tid or
+                max(self._getLastIDs(offset)[0],
+                    self._getLastTID(offset))) or 0
+        cell_list = [(offset, nid, (
+                None if state == CellStates.DISCARDED else
+                -state if nid != my_nid or state != CellStates.OUT_OF_DATE else
+                outofdate_tid(offset)))
+            for offset, nid, state in cell_list]
         self._changePartitionTable(cell_list, reset)
+        self._updateReadable()
         assert isinstance(ptid, (int, long)), ptid
         self._setConfiguration('ptid', str(ptid))
+
+    @requires(_changePartitionTable)
+    def updateCellTID(self, partition, tid):
+        t, = (t for p, t in self._iterAssignedCells() if p == partition)
+        if t < 0:
+            return
+        tid = util.u64(tid)
+        # Replicator doesn't optimize when there's no new data
+        # since the node went down.
+        if t == tid:
+            return
+        # In a backup cluster, when a storage node gets down just after
+        # being the first to replicate fully new transactions from upstream,
+        # we may end up in a special situation where an OUT_OF_DATE cell
+        # is actually more up-to-date than an UP_TO_DATE one.
+        assert t < tid or self.getBackupTID()
+        self._changePartitionTable([(partition, self.getUUID(), tid)])
+
+    def iterCellNextTIDs(self):
+        p64 = util.p64
+        backup_tid = self.getBackupTID()
+        if backup_tid:
+            next_tid = util.u64(backup_tid)
+            if next_tid:
+                next_tid += 1
+        for offset, tid in self._iterAssignedCells():
+            if tid >= 0: # OUT_OF_DATE
+                yield offset, p64(tid and tid + 1)
+            elif -tid in READABLE:
+                if backup_tid:
+                    # An UP_TO_DATE cell does not have holes so it's fine to
+                    # resume from the last found records.
+                    tid = self._getLastTID(offset)
+                    yield offset, (
+                        # For trans, a transaction can't be partially
+                        # replicated, so replication can resume from the next
+                        # possible tid.
+                        p64(max(next_tid, tid + 1) if tid else next_tid),
+                        # For obj, the last transaction may be partially
+                        # replicated so it must be checked again (i.e. no +1).
+                        p64(max(next_tid, self._getLastIDs(offset)[0])))
+                else:
+                    yield offset, None
 
     @abstract
     def dropPartitions(self, offset_list):
@@ -717,7 +837,7 @@ class DatabaseManager(object):
         """
 
     @abstract
-    def unlockTransaction(self, tid, ttid):
+    def unlockTransaction(self, tid, ttid, trans, obj):
         """Finalize a transaction by moving data to a finished area."""
 
     @abstract
@@ -741,9 +861,16 @@ class DatabaseManager(object):
     def truncate(self):
         tid = self.getTruncateTID()
         if tid:
-            assert tid != ZERO_TID, tid
-            for partition in xrange(self.getNumPartitions()):
+            tid = util.u64(tid)
+            assert tid, tid
+            cell_list = []
+            my_nid = self.getUUID()
+            for partition, state in self._iterAssignedCells():
+                if state > tid:
+                    cell_list.append((partition, my_nid, tid))
                 self._deleteRange(partition, tid)
+            if cell_list:
+                self._changePartitionTable(cell_list)
             self._setTruncateTID(None)
             self.commit()
 

@@ -314,12 +314,15 @@ class TransactionManager(EventQueue):
             Unlock transaction
         """
         try:
-            tid = self._transaction_dict[ttid].tid
+            transaction = self._transaction_dict[ttid]
         except KeyError:
             raise ProtocolError("unknown ttid %s" % dump(ttid))
+        tid = transaction.tid
         logging.debug('Unlock TXN %s (ttid=%s)', dump(tid), dump(ttid))
         dm = self._app.dm
-        dm.unlockTransaction(tid, ttid)
+        dm.unlockTransaction(tid, ttid,
+            transaction.voted == 2,
+            transaction.store_dict)
         self._app.em.setTimeout(time() + 1, dm.deferCommit())
         self.abort(ttid, even_if_locked=True)
 
@@ -521,7 +524,6 @@ class TransactionManager(EventQueue):
             assert not even_if_locked
             # See how the master processes AbortTransaction from the client.
             return
-        logging.debug('Abort TXN %s', dump(ttid))
         transaction = self._transaction_dict[ttid]
         locked = transaction.tid
         # if the transaction is locked, ensure we can drop it
@@ -529,6 +531,7 @@ class TransactionManager(EventQueue):
             if not even_if_locked:
                 return
         else:
+            logging.debug('Abort TXN %s', dump(ttid))
             dm = self._app.dm
             dm.abortTransaction(ttid)
             dm.releaseData([x[1] for x in transaction.store_dict.itervalues()],

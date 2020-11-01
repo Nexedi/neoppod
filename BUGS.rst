@@ -16,6 +16,19 @@ This happens in the following conditions:
 4. the cell is checked completely before it could replicate up to the max tid
    to check
 
+Sometimes, it causes the master to crash::
+
+    File "neo/lib/handler.py", line 72, in dispatch
+      method(conn, *args, **kw)
+    File "neo/master/handlers/storage.py", line 93, in notifyReplicationDone
+      cell_list = app.backup_app.notifyReplicationDone(node, offset, tid)
+    File "neo/master/backup_app.py", line 337, in notifyReplicationDone
+      assert cell.isReadable()
+  AssertionError
+
 Workaround: make sure all cells are up-to-date before checking replicas.
 
-Found by running testBackupNodeLost many times.
+Found by running testBackupNodeLost many times:
+
+- either a failureException: 12 != 11
+- or the above assert failure, in which case the unit test freezes

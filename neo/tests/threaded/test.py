@@ -23,7 +23,6 @@ import unittest
 from collections import defaultdict
 from contextlib import contextmanager
 from thread import get_ident
-from zlib import compress
 from persistent import Persistent, GHOST
 from transaction.interfaces import TransientError
 from ZODB import DB, POSException
@@ -31,7 +30,7 @@ from ZODB.DB import TransactionalUndo
 from neo.storage.transactions import TransactionManager, ConflictError
 from neo.lib.connection import ConnectionClosed, \
     ServerConnection, MTClientConnection
-from neo.lib.exception import DatabaseFailure, StoppedOperation
+from neo.lib.exception import StoppedOperation
 from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
@@ -43,6 +42,7 @@ from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
+from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
 from neo.storage.handlers.initialization import InitializationHandler
@@ -60,12 +60,13 @@ class PCounterWithResolution(PCounter):
 
 class Test(NEOThreadedTest):
 
-    @with_cluster()
-    def testBasicStore(self, cluster):
-        if 1:
+    def testBasicStore(self, dedup=False):
+        with NEOCluster(dedup=dedup) as cluster:
+            cluster.start()
             storage = cluster.getZODBStorage()
             storage.sync()
             storage.app.max_reconnection_to_master = 0
+            compress = storage.app.compress._compress
             data_info = {}
             compressible = 'x' * 20
             compressed = compress(compressible)
@@ -136,27 +137,6 @@ class Test(NEOThreadedTest):
                             storage._cache.clear()
                     self.assertRaises(POSException.POSKeyError,
                         storage.load, oid, '')
-
-    @with_cluster()
-    def testCreationUndoneHistory(self, cluster):
-        if 1:
-            storage = cluster.getZODBStorage()
-            oid = storage.new_oid()
-            txn = transaction.Transaction()
-            storage.tpc_begin(txn)
-            storage.store(oid, None, 'foo', '', txn)
-            storage.tpc_vote(txn)
-            tid1 = storage.tpc_finish(txn)
-            storage.tpc_begin(txn)
-            storage.undo(tid1, txn)
-            tid2 = storage.tpc_finish(txn)
-            storage.tpc_begin(txn)
-            storage.undo(tid2, txn)
-            tid3 = storage.tpc_finish(txn)
-            expected = [(tid1, 3), (tid2, 0), (tid3, 3)]
-            for x in storage.history(oid, 10):
-                self.assertEqual((x['tid'], x['size']), expected.pop())
-            self.assertFalse(expected)
 
     def _testUndoConflict(self, cluster, *inc):
         def waitResponses(orig, *args):
@@ -738,8 +718,9 @@ class Test(NEOThreadedTest):
 
     @with_cluster()
     def testStorageUpgrade1(self, cluster):
-        if 1:
-            storage = cluster.storage
+        storage = cluster.storage
+        # Disable migration steps that aren't idempotent.
+        with Patch(storage.dm.__class__, _migrate3=lambda *_: None):
             t, c = cluster.getTransaction()
             storage.dm.setConfiguration("version", None)
             c.root()._p_changed = 1
@@ -1309,7 +1290,7 @@ class Test(NEOThreadedTest):
             s1.resetNode()
             with Patch(s1.dm, truncate=dieFirst(1)):
                 s1.start()
-                self.assertEqual(s0.dm.getLastIDs()[0], truncate_tid)
+                self.assertFalse(s0.dm.getLastIDs()[0])
                 self.assertEqual(s1.dm.getLastIDs()[0], r._p_serial)
                 self.tic()
                 self.assertEqual(calls, [1, 2])
@@ -1723,7 +1704,18 @@ class Test(NEOThreadedTest):
                     x.value += 1
                     c2.root()['x'].value += 2
                     TransactionalResource(t1, 1, tpc_begin=begin1)
-                    s1m, = s1.getConnectionList(cluster.master)
+                    # BUG: Very rarely, getConnectionList returns more that 1
+                    #      connection ("too many values to unpack"), which is
+                    #       a mystery and impossible to reproduce:
+                    #      - 1st time: v1.8.1 on a test machine (no SSL)
+                    #      - last: current revision on my laptop (SSL),
+                    #              at the first iteration of this loop
+                    _sm = list(s1.getConnectionList(cluster.master))
+                    try:
+                        s1m, = _sm
+                    except ValueError:
+                        self.fail((_sm, list(
+                            s1.getConnectionList(cluster.master))))
                     try:
                         s1.em.removeReader(s1m)
                         with ConnectionFilter() as f, \
@@ -2371,7 +2363,7 @@ class Test(NEOThreadedTest):
             oid, tid = big_id_list[i]
             for j, expected in (
                     (1 - i, (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs())),
-                    (i, (u64(tid), (tid, {}, {}, oid)))):
+                    (i, (u64(tid), (tid, oid)))):
                 oid, tid = big_id_list[j]
                 # Somehow we abuse 'storeTransaction' because we ask it to
                 # write data for unassigned partitions. This is not checked
@@ -2380,6 +2372,44 @@ class Test(NEOThreadedTest):
                                     ((oid,), '', '', '', 0, tid), False)
                 self.assertEqual(expected,
                     (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs()))
+
+    def testStorageUpgrade(self):
+        path = os.path.join(os.path.dirname(__file__),
+                            self._testMethodName + '-%s',
+                            's%s.sql')
+        dump_dict = {}
+        def switch(s):
+            dm = s.dm
+            dm.commit()
+            dump_dict[s.uuid] = dm.dump()
+            dm.erase()
+            with open(path % (s.getAdapter(), s.uuid)) as f:
+                dm.restore(f.read())
+        with NEOCluster(storage_count=3, partitions=3, replicas=1,
+                        name=self._testMethodName) as cluster:
+            s1, s2, s3 = cluster.storage_list
+            cluster.start(storage_list=(s1,))
+            for s in s2, s3:
+                s.start()
+                self.tic()
+                cluster.neoctl.enableStorageList([s.uuid])
+                cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            nid_list = [s.uuid for s in cluster.storage_list]
+            switch(s3)
+            s3.stop()
+            storage = cluster.getZODBStorage()
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn, p64(85**9)) # partition 1
+            storage.store(p64(0), None, 'foo', '', txn)
+            storage.tpc_vote(txn)
+            storage.tpc_finish(txn)
+            self.tic()
+            switch(s1)
+            switch(s2)
+            cluster.stop()
+            for i, s in zip(nid_list, cluster.storage_list):
+                self.assertMultiLineEqual(s.dm.dump(), dump_dict[i])
 
 
 if __name__ == "__main__":

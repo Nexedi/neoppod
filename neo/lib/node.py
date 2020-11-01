@@ -28,6 +28,7 @@ class Node(object):
 
     _connection = None
     _identified = False
+    devpath = ()
     id_timestamp = None
 
     def __init__(self, manager, address=None, uuid=None, state=NodeStates.DOWN):
