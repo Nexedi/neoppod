@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2017  Nexedi SA
+# Copyright (C) 2009-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -61,6 +61,11 @@ class AdminEventHandler(EventHandler):
     def askPrimary(self, conn):
         master_node = self.app.master_node
         conn.answer(Packets.AnswerPrimary(master_node.getUUID()))
+
+    @check_primary_master
+    def flushLog(self, conn):
+        self.app.master_conn.send(Packets.FlushLog())
+        super(AdminEventHandler, self).flushLog(conn)
 
     askLastIDs = forward_ask(Packets.AskLastIDs)
     askLastTransaction = forward_ask(Packets.AskLastTransaction)

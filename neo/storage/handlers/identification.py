@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2017  Nexedi SA
+# Copyright (C) 2006-2019  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,16 +53,17 @@ class IdentificationHandler(EventHandler):
                     handler = ClientReadOnlyOperationHandler
                 else:
                     handler = ClientOperationHandler
-                assert not node.isConnected(), node
                 assert node.isRunning(), node
+                force = False
             elif node_type == NodeTypes.STORAGE:
                 handler = StorageOperationHandler
+                force = app.uuid < uuid
             else:
                 raise ProtocolError('reject non-client-or-storage node')
             # apply the handler and set up the connection
             handler = handler(self.app)
             conn.setHandler(handler)
-            node.setConnection(conn, app.uuid < uuid)
+            node.setConnection(conn, force)
         # accept the identification and trigger an event
         conn.answer(Packets.AcceptIdentification(NodeTypes.STORAGE, uuid and
             app.uuid, app.pt.getPartitions(), app.pt.getReplicas(), uuid))
