@@ -2639,14 +2639,15 @@ func (*TweakPartitionTable) NEOMsgCode() uint16 {
 }
 
 func (p *TweakPartitionTable) NEOMsgEncodedLen() int {
-	return 4 + len(p.NodeList)*4
+	return 5 + len(p.NodeList)*4
 }
 
 func (p *TweakPartitionTable) NEOMsgEncode(data []byte) {
+	(data[0:])[0] = bool2byte(p.DryRun)
 	{
 		l := uint32(len(p.NodeList))
-		binary.BigEndian.PutUint32(data[0:], l)
-		data = data[4:]
+		binary.BigEndian.PutUint32(data[1:], l)
+		data = data[5:]
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a))))
@@ -2657,12 +2658,13 @@ func (p *TweakPartitionTable) NEOMsgEncode(data []byte) {
 
 func (p *TweakPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint64
-	if len(data) < 4 {
+	if len(data) < 5 {
 		goto overflow
 	}
+	p.DryRun = byte2bool((data[0 : 0+1])[0])
 	{
-		l := binary.BigEndian.Uint32(data[0 : 0+4])
-		data = data[4:]
+		l := binary.BigEndian.Uint32(data[1 : 1+4])
+		data = data[5:]
 		if uint64(len(data)) < uint64(l)*4 {
 			goto overflow
 		}
@@ -2674,7 +2676,85 @@ func (p *TweakPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 			data = data[4:]
 		}
 	}
-	return 4 + int(nread), nil
+	return 5 + int(nread), nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 40 | answerBit. AnswerTweakPartitionTable
+
+func (*AnswerTweakPartitionTable) NEOMsgCode() uint16 {
+	return 40 | answerBit
+}
+
+func (p *AnswerTweakPartitionTable) NEOMsgEncodedLen() int {
+	var size int
+	for i := 0; i < len(p.RowList); i++ {
+		a := &p.RowList[i]
+		size += len((*a).CellList) * 5
+	}
+	return 5 + len(p.RowList)*4 + size
+}
+
+func (p *AnswerTweakPartitionTable) NEOMsgEncode(data []byte) {
+	(data[0:])[0] = bool2byte(p.Changed)
+	{
+		l := uint32(len(p.RowList))
+		binary.BigEndian.PutUint32(data[1:], l)
+		data = data[5:]
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.RowList[i]
+			{
+				l := uint32(len((*a).CellList))
+				binary.BigEndian.PutUint32(data[0:], l)
+				data = data[4:]
+				for i := 0; uint32(i) < l; i++ {
+					a := &(*a).CellList[i]
+					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
+					(data[4:])[0] = uint8(int8((*a).State))
+					data = data[5:]
+				}
+			}
+			data = data[0:]
+		}
+	}
+}
+
+func (p *AnswerTweakPartitionTable) NEOMsgDecode(data []byte) (int, error) {
+	var nread uint64
+	if len(data) < 5 {
+		goto overflow
+	}
+	p.Changed = byte2bool((data[0 : 0+1])[0])
+	{
+		l := binary.BigEndian.Uint32(data[1 : 1+4])
+		data = data[5:]
+		p.RowList = make([]RowInfo, l)
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.RowList[i]
+			if len(data) < 4 {
+				goto overflow
+			}
+			{
+				l := binary.BigEndian.Uint32(data[0 : 0+4])
+				data = data[4:]
+				if uint64(len(data)) < uint64(l)*5 {
+					goto overflow
+				}
+				nread += uint64(l) * 5
+				(*a).CellList = make([]CellInfo, l)
+				for i := 0; uint32(i) < l; i++ {
+					a := &(*a).CellList[i]
+					(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+					(*a).State = CellState(int8((data[4 : 4+1])[0]))
+					data = data[5:]
+				}
+			}
+		}
+		nread += uint64(l) * 4
+	}
+	return 5 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow
@@ -4229,6 +4309,7 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	38:             reflect.TypeOf(SetNodeState{}),
 	39:             reflect.TypeOf(AddPendingNodes{}),
 	40:             reflect.TypeOf(TweakPartitionTable{}),
+	40 | answerBit: reflect.TypeOf(AnswerTweakPartitionTable{}),
 	41:             reflect.TypeOf(SetNumReplicas{}),
 	42:             reflect.TypeOf(SetClusterState{}),
 	43:             reflect.TypeOf(Repair{}),
