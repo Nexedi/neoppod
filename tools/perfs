@@ -53,7 +53,7 @@ class ImportBenchmark(BenchmarkRunner):
             finally:
                 neo.stop()
             # Clear DB if no error happened.
-            neo.setupDB()
+            neo.resetDB()
             return result
         except:
             return 'Perf: import failed', ''.join(traceback.format_exc())

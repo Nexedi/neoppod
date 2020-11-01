@@ -189,19 +189,21 @@ func TestMsgMarshal(t *testing.T) {
 
 		// PTid, [] (of [] of {UUID, CellState})
 		{&AnswerPartitionTable{
-			PTid:    0x0102030405060708,
+			PTid:        0x0102030405060708,
+			NumReplicas: 34,
 			RowList: []RowInfo{
-				{1, []CellInfo{{11, UP_TO_DATE}, {17, OUT_OF_DATE}}},
-				{2, []CellInfo{{11, FEEDING}}},
-				{7, []CellInfo{{11, CORRUPTED}, {15, DISCARDED}, {23, UP_TO_DATE}}},
+				{[]CellInfo{{11, UP_TO_DATE}, {17, OUT_OF_DATE}}},
+				{[]CellInfo{{11, FEEDING}}},
+				{[]CellInfo{{11, CORRUPTED}, {15, DISCARDED}, {23, UP_TO_DATE}}},
 			},
 			},
 
 			hex("0102030405060708") +
+			hex("00000022") +
 			hex("00000003") +
-				hex("00000001000000020000000b010000001100") +
-				hex("00000002000000010000000b02") +
-				hex("00000007000000030000000b030000000f040000001701"),
+				hex("000000020000000b010000001100") +
+				hex("000000010000000b02") +
+				hex("000000030000000b030000000f040000001701"),
 		},
 
 		// map[Oid]struct {Tid,Tid,bool}
@@ -250,13 +252,14 @@ func TestMsgMarshal(t *testing.T) {
 		},
 
 		// uint32, Address, string, IdTime
-		{&RequestIdentification{CLIENT, 17, Address{"localhost", 7777}, "myname", []string{"room1", "rack234"}, 0.12345678},
+		{&RequestIdentification{CLIENT, 17, Address{"localhost", 7777}, "myname", 0.12345678, []string{"room1", "rack234"}, []uint32{3,4,5} },
 
 			u8(2) + u32(17) + u32(9) +
 			"localhost" + u16(7777) +
 			u32(6) + "myname" +
+			hex("3fbf9add1091c895") +
 			u32(2) + u32(5)+"room1" + u32(7)+"rack234" +
-			hex("3fbf9add1091c895"),
+			u32(3) + u32(3)+u32(4)+u32(5),
 		},
 
 		// IdTime, empty Address, int32

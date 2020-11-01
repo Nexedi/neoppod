@@ -80,7 +80,7 @@ const (
 	// The protocol version must be increased whenever upgrading a node may require
 	// to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
 	// the high order byte 0 is different from TLS Handshake (0x16).
-	Version = 5
+	Version = 6
 
 	// length of packet header
 	PktHeaderLen = 10 // = unsafe.Sizeof(PktHeader{}), but latter gives typed constant (uintptr)
@@ -137,6 +137,7 @@ var ErrDecodeOverflow = errors.New("decode: buffer overflow")
 type ErrorCode int8
 const (
 	ACK ErrorCode = iota
+	DENIED
 	NOT_READY
 	OID_NOT_FOUND
 	TID_NOT_FOUND
@@ -342,7 +343,6 @@ type CellInfo struct {
 
 //neo:proto typeonly
 type RowInfo struct {
-	Offset   uint32 // PNumber	XXX -> Pid
 	CellList []CellInfo
 }
 
@@ -368,16 +368,16 @@ type RequestIdentification struct {
 	UUID        NodeUUID
 	Address     Address // where requesting node is also accepting connections
 	ClusterName string
-	DevPath     []string // [] of devid
 	IdTime      IdTime
+	// storage
+	DevPath     []string // [] of devid
+	NewNID      []uint32 // [] of PNumber
 }
 
 //neo:proto answer
 type AcceptIdentification struct {
 	NodeType      NodeType // XXX name
 	MyUUID        NodeUUID
-	NumPartitions uint32 // PNumber
-	NumReplicas   uint32 // PNumber
 	YourUUID      NodeUUID
 }
 
@@ -451,23 +451,24 @@ type AnswerLastIDs struct {
 }
 
 // Ask storage node the remaining data needed by master to recover.
-// This is also how the clients get the full partition table on connection.
 //
-//neo:nodes M -> S; C -> M
+//neo:nodes M -> S
 type AskPartitionTable struct {
 }
 
 type AnswerPartitionTable struct {
 	PTid
-	RowList []RowInfo
+	NumReplicas uint32	// PNumber
+	RowList     []RowInfo
 }
 
-// Send the full partition table to admin/storage nodes on connection.
+// Send the full partition table to admin/client/storage nodes on connection.
 //
-//neo:nodes M -> A, S
+//neo:nodes M -> A, C, S
 type SendPartitionTable struct {
 	PTid
-	RowList []RowInfo
+	NumReplicas uint32	// PNumber
+	RowList     []RowInfo
 }
 
 // Notify about changes in the partition table.
@@ -475,7 +476,8 @@ type SendPartitionTable struct {
 //neo:nodes M -> *
 type NotifyPartitionChanges struct {
 	PTid
-	CellList []struct {
+	NumReplicas uint32 // PNumber
+	CellList    []struct {
 		Offset   uint32 // PNumber	XXX -> Pid
 		CellInfo CellInfo
 	}
@@ -800,7 +802,8 @@ type PartitionList struct {
 
 type AnswerPartitionList struct {
 	PTid
-	RowList []RowInfo
+	NumReplicas uint32 // PNumber
+	RowList     []RowInfo
 }
 
 // Ask information about nodes.
@@ -839,9 +842,22 @@ type AddPendingNodes struct {
 //
 //neo:nodes ctl -> A -> M
 type TweakPartitionTable struct {
+	DryRun   bool
 	NodeList []NodeUUID
 
 	// answer = Error
+}
+
+type AnswerTweakPartitionTable struct {
+	Changed  bool
+	RowList  []RowInfo
+}
+
+// Set the number of replicas.
+//
+//neo:nodes ctl -> A -> M
+type SetNumReplicas struct {
+	NumReplicas uint32 // PNumber
 }
 
 // Set the cluster state.
