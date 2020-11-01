@@ -341,14 +341,12 @@ import (
 			// generate code for this type to implement neo.Msg
 			var msgCode MsgCode
 			msgCode.answer = specAnnotation.answer || strings.HasPrefix(typename, "Answer")
-			switch {
-			case !msgCode.answer || typename == "Error":
-				msgCode.msgSerial = msgSerial
-
-			// answer to something
-			default:
-				msgCode.msgSerial = msgSerial - 1
+			// increment msgSerial only by +1 when going from
+			// request1->request2 in `Request1 Answer1 Request2`.
+			if msgCode.answer && typename != "Error" {
+				msgSerial--
 			}
+			msgCode.msgSerial = msgSerial
 
 			fmt.Fprintf(&buf, "// %s. %s\n\n", msgCode, typename)
 
