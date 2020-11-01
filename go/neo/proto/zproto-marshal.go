@@ -2379,15 +2379,16 @@ func (p *AnswerPartitionList) NEOMsgEncodedLen() int {
 		a := &p.RowList[i]
 		size += len((*a).CellList) * 5
 	}
-	return 12 + len(p.RowList)*4 + size
+	return 16 + len(p.RowList)*4 + size
 }
 
 func (p *AnswerPartitionList) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
+	binary.BigEndian.PutUint32(data[8:], p.NumReplicas)
 	{
 		l := uint32(len(p.RowList))
-		binary.BigEndian.PutUint32(data[8:], l)
-		data = data[12:]
+		binary.BigEndian.PutUint32(data[12:], l)
+		data = data[16:]
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
 			{
@@ -2408,13 +2409,14 @@ func (p *AnswerPartitionList) NEOMsgEncode(data []byte) {
 
 func (p *AnswerPartitionList) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint64
-	if len(data) < 12 {
+	if len(data) < 16 {
 		goto overflow
 	}
 	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.NumReplicas = binary.BigEndian.Uint32(data[8 : 8+4])
 	{
-		l := binary.BigEndian.Uint32(data[8 : 8+4])
-		data = data[12:]
+		l := binary.BigEndian.Uint32(data[12 : 12+4])
+		data = data[16:]
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
@@ -2439,7 +2441,7 @@ func (p *AnswerPartitionList) NEOMsgDecode(data []byte) (int, error) {
 		}
 		nread += uint64(l) * 4
 	}
-	return 12 + int(nread), nil
+	return 16 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow
