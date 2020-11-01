@@ -1907,8 +1907,8 @@ func (p *GetObject) NEOMsgEncodedLen() int {
 
 func (p *GetObject) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
-	binary.BigEndian.PutUint64(data[8:], uint64(p.Serial))
-	binary.BigEndian.PutUint64(data[16:], uint64(p.Tid))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.At))
+	binary.BigEndian.PutUint64(data[16:], uint64(p.Before))
 }
 
 func (p *GetObject) NEOMsgDecode(data []byte) (int, error) {
@@ -1916,8 +1916,8 @@ func (p *GetObject) NEOMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
-	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
+	p.At = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.Before = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
 	return 24, nil
 
 overflow:
