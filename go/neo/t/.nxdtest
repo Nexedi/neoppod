@@ -1,0 +1,35 @@
+# setup to run neotest on Nexedi testing infrastructure.
+# https://stack.nexedi.com/test_status
+
+# neotest must be on $PATH.
+
+import re
+
+# xint converts number from neo/py test output to integer
+def xint(s):
+    s = s.strip()
+    if s == '.':
+        return 0
+    else:
+        return int(s)
+
+# extract summary from neo/py test run
+def test_py_summary(stdout):
+    #   Test Module |  run  | unexpected | expected | skipped |  time
+    #   ...
+    #       Summary |  366  |       .    |      9   |     .   | 353.47s
+    m = re.search(r'^\s*summary.*$', stdout, re.M | re.I)
+    assert m is not None, "could not find summary line"
+    summary = m.group(0)
+    _, nrun, nfail, nxfail, nskip, _  = summary.split('|')
+    return {
+            'test_count':       xint(nrun),
+            'error_count':      xint(nfail),
+            'failure_count':    xint(nxfail),
+            'skip_count':       xint(nskip),
+    }
+
+
+TestCase('test-go', ['neotest', 'test-go'])
+TestCase('test-py', ['neotest', 'test-py'], summaryf=test_py_summary)
+TestCase('bench-local', ['neotest', 'bench-local'])
