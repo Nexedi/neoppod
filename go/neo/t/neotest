@@ -139,7 +139,7 @@ $@
 
 # ---- go/py unit tests ----
 cmd_test-go() {
-	go test lab.nexedi.com/kirr/neo/go/...
+	go test -count=1 lab.nexedi.com/kirr/neo/go/... # -count=1 disables tests caching
 }
 
 cmd_test-py() {
