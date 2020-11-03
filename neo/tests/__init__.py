@@ -26,7 +26,7 @@ import sys
 import tempfile
 import unittest
 import weakref
-import MySQLdb
+#import MySQLdb
 import transaction
 
 from contextlib import contextmanager
