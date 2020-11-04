@@ -100,14 +100,14 @@ func (pkt *pktBuf) String() string {
 	msg := reflect.New(msgType).Interface().(proto.Msg)
 	n, err := msg.NEOMsgDecode(data)
 	if err != nil {
-		s += fmt.Sprintf(" (%s) %v; #%d [%d]: % x", msgType, err, msgLen, len(data), data)
-	}
+		s += fmt.Sprintf(" (%s) %v; #%d [%d]: % x", msgType.Name(), err, msgLen, len(data), data)
+	} else {
+		s += fmt.Sprintf(" %s %v", msgType.Name(), msg) // XXX or %+v better?
 
-	s += fmt.Sprintf(" %s %v", msgType.Name(), msg) // XXX or %+v better?
-
-	if n < len(data) {
-		tail := data[n:]
-		s += fmt.Sprintf(" ;  [%d]tail: % x", len(tail), tail)
+		if n < len(data) {
+			tail := data[n:]
+			s += fmt.Sprintf(" ;  [%d]tail: % x", len(tail), tail)
+		}
 	}
 
 	return s
