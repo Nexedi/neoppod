@@ -43,14 +43,14 @@ func ZODBErrEncode(err error) *Error {
 
 	switch err := err.(type) {
 	case *zodb.NoDataError:
-		// XXX abusing message for oid, deletedAt
+		// message: oid(,deletedAt)?
 		return &Error{
 			Code:    OID_NOT_FOUND,
 			Message: err.Oid.String() + "," + err.DeletedAt.String(),
 		}
 
 	case *zodb.NoObjectError:
-		// XXX abusing message for oid
+		// message: oid
 		return &Error{Code: OID_DOES_NOT_EXIST, Message: err.Oid.String()}
 
 	default:
@@ -66,20 +66,25 @@ func ZODBErrEncode(err error) *Error {
 func ZODBErrDecode(e *Error) error {
 	switch e.Code {
 	case OID_NOT_FOUND:
-		// XXX abusing message for oid, deletedAt
+		// message: oid(,deletedAt)?
+		zerr := &zodb.NoDataError{}
 		argv := strings.Split(e.Message, ",")
-		if len(argv) != 2 {
+		var err error
+		zerr.Oid, err = zodb.ParseOid(argv[0])
+		if err != nil {
 			break
 		}
-		oid, err0 := zodb.ParseOid(argv[0])
-		del, err1 := zodb.ParseTid(argv[1])
-		if !(err0 == nil && err1 == nil) {
-			break
+		if len(argv) >= 2 {
+			zerr.DeletedAt, err = zodb.ParseTid(argv[1])
+			if err != nil {
+				break
+			}
 		}
-		return &zodb.NoDataError{Oid: oid, DeletedAt: del}
+		return zerr
 
 	case OID_DOES_NOT_EXIST:
-		oid, err := zodb.ParseOid(e.Message) // XXX abusing message for oid
+		// message: oid
+		oid, err := zodb.ParseOid(e.Message)
 		if err == nil {
 			return &zodb.NoObjectError{oid}
 		}
