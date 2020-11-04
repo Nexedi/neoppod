@@ -22,15 +22,15 @@ func (*Error) NEOMsgCode() uint16 {
 }
 
 func (p *Error) NEOMsgEncodedLen() int {
-	return 5 + len(p.Message)
+	return 8 + len(p.Message)
 }
 
 func (p *Error) NEOMsgEncode(data []byte) {
-	(data[0:])[0] = uint8(int8(p.Code))
+	binary.BigEndian.PutUint32(data[0:], uint32(p.Code))
 	{
 		l := uint32(len(p.Message))
-		binary.BigEndian.PutUint32(data[1:], l)
-		data = data[5:]
+		binary.BigEndian.PutUint32(data[4:], l)
+		data = data[8:]
 		copy(data, p.Message)
 		data = data[l:]
 	}
@@ -38,13 +38,13 @@ func (p *Error) NEOMsgEncode(data []byte) {
 
 func (p *Error) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint64
-	if len(data) < 5 {
+	if len(data) < 8 {
 		goto overflow
 	}
-	p.Code = ErrorCode(int8((data[0 : 0+1])[0]))
+	p.Code = ErrorCode(binary.BigEndian.Uint32(data[0 : 0+4]))
 	{
-		l := binary.BigEndian.Uint32(data[1 : 1+4])
-		data = data[5:]
+		l := binary.BigEndian.Uint32(data[4 : 4+4])
+		data = data[8:]
 		if uint64(len(data)) < uint64(l) {
 			goto overflow
 		}
@@ -52,7 +52,7 @@ func (p *Error) NEOMsgDecode(data []byte) (int, error) {
 		p.Message = string(data[:l])
 		data = data[l:]
 	}
-	return 5 + int(nread), nil
+	return 8 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow

@@ -134,7 +134,7 @@ var ErrDecodeOverflow = errors.New("decode: buffer overflow")
 
 // ---- messages ----
 
-type ErrorCode int8
+type ErrorCode uint32
 const (
 	ACK ErrorCode = iota
 	DENIED

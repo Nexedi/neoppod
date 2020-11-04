@@ -168,8 +168,8 @@ func TestMsgMarshal(t *testing.T) {
 		// empty
 		{&Ping{}, ""},
 
-		// uint8, string
-		{&Error{Code: 0x04, Message: "hello"}, "\x04\x00\x00\x00\x05hello"},
+		// uint32, string
+		{&Error{Code: 0x01020304, Message: "hello"}, "\x01\x02\x03\x04\x00\x00\x00\x05hello"},
 
 		// Oid, Tid, bool, Checksum, []byte
 		{&StoreObject{
