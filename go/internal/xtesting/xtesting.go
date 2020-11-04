@@ -298,9 +298,12 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn, bugv ...s
 
 			// ~ loadBefore
 			xid = zodb.Xid{txh.Tid - 1, obj.Oid}
-			expect, ok := before[obj.Oid]
-			if ok {
+			expect, exists := before[obj.Oid]
+			if exists {
 				checkLoad(t, zdrv, xid, expect, bugs)
+			} else {
+				// verify load of not-yet-created object
+				checkLoad(t, zdrv, xid, objState{0, nil}, bugs)
 			}
 
 			before[obj.Oid] = objState{txh.Tid, obj.Data}
@@ -315,8 +318,17 @@ func DrvTestLoad(t *testing.T, zdrv zodb.IStorageDriver, txnvOk []Txn, bugv ...s
 		checkLoad(t, zdrv, xid, expect, bugs)
 	}
 
-	// XXX verify load of non-existing object
-	// XXX verify load of not-yet-created object
+	// verify load of non-existing object
+	var oid zodb.Oid
+	for oid = 0;; oid++ {
+		_, exists := before[oid]
+		if !exists {
+			break
+		}
+	}
+	xid := zodb.Xid{zodb.TidMax, oid} // XXX TidMax -> head
+	bugs["load:noserial-after-deleted"] = true // force NoObjectError
+	checkLoad(t, zdrv, xid, objState{0, nil}, bugs)
 }
 
 // DrvTestWatch verifies that storage driver watcher can observe commits done from outside.
