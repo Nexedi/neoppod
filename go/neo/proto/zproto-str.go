@@ -28,7 +28,7 @@ const _ErrorCode_name = "ACKDENIEDNOT_READYOID_NOT_FOUNDTID_NOT_FOUNDOID_DOES_NO
 var _ErrorCode_index = [...]uint8{0, 3, 9, 18, 31, 44, 62, 76, 93, 107, 130, 147, 163, 185}
 
 func (i ErrorCode) String() string {
-	if i < 0 || i >= ErrorCode(len(_ErrorCode_index)-1) {
+	if i >= ErrorCode(len(_ErrorCode_index)-1) {
 		return "ErrorCode(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _ErrorCode_name[_ErrorCode_index[i]:_ErrorCode_index[i+1]]
