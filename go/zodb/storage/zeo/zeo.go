@@ -98,9 +98,12 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb
 	}
 
 	// (data, serial, next_serial | None)
+	if enc.isNone(xres) {
+		return nil, 0, &zodb.NoObjectError{Oid: xid.Oid}
+	}
 	res, ok := enc.asTuple(xres)
 	if !ok || len(res) != 3 {
-		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple", xres)
+		return nil, 0, rpc.ereplyf("got %#v; expect 3-tuple | None", xres)
 	}
 
 	data, ok1 := enc.asBytes(res[0])

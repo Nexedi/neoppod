@@ -132,7 +132,7 @@ func (zl *zLink) shutdown(err error) {
 		zl.callMu.Unlock()
 
 		for _, rxc := range callTab {
-			rxc <- msg{arg: nil} // notify link was closed	XXX ok? or err explicitly?
+			close(rxc) // notify link was closed
 		}
 	})
 }
@@ -276,14 +276,14 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 	case <-ctx.Done():
 		return msg{}, ctx.Err()
 
-	case reply = <-rxc:
-		if reply.arg == nil {
+	case reply, ok := <-rxc:
+		if !ok {
 			// we were woken up because of shutdown
 			return msg{}, errLinkClosed
 		}
-	}
 
-	return reply, nil
+		return reply, nil
+	}
 }
 
 // reply sends reply to a call received with msgid.
