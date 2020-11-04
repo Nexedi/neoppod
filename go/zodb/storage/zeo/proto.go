@@ -421,3 +421,37 @@ func (e encoding) asString(xs interface{}) (string, bool) {
 		}
 	}
 }
+
+
+// None returns object that represents None in encoding e.
+func (e encoding) None() interface{} {
+	switch e {
+	default:
+		panic("bug")
+
+		// pickle: None
+	case 'Z':
+		return pickle.None{}
+
+		// msgpack: nil
+	case 'M':
+		return nil
+	}
+}
+
+// isNone verifies whether object corresponds to None encoded via encoding e.
+func (e encoding) isNone(xv interface{}) bool {
+	switch e {
+	default:
+		panic("bug")
+
+	case 'Z':
+		// pickle: None
+		_, ok := xv.(pickle.None)
+		return ok
+
+		// msgpack: nil
+	case 'M':
+		return (xv == nil)
+	}
+}
