@@ -91,6 +91,7 @@ import (
 	"time"
 
 	"lab.nexedi.com/kirr/neo/go/internal/packed"
+	"lab.nexedi.com/kirr/neo/go/internal/xio"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 
 	"github.com/someonegg/gocontainer/rbuf"
@@ -1209,7 +1210,7 @@ func (nl *NodeLink) recvPkt() (*pktBuf, error) {
 	if n < pktLen {
 		δn, err := io.ReadAtLeast(nl.peerLink, data[n:], pktLen - n)
 		if err != nil {
-			return nil, err
+			return nil, xio.NoEOF(err)
 		}
 		n += δn
 	}
