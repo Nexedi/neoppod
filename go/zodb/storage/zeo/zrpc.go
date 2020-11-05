@@ -82,6 +82,13 @@ type zLink struct {
 	enc encoding // protocol encoding in use ('Z' or 'M')
 }
 
+// zLinkError is returned by zLink operations.
+type zLinkError struct {
+	zlink *zLink
+	op    string
+	err   error
+}
+
 // (called after handshake)
 func (zl *zLink) start() {
 	zl.callTab = make(map[int64]chan msg)
@@ -122,7 +129,7 @@ func (zl *zLink) shutdown(err error) {
 			err = err2
 		}
 		if err != nil {
-			log.Printf("%s: %s", zl.link.RemoteAddr(), err)
+			log.Printf("%s", err)
 		}
 		zl.errDown = err
 		zl.serveCancel()
@@ -168,7 +175,9 @@ func (zl *zLink) serveRecv() {
 }
 
 // serveRecv1 handles 1 incoming packet.
-func (zl *zLink) serveRecv1(pkb *pktBuf) error {
+func (zl *zLink) serveRecv1(pkb *pktBuf) (err error) {
+	defer zl.errctx(&err, "serveRecv1")
+
 	// decode packet
 	m, err := zl.enc.pktDecode(pkb)
 	if err != nil {
@@ -241,11 +250,7 @@ func (zl *zLink) serveRecv1(pkb *pktBuf) error {
 
 // Call makes 1 RPC call to server, waits for reply and returns it.
 func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (reply msg, err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("%s: call %s: %s", zl.link.RemoteAddr(), method, err)
-		}
-	}()
+	defer zl.errctxf(&err, "call %s", method)
 
 	rxc := make(chan msg, 1) // reply will go here
 
@@ -290,11 +295,7 @@ func (zl *zLink) Call(ctx context.Context, method string, argv ...interface{}) (
 
 // reply sends reply to a call received with msgid.
 func (zl *zLink) reply(msgid int64, res interface{}) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("%s: .%d reply: %s", zl.link.RemoteAddr(), msgid, err)
-		}
-	}()
+	defer zl.errctxf(&err, ".%d reply", msgid)
 
 	pkb := zl.enc.pktEncode(msg{
 		msgid:  msgid,
@@ -366,9 +367,11 @@ const dumpio = false
 // sendPkt sends 1 raw ZEO packet.
 //
 // pkb is freed upon return.
-func (zl *zLink) sendPkt(pkb *pktBuf) error {
+func (zl *zLink) sendPkt(pkb *pktBuf) (err error) {
+	defer zl.errctx(&err, "sendPkt")
+
 	pkb.Fixup()
-	_, err := zl.link.Write(pkb.Bytes())
+	_, err = zl.link.Write(pkb.Bytes())
 	if dumpio {
 		fmt.Printf("%v > %v: %q\n", zl.link.LocalAddr(), zl.link.RemoteAddr(), pkb.Bytes())
 	}
@@ -380,7 +383,9 @@ func (zl *zLink) sendPkt(pkb *pktBuf) error {
 //
 // the packet returned contains both header and payload.
 // XXX almost dup from NEO.
-func (zl *zLink) recvPkt() (*pktBuf, error) {
+func (zl *zLink) recvPkt() (_ *pktBuf, err error) {
+	defer zl.errctx(&err, "recvPkt")
+
 	pkb := allocPkb()
 	data := pkb.data[:cap(pkb.data)]
 
@@ -548,4 +553,39 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 	// handshaked ok
 	zl.start()
 	return zl, nil
+}
+
+// ---- for convenience: String / Error / Cause ----
+
+func (zlink *zLink) String() string {
+	return fmt.Sprintf("zlink %s - %s", zlink.link.LocalAddr(), zlink.link.RemoteAddr())
+}
+
+func (e *zLinkError) Error() string {
+	return fmt.Sprintf("%s: %s: %s", e.zlink, e.op, e.err)
+}
+
+func (e *zLinkError) Cause()  error { return e.err }
+func (e *zLinkError) Unwrap() error { return e.err }
+
+func (zlink *zLink) err(op string, e error) error {
+	if e == nil {
+		return nil
+	}
+	return &zLinkError{zlink: zlink, op: op, err: e}
+}
+
+// errctx* are similar to xerr.Context* but create zLinkError instead of fmt.Errorf.
+func (zlink *zLink) errctx(errp *error, op string) {
+	if *errp == nil {
+		return
+	}
+	*errp = zlink.err(op, *errp)
+}
+
+func (zlink *zLink) errctxf(errp *error, format string, argv ...interface{}) {
+	if *errp == nil {
+		return
+	}
+	*errp = zlink.err(fmt.Sprintf(format, argv...), *errp)
 }
