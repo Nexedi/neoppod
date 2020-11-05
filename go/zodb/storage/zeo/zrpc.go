@@ -30,6 +30,8 @@ import (
 	"net"
 	"sync"
 
+	"lab.nexedi.com/kirr/neo/go/internal/xio"
+
 	"github.com/someonegg/gocontainer/rbuf"
 	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -417,7 +419,7 @@ func (zl *zLink) recvPkt() (*pktBuf, error) {
 	if n < pktLen {
 		δn, err := io.ReadAtLeast(zl.link, data[n:], pktLen - n)
 		if err != nil {
-			return nil, err
+			return nil, xio.NoEOF(err)
 		}
 		n += δn
 	}
