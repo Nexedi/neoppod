@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -27,6 +27,23 @@ import (
 	"lab.nexedi.com/kirr/neo/go/internal/log"
 	"lab.nexedi.com/kirr/neo/go/internal/xcontext"
 )
+
+
+// NoEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF.
+func NoEOF(err error) error {
+        if err == io.EOF {
+                err = io.ErrUnexpectedEOF
+        }
+        return err
+}
+
+// EOFok returns err, but changes io.EOF -> nil.
+func EOFok(err error) error {
+	if err == io.EOF {
+		err = nil
+	}
+	return err
+}
 
 // CloseWhenDone arranges for c to be closed either when ctx is cancelled or
 // surrounding function returns.

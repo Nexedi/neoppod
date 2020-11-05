@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -20,27 +20,15 @@
 package fs1
 
 import (
-	"io"
 	"os"
 
+	"lab.nexedi.com/kirr/neo/go/internal/xio"
 	"lab.nexedi.com/kirr/go123/xbufio"
 )
 
-// noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
-func noEOF(err error) error {
-	if err == io.EOF {
-		err = io.ErrUnexpectedEOF
-	}
-	return err
-}
-
-// okEOF returns err, but changes io.EOF -> nil
-func okEOF(err error) error {
-	if err == io.EOF {
-		err = nil
-	}
-	return err
-}
+// noEOF and okEOF are syntactic sugar over xio.NoEOF and xio.EOFok.
+func noEOF(err error) error { return xio.NoEOF(err) }
+func okEOF(err error) error { return xio.EOFok(err) }
 
 // record reading routines work on abstract file-like interfaces.
 // when they report e.g. decoding error, if reader has name, e.g. as os.File
