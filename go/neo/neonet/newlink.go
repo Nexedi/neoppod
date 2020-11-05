@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2018  Nexedi SA and Contributors.
+// Copyright (C) 2016-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -29,6 +29,7 @@ import (
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/xnet"
+	"lab.nexedi.com/kirr/neo/go/internal/xio"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
 
@@ -84,9 +85,7 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 	go func() {
 		var b [4]byte
 		_, err := io.ReadFull(conn, b[:])
-		if err == io.EOF {
-			err = io.ErrUnexpectedEOF // can be returned with n = 0
-		}
+		err = xio.NoEOF(err) // can be returned with n = 0
 		if err == nil {
 			peerVersion := binary.BigEndian.Uint32(b[:]) // XXX -> ntoh32 ?
 			if peerVersion != version {

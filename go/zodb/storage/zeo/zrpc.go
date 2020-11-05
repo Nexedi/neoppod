@@ -479,7 +479,7 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 		// first letter is preferred encoding: 'M' (msgpack), or 'Z' (pickles).
 		pkb, err := zl.recvPkt()
 		if err != nil {
-			return fmt.Errorf("rx: %s", err)
+			return fmt.Errorf("rx: %s", xio.NoEOF(err))
 		}
 
 		proto := string(pkb.Payload())
