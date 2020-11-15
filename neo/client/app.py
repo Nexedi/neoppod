@@ -606,7 +606,8 @@ class Application(ThreadedApplication):
         self.waitStoreResponses(txn_context)
         ttid = txn_context.ttid
         # vvv _extension produces DeprecationWarning: https://erp5.nexedi.net/test_result_module/20201103-5362C850/13
-        ext = transaction.extension
+        # XXX but there is no .extension on transaction 1.7
+        ext = transaction._extension
         ext = dumps(ext, _protocol) if ext else ''
         # user and description are cast to str in case they're unicode.
         # BBB: This is not required anymore with recent ZODB.
