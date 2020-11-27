@@ -661,7 +661,7 @@ mainloop:
 			// our index & notify client watchers. There is no expected errors here.
 			//
 			// (keep in sync with Index.Update)
-			var δoid []zodb.Oid
+			δoid := []zodb.Oid{}
 			δidx := map[zodb.Oid]int64{} // oid -> pos(data record)
 			for {
 				err = it.NextData()

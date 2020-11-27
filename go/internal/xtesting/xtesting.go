@@ -387,12 +387,23 @@ func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
 	// run py `zodb commit`.
 	//
 	// if one day it is either fixed, or worked around, we could ↑ 10 to 100.
+	data0 := ""
+	lastDataAt := zodb.Tid(0)
 	for i := zodb.Oid(1); i <= 10; i++ {
-		data0 := fmt.Sprintf("data0.%d", i)
-		datai := fmt.Sprintf("data%d", i)
-		at = xcommit(at,
-			ZRawObject{0, b(data0)},
-			ZRawObject{i, b(datai)})
+		empty := (5 <= i && i <= 7) // this transactions are committed as empty
+
+		objv := []ZRawObject{}
+		datai := ""
+		if !empty {
+			data0 = fmt.Sprintf("data0.%d", i)
+			datai = fmt.Sprintf("data%d", i)
+			objv = append(objv, ZRawObject{0, b(data0)})
+			objv = append(objv, ZRawObject{i, b(datai)})
+		}
+		at = xcommit(at, objv...)
+		if !empty {
+			lastDataAt = at
+		}
 
 		// TODO also test for watcher errors
 		event := <-watchq
@@ -409,15 +420,21 @@ func DrvTestWatch(t *testing.T, zurl string, zdrvOpen zodb.DriverOpener) {
 			δ = event
 		}
 
-		if objvWant := []zodb.Oid{0, i}; !(δ.Tid == at && reflect.DeepEqual(δ.Changev, objvWant)) {
+		objvWant := []zodb.Oid{}
+		if !empty {
+			objvWant = []zodb.Oid{0, i}
+		}
+		if !(δ.Tid == at && reflect.DeepEqual(δ.Changev, objvWant)) {
 			t.Fatalf("watch:\nhave: %s %s\nwant: %s %s", δ.Tid, δ.Changev, at, objvWant)
 		}
 
 		checkHead(at)
 
 		// make sure we can load what was committed.
-		checkLoad(at, 0, data0, at)
-		checkLoad(at, i, datai, at)
+		checkLoad(at, 0, data0, lastDataAt)
+		if !empty {
+			checkLoad(at, i, datai, at)
+		}
 	}
 
 	err = zdrv.Close(); X(err)
