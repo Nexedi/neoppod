@@ -14,7 +14,7 @@ def xint(s):
         return int(s)
 
 # extract summary from neo/py test run
-def test_py_summary(stdout):
+def test_py_summary(stdout, stderr):
     #   Test Module |  run  | unexpected | expected | skipped |  time
     #   ...
     #       Summary |  366  |       .    |      9   |     .   | 353.47s
