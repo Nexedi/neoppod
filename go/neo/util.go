@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -21,7 +21,13 @@ package neo
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"io"
+	"io/ioutil"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/internal/log"
@@ -63,4 +69,83 @@ func before2At(before zodb.Tid) (at zodb.Tid) {
 		// XXX before > zodb.TidMax (same as in at2Before) ?
 		return zodb.TidMax
 	}
+}
+
+
+// tlsForSSL builds tls.Config from ca/cert/key files that should be interoperable with NEO/py.
+//
+// see https://lab.nexedi.com/nexedi/neoppod/blob/v1.12-61-gc1c26894/neo/lib/app.py#L74-90
+func tlsForSSL(ca, cert, key string) (_ *tls.Config, err error) {
+	defer xerr.Contextf(&err, "tls setup")
+
+	caData, err := ioutil.ReadFile(ca)
+	if err != nil {
+		return nil, err
+	}
+
+	CA := x509.NewCertPool()
+	ok := CA.AppendCertsFromPEM(caData)
+	if !ok {
+		return nil, fmt.Errorf("invalid CA")
+	}
+
+	crt, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return nil, err
+	}
+
+
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{crt}, // (cert, key) as loaded
+		RootCAs: CA,                          // (ca,) as loaded
+
+		// a server also verifies cient (but also see verifyPeerCert below)
+		ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientCAs: CA,
+
+		PreferServerCipherSuites: true,
+	}
+
+	// TODO only accept TLS >= 1.2 ?
+
+	// tls docs say we should parse Certificate[0] into Leaf ourselves
+	leaf, err := x509.ParseCertificate(crt.Certificate[0])
+	if err != nil {
+		return nil, err
+	}
+	crt.Leaf = leaf
+
+	// NEO/py does not verify CommonName (ssl.check_hostname=False implicitly).
+	// Match that behaviour with custom VerifyPeerCertificate because Go
+	// does not provide functionality to skip only CN verification out of the box.
+	// https://github.com/golang/go/issues/21971#issuecomment-332693931
+	// https://stackoverflow.com/questions/44295820
+	verifyPeerCert := func(rawCerts [][]byte, _ [][]*x509.Certificate) (err error) {
+		defer xerr.Contextf(&err, "verify peer cert")
+
+		certv := []*x509.Certificate{}
+		for _, certData := range rawCerts {
+			cert, err := x509.ParseCertificate(certData)
+			if err != nil {
+				return err
+			}
+			certv = append(certv, cert)
+		}
+
+		vopt := x509.VerifyOptions{
+			DNSName:       "",                // means "don't verify name"
+			Roots:         tlsCfg.RootCAs,
+			Intermediates: x509.NewCertPool(),
+		}
+		for _, cert := range certv[1:] {
+			vopt.Intermediates.AddCert(cert)
+		}
+
+		_, err = certv[0].Verify(vopt)
+		return err
+	}
+	tlsCfg.InsecureSkipVerify = true // disables all verifications including for ServerName
+	tlsCfg.VerifyPeerCertificate = verifyPeerCert
+
+	return tlsCfg, nil
 }

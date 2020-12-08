@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,8 +39,10 @@ import (
 
 // NEOSrv represents running NEO server.
 type NEOSrv interface {
-	ClusterName() string // name of the cluster
-	MasterAddr()  string // address of the master
+	// XXX kill or restore?
+	//ClusterName() string // name of the cluster
+	//MasterAddr()  string // address of the master
+	ZUrl() string // zurl to access this NEO server
 
 	Bugs() []string // list of known server bugs
 }
@@ -57,6 +60,11 @@ type NEOPySrv struct {
 	errExit     error         // error from Wait
 
 	masterAddr string // address of master in spawned cluster
+
+	// CA/Cert/Key used for SSL exchange. Empty if SSL is not used
+	CA   string
+	Cert string
+	Key  string
 }
 
 func (_ *NEOPySrv) Bugs() []string {
@@ -71,6 +79,8 @@ type NEOPyOptions struct {
 	// nreplica
 
 	// name
+
+	SSL bool // whether to use SSL for node-node exchange
 }
 
 // StartNEOPySrv starts NEO/py server for clusterName NEO database located in workdir/.
@@ -90,8 +100,20 @@ func StartNEOPySrv(workdir, clusterName string, opt NEOPyOptions) (_ *NEOPySrv, 
 	}
 
 	n := &NEOPySrv{workdir: workdir, clusterName: clusterName, cancel: cancel, done: make(chan struct{})}
+	if opt.SSL {
+		npytests := "../../neo/tests/"
+		n.CA   = npytests + "ca.crt"
+		n.Cert = npytests + "node.crt"
+		n.Key  = npytests + "node.key"
+	}
+
 	// XXX $PYTHONPATH to top, so that `import neo` works?
-	n.pysrv = xexec.Command("./py/runneo.py", workdir, clusterName) // XXX +opt
+	n.pysrv = xexec.Command("./py/runneo.py", workdir, clusterName)
+	if opt.SSL {
+		n.pysrv.Args = append(n.pysrv.Args, "ca="  +n.CA)
+		n.pysrv.Args = append(n.pysrv.Args, "cert="+n.Cert)
+		n.pysrv.Args = append(n.pysrv.Args, "key=" +n.Key)
+	}
 	n.opt = opt
 	// $TEMP -> workdir  (else NEO/py creates another one for e.g. coverage)
 	n.pysrv.Env = append(os.Environ(), "TEMP="+workdir)
@@ -152,6 +174,23 @@ func (n *NEOPySrv) MasterAddr() string {
 	return n.masterAddr
 }
 
+func (n *NEOPySrv) ZUrl() string {
+	zurl := fmt.Sprintf("neo://%s@%s", n.ClusterName(), n.MasterAddr())
+	argv := []string{}
+	if n.opt.SSL {
+		argv = append(argv, "ca="  +url.QueryEscape(n.CA))
+		argv = append(argv, "cert="+url.QueryEscape(n.Cert))
+		argv = append(argv, "key=" +url.QueryEscape(n.Key))
+	}
+
+	if len(argv) != 0 {
+		zurl += "?"
+		zurl += strings.Join(argv, "&")
+	}
+
+	return zurl
+}
+
 func (n *NEOPySrv) Close() (err error) {
 	defer xerr.Contextf(&err, "stopneo %s", n.workdir)
 
@@ -194,39 +233,54 @@ func withNEOSrv(t *testing.T, f func(t *testing.T, nsrv NEOSrv), optv ...tOption
 		f(work)
 	}
 
-	// TODO + all variants with nreplic=X, npartition=Y, nmaster=Z, ... ?
+	// TODO + all variants with nreplica=X, npartition=Y, nmaster=Z, ... ?
 
-	// NEO/py
-	t.Run("py", func(t *testing.T) {
-		t.Helper()
-		// XXX needpy
-		inWorkDir(t, func(workdir string) {
-			X := xtesting.FatalIf(t)
+	for _, ssl := range []bool{false, true} {
+		kind := ""
+		if ssl { kind = "ssl" } else { kind = "!ssl" }
 
-			npy, err := StartNEOPySrv(workdir, "1", NEOPyOptions{}); X(err)
-			defer func() {
-				err := npy.Close(); X(err)
-			}()
+		// NEO/py
+		t.Run("py/"+kind, func(t *testing.T) {
+			t.Helper()
+			// XXX needpy
+			inWorkDir(t, func(workdir string) {
+				X := xtesting.FatalIf(t)
 
-			if opt.Preload != "" {
-				cmd := exec.Command("python", "-c",
-					"from neo.scripts.neomigrate import main; main()",
-					"-q",
-					"-c", npy.ClusterName(),
-					opt.Preload,
-					npy.MasterAddr())
-				cmd.Stdin  = nil
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				err := cmd.Run(); X(err)
-			}
+				npy, err := StartNEOPySrv(workdir, "1", NEOPyOptions{
+					SSL: ssl,
+				}); X(err)
+				defer func() {
+					err := npy.Close(); X(err)
+				}()
 
-			f(t, npy)
+				if opt.Preload != "" {
+					cmd := exec.Command("python", "-c",
+						"from neo.scripts.neomigrate import main; main()",
+						"-q",
+						"-c", npy.ClusterName(),
+					)
+					if ssl {
+						cmd.Args = append(cmd.Args, "--ca",   npy.CA)
+						cmd.Args = append(cmd.Args, "--cert", npy.Cert)
+						cmd.Args = append(cmd.Args, "--key",  npy.Key)
+					}
+					cmd.Args = append(cmd.Args,
+						opt.Preload,
+						npy.MasterAddr(),
+					)
+					cmd.Stdin  = nil
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					err := cmd.Run(); X(err)
+				}
+
+				f(t, npy)
+			})
 		})
-	})
 
 
-	// TODO NEO/go
+		// TODO NEO/go
+	}
 }
 
 // withNEO tests f on all kinds of NEO servers connected to by NEO client.
@@ -235,7 +289,7 @@ func withNEO(t *testing.T, f func(t *testing.T, nsrv NEOSrv, ndrv *Client), optv
 	withNEOSrv(t, func(t *testing.T, nsrv NEOSrv) {
 		t.Helper()
 		X := xtesting.FatalIf(t)
-		ndrv, _, err := neoOpen(fmt.Sprintf("neo://%s@%s", nsrv.ClusterName(), nsrv.MasterAddr()),
+		ndrv, _, err := neoOpen(nsrv.ZUrl(),
 					&zodb.DriverOptions{ReadOnly: true}); X(err)
 		defer func() {
 			err := ndrv.Close(); X(err)
@@ -271,7 +325,7 @@ func TestLoad(t *testing.T) {
 
 func TestWatch(t *testing.T) {
 	withNEOSrv(t, func(t *testing.T, nsrv NEOSrv) {
-		xtesting.DrvTestWatch(t, fmt.Sprintf("neo://%s@%s", nsrv.ClusterName(), nsrv.MasterAddr()), openClientByURL)
+		xtesting.DrvTestWatch(t, nsrv.ZUrl(), openClientByURL)
 	})
 }
 

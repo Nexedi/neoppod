@@ -615,12 +615,56 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.DriverOptions) (
 		return nil, zodb.InvalidTid, fmt.Errorf("cluster name not specified")
 	}
 
+	qv, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return nil, zodb.InvalidTid, err
+	}
+	q := map[string]string{}
+	for k, vv := range qv {
+		if len(vv) == 0 {
+			return nil, zodb.InvalidTid, fmt.Errorf("parameter %q without value", k)
+		}
+		if len(vv) != 1 {
+			return nil, zodb.InvalidTid, fmt.Errorf("duplicate parameter %q ", k)
+		}
+		q[k] = vv[0]
+	}
+
+	qpop := func(k string) string {
+		v := q[k]
+		delete(q, k)
+		return v
+	}
+
+	ssl  := false
+	ca   := qpop("ca")
+	cert := qpop("cert")
+	key  := qpop("key")
+
+	if len(q) != 0 {
+		return nil, zodb.InvalidTid, fmt.Errorf("invalid query: %v", q)
+	}
+
+	if ca != "" || cert != "" || key != "" {
+		if !(ca != "" && cert != "" && key != "") {
+			return nil, zodb.InvalidTid, fmt.Errorf("incomplete ca/cert/key provided")
+		}
+		ssl = true
+	}
+
+
 	if !opt.ReadOnly {
 		return nil, zodb.InvalidTid, fmt.Errorf("TODO write mode not implemented")
 	}
 
-	// XXX check/use other url fields
-	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	net := xnet.NetPlain("tcp")	// TODO not only "tcp" ?
+	if ssl {
+		tlsCfg, err := tlsForSSL(ca, cert, key)
+		if err != nil {
+			return nil, zodb.InvalidTid, err
+		}
+		net = xnet.NetTLS(net, tlsCfg)
+	}
 
 	c := NewClient(u.User.Username(), u.Host, net)
 	c.watchq = opt.Watchq

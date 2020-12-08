@@ -20,7 +20,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """runneo.py runs NEO/py cluster for NEO/go testing.
 
-Usage: runneo.py <workdir> <cluster-name>   XXX + (**kw for NEOCluster)
+Usage: runneo.py <workdir> <cluster-name>   [k1=v1] [k2=v2] ...
 
 <workdir>/ready is created with address of master after spawned cluster becomes
 operational.
@@ -40,7 +40,14 @@ def main():
     clusterName = sys.argv[2]
     readyf      = workdir + "/ready"
 
-    def sinfo(msg): return "I: runneo.py: %s/%s: %s" % (workdir, clusterName, msg)
+    kw = {}
+    for arg in sys.argv[3:]:
+        k, v = arg.split('=')
+        kw[k] = v
+
+
+    flags = ''
+    def sinfo(msg): return "I: runneo.py: %s/%s%s: %s" % (workdir, clusterName, flags, msg)
     def info(msg):  print(sinfo(msg))
 
     # SIGTERM -> exit gracefully, so that defers are run
@@ -48,7 +55,21 @@ def main():
         raise SystemExit(sinfo("terminated"))
     signal(SIGTERM, _)
 
-    cluster = NEOCluster([clusterName], adapter='SQLite', name=clusterName, temp_dir=workdir)   # XXX +kw
+    flags = ' !ssl'
+    ca   = kw.pop('ca',   None)
+    cert = kw.pop('cert', None)
+    key  = kw.pop('key',  None)
+    if ca or cert or key:
+        if not (ca and cert and key):
+            raise RuntimeError(sinfo("incomplete ca/cert/key provided"))
+        # neo/py does `NEOCluster.SSL = neo.test.SSL` (= (ca.crt, node.crt, node.key) )
+        flags = ' ssl'
+        NEOCluster.SSL = (ca, cert, key)
+
+    if kw:
+        raise RuntimeError(sinfo("unexpected flags: %s" % kw))
+
+    cluster = NEOCluster([clusterName], adapter='SQLite', name=clusterName, temp_dir=workdir)
     cluster.start()
     defer(cluster.stop)
 
