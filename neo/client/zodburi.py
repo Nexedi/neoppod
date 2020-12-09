@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017-2019  Nexedi SA
+# Copyright (C) 2017-2021  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,7 +17,7 @@
 
 URI format:
 
-    neo://name@master1,master2,...,masterN?options
+    neo(s)://[credentials@]master1,master2,...,masterN/name?options
 """
 
 import ZODB.config
@@ -26,6 +26,9 @@ import ZConfig
 from cStringIO import StringIO
 from collections import OrderedDict
 from urlparse import urlsplit, parse_qsl
+
+# _credopts defines which options correspond to credentials
+_credopts = {'ca', 'cert', 'key'}
 
 # neo_zconf_options returns set of zconfig options supported by NEO storage
 def neo_zconf_options():
@@ -41,6 +44,8 @@ def neo_zconf_options():
     options = {k for k, _ in neo_storage_zconf}
     assert 'master_nodes' in options
     assert 'name' in options
+    for opt in _credopts:
+        assert opt in options, opt
 
     return options
 
@@ -52,27 +57,46 @@ def canonical_opt_name(name):
 def _resolve_uri(uri):
     scheme, netloc, path, query, frag = urlsplit(uri)
 
-    if scheme != "neo":
-        raise ValueError("invalid uri: %s : expected neo:// scheme" % uri)
-    if path != "":
-        raise ValueError("invalid uri: %s : non-empty path" % uri)
+    if scheme not in ("neo", "neos"):
+        raise ValueError("invalid uri: %s : expected neo:// or neos:// scheme" % uri)
     if frag != "":
         raise ValueError("invalid uri: %s : non-empty fragment" % uri)
 
-    # extract master list and name from netloc
-    name, masterloc = netloc.split('@', 1)
+    # name is given as path
+    if path.startswith("/"):
+        path = path[1:]
+    name = path
+    if name == '':
+        raise ValueError("invalid uri: %s : cluster name not specified" % uri)
+
+    # extract master list and credentials from netloc
+    cred, masterloc = '', netloc
+    if '@' in netloc:
+        cred, masterloc = netloc.split('@', 1)
     master_list = masterloc.split(',')
 
     neokw = OrderedDict()
     neokw['master_nodes'] = ' '.join(master_list)
     neokw['name'] = name
 
+    # parse credentials
+    if cred:
+        if scheme != "neos":
+            raise ValueError("invalid uri: %s : credentials can be specified only with neos:// scheme" % uri)
+        # ca=ca.crt;cert=my.crt;key=my.key
+        for k, v in OrderedDict(parse_qsl(cred)).items():
+            if k not in _credopts:
+                raise ValueError("invalid uri: %s : unexpected credential %s" % (uri, k))
+            neokw[k] = v
+
     # get options from query: only those that are defined by NEO schema go to
     # storage - rest are returned as database options
     dbkw = {}
     neo_options = neo_zconf_options()
     for k, v in OrderedDict(parse_qsl(query)).items():
-        if k in neo_options:
+        if k in _credopts:
+            raise ValueError("invalid uri: %s : option %s must be in credentials" % (uri, k))
+        elif k in neo_options:
             neokw[k] = v
         else:
             # it might be option for storage, but not in canonical form e.g.
