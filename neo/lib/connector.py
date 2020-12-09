@@ -291,7 +291,7 @@ class _SSLHandshake(_SSL):
     #       non-SSL connections as soon as possible, by checking the first
     #       byte. It even does nothing before receiving a full TLSPlaintext
     #       frame (5 bytes).
-    #       The NEO protocol is such that a client connection is always the
+    #       The NEO protocol is such that a client connection is always the     NOTE
     #       first to send a packet, as soon as the connection is established,
     #       and without waiting that the protocol versions are checked.
     #       So in practice, non-SSL connection to SSL would never hang, but

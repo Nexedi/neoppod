@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2019  Nexedi SA and Contributors.
+// Copyright (C) 2017-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -41,7 +41,7 @@ and using path to that file with zconfig:// schema:
 
 There are also following simpler ways:
 
-- neo://<db>@<master>   for a NEO database
+- neo://<master>/<db>   for a NEO database
 - zeo://<host>:<port>   for a ZEO database
 - /path/to/file         for a FileStorage database
 

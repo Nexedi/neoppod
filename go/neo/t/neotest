@@ -496,7 +496,7 @@ GENsqlite() {
 	NEOpylite
 	# NOTE compression is disabled because when benchmarking server latency
 	# we do not want the time client(s) take to decompress data to interfere.
-	${dataset}_gen_data neo://$neocluster@$Mbind?compress=false $dataset_size
+	${dataset}_gen_data neo://$Mbind/$neocluster?compress=false $dataset_size
 	xneoctl set cluster stopping
 	wait	# XXX fragile - won't work if there are children spawned outside
 	sync
@@ -509,7 +509,7 @@ GENsql() {
 	echo -e '\n*** generating sql data...'
 	NEOpysql
 	# NOTE compression is disabled - see ^^^ (sqlite) for rationale.
-	${dataset}_gen_data neo://$neocluster@$Mbind?compress=false $dataset_size
+	${dataset}_gen_data neo://$Mbind/$neocluster?compress=false $dataset_size
 	xneoctl set cluster stopping
 	sleep 1	# XXX fragile
 	xmysql -e "SHUTDOWN"
@@ -1191,21 +1191,21 @@ zbench_local() {
 	# XXX save time - we show only neo/py(!log)/sqlite
 	#echo -e "\n*** NEO/py sqlite"
 	#NEOpylite
-	#zbench neo://$neocluster@$Mbind neo/py/sqlite·P$Pneo $zhashok
+	#zbench neo://$Mbind/$neocluster neo/py/sqlite·P$Pneo $zhashok
 	#xneoctl set cluster stopping
 	#wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpylite
-	zbench neo://$neocluster@$Mbind "neo/py(!log)/sqlite·P$Pneo" $zhashok
+	zbench neo://$Mbind/$neocluster "neo/py(!log)/sqlite·P$Pneo" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	# XXX save time - we show only neo/py(!log)/sql
 	#echo -e "\n*** NEO/py sql"
 	#NEOpysql
-	#zbench neo://$neocluster@$Mbind neo/py/sql·P$Pneo $zhashok
+	#zbench neo://$Mbind/$neocluster neo/py/sql·P$Pneo $zhashok
 	#xneoctl set cluster stopping
 	#xmysql -e "SHUTDOWN"
 	#wait
@@ -1213,27 +1213,27 @@ zbench_local() {
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpysql
-	zbench neo://$neocluster@$Mbind "neo/py(!log)/sql·P$Pneo" $zhashok
+	zbench neo://$Mbind/$neocluster "neo/py(!log)/sql·P$Pneo" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go fs1"
 	NEOgofs1
-	zbench neo://$neocluster@$Mbind neo/go/fs1·P1 $zhashok
+	zbench neo://$Mbind/$neocluster neo/go/fs1·P1 $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go fs1 (sha1 disabled on: storage, client)"
 	X_NEOGO_SHA1_SKIP=y NEOgofs1
-	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/fs1(!sha1)·P1" $zhashok
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$Mbind/$neocluster "neo/go/fs1(!sha1)·P1" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go sqlite"
 	if [ $Pneo == 1 ]; then
 		NEOgolite
-		zbench neo://$neocluster@$Mbind neo/go/sqlite·P$Pneo $zhashok
+		zbench neo://$Mbind/$neocluster@ neo/go/sqlite·P$Pneo $zhashok
 		xneoctl set cluster stopping
 		wait
 	else
@@ -1243,7 +1243,7 @@ zbench_local() {
 	echo -e "\n*** NEO/go sqlite (sha1 disabled on: client)"
 	if [ $Pneo == 1 ]; then
 		NEOgolite
-		X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/sqlite·P$Pneo" $zhashok
+		X_NEOGO_SHA1_SKIP=y zbench_go neo://$Mbind/$neocluster "neo/go/sqlite·P$Pneo" $zhashok
 		xneoctl set cluster stopping
 		wait
 	else
@@ -1312,21 +1312,21 @@ zbench_cluster() {
 	# XXX save time - we show only neo/py(!log)/sqlite
 	#echo -e "\n*** NEO/py sqlite"
 	#NEOpylite
-	#on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sqlite·P$Pneo $zhashok
+	#on $url ./neotest zbench-client neo://$Mbind/$neocluster neo/py/sqlite·P$Pneo $zhashok
 	#xneoctl set cluster stopping
 	#wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpylite
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"neo/py(!log)/sqlite\\\"·P$Pneo" $zhashok
+	on $url ./neotest zbench-client neo://$Mbind/$neocluster "\\\"neo/py(!log)/sqlite\\\"·P$Pneo" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	# XXX save time - we show only neo/py(!log)/sql
 	#echo -e "\n*** NEO/py sql"
 	#NEOpysql
-	#on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sql·P$Pneo $zhashok
+	#on $url ./neotest zbench-client neo://$Mbind/$neocluster neo/py/sql·P$Pneo $zhashok
 	#xneoctl set cluster stopping
 	#xmysql -e "SHUTDOWN"
 	#wait
@@ -1334,27 +1334,27 @@ zbench_cluster() {
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpysql
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"neo/py(!log)/sql\\\"·P$Pneo" $zhashok
+	on $url ./neotest zbench-client neo://$Mbind/$neocluster "\\\"neo/py(!log)/sql\\\"·P$Pneo" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go fs"
 	NEOgofs1
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/go/fs1·P1 $zhashok
+	on $url ./neotest zbench-client neo://$Mbind/$neocluster neo/go/fs1·P1 $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go fs1 (sha1 disabled on: storage, client)"
 	X_NEOGO_SHA1_SKIP=y NEOgofs1
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/fs1(!sha1)\\\"·P1" $zhashok
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$Mbind/$neocluster "\\\"neo/go/fs1(!sha1)\\\"·P1" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go sqlite"
 	if [ $Pneo == 1 ]; then
 		NEOgolite
-		on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/go/sqlite·P$Pneo $zhashok
+		on $url ./neotest zbench-client neo://$Mbind/$neocluster neo/go/sqlite·P$Pneo $zhashok
 		xneoctl set cluster stopping
 		wait
 	else
@@ -1364,7 +1364,7 @@ zbench_cluster() {
 	echo -e "\n*** NEO/go sqlite (sha1 disabled on: client)"
 	if [ $Pneo == 1 ]; then
 		NEOgolite
-		on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/sqlite\\\"·P$Pneo" $zhashok
+		on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$Mbind/$neocluster "\\\"neo/go/sqlite\\\"·P$Pneo" $zhashok
 		xneoctl set cluster stopping
 		wait
 	else
