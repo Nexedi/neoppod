@@ -104,7 +104,8 @@ setup(
             'stat_zodb=neo.tests.stat_zodb:main',
         ],
         'zodburi.resolvers': [
-            'neo = neo.client.zodburi:resolve_uri [client]',
+            'neo  = neo.client.zodburi:resolve_uri [client]',
+            'neos = neo.client.zodburi:resolve_uri [client]',
         ],
     },
     install_requires = [
