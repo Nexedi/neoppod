@@ -104,9 +104,8 @@ func tlsForSSL(ca, cert, key string) (_ *tls.Config, err error) {
 		ClientCAs: CA,
 
 		PreferServerCipherSuites: true,
+		MinVersion:               tls.VersionTLS12, // only accept TLS >= 1.2
 	}
-
-	// TODO only accept TLS >= 1.2 ?
 
 	// tls docs say we should parse Certificate[0] into Leaf ourselves
 	leaf, err := x509.ParseCertificate(crt.Certificate[0])
