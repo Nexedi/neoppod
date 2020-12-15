@@ -69,7 +69,12 @@ class StorageServiceHandler(BaseServiceHandler):
         app.pt.updatable(conn.getUUID(), offset_list)
 
     def answerInformationLocked(self, conn, ttid):
-        self.app.tm.lock(ttid, conn.getUUID())
+        app = self.app
+        # XXX: see testAnswerInformationLockedDuringRecovery
+        if ClusterStates.RUNNING != app.cluster_state != ClusterStates.STOPPING:
+            assert app.cluster_state == ClusterStates.RECOVERING
+        else:
+            app.tm.lock(ttid, conn.getUUID())
 
     def notifyPartitionCorrupted(self, conn, partition, cell_list):
         change_list = []

@@ -2746,6 +2746,50 @@ class Test(NEOThreadedTest):
             else:
                 self.fail('%r not closed' % conn)
 
+    @with_cluster(partitions=2, storage_count=2)
+    def testAnswerInformationLockedDuringRecovery(self, cluster):
+        """
+        This test shows a possible wrong behavior of nodes about the handling
+        of answer packets. Here, after going back to RECOVERING state whereas
+        it was waiting for a transaction to be locked, it will anyway process
+        the AnswerInformationLocked packet: if the cluster state was not
+        checked, it would send a NotifyUnlockInformation packet, but the
+        latter would be unexpected for the storage (InitializationHandler),
+        causing an extra storage-master disconnection.
+
+        This would be a minor issue. However, the current design of connection
+        handlers requires careful coding for every requests: for the case that
+        is tested here, it would still work because the transaction manager is
+        only reset after recovery and AnswerInformationLocked can't arrive
+        later.
+
+        It would be less error-prone if pending requests were marked to discard
+        their answers once it makes no sense anymore to process them. Provided
+        that handlers can be carefully split, a possible solution is that
+        switching handler could first consist in changing the handlers of all
+        pending requests to one that ignore answers.
+        """
+        s0, s1 = cluster.sortStorageList()
+        t, c = cluster.getTransaction()
+        c.root()._p_changed = 1
+        s0m = s0.master_conn
+        def reconnect(orig):
+            p.revert()
+            self.assertFalse(s0m.isClosed())
+            f.remove(delay)
+            self.tic()
+            return orig()
+        with Patch(cluster.client, _connectToPrimaryNode=reconnect) as p, \
+             s0.filterConnection(cluster.master) as f, cluster.moduloTID(0):
+            @f.delayAnswerInformationLocked
+            def delay(_):
+                s1.em.wakeup(s1.master_conn.close)
+            t.commit()
+        self.tic()
+        self.assertEqual(cluster.neoctl.getClusterState(),
+                         ClusterStates.RUNNING)
+        self.assertFalse(s0m.isClosed())
+
 
 if __name__ == "__main__":
     unittest.main()
