@@ -2790,6 +2790,48 @@ class Test(NEOThreadedTest):
                          ClusterStates.RUNNING)
         self.assertFalse(s0m.isClosed())
 
+    @with_cluster(storage_count=2, replicas=1)
+    def testStorageGettingReadyDuringRecovery(self, cluster):
+        """
+        Similar to testAnswerInformationLockedDuringRecovery in that a late
+        non-RECOVERING packet is unexpected when the cluster becomes
+        non-operational and results in extra storage-master disconnection.
+
+        Here, the same connection is closed from both sides at the same time:
+        M -> S: unexpected AskRecovery in MasterOperationHandler
+        S -> M: unexpected NotifyReady in RecoveryManager
+
+        Contrary to the processing of answering packets, unexpected requests
+        & notifications are immediately rejected and a less subjects to buggy
+        code. No reason to make this test pass without a more beautiful way
+        of how packets are processed in general.
+        """
+        s0, s1 = cluster.storage_list
+        s0m = s0.master_conn
+        cluster.neoctl.killNode(s1.uuid)
+        cluster.join((s1,))
+        s1.resetNode()
+        t, c = cluster.getTransaction()
+        c.root()._p_changed = 1
+        t.commit()
+        self.assertPartitionTable(cluster, 'UO')
+        with ConnectionFilter() as f:
+            @f.delayNotifyReady
+            def delay(_):
+                s0.em.wakeup(s0.master_conn.close)
+            @f.delayAskRecovery
+            def _(_):
+                s0.em.wakeup(lambda: f.discard(delay))
+                return False
+            s1.start()
+            self.assertFalse(s0m.isClosed())
+            self.tic()
+        self.assertEqual(cluster.neoctl.getClusterState(),
+                         ClusterStates.RUNNING)
+        self.assertPartitionTable(cluster, 'UU')
+        with self.expectedFailure(): \
+        self.assertFalse(s0m.isClosed())
+
 
 if __name__ == "__main__":
     unittest.main()
