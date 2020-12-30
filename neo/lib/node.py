@@ -20,7 +20,7 @@ from time import time
 from . import attributeTracker, logging
 from .handler import DelayEvent, EventQueue
 from .protocol import formatNodeList, uuid_str, \
-    NodeTypes, NodeStates, NotReadyError, ProtocolError
+    NodeTypes, NodeStates, NotReadyError, ProtocolError, ZERO_TID
 
 
 class Node(object):
@@ -70,7 +70,7 @@ class Node(object):
             old_state = self._state
             self._state = new_state
             if new_state != NodeStates.RUNNING:
-                self.completed_pack_id = 0
+                self.completed_pack_id = ZERO_TID
             self._manager._updateState(self, old_state)
         self._last_state_change = time()
 

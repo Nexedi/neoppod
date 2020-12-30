@@ -113,5 +113,8 @@ class StorageServiceHandler(BaseServiceHandler):
         app.nm.getByUUID(conn.getUUID()).completed_pack_id = pack_id
         app.pm.notifyCompleted(app.getCompletedPackId())
 
+    def askPackOrders(self, conn, pack_id):
+        return self._askPackOrders(conn, pack_id, True)
+
     def answerPackOrders(self, conn, pack_list, process):
         process(pack_list)

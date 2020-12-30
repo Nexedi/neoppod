@@ -25,13 +25,14 @@ from operator import attrgetter
 from weakref import proxy
 from neo.lib.connection import ConnectionClosed
 from neo.lib.protocol import Packets
+from neo.lib.util import add64
 
 
 class Pack(object):
 
-    def __init__(self, tid, id, partial, oids, time):
+    def __init__(self, tid, approved, partial, oids, time):
         self.tid = tid
-        self.id = id
+        self.approved = approved
         self.partial = partial
         self.oids = oids
         self.time = time
@@ -57,11 +58,11 @@ class RequestOld(object):
 
     caller = None
 
-    def __init__(self, app, pack_id, limit, caller):
+    def __init__(self, app, pack_id, only_first_approved, caller):
         self.app = proxy(app)
         self.caller = caller
         self.pack_id = pack_id
-        self.limit = limit
+        self.only_first_approved = only_first_approved
         self.offsets = set(xrange(app.pt.getPartitions()))
         self.packs = []
         # In the case PT changes, we may ask a node again before it replies
@@ -89,9 +90,7 @@ class RequestOld(object):
         offsets = self.offsets.copy()
         for x in self.querying:
             offsets.difference_update(x[1])
-        # We ask more than self.limit else we can't keep results in PackManager
-        # without being sure there's no hole.
-        p = Packets.AskPackOrders(self.pack_id, None)
+        p = Packets.AskPackOrders(self.pack_id)
         while offsets:
             node = getCellList(offsets.pop(), True)[0].getNode()
             nid = node.getUUID()
@@ -113,16 +112,16 @@ class RequestOld(object):
                 pm = app.pm
                 for pack_order in pack_list:
                     pm.add(*pack_order)
-                self.caller([
-                    (p.tid, p.id, p.partial, p.oids, p.time)
-                    for p in islice(pm.sorted(self.pack_id), self.limit)])
+                self.caller(pm.dump(self.pack_id, self.only_first_approved))
                 pm.notifyCompleted(app.getCompletedPackId())
 
 
 class PackManager(object):
 
+    autosign = True
+
     def __init__(self):
-        self.last_id = 0
+        self.max_completed = None
         self.packs = {}
         self.old = []
 
@@ -131,42 +130,49 @@ class PackManager(object):
     def add(self, tid, *args):
         p = self.packs.get(tid)
         if p is None:
-            p = self.packs[tid] = Pack(tid, *args)
-        elif p.id is None:
-            p.id = args[0]
-        if None is not p.id > self.last_id:
-            self.last_id = p.id
+            self.packs[tid] = Pack(tid, *args)
+            if None is not self.max_completed > tid:
+                self.max_completed = add64(tid, -1)
+        elif p.approved is None:
+            p.approved = args[0]
 
     @apply
-    def sorted():
+    def dump():
         by_tid = attrgetter('tid')
-        by_id = attrgetter('id')
-        return lambda self, pack_id: sorted(
-                (p for p in self.packs.itervalues() if p.id is None),
-                key=by_tid,
-            ) if pack_id is None else sorted(
-                (p for p in self.packs.itervalues()
-                    if None is not p.id >= pack_id),
-                key=by_id,
-            )
+        def dump(self, pack_id, only_first_approved):
+            if only_first_approved:
+                try:
+                    p = min((p for p in self.packs.itervalues()
+                           if p.approved and p.tid >= pack_id),
+                        key=by_tid),
+                except ValueError:
+                    p = ()
+            else:
+                p = sorted(
+                    (p for p in self.packs.itervalues() if p.tid >= pack_id),
+                    key=by_tid)
+            return [(p.tid, p.approved, p.partial, p.oids, p.time) for p in p]
+        return dump
 
     def new(self, tid, oids, time):
-        i = self.last_id = 1 + self.last_id
-        p = self.packs[tid] = Pack(tid, i, bool(oids), oids, time)
-        return i
+        autosign = self.autosign
+        self.packs[tid] = Pack(tid, autosign or None, bool(oids), oids, time)
+        return autosign
 
-    def getMinPackId(self):
-        packs = self.packs
-        if packs:
-            return min(p.id for p in packs.itervalues())
-
-    def getValidatedDict(self):
-        return {p.tid: p.id for p in self.packs.itervalues()
-                            if p.id is not None}
+    def getApprovedRejected(self):
+        r = [], []
+        for p in self.packs.itervalues():
+            approved = p.approved
+            if approved is not None:
+                r[approved].append(p.tid)
+        return r
 
     def notifyCompleted(self, pack_id):
-        for tid in [p.tid for p in self.packs.values() if p.id <= pack_id]:
-            self.packs.pop(tid).completed()
+        for tid in list(self.packs):
+            if tid <= pack_id:
+                self.packs.pop(tid).completed()
+                if self.max_completed is None or self.max_completed < tid:
+                    self.max_completed = tid
 
     def clientLost(self, conn):
         for p in self.packs.itervalues():

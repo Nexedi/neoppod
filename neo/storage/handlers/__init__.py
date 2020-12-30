@@ -65,14 +65,15 @@ class BaseMasterHandler(BaseHandler):
                 # See comment in ClientOperationHandler.connectionClosed
                 self.app.tm.abortFor(uuid, even_if_voted=True)
 
-    def notifyPackValidated(self, conn, tid_id_dict):
+    def notifyPackValidated(self, conn, approved, rejected):
         app = self.app
-        app.dm.validatePackOrders(tid_id_dict)
-        pack_id = max(tid_id_dict.itervalues())
-        if app.last_pack_id < pack_id:
-            app.last_pack_id = pack_id
-            if app.operational:
-                app.maybePack()
+        app.dm.validatePackOrders(approved, rejected)
+        if approved:
+            pack_id = max(approved)
+            if app.last_pack_id < pack_id:
+                app.last_pack_id = pack_id
+                if app.operational:
+                    app.maybePack()
 
     def notifyPartitionChanges(self, conn, ptid, num_replicas, cell_list):
         """This is very similar to Send Partition Table, except that
@@ -94,8 +95,7 @@ class BaseMasterHandler(BaseHandler):
     def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))
 
-    def askPackOrders(self, conn, min_completed_id, limit):
-        assert limit is None, (conn, limit)
+    def askPackOrders(self, conn, min_completed_id):
         conn.answer(Packets.AnswerPackOrders(
             self.app.dm.getPackOrders(min_completed_id)))
 

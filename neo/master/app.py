@@ -580,11 +580,14 @@ class Application(BaseApplication):
 
         # Notify storage nodes about new pack order if any.
         pack = self.pm.packs.get(tid)
-        if pack is not None is not pack.id:
+        if pack is not None is not pack.approved:
             # We could exclude those that store transaction metadata, because
             # they can deduce it upon NotifyUnlockInformation: quite simple but
             # for the moment, let's optimize the case where there's no pack.
-            pack = Packets.NotifyPackValidated({tid: pack.id})
+            if pack.approved:
+                pack = Packets.NotifyPackValidated((tid,), ())
+            else:
+                pack = Packets.NotifyPackValidated((), (tid,))
             for uuid in self.getStorageReadySet():
                 getByUUID(uuid).send(pack)
             # Notify backup clusters.
@@ -631,9 +634,9 @@ class Application(BaseApplication):
         assert uuid not in self.storage_ready_dict, self.storage_ready_dict
         self.storage_readiness = self.storage_ready_dict[uuid] = \
             self.storage_readiness + 1
-        pack = self.pm.getValidatedDict()
-        if pack:
-            self.nm.getByUUID(uuid).send(Packets.NotifyPackValidated(pack))
+        pack = self.pm.getApprovedRejected()
+        if any(pack):
+            self.nm.getByUUID(uuid).send(Packets.NotifyPackValidated(*pack))
         self.tm.executeQueuedEvents()
 
     def isStorageReady(self, uuid):

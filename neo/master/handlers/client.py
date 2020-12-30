@@ -74,7 +74,7 @@ class ClientServiceHandler(MasterHandler):
         )
         if tid:
             p = Packets.AskLockInformation(ttid, tid,
-                pack and app.pm.new(tid, *pack))
+                app.pm.new(tid, *pack) if pack else False)
             for node in node_list:
                 node.ask(p)
         else:
@@ -114,6 +114,9 @@ class ClientServiceHandler(MasterHandler):
         involved = app.tm.abort(tid, conn.getUUID())
         involved.update(uuid_list)
         app.notifyTransactionAborted(tid, involved)
+
+    def askPackOrders(self, conn, pack_id):
+        return self._askPackOrders(conn, pack_id, False)
 
     def waitForPack(self, conn, tid):
         try:

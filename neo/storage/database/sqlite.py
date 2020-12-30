@@ -186,12 +186,10 @@ class SQLiteDatabaseManager(DatabaseManager):
         schema_dict['pack'] = """CREATE TABLE %s (
                  tid INTEGER PRIMARY KEY,
                  partial BOOLEAN NOT NULL,
-                 id INTEGER, -- NULL if not validated
+                 approved BOOLEAN, -- NULL if not signed
                  oids BLOB, -- same format as trans.oids
                  pack_tid INTEGER)
             """
-        index_dict['pack'] = (
-            "CREATE UNIQUE INDEX %s ON %s(id)",)
 
         # The table "trans" stores information on committed transactions.
         schema_dict['trans'] = """CREATE TABLE %s (

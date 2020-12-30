@@ -19,11 +19,12 @@ from collections import deque
 
 from neo.lib import logging
 from neo.lib.app import BaseApplication, buildOptionParser
-from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, Packets
+from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, Packets, \
+    ZERO_TID
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import StoppedOperation, PrimaryFailure
 from neo.lib.pt import PartitionTable
-from neo.lib.util import dump
+from neo.lib.util import add64, dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
 from .database import buildDatabaseManager, DATABASE_MANAGER_DICT
@@ -216,7 +217,7 @@ class Application(BaseApplication):
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
-            self.completed_pack_id = self.last_pack_id = 0
+            self.completed_pack_id = self.last_pack_id = ZERO_TID
             self.checker = Checker(self)
             self.replicator = Replicator(self)
             self.tm = TransactionManager(self)
@@ -348,17 +349,15 @@ class Application(BaseApplication):
                 self.completed_pack_id = pack_id
                 self.master_conn.send(Packets.NotifyPackCompleted(pack_id))
 
-    def maybePack(self, info=None, alt_id=None):
+    def maybePack(self, info=None, min_id=None):
         packed = self.dm.getPackedIDs(True)
         if packed:
             pack_id = min(packed.itervalues())
             if pack_id < self.last_pack_id:
-                next_pack_id = pack_id + 1
-                if info is None or info[0] != next_pack_id != alt_id:
-                    # IDEA: Do not ask the master if we already have the
-                    #       information in the storage backend.
-                    self.master_conn.ask(Packets.AskPackOrders(next_pack_id, 1),
-                                         min_id=next_pack_id)
+                if pack_id != min_id:
+                    self.master_conn.ask(
+                        Packets.AskPackOrders(add64(pack_id, 1)),
+                        pack_id=pack_id)
                 else:
                     self.dm.pack(self, (k for k, v in packed.iteritems()
                                           if v == pack_id), info)

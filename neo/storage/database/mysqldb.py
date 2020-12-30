@@ -303,14 +303,14 @@ class MySQLDatabaseManager(DatabaseManager):
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  nid INT NOT NULL,
                  tid BIGINT NOT NULL,
-                 pack INT UNSIGNED,
+                 pack BIGINT UNSIGNED,
                  PRIMARY KEY (`partition`, nid)
              ) ENGINE=""" + engine
 
         schema_dict['pack'] = """CREATE TABLE %s (
                   tid BIGINT UNSIGNED NOT NULL PRIMARY KEY,
                   partial BOOLEAN NOT NULL,
-                  id INT UNSIGNED UNIQUE KEY, -- NULL if not validated
+                  approved BOOLEAN, -- NULL if not signed
                   oids MEDIUMBLOB, -- same format as trans.oids
                   pack_tid BIGINT UNSIGNED
              ) ENGINE=""" + engine
@@ -459,19 +459,15 @@ class MySQLDatabaseManager(DatabaseManager):
         (tid,), = q("SELECT MAX(tid) FROM obj FORCE INDEX (tid)" + x)
         return tid, oid
 
-    def _getPackOrders(self, min_completed_id):
-        id_cond = 'id IS NULL'
-        if min_completed_id is not None:
-            id_cond = '(%s OR id > %s)' % (id_cond, min_completed_id)
+    def _getPackOrders(self, min_completed):
         return self.query(
-            "SELECT tid, partial, id, IF(id=NULL,NULL,oids)"
-            " FROM pack WHERE tid %% %s IN (%s) AND %s"
-            % (self.np, ','.join(map(str, self._readable_set)), id_cond))
+            "SELECT * FROM pack WHERE tid >= %s AND tid %% %s IN (%s)"
+            % (min_completed, self.np, ','.join(map(str, self._readable_set))))
 
     def getPackedIDs(self, up_to_date=False):
-        return dict(self.query(
+        return {offset: util.p64(pack) for offset, pack in self.query(
             "SELECT `partition`, pack FROM pt WHERE pack IS NOT NULL"
-            + (" AND tid=-%u" % CellStates.UP_TO_DATE if up_to_date else "")))
+            + (" AND tid=-%u" % CellStates.UP_TO_DATE if up_to_date else ""))}
 
     def _setPartitionPacked(self, partition, pack_id):
         q = self.query
@@ -483,6 +479,7 @@ class MySQLDatabaseManager(DatabaseManager):
             % (pack_id, partition, nid))
 
     def updateCompletedPackByReplication(self, partition, pack_id):
+        pack_id = util.u64(pack_id)
         self.query("UPDATE pt SET pack=%s"
             " WHERE `partition`=%s AND nid=%s AND (pack IS NULL OR pack>%s)"
             % (pack_id, partition, self.getUUID(), pack_id))
@@ -764,25 +761,21 @@ class MySQLDatabaseManager(DatabaseManager):
             '%s' % self.escape(''.join(oid_list)),
             u64(pack_tid)))
 
-    def validatePackOrders(self, tid_id_dict):
+    def validatePackOrders(self, approved, rejected):
         u64 = util.u64
-        tid_id_dict = {u64(tid): id for tid, id in tid_id_dict.iteritems()}
-        to_fix = sum(self.query(
-            "SELECT tid FROM pack WHERE tid IN (%s) AND id IS NULL"
-            % ','.join(map(str, tid_id_dict))), ())
-        if to_fix: # empty most of the time
-            q = self.query
-            for tid in to_fix:
-                q("UPDATE pack SET id=%s WHERE tid=%s"
-                  % (tid_id_dict[tid], tid))
-            self.commit()
+        def isTID(x):
+            return "tid IN (%s)" % ','.join(map(str, map(u64, x))) if x else 0
+        approved = isTID(approved)
+        self.query("UPDATE pack SET approved = %s WHERE %s OR %s"
+                   % (approved, approved, isTID(rejected)))
+        self.commit()
 
     def lockTransaction(self, tid, ttid, pack):
         u64 = util.u64
         self.query("UPDATE ttrans SET tid=%d WHERE ttid=%d LIMIT 1"
                    % (u64(tid), u64(ttid)))
-        if pack is not None:
-            self.query("UPDATE pack SET id=%d WHERE tid=%d" % (pack, u64(ttid)))
+        if pack:
+            self.query("UPDATE pack SET approved=1 WHERE tid=%d" % u64(ttid))
         self.commit()
 
     def unlockTransaction(self, tid, ttid, trans, obj, pack):
@@ -848,7 +841,7 @@ class MySQLDatabaseManager(DatabaseManager):
         tid = util.u64(tid)
         q = self.query
         r = q("SELECT trans.oids, user, description, ext, packed, ttid,"
-                " partial, id, pack.oids, pack_tid"
+                " partial, approved, pack.oids, pack_tid"
               " FROM trans LEFT JOIN pack USING (tid)"
               " WHERE `partition` = %d AND tid = %d"
               % (self._getReadablePartition(tid), tid))
@@ -856,7 +849,7 @@ class MySQLDatabaseManager(DatabaseManager):
             if not all:
                 return
             r = q("SELECT ttrans.oids, user, description, ext, packed, ttid,"
-                    " partial, id, pack.oids, pack_tid"
+                    " partial, approved, pack.oids, pack_tid"
                   " FROM ttrans LEFT JOIN pack USING (tid)"
                   " WHERE tid = %d" % tid)
             if not r:

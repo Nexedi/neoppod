@@ -35,9 +35,9 @@ class MasterOperationHandler(BaseMasterHandler):
     def notifyUnlockInformation(self, conn, ttid):
         self.app.tm.unlock(ttid)
 
-    def answerPackOrders(self, conn, pack_list, min_id):
+    def answerPackOrders(self, conn, pack_list, pack_id):
         if pack_list:
-            self.app.maybePack(pack_list[0][1:], min_id)
+            self.app.maybePack(pack_list[0], pack_id)
 
     def answerUnfinishedTransactions(self, conn, *args, **kw):
         self.app.replicator.setUnfinishedTIDList(*args, **kw)

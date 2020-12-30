@@ -74,9 +74,7 @@ class VerificationManager(BaseServiceHandler):
         # Set up pack manager.
         node_set = app.pt.getNodeSet(readable=True)
         pack_id = min(node.completed_pack_id for node in node_set)
-        self._askStorageNodesAndWait(
-            Packets.AskPackOrders(pack_id, None),
-            node_set)
+        self._askStorageNodesAndWait(Packets.AskPackOrders(pack_id), node_set)
 
     def verifyData(self):
         app = self.app

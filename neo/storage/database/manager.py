@@ -116,7 +116,8 @@ class DeleteTask(object):
                 elif self._pack_set:
                     dm_pack = partial(dm._pack,
                         weak_app().tm.updateObjectDataForPack)
-                    pack_id, partial_, oids, tid = self._pack_info
+                    pack_id, approved, partial_, oids, tid = self._pack_info
+                    assert approved, self._pack_info
                     tid = util.u64(tid)
                     before = delete_count, delete_time = self._pack_stats
                     commit = oid_index = oid = packed = 0
@@ -151,7 +152,7 @@ class DeleteTask(object):
                             if log:
                                 log = False
                                 logging.info("pack %s: partition %s...",
-                                             pack_id, offset)
+                                             util.dump(pack_id), offset)
                             delete_count += deleted
                             delete_time += time() - start
                             self._pack_stats = delete_count, delete_time
@@ -159,7 +160,8 @@ class DeleteTask(object):
                                     oid is None):
                                 parts.remove(offset)
                                 packed += 1
-                                dm._setPartitionPacked(offset, pack_id)
+                                dm._setPartitionPacked(offset,
+                                                       util.u64(pack_id))
                                 break
                         if not parts:
                             break
@@ -169,7 +171,7 @@ class DeleteTask(object):
                             dm.commit()
                         logging.info("%s partition(s) processed for pack %s"
                             " (delete stats: count: %s/%s, time: %.4s/%.4s)",
-                            packed, pack_id,
+                            packed, util.dump(pack_id),
                             delete_count - before[0], delete_count,
                             round(delete_time - before[1], 3),
                             round(delete_time, 3))
@@ -569,15 +571,15 @@ class DatabaseManager(object):
                     None if oid is None else util.p64(oid))
         return None, None
 
-    def _getPackOrders(self, min_completed_id):
+    def _getPackOrders(self, min_completed):
       """Request list of pack orders excluding oldest completed ones.
       """
 
     @requires(_getPackOrders)
-    def getPackOrders(self, min_completed_id):
+    def getPackOrders(self, min_completed):
         p64 = util.p64
-        return [p64(x[0]) + x[1:]
-            for x in self._getPackOrders(min_completed_id)]
+        return [p64(x[0]) + x[1:] for x in self._getPackOrders(
+            util.u64(min_completed))]
 
     @abstract
     def getPackedIDs(self, up_to_date=False):
@@ -1048,7 +1050,7 @@ class DatabaseManager(object):
         """"""
 
     @abstract
-    def validatePackOrders(self, tid_id_dict):
+    def validatePackOrders(self, approved, rejected):
         """"""
 
     @abstract
