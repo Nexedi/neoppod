@@ -20,11 +20,11 @@
 #       however that extra information allows the master to automatically drop
 #       redundant pack orders: keeping partial/time may be an acceptable cost.
 
+from collections import defaultdict
 from functools import partial
 from operator import attrgetter
 from weakref import proxy
-from neo.lib.connection import ConnectionClosed
-from neo.lib.protocol import Packets
+from neo.lib.protocol import Packets, ZERO_TID
 from neo.lib.util import add64
 
 
@@ -159,12 +159,13 @@ class PackManager(object):
         self.packs[tid] = Pack(tid, autosign or None, bool(oids), oids, time)
         return autosign
 
-    def getApprovedRejected(self):
+    def getApprovedRejected(self, above_tid=ZERO_TID):
         r = [], []
-        for p in self.packs.itervalues():
-            approved = p.approved
-            if approved is not None:
-                r[approved].append(p.tid)
+        for tid, p in self.packs.iteritems():
+            if above_tid < tid:
+                approved = p.approved
+                if approved is not None:
+                    r[approved].append(tid)
         return r
 
     def notifyCompleted(self, pack_id):
@@ -176,7 +177,7 @@ class PackManager(object):
 
     def clientLost(self, conn):
         for p in self.packs.itervalues():
-            p.forget(waiter)
+            p.forget(conn)
         self.connectionLost(conn)
 
     def connectionLost(self, conn):

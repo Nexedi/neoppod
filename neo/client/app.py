@@ -28,7 +28,6 @@ from ZODB.POSException import UndoError, ConflictError, ReadConflictError
 from . import OLD_ZODB, TransactionMetaData
 if OLD_ZODB:
   from ZODB.ConflictResolution import ResolvedSerial
-from persistent.TimeStamp import TimeStamp
 
 from neo.lib import logging
 from neo.lib.compress import decompress_list, getCompress

@@ -16,7 +16,7 @@
 
 from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import NodeTypes, NodeStates, Packets, ZERO_TID
+from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.lib.pt import PartitionTable
 
 class BackupHandler(EventHandler):
@@ -73,5 +73,40 @@ class BackupHandler(EventHandler):
         prev_tid = app.app.getLastTransaction()
         app.invalidatePartitions(tid, prev_tid, partition_set)
 
-    def notifyPackValidated(self, conn, tid_id_dict):
-        raise NotImplementedError # TODO
+    # The following 2 methods:
+    # - keep the PackManager up-to-date;
+    # - replicate the status of pack orders when they're known after the
+    #   storage nodes have fetched related transactions.
+
+    def notifyPackValidated(self, conn, approved, rejected):
+        backup_app = self.app
+        if backup_app.ignore_pack_notifications:
+            return
+        app = backup_app.app
+        packs = app.pm.packs
+        ask_tid = min_tid = None
+        for approved, tid in (True, approved), (False, rejected):
+            try:
+                packs[tid].approved = approved
+            except KeyError:
+                if not ask_tid or tid < ask_tid:
+                    ask_tid = tid
+            else:
+                if not min_tid or tid < min_tid:
+                    min_tid = tid
+        if min_tid:
+            backup_app.broadcastApprovedRejected(min_tid)
+        if ask_tid:
+            conn.ask(Packets.AskPackOrders(ask_tid))
+
+    def answerPackOrders(self, pack_list, min_tid):
+        backup_app = self.app
+        app = backup_app.app
+        add = app.pm.add
+        for pack_order in pack_list:
+            add(*pack_order)
+        if min_tid < app.getLastTransaction():
+            backup_app.broadcastApprovedRejected(min_tid)
+        backup_app.ignore_pack_notifications = False
+
+    ###

@@ -15,8 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import BaseMasterHandler
-from neo.lib import logging
-from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
+from neo.lib.protocol import Packets, ProtocolError
 
 class InitializationHandler(BaseMasterHandler):
 

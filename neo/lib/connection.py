@@ -16,7 +16,6 @@
 
 from functools import wraps
 from time import time
-from weakref import proxy
 import msgpack
 from msgpack.exceptions import OutOfData, UnpackValueError
 
