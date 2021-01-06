@@ -94,4 +94,4 @@ def patch():
 
 patch()
 
-import app # set up signal handlers early enough to do it in the main thread
+from . import app # set up signal handlers early enough to do it in the main thread
