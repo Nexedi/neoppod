@@ -42,7 +42,7 @@ class SSLTests(SSLMixin, test.Test):
     def testBasicStore(self):
         super(SSLTests, self).testBasicStore(True)
 
-    def testAbortConnection(self, after_handshake=1):
+    def testAbortConnection(self, after_handshake=1, abortf=None):
         with self.getLoopbackConnection() as conn:
             conn.ask(Packets.Ping())
             connector = conn.getConnector()
@@ -54,7 +54,9 @@ class SSLTests(SSLMixin, test.Test):
             if after_handshake:
                 while not isinstance(connector, connector.SSLConnectorClass):
                     conn.em.poll(1)
-            conn.abort()
+            if abortf is None:
+                abortf = conn.__class__.abort
+            abortf(conn)
             fd = connector.getDescriptor()
             while fd in conn.em.reader_set:
                 conn.em.poll(1)
@@ -62,6 +64,15 @@ class SSLTests(SSLMixin, test.Test):
 
     def testAbortConnectionBeforeHandshake(self):
         self.testAbortConnection(0)
+
+    def testReceiveVSEOF(self):
+        # verify that _SSL.receive correctly handles non-ragged EOF.
+        # ( it used to hang in infinite busy loop because _SSL was not checking
+        #    return from socket.recv for b'' )
+        def _(conn):
+            conn.em.poll(0)
+            conn.connector.shutdown()
+        self.testAbortConnection(abortf=_)
 
     def testSSLVsNoSSL(self):
         def __init__(orig, self, app, *args, **kw):
