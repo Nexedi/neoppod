@@ -67,7 +67,8 @@ class BaseMasterHandler(BaseHandler):
 
     def notifyPackValidated(self, conn, approved, rejected):
         app = self.app
-        app.dm.validatePackOrders(approved, rejected)
+        app.replicator.keepPendingSignedPackOrders(
+            *app.dm.signPackOrders(approved, rejected))
         if approved:
             pack_id = max(approved)
             if app.last_pack_id < pack_id:

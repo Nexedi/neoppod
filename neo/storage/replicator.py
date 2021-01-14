@@ -221,6 +221,8 @@ class Replicator(object):
                 p.next_trans, p.next_obj = next_tid
 
     def populate(self):
+        self.approved = []
+        self.rejected = []
         self.partition_dict = {}
         self.replicate_dict = {}
         self.source_dict = {}
@@ -400,10 +402,14 @@ class Replicator(object):
             p.next_obj = min_tid
             self.updateBackupTID()
             dm.updateCellTID(offset, add64(min_tid, -1))
-            dm.commit() # like in fetchTransactions
         else:
             min_tid = p.next_obj
             p.next_trans = add64(max_tid, 1)
+        if self.approved or self.rejected:
+            self.approved, self.rejected = self.app.dm.signPackOrders(
+                self.approved, self.rejected, False)
+            self.maybe_pack = True
+        dm.commit()
         object_dict = {}
         for serial, oid in dm.getReplicationObjectList(min_tid,
                 max_tid, FETCH_COUNT, offset, min_oid):
@@ -478,3 +484,14 @@ class Replicator(object):
                              ' up to %s', offset, addr, dump(tid))
         # Make UP_TO_DATE cells really UP_TO_DATE
         self._nextPartition()
+
+    def filterPackable(self, tid, parts):
+        for offset in parts:
+            p = self.partition_dict[offset]
+            if not (None is not p.next_trans <= tid or
+                    None is not p.next_obj <= tid):
+                yield offset
+
+    def keepPendingSignedPackOrders(self, approved, rejected):
+        self.approved += approved
+        self.rejected += rejected

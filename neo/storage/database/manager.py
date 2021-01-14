@@ -48,6 +48,8 @@ class DeleteTask(object):
     _deleting = False
     _drop_stats = 0, 0
     _pack_stats = 0, 0
+    _packed = ZERO_TID
+    _pack_info = None,
 
     def __init__(self):
         self._drop_set = set()
@@ -165,7 +167,6 @@ class DeleteTask(object):
                                 break
                         if not parts:
                             break
-                    del self._pack_info
                     if packed:
                         if commit:
                             dm.commit()
@@ -203,19 +204,29 @@ class DeleteTask(object):
                 self.resume(app)
         self._pack_set -= drop_set
 
-    def pack(self, app, offset_list, info):
+    def maybePack(self):
+        if not self._pack_set:
+            return self._pack_info[0], self._packed
+
+    def pack(self, app, info, packed, offset_list):
         assert app.operational
-        if self._pack_set:
-            if info[0] != self._pack_info[0]: # pack id
-                return
-            assert info == self._pack_info
-            assert self._deleting
-            self._pack_set.update(offset_list)
-        else:
-            self._pack_set.update(offset_list)
-            self._pack_info = info
+        parts = self._pack_set
+        assert not parts
+        parts.update(offset_list)
+        if parts:
+            if info:
+                self._pack_info = info
+                self._packed = packed
+            else:
+                assert self._packed == packed
             if not self._deleting:
                 self.resume(app)
+        elif not packed:
+            # Release memory: oids may take several MB.
+            try:
+                del self._pack_info, self._packed
+            except AttributeError:
+                pass
 
     def resume(self, app):
         task = self._task(weakref.ref(app))
@@ -596,6 +607,10 @@ class DatabaseManager(object):
     @property
     def pack(self):
         return self._delete_task.pack
+
+    @property
+    def maybePack(self):
+        return self._delete_task.maybePack
 
     def _getUnfinishedTIDDict(self):
         """"""
@@ -1049,9 +1064,23 @@ class DatabaseManager(object):
     def storePackOrder(self, tid, partial, pack_id, oid_list, pack_tid):
         """"""
 
-    @abstract
-    def validatePackOrders(self, approved, rejected):
+    def _signPackOrders(self, approved, rejected):
         """"""
+
+    @requires(_signPackOrders)
+    def signPackOrders(self, approved, rejected, auto_commit=True):
+        u64 = util.u64
+        changed = map(util.p64, self._signPackOrders(
+            map(u64, approved), map(u64, rejected)))
+        if changed:
+            if auto_commit:
+                self.commit()
+            def _(signed):
+                signed = set(signed)
+                signed.difference_update(changed)
+                return sorted(signed)
+            return _(approved), _(rejected)
+        return approved, rejected
 
     @abstract
     def lockTransaction(self, tid, ttid, pack):

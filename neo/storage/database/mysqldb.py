@@ -761,14 +761,15 @@ class MySQLDatabaseManager(DatabaseManager):
             '%s' % self.escape(''.join(oid_list)),
             u64(pack_tid)))
 
-    def validatePackOrders(self, approved, rejected):
-        u64 = util.u64
+    def _signPackOrders(self, approved, rejected):
         def isTID(x):
-            return "tid IN (%s)" % ','.join(map(str, map(u64, x))) if x else 0
+            return "tid IN (%s)" % ','.join(map(str, x)) if x else 0
         approved = isTID(approved)
-        self.query("UPDATE pack SET approved = %s WHERE %s OR %s"
-                   % (approved, approved, isTID(rejected)))
-        self.commit()
+        where = " WHERE %s OR %s" % (approved, isTID(rejected))
+        changed = [tid for tid, in self.query("SELECT tid FROM pack" + where)]
+        if changed:
+            self.query("UPDATE pack SET approved = %s%s" % (approved, where))
+        return changed
 
     def lockTransaction(self, tid, ttid, pack):
         u64 = util.u64

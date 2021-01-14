@@ -350,16 +350,25 @@ class Application(BaseApplication):
                 self.master_conn.send(Packets.NotifyPackCompleted(pack_id))
 
     def maybePack(self, info=None, min_id=None):
-        packed = self.dm.getPackedIDs(True)
-        if packed:
-            pack_id = min(packed.itervalues())
-            if pack_id < self.last_pack_id:
-                if pack_id != min_id:
-                    self.master_conn.ask(
-                        Packets.AskPackOrders(add64(pack_id, 1)),
-                        pack_id=pack_id)
+        pack = self.dm.maybePack()
+        if pack:
+            packed = self.dm.getPackedIDs(True)
+            if packed:
+                pack_id = min(packed.itervalues())
+                if pack_id < self.last_pack_id:
+                    if pack_id == pack[0]:
+                        pack = pack[1]
+                    elif pack_id == min_id:
+                        pack = info[0]
+                    else:
+                        self.master_conn.ask(
+                            Packets.AskPackOrders(add64(pack_id, 1)),
+                            pack_id=pack_id)
+                        return
+                    self.dm.pack(self, info, pack_id,
+                        self.replicator.filterPackable(pack,
+                            (k for k, v in packed.iteritems() if v == pack_id)))
                 else:
-                    self.dm.pack(self, (k for k, v in packed.iteritems()
-                                          if v == pack_id), info)
-        else:
-            assert not self.pt.getAssignedPartitionList(self.uuid)
+                    self.dm.pack(self, None, None, ()) # for cleanup
+            else:
+                assert not self.pt.getAssignedPartitionList(self.uuid)

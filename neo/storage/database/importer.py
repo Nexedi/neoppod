@@ -385,7 +385,7 @@ class ImporterDatabaseManager(DatabaseManager):
                     loadData storeData getOrphanList _pruneData deferCommit
                     _getDevPath dropPartitionsTemporary
                     getPackedIDs updateCompletedPackByReplication
-                    _getPackOrders storePackOrder validatePackOrders
+                    _getPackOrders storePackOrder signPackOrders
                  """.split():
             setattr(self, x, getattr(db, x))
         if self._writeback:
@@ -713,8 +713,8 @@ class ImporterDatabaseManager(DatabaseManager):
     def getObjectHistory(self, *args, **kw):
         raise BackendNotImplemented(self.getObjectHistory)
 
-    def pack(self, *args, **kw):
-        raise BackendNotImplemented(self.pack)
+    def maybePack(self):
+        pass # disable pack
 
 
 class WriteBack(object):

@@ -97,9 +97,9 @@ class BackupHandler(EventHandler):
         if min_tid:
             backup_app.broadcastApprovedRejected(min_tid)
         if ask_tid:
-            conn.ask(Packets.AskPackOrders(ask_tid))
+            conn.ask(Packets.AskPackOrders(ask_tid), min_tid=ask_tid)
 
-    def answerPackOrders(self, pack_list, min_tid):
+    def answerPackOrders(self, conn, pack_list, min_tid):
         backup_app = self.app
         app = backup_app.app
         add = app.pm.add

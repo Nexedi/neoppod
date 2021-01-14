@@ -130,7 +130,7 @@ class BackupApplication(object):
                         if p[tid].approved is None:
                             min_tid = tid
                             break
-                    conn.ask(Packets.AskPackOrders(min_tid))
+                    conn.ask(Packets.AskPackOrders(min_tid), min_tid=min_tid)
                     # debug variable to log how big 'tid_list' can be.
                     self.debug_tid_count = 0
                     while True:
