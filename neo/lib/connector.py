@@ -135,8 +135,7 @@ class SocketConnector(object):
     def ssl(self, ssl, on_handshake_done=None):
         self.socket = ssl.wrap_socket(self.socket,
             server_side=self.is_server,
-            do_handshake_on_connect=False,
-            suppress_ragged_eofs=False)
+            do_handshake_on_connect=False)
         self.__class__ = self.SSLHandshakeConnectorClass
         self.on_handshake_done = on_handshake_done
         self.queued or self.queued.append('')
@@ -279,7 +278,6 @@ class _SSL:
             while 1:
                 data = self.socket.recv(4096)
                 if not data:
-                    # non-ragged EOF (peer properly closed its side of connection)
                     self._error('recv', None)
                     return
                 read_buf.feed(data)
