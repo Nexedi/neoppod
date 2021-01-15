@@ -277,7 +277,12 @@ class _SSL:
     def receive(self, read_buf):
         try:
             while 1:
-                read_buf.feed(self.socket.recv(4096))
+                data = self.socket.recv(4096)
+                if not data:
+                    # non-ragged EOF (peer properly closed its side of connection)
+                    self._error('recv', None)
+                    return
+                read_buf.feed(data)
         except ssl.SSLWantReadError:
             pass
         except socket.error, e:
