@@ -36,7 +36,7 @@ from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
     Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
-from .. import Patch, TransactionalResource
+from .. import Patch, TransactionalResource, getTransactionMetaData
 from . import ClientApplication, ConnectionFilter, LockLock, NEOCluster, \
     NEOThreadedTest, RandomConflictDict, Serialized, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
@@ -1312,10 +1312,7 @@ class Test(NEOThreadedTest):
                 # Check that the storage hasn't answered to the store,
                 # which means that a lock is still taken for r['x'] by t2.
                 self.tic()
-                try:
-                    txn = txn.data(c1)
-                except (AttributeError, KeyError): # BBB: ZODB < 5
-                    pass
+                txn = getTransactionMetaData(txn, c1)
                 txn_context = cluster.client._txn_container.get(txn)
                 empty = txn_context.queue.empty()
                 ll()

@@ -25,51 +25,7 @@ def patch():
 
     H = lambda f: md5(f.func_code.co_code).hexdigest()
 
-    # Allow serial to be returned as late as tpc_finish
-    #
-    # This makes possible for storage to allocate serial inside tpc_finish,
-    # removing the requirement to serialise second commit phase (tpc_vote
-    # to tpc_finish/tpc_abort).
-
-    h = H(Connection.tpc_finish)
-
-    def tpc_finish(self, transaction):
-        """Indicate confirmation that the transaction is done."""
-
-        def callback(tid):
-            if self._mvcc_storage:
-                # Inter-connection invalidation is not needed when the
-                # storage provides MVCC.
-                return
-            d = dict.fromkeys(self._modified)
-            self._db.invalidate(tid, d, self)
-#       It's important that the storage calls the passed function
-#       while it still has its lock.  We don't want another thread
-#       to be able to read any updated data until we've had a chance
-#       to send an invalidation message to all of the other
-#       connections!
-        # <patch>
-        serial = self._storage.tpc_finish(transaction, callback)
-        if serial is not None:
-            assert isinstance(serial, bytes), repr(serial)
-            for oid_iterator in (self._modified, self._creating):
-                for oid in oid_iterator:
-                    obj = self._cache.get(oid, None)
-                    # Ignore missing objects and don't update ghosts.
-                    if obj is not None and obj._p_changed is not None:
-                        obj._p_changed = 0
-                        obj._p_serial = serial
-        # </patch>
-        self._tpc_cleanup()
-
-    global OLD_ZODB
-    OLD_ZODB = h in (
-        'ab9b1b8d82c40e5fffa84f7bc4ea3a8b', # Python 2.7
-        )
-
-    if OLD_ZODB:
-        Connection.tpc_finish = tpc_finish
-    elif hasattr(Connection, '_handle_serial'): # merged upstream ?
+    if hasattr(Connection, '_handle_serial'): # merged upstream ?
         assert hasattr(Connection, '_warn_about_returned_serial')
 
     # sync() is used to provide a "network barrier", which is required for

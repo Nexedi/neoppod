@@ -44,7 +44,7 @@ get3rdParty(x, '3rdparty/' + x, 'https://lab.nexedi.com/nexedi/erp5'
     '/raw/14b0fcdcc31c5791646f9590678ca028f5d221f5/product/ERP5Type/' + x,
     'abb7970856540fd02150edd1fa9a3a3e8d0074ec526ab189684ef7ea9b41825f')
 
-zodb_require = ['ZODB3>=3.10dev']
+zodb_require = ['ZODB>=4.4.5']
 
 extras_require = {
     'admin': [],

@@ -1,2 +1,2 @@
 graft tools
-include neo.conf CHANGELOG.rst TODO ZODB3.patch
+include neo.conf CHANGELOG.rst TODO

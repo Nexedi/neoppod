@@ -25,9 +25,6 @@ except ImportError:
     from cPickle import dumps, loads
     _protocol = 1
 from ZODB.POSException import UndoError, ConflictError, ReadConflictError
-from . import OLD_ZODB
-if OLD_ZODB:
-  from ZODB.ConflictResolution import ResolvedSerial
 from persistent.TimeStamp import TimeStamp
 
 from neo.lib import logging
@@ -641,9 +638,6 @@ class Application(ThreadedApplication):
         #       - If possible, recover from master failure.
         if txn_context.error:
             raise NEOStorageError(txn_context.error)
-        if OLD_ZODB:
-            return [(oid, ResolvedSerial)
-                for oid in txn_context.resolved_dict]
         return txn_context.resolved_dict
 
     def tpc_abort(self, transaction):

@@ -517,6 +517,15 @@ class TransactionalResource(object):
             return lambda *_: None
         return self.__getattribute__(attr)
 
+try:
+    from ZODB.Connection import TransactionMetaData
+except ImportError: # BBB: ZODB < 5
+    def getTransactionMetaData(txn, conn):
+        return txn
+else:
+    def getTransactionMetaData(txn, conn):
+        return txn.data(conn)
+
 
 class Patch(object):
     """

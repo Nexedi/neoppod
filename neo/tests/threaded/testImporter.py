@@ -19,18 +19,22 @@ from cStringIO import StringIO
 from itertools import izip_longest
 import os, random, shutil, threading, time, unittest
 import transaction, ZODB
+from persistent import Persistent
 from neo.client.exception import NEOPrimaryMasterLost
 from neo.lib import logging
+from neo.lib.protocol import MAX_TID
 from neo.lib.util import cached_property, p64, u64
 from neo.master.transactions import TransactionManager
 from neo.storage.database import getAdapterKlass, importer, manager
 from neo.storage.database.importer import \
     Repickler, TransactionRecord, WriteBack
-from .. import expectedFailure, getTempDirectory, random_tree, Patch
+from .. import expectedFailure, getTempDirectory, random_tree, \
+    Patch, TransactionalResource, getTransactionMetaData
 from . import NEOCluster, NEOThreadedTest
 from ZODB import serialize
 from ZODB.DB import TransactionalUndo
 from ZODB.FileStorage import FileStorage
+from ZODB.POSException import POSKeyError
 
 class Equal:
 
@@ -370,6 +374,45 @@ class ImporterTests(NEOThreadedTest):
                 l.acquire()
             t.begin()
             finalCheck(r)
+
+    def testDeleteAndUndo(self):
+        fs_path, cfg = self.getFS()
+        c = ZODB.DB(FileStorage(fs_path)).open()
+        s = c.db().storage
+        r = c.root()
+        tid = r._p_serial
+        r[''] = delete = Persistent()
+        transaction.commit()
+        self.assertEqual(delete._p_oid, p64(1))
+        del r['']
+        TransactionalResource(transaction, 0, commit=lambda txn:
+            s.deleteObject(delete._p_oid, delete._p_serial,
+                           getTransactionMetaData(txn, c)))
+        transaction.commit()
+        r[''] = undo = Persistent()
+        transaction.commit()
+        c.db().undo(s.undoLog(last=1)[0]['id'])
+        transaction.commit()
+        self.assertEqual(undo._p_oid, p64(2))
+        def check():
+            self.assertIsNone(s.loadBefore(delete._p_oid, tid))
+            for oid in delete._p_oid, undo._p_oid, p64(3):
+                self.assertRaises(POSKeyError, s.loadBefore, oid, MAX_TID)
+        check() # FileStorage
+        c.db().close()
+        importer = {'zodb': [('root', cfg)]}
+        with NEOCluster(importer=importer) as cluster:
+            storage = cluster.storage
+            dm = storage.dm
+            with storage.patchDeferred(dm._finished):
+                with storage.patchDeferred(dm.doOperation):
+                    cluster.start()
+                    s = cluster.getZODBStorage()
+                    check() # before import
+                self.tic()
+                check() # imported, Importer getObject
+            self.tic()
+            check() # imported, direct getObject
 
 
 if __name__ == "__main__":

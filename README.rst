@@ -52,7 +52,7 @@ Requirements
 
   - MySQLdb: https://github.com/PyMySQL/mysqlclient-python
 
-- For client nodes: ZODB 3.10.x or later
+- For client nodes: ZODB 4.4.5 or later
 
 Installation
 ============

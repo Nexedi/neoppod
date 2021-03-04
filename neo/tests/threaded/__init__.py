@@ -330,6 +330,15 @@ class Node(object):
     def filterConnection(self, *peers):
         return ConnectionFilter(self.getConnectionList(*peers))
 
+    @contextmanager
+    def patchDeferred(self, method):
+        deferred = []
+        with Patch(method.__self__, **{method.__name__:
+                lambda orig, *args, **kw: deferred.append(
+                      partial(orig, *args, **kw))}) as p:
+            yield p
+        self.em.wakeup(*deferred)
+
 class ServerNode(Node):
 
     _server_class_dict = {}

@@ -609,6 +609,10 @@ class ImporterDatabaseManager(DatabaseManager):
         except TypeError: # loadBefore returned None
             return False
         except POSKeyError:
+            # loadBefore does not distinguish between an oid:
+            # - that does not exist at any serial
+            # - that was deleted
+            # - whose creation was undone
             assert not o or o[3] is None, o
             return o
         if serial != tid:
@@ -617,22 +621,15 @@ class ImporterDatabaseManager(DatabaseManager):
             u_tid = u64(serial)
         if u_tid <= self.zodb_tid and o:
             return o
-        if value:
-            value = zodb.repickle(value)
-            checksum = util.makeChecksum(value)
-        else:
-            # CAVEAT: Although we think loadBefore should not return an empty
-            #         value for a deleted object (BBB: fixed in ZODB4),
-            #         there's no need to distinguish this case in the above
-            #         except clause because it would be crazy to import a
-            #         NEO DB using this backend.
-            checksum = None
+        value = zodb.repickle(value)
         if not next_serial:
             next_serial = db._getNextTID(db._getPartition(u_oid), u_oid, u_tid)
             if next_serial:
                 next_serial = p64(next_serial)
-        return (serial, next_serial,
-            0, checksum, value, zodb.getDataTid(z_oid, u_tid))
+        return (serial, next_serial, 0,
+                util.makeChecksum(value),
+                value,
+                zodb.getDataTid(z_oid, u_tid))
 
     def getTransaction(self, tid, all=False):
         u64 = util.u64
