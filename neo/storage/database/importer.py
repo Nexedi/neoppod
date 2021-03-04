@@ -609,7 +609,7 @@ class ImporterDatabaseManager(DatabaseManager):
         except TypeError: # loadBefore returned None
             return False
         except POSKeyError:
-            assert not o, o
+            assert not o or o[3] is None, o
             return o
         if serial != tid:
             if tid:
