@@ -118,7 +118,7 @@ class PartitionTable(object):
                 added_list.append(node)
         return added_list
 
-    def getAssignedPartitionList(self, uuid):
+    def getReadableOffsetList(self, uuid):
         """ Return the partition assigned to the specified UUID """
         assigned_partitions = []
         for offset in xrange(self.np):

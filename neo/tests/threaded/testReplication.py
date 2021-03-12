@@ -82,7 +82,7 @@ class ReplicationTests(NEOThreadedTest):
             if storage.pt is None:
                 storage.loadPartitionTable()
             self.assertEqual(np, storage.pt.getPartitions())
-            for partition in pt.getAssignedPartitionList(storage.uuid):
+            for partition in pt.getReadableOffsetList(storage.uuid):
                 cell_list = upstream_pt.getCellList(partition, readable=True)
                 source = source_dict[random.choice(cell_list).getUUID()]
                 self.checkPartitionReplicated(source, storage, partition, **kw)

@@ -163,7 +163,7 @@ class ClientOperationHandler(BaseHandler):
 
         app = self.app
         if partition == INVALID_PARTITION:
-            partition_list = app.pt.getAssignedPartitionList(app.uuid)
+            partition_list = app.pt.getReadableOffsetList(app.uuid)
         else:
             partition_list = [partition]
 
