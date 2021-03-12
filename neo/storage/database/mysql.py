@@ -607,19 +607,10 @@ class MySQLDatabaseManager(DatabaseManager):
         for oid, data_id, value_serial in object_list:
             oid = u64(oid)
             partition = self._getPartition(oid)
-            if value_serial:
-                value_serial = u64(value_serial)
-                (data_id,), = q("SELECT data_id FROM obj"
-                    " WHERE `partition`=%d AND oid=%d AND tid=%d"
-                    % (partition, oid, value_serial))
-                if temporary:
-                    self.holdData(data_id)
-            else:
-                value_serial = 'NULL'
             value = "(%s,%s,%s,%s,%s)," % (
                 partition, oid, tid,
                 'NULL' if data_id is None else data_id,
-                value_serial)
+                u64(value_serial) if value_serial else 'NULL')
             values_size += len(value)
             # actually: max_values < values_size + EXTRA - len(final comma)
             # (test_max_allowed_packet checks that EXTRA == 2)
@@ -687,7 +678,17 @@ class MySQLDatabaseManager(DatabaseManager):
             for i in xrange(bigdata_id,
                             bigdata_id + (length + 0x7fffff >> 23)))
 
-    def storeData(self, checksum, oid, data, compression, _pack=_structLL.pack):
+    def storeData(self, checksum, oid, data, compression, data_tid,
+            _pack=_structLL.pack):
+        oid = util.u64(oid)
+        p = self._getPartition(oid)
+        if data_tid:
+            for r, in self.query("SELECT data_id FROM obj"
+                    " WHERE `partition`=%s AND oid=%s AND tid=%s"
+                    % (p, oid, util.u64(data_tid))):
+                return r
+        if not checksum:
+            return # delete
         e = self.escape
         checksum = e(checksum)
         if 0x1000000 <= len(data): # 16M (MEDIUMBLOB limit)
@@ -715,7 +716,6 @@ class MySQLDatabaseManager(DatabaseManager):
                     i = bigdata_id = self.conn.insert_id()
                 i += 1
             data = _pack(bigdata_id, length)
-        p = self._getPartition(util.u64(oid))
         r = self._data_last_ids[p]
         try:
             self.query("INSERT INTO data VALUES (%s, '%s', %d, '%s')" %

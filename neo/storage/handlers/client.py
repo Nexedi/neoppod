@@ -121,7 +121,6 @@ class ClientOperationHandler(BaseHandler):
         if data or checksum != ZERO_HASH:
             # TODO: return an appropriate error packet
             assert makeChecksum(data) == checksum
-            assert data_serial is None
         else:
             checksum = data = None
         try:

@@ -180,8 +180,25 @@ class Test(NEOThreadedTest):
 
     @with_cluster()
     def testUndoConflictDuringStore(self, cluster):
-        with self.expectedFailure(POSException.ConflictError): \
         self._testUndoConflict(cluster, 1)
+
+    @with_cluster()
+    def testUndoConflictCreationUndo(self, cluster):
+        def waitResponses(orig, *args):
+            orig(*args)
+            p.revert()
+            t.commit()
+        t, c = cluster.getTransaction()
+        c.root()[0] = ob = PCounterWithResolution()
+        t.commit()
+        undo = TransactionalUndo(cluster.db, [ob._p_serial])
+        txn = transaction.Transaction()
+        undo.tpc_begin(txn)
+        ob.value += 1
+        with Patch(cluster.client, waitResponses=waitResponses) as p:
+            self.assertRaises(POSException.ConflictError, undo.commit, txn)
+        t.begin()
+        self.assertEqual(ob.value, 1)
 
     def testStorageDataLock(self, dedup=False):
         with NEOCluster(dedup=dedup) as cluster:
@@ -1743,7 +1760,7 @@ class Test(NEOThreadedTest):
             bad = []
             ok = []
             def data_args(value):
-                return makeChecksum(value), ZERO_OID, value, 0
+                return makeChecksum(value), ZERO_OID, value, 0, None
             node_list = []
             for i, s in enumerate(cluster.storage_list):
                 node_list.append(s.uuid)

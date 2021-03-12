@@ -505,10 +505,10 @@ class ImporterDatabaseManager(DatabaseManager):
                 break
             if len(txn) == 3:
                 oid, data_id, data_tid = txn
-                if data_id is not None:
-                    checksum, data, compression = data_id
-                    data_id = self.holdData(checksum, oid, data, compression)
-                    data_id_list.append(data_id)
+                checksum, data, compression = data_id or (None, None, 0)
+                data_id = self.holdData(
+                    checksum, oid, data, compression, data_tid)
+                data_id_list.append(data_id)
                 object_list.append((oid, data_id, data_tid))
                 # Give the main loop the opportunity to process requests
                 # from other nodes. In particular, clients may commit. If the
@@ -518,7 +518,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 # solved when resuming the migration.
                 # XXX: The leak was solved by the deduplication,
                 #      but it was disabled by default.
-            else:
+            else: # len(txn) == 5
                 tid = txn[-1]
                 self.storeTransaction(tid, object_list,
                     ((x[0] for x in object_list),) + txn,

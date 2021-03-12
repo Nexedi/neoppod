@@ -499,7 +499,6 @@ class Application(ThreadedApplication):
             compression = 0
             checksum = ZERO_HASH
         else:
-            assert data_serial is None
             size, compression, compressed_data = self.compress(data)
             checksum = makeChecksum(compressed_data)
             txn_context.data_size += size
@@ -529,7 +528,7 @@ class Application(ThreadedApplication):
             if data is CHECKED_SERIAL:
                 raise ReadConflictError(oid=oid,
                     serials=(serial, old_serial))
-            # TODO: data can be None if a conflict happens during undo
+            # data can be None if a conflict happens when undoing creation
             if data:
                 txn_context.data_size -= len(data)
             if self.last_tid < serial:
@@ -760,7 +759,7 @@ class Application(ThreadedApplication):
             'partition_oid_dict': partition_oid_dict,
             'undo_object_tid_dict': undo_object_tid_dict,
         }
-        while partition_oid_dict:
+        while 1:
             for partition, oid_list in partition_oid_dict.iteritems():
                 cell_list = [cell
                     for cell in getCellList(partition, readable=True)
@@ -769,11 +768,17 @@ class Application(ThreadedApplication):
                     # only between the client and the storage, the latter would
                     # still be readable until we commit.
                     if txn_context.conn_dict.get(cell.getUUID(), 0) is not None]
-                storage_conn = getConnForNode(
+                conn = getConnForNode(
                     min(cell_list, key=getCellSortKey).getNode())
-                storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
-                    snapshot_tid, undone_tid, oid_list),
-                    partition=partition, **kw)
+                try:
+                    conn.ask(Packets.AskObjectUndoSerial(ttid,
+                        snapshot_tid, undone_tid, oid_list),
+                        partition=partition, **kw)
+                except AttributeError:
+                    if conn is not None:
+                        raise
+                except ConnectionClosed:
+                    pass
 
             # Wait for all AnswerObjectUndoSerial. We might get
             # OidNotFoundError, meaning that objects in transaction's oid_list
@@ -785,11 +790,38 @@ class Application(ThreadedApplication):
                 self.dispatcher.forget_queue(queue)
                 raise UndoError('non-undoable transaction')
 
+            if not partition_oid_dict:
+                break
+            # Do not retry too quickly, for example
+            # when there's an incoming PT update.
+            self.sync()
+
         # Send undo data to all storage nodes.
         for oid, (current_serial, undo_serial, is_current) in \
                 undo_object_tid_dict.iteritems():
             if is_current:
-                data = None
+                if undo_serial:
+                    # The data are used:
+                    # - by outdated cells that don't have them
+                    # - if there's a conflict to resolve
+                    # Otherwise, they're ignored.
+                    # IDEA: So as an optimization, if all cells we're going to
+                    #       write are readable, we could move the following
+                    #       load to _handleConflicts and simply pass None here.
+                    #       But evaluating such condition without race
+                    #       condition is not easy:
+                    #       1. The transaction context must have established
+                    #          with all nodes that will be involved (e.g.
+                    #          doable while processing partition_oid_dict).
+                    #       2. The partition table must be up-to-date by
+                    #          pinging the master (i.e. self.sync()).
+                    #       3. At last, the PT can be looked up here.
+                    try:
+                        data = self.load(oid, undo_serial)[0]
+                    except NEOStorageCreationUndoneError:
+                        data = None
+                else:
+                    data = None
             else:
                 # Serial being undone is not the latest version for this
                 # object. This is an undo conflict, try to resolve it.

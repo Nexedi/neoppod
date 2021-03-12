@@ -102,7 +102,7 @@ class StorageMySQLdbTests(StorageDBTests):
         self.assertEqual(2, max(len(self.db.escape(chr(x)))
                                 for x in xrange(256)))
         self.assertEqual(2, len(self.db.escape('\0')))
-        self.db.storeData('\0' * 20, ZERO_OID, '\0' * (2**24-1), 0)
+        self.db.storeData('\0' * 20, ZERO_OID, '\0' * (2**24-1), 0, None)
         size, = query_list
         max_allowed = self.db.__class__._max_allowed_packet
         self.assertTrue(max_allowed - 1024 < size <= max_allowed, size)

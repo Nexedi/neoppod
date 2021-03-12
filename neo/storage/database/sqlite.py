@@ -402,11 +402,6 @@ class SQLiteDatabaseManager(DatabaseManager):
             partition = self._getPartition(oid)
             if value_serial:
                 value_serial = u64(value_serial)
-                (data_id,), = q("SELECT data_id FROM obj"
-                    " WHERE partition=? AND oid=? AND tid=?",
-                    (partition, oid, value_serial))
-                if temporary:
-                    self.holdData(data_id)
             try:
                 q(obj_sql, (partition, oid, tid, data_id, value_serial))
             except sqlite3.IntegrityError:
@@ -445,10 +440,18 @@ class SQLiteDatabaseManager(DatabaseManager):
             return len(data_id_list)
         return 0
 
-    def storeData(self, checksum, oid, data, compression,
+    def storeData(self, checksum, oid, data, compression, data_tid,
             _dup=unique_constraint_message("data", "hash", "compression")):
+        oid = util.u64(oid)
+        p = self._getPartition(oid)
+        if data_tid:
+            for r, in self.query("SELECT data_id FROM obj"
+                    " WHERE partition=? AND oid=? AND tid=?",
+                    (p, oid, util.u64(data_tid))):
+                return r
+        if not checksum:
+            return # delete
         H = buffer(checksum)
-        p = self._getPartition(util.u64(oid))
         r = self._data_last_ids[p]
         try:
             self.query("INSERT INTO data VALUES (?,?,?,?)",

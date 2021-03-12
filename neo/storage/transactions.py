@@ -425,11 +425,8 @@ class TransactionManager(EventQueue):
             self._unstore(transaction, oid)
         transaction.serial_dict[oid] = serial
         # store object
-        if data is None:
-            data_id = None
-        else:
-            data_id = self._app.dm.holdData(checksum, oid, data, compression)
-        transaction.store(oid, data_id, value_serial)
+        transaction.store(oid, self._app.dm.holdData(
+            checksum, oid, data, compression, value_serial), value_serial)
         if not locked:
             return ZERO_TID
 
@@ -573,8 +570,4 @@ class TransactionManager(EventQueue):
         if lock_tid is not None:
             transaction = self._transaction_dict[lock_tid]
             if transaction.store_dict[oid][2] == orig_serial:
-                if new_serial:
-                    data_id = None
-                else:
-                    self._app.dm.holdData(data_id)
                 transaction.store(oid, data_id, new_serial)

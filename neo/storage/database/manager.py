@@ -684,8 +684,15 @@ class DatabaseManager(object):
         """
 
     @abstract
-    def storeData(self, checksum, oid, data, compression):
+    def storeData(self, checksum, oid, data, compression, data_tid):
         """To be overridden by the backend to store object raw data
+
+        'checksum' must be the result of makeChecksum(data).
+        'compression' indicates if 'data' is compressed.
+        In the case of undo, 'data_tid' may not be None:
+        - if (oid, data_tid) exists, the related data_id must be returned;
+        - else, if it can happen (e.g. cell is not readable), the caller
+          must have passed valid (checksum, data, compression) as fallback.
 
         If same data was already stored, the storage only has to check there's
         no hash collision.
@@ -696,21 +703,16 @@ class DatabaseManager(object):
         """Inverse of storeData
         """
 
-    def holdData(self, checksum_or_id, *args):
-        """Store raw data of temporary object
+    def holdData(self, *args):
+        """Store and hold data
 
-        If 'checksum_or_id' is a checksum, it must be the result of
-        makeChecksum(data) and extra parameters must be (data, compression)
-        where 'compression' indicates if 'data' is compressed.
-        A volatile reference is set to this data until 'releaseData' is called
-        with this checksum.
-        If called with only an id, it only increment the volatile
-        reference to the data matching the id.
+        The parameters are same as storeData.
+        A volatile reference is set to this data until 'releaseData' is called.
         """
-        if args:
-            checksum_or_id = self.storeData(checksum_or_id, *args)
-        self._uncommitted_data[checksum_or_id] += 1
-        return checksum_or_id
+        data_id = self.storeData(*args)
+        if data_id is not None:
+            self._uncommitted_data[data_id] += 1
+            return data_id
 
     def releaseData(self, data_id_list, prune=False):
         """Release 1 volatile reference to given list of data ids

@@ -106,13 +106,10 @@ class StorageOperationHandler(EventHandler):
     def addObject(self, conn, oid, serial, compression,
                               checksum, data, data_serial):
         dm = self.app.dm
-        if data or checksum != ZERO_HASH:
-            data_id = dm.storeData(checksum, oid, data, compression)
-        else:
-            data_id = None
-        # Directly store the transaction.
-        obj = oid, data_id, data_serial
-        dm.storeTransaction(serial, (obj,), None, False)
+        if not data and checksum == ZERO_HASH:
+            checksum = data = None
+        data_id = dm.storeData(checksum, oid, data, compression, data_serial)
+        dm.storeTransaction(serial, ((oid, data_id, data_serial),), None, False)
 
     @checkConnectionIsReplicatorConnection
     def replicationError(self, conn, message):

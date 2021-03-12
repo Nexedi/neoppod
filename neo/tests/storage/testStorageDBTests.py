@@ -96,7 +96,7 @@ class StorageDBTests(NeoUnitTestBase):
         self._last_ttid = ttid = add64(self._last_ttid, 1)
         transaction = oid_list, 'user', 'desc', 'ext', False, ttid
         H = "0" * 20
-        object_list = [(oid, self.db.holdData(H, oid, '', 1), None)
+        object_list = [(oid, self.db.holdData(H, oid, '', 1, None), None)
                        for oid in oid_list]
         return (transaction, object_list)
 
@@ -383,8 +383,8 @@ class StorageDBTests(NeoUnitTestBase):
         tid4 = self.getNextTID()
         tid5 = self.getNextTID()
         oid1 = p64(1)
-        foo = db.holdData("3" * 20, oid1, 'foo', 0)
-        bar = db.holdData("4" * 20, oid1, 'bar', 0)
+        foo = db.holdData("3" * 20, oid1, 'foo', 0, None)
+        bar = db.holdData("4" * 20, oid1, 'bar', 0, None)
         db.releaseData((foo, bar))
         db.storeTransaction(
             tid1, (

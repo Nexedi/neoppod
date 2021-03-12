@@ -362,9 +362,6 @@ class ReplicationTests(NEOThreadedTest):
         """
         Check both IStorage.history and replication when the DB contains a
         deletion record.
-
-        XXX: This test reveals that without --dedup, the replication does not
-             preserve the deduplication that is done by the 'undo' code.
         """
         storage = backup.upstream.getZODBStorage()
         oid = storage.new_oid()
@@ -385,6 +382,8 @@ class ReplicationTests(NEOThreadedTest):
         self.assertFalse(expected)
         self.tic()
         self.assertEqual(1, self.checkBackup(backup))
+        for cluster in backup, backup.upstream:
+            self.assertEqual(1, cluster.storage.sqlCount('data'))
 
     @backup_test()
     def testBackupTid(self, backup):
