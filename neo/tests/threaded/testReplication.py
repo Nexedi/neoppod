@@ -60,16 +60,6 @@ def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
 
 class ReplicationTests(NEOThreadedTest):
 
-    def checksumPartition(self, storage, partition, max_tid=MAX_TID):
-        dm = storage.dm
-        args = partition, None, ZERO_TID, max_tid
-        return dm.checkTIDRange(*args), \
-            dm.checkSerialRange(min_oid=ZERO_OID, *args)
-
-    def checkPartitionReplicated(self, source, destination, partition, **kw):
-        self.assertEqual(self.checksumPartition(source, partition, **kw),
-                         self.checksumPartition(destination, partition, **kw))
-
     def checkBackup(self, cluster, **kw):
         upstream_pt = cluster.upstream.primary_master.pt
         pt = cluster.primary_master.pt
@@ -88,17 +78,6 @@ class ReplicationTests(NEOThreadedTest):
                 self.checkPartitionReplicated(source, storage, partition, **kw)
                 checked += 1
         return checked
-
-    def checkReplicas(self, cluster):
-        pt = cluster.primary_master.pt
-        storage_dict = {x.uuid: x for x in cluster.storage_list}
-        for offset in xrange(pt.getPartitions()):
-            checksum_list = [
-                self.checksumPartition(storage_dict[x.getUUID()], offset)
-                for x in pt.getCellList(offset)]
-            self.assertLess(1, len(checksum_list))
-            self.assertEqual(1, len(set(checksum_list)),
-                             (offset, checksum_list))
 
     def testBackupNormalCase(self):
         np = 7

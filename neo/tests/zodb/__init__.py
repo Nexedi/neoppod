@@ -21,7 +21,11 @@ functional = int(os.getenv('NEO_TEST_ZODB_FUNCTIONAL', 0))
 if functional:
     from ..functional import NEOCluster, NEOFunctionalTest as TestCase
 else:
-    from ..threaded import NEOCluster, NEOThreadedTest as TestCase
+    from ..threaded import NEOCluster, NEOThreadedTest
+    x = dict.fromkeys(x for x in dir(NEOThreadedTest) if x.startswith('check'))
+    assert x
+    TestCase = type('', (NEOThreadedTest,), x)
+    del x
 
 class ZODBTestCase(TestCase):
 

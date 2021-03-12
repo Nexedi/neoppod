@@ -16,10 +16,11 @@
 
 # XXX: Consider using ClusterStates.STOPPING to stop clusters
 
-import os, random, select, socket, sys, tempfile
+import hashlib, os, random, select, socket, sys, tempfile
 import thread, threading, time, traceback, weakref
 from collections import deque
 from contextlib import contextmanager
+from cPickle import dumps
 from email import message_from_string
 from itertools import count
 from functools import partial, wraps
@@ -35,7 +36,7 @@ from neo.lib.connection import BaseConnection, \
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
-from neo.lib.protocol import uuid_str, \
+from neo.lib.protocol import ZERO_OID, ZERO_TID, MAX_TID, uuid_str, \
     ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
 from neo.master.recovery import  RecoveryManager
@@ -481,6 +482,17 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
     def sqlCount(self, table):
         (r,), = self.dm.query("SELECT COUNT(*) FROM " + table)
         return r
+
+    def checksumPartition(self, partition, max_tid=MAX_TID):
+        dm = self.dm
+        args = ZERO_TID, max_tid, None, partition
+        trans = hashlib.md5()
+        for tid in dm.getReplicationTIDList(*args):
+            trans.update(dumps(dm.getTransaction(tid)))
+        obj = hashlib.md5()
+        for tid, oid in dm.getReplicationObjectList(*args, min_oid=ZERO_OID):
+            obj.update(dumps(dm.fetchObject(oid, tid)))
+        return trans.hexdigest(), obj.hexdigest()
 
 class ClientApplication(Node, neo.client.app.Application):
 
@@ -1185,6 +1197,21 @@ class NEOThreadedTest(NeoTestBase):
             x = expected.pop(msg.pop(0))
             assertStartsWith(msg.pop(0), '    %s' % x)
         self.assertFalse(expected)
+
+    def checkPartitionReplicated(self, source, destination, partition, **kw):
+        self.assertEqual(source.checksumPartition(partition, **kw),
+                         destination.checksumPartition(partition, **kw))
+
+    def checkReplicas(self, cluster):
+        pt = cluster.primary_master.pt
+        storage_dict = {x.uuid: x for x in cluster.storage_list}
+        for offset in xrange(pt.getPartitions()):
+            checksum_list = [
+                storage_dict[x.getUUID()].checksumPartition(offset)
+                for x in pt.getCellList(offset)]
+            self.assertLess(1, len(checksum_list))
+            self.assertEqual(1, len(set(checksum_list)),
+                             (offset, checksum_list))
 
 
 class ThreadId(list):

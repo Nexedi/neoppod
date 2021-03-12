@@ -858,8 +858,9 @@ class MySQLDatabaseManager(DatabaseManager):
         r = self.query('SELECT tid, oid FROM obj FORCE INDEX(tid)'
                        ' WHERE `partition` = %d AND tid <= %d'
                        ' AND (tid = %d AND %d <= oid OR %d < tid)'
-                       ' ORDER BY tid ASC, oid ASC LIMIT %d' % (
-            partition, u64(max_tid), min_tid, u64(min_oid), min_tid, length))
+                       ' ORDER BY tid ASC, oid ASC%s' % (
+            partition, u64(max_tid), min_tid, u64(min_oid), min_tid,
+            '' if length is None else ' LIMIT %s' % length))
         return [(p64(serial), p64(oid)) for serial, oid in r]
 
     def _getTIDList(self, offset, length, partition_list):
@@ -871,17 +872,11 @@ class MySQLDatabaseManager(DatabaseManager):
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         u64 = util.u64
         p64 = util.p64
-        min_tid = u64(min_tid)
-        max_tid = u64(max_tid)
-        r = self.query("""SELECT tid FROM trans
-                    WHERE `partition` = %(partition)d
-                    AND tid >= %(min_tid)d AND tid <= %(max_tid)d
-                    ORDER BY tid ASC LIMIT %(length)d""" % {
-            'partition': partition,
-            'min_tid': min_tid,
-            'max_tid': max_tid,
-            'length': length,
-        })
+        r = self.query("SELECT tid FROM trans"
+                       " WHERE `partition` = %s AND tid >= %s AND tid <= %s"
+                       " ORDER BY tid ASC%s" % (
+            partition, u64(min_tid), u64(max_tid),
+            '' if length is None else ' LIMIT %s' % length))
         return [p64(t[0]) for t in r]
 
     def _updatePackFuture(self, oid, orig_serial, max_serial):

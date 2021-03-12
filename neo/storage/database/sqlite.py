@@ -593,6 +593,8 @@ class SQLiteDatabaseManager(DatabaseManager):
         u64 = util.u64
         p64 = util.p64
         min_tid = u64(min_tid)
+        if length is None:
+            length = -1
         return [(p64(serial), p64(oid)) for serial, oid in self.query("""\
             SELECT tid, oid FROM obj
             WHERE partition=? AND tid<=?
@@ -611,6 +613,8 @@ class SQLiteDatabaseManager(DatabaseManager):
         p64 = util.p64
         min_tid = u64(min_tid)
         max_tid = u64(max_tid)
+        if length is None:
+            length = -1
         return [p64(t[0]) for t in self.query("""\
             SELECT tid FROM trans
             WHERE partition=? AND ?<=tid AND tid<=?
