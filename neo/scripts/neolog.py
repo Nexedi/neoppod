@@ -162,13 +162,14 @@ class Log(object):
         self._protocol_date = date
         g = {}
         exec bz2.decompress(text) in g
-        for x in 'uuid_str', 'Packets', 'PacketMalformedError':
+        for x in 'uuid_str', 'Packets':
             setattr(self, x, g[x])
         x = {}
         try:
             Unpacker = g['Unpacker']
         except KeyError:
             unpackb = None
+            self.PacketMalformedError = g['PacketMalformedError']
         else:
             from msgpack import ExtraData, UnpackException
             def unpackb(data):

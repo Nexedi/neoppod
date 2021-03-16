@@ -17,8 +17,9 @@
 import weakref
 from functools import wraps
 from neo.lib.connection import ConnectionClosed
+from neo.lib.exception import ProtocolError
 from neo.lib.handler import DelayEvent, EventHandler
-from neo.lib.protocol import Errors, Packets, ProtocolError, ZERO_HASH
+from neo.lib.protocol import Errors, Packets, ZERO_HASH
 
 def checkConnectionIsReplicatorConnection(func):
     def wrapper(self, conn, *args, **kw):

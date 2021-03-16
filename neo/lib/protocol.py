@@ -233,34 +233,6 @@ uuid_str = (lambda ns: lambda uuid:
     ns[uuid >> 24] + str(uuid & 0xffffff) if uuid else str(uuid)
     )({v: str(k)[0] for k, v in UUID_NAMESPACES.iteritems()})
 
-class ProtocolError(Exception):
-    """ Base class for protocol errors, close the connection """
-
-class PacketMalformedError(ProtocolError):
-    """Close the connection"""
-
-class UnexpectedPacketError(ProtocolError):
-    """Close the connection"""
-
-class NotReadyError(ProtocolError):
-    """ Just close the connection """
-
-class BackendNotImplemented(Exception):
-    """ Method not implemented by backend storage """
-
-class NonReadableCell(Exception):
-    """Read-access to a cell that is actually non-readable
-
-    This happens in case of race condition at processing partition table
-    updates: client's PT is older or newer than storage's. The latter case is
-    possible because the master must validate any end of replication, which
-    means that the storage node can't anticipate the PT update (concurrently,
-    there may be a first tweaks that moves the replicated cell to another node,
-    and a second one that moves it back).
-
-    On such event, the client must retry, preferably another cell.
-    """
-
 
 class Packet(object):
     """

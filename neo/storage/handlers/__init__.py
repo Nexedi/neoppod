@@ -17,9 +17,8 @@
 import weakref
 from neo.lib import logging
 from neo.lib.handler import EventHandler
-from neo.lib.exception import PrimaryFailure, StoppedOperation
-from neo.lib.protocol import (uuid_str,
-    NodeStates, NodeTypes, Packets, ProtocolError)
+from neo.lib.exception import PrimaryFailure, ProtocolError, StoppedOperation
+from neo.lib.protocol import uuid_str, NodeStates, NodeTypes, Packets
 
 class BaseHandler(EventHandler):
 

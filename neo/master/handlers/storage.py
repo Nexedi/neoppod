@@ -15,9 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.protocol import (CellStates, ClusterStates, Packets, ProtocolError,
-    uuid_str)
-from neo.lib.exception import StoppedOperation
+from neo.lib.exception import ProtocolError, StoppedOperation
+from neo.lib.protocol import CellStates, ClusterStates, Packets, uuid_str
 from neo.lib.pt import PartitionTableException
 from neo.lib.util import dump
 from . import BaseServiceHandler

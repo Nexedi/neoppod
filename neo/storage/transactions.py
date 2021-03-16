@@ -16,10 +16,10 @@
 
 from time import time
 from neo.lib import logging
+from neo.lib.exception import NonReadableCell, ProtocolError
 from neo.lib.handler import DelayEvent, EventQueue
 from neo.lib.util import cached_property, dump
-from neo.lib.protocol import Packets, ProtocolError, NonReadableCell, \
-    uuid_str, MAX_TID, ZERO_TID
+from neo.lib.protocol import Packets, uuid_str, MAX_TID, ZERO_TID
 
 class ConflictError(Exception):
     """

@@ -18,8 +18,9 @@ from collections import deque
 from time import time
 from struct import pack, unpack
 from neo.lib import logging
+from neo.lib.exception import ProtocolError
 from neo.lib.handler import DelayEvent, EventQueue
-from neo.lib.protocol import ProtocolError, uuid_str, ZERO_OID, ZERO_TID
+from neo.lib.protocol import uuid_str, ZERO_OID, ZERO_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
 class Transaction(object):

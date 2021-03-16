@@ -20,8 +20,9 @@ from contextlib import contextmanager
 from copy import copy
 from functools import wraps
 from neo.lib import logging, util
+from neo.lib.exception import NonReadableCell
 from neo.lib.interfaces import abstract, requires
-from neo.lib.protocol import CellStates, NonReadableCell, MAX_TID, ZERO_TID
+from neo.lib.protocol import CellStates, MAX_TID, ZERO_TID
 from . import DatabaseFailure
 
 READABLE = CellStates.UP_TO_DATE, CellStates.FEEDING

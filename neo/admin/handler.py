@@ -15,11 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
+from neo.lib.exception import NotReadyError, PrimaryFailure, ProtocolError
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import uuid_str, \
-    NodeTypes, NotReadyError, Packets, ProtocolError
+from neo.lib.protocol import uuid_str, NodeTypes, Packets
 from neo.lib.pt import PartitionTable
-from neo.lib.exception import PrimaryFailure
 
 NOT_CONNECTED_MESSAGE = 'Not connected to a primary master.'
 

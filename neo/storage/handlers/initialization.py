@@ -16,7 +16,8 @@
 
 from . import BaseMasterHandler
 from neo.lib import logging
-from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
+from neo.lib.exception import ProtocolError
+from neo.lib.protocol import Packets, ZERO_TID
 
 class InitializationHandler(BaseMasterHandler):
 

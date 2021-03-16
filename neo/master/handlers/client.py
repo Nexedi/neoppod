@@ -15,7 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib.handler import DelayEvent
-from neo.lib.protocol import Packets, ProtocolError, MAX_TID, Errors
+from neo.lib.exception import ProtocolError
+from neo.lib.protocol import Packets, MAX_TID, Errors
 from ..app import monotonic_time
 from . import MasterHandler
 

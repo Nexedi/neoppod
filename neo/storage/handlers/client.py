@@ -15,9 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
+from neo.lib.exception import NonReadableCell, ProtocolError
 from neo.lib.handler import DelayEvent
 from neo.lib.util import dump, makeChecksum, add64
-from neo.lib.protocol import Packets, Errors, NonReadableCell, ProtocolError, \
+from neo.lib.protocol import Packets, Errors, \
     ZERO_HASH, ZERO_TID, INVALID_PARTITION
 from ..transactions import ConflictError, NotRegisteredError
 from . import BaseHandler

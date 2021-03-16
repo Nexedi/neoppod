@@ -21,9 +21,9 @@ from msgpack.exceptions import OutOfData, UnpackValueError
 
 from . import attributeTracker, logging
 from .connector import ConnectorException, ConnectorDelayedConnection
+from .exception import PacketMalformedError
 from .locking import RLock
-from .protocol import uuid_str, Errors, PacketMalformedError, Packets, \
-    Unpacker
+from .protocol import uuid_str, Errors, Packets, Unpacker
 
 try:
     msgpack.Unpacker().read_bytes(1)

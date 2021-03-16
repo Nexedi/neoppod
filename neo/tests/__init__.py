@@ -38,8 +38,8 @@ except ImportError:
 from functools import wraps
 from inspect import isclass
 from .mock import Mock
-from neo.lib import debug, logging, protocol
-from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
+from neo.lib import debug, logging
+from neo.lib.protocol import NodeTypes, Packet, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property
 from time import time, sleep
 from struct import pack, unpack
@@ -432,10 +432,6 @@ class NeoUnitTestBase(NeoTestBase):
         conn.connecting = False
         return conn
 
-    def checkProtocolErrorRaised(self, method, *args, **kwargs):
-        """ Check if the ProtocolError exception was raised """
-        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
-
     def checkAborted(self, conn):
         """ Ensure the connection was aborted """
         self.assertEqual(len(conn.mockGetNamedCalls('abort')), 1)
@@ -461,7 +457,7 @@ class NeoUnitTestBase(NeoTestBase):
         calls = conn.mockGetNamedCalls("answer")
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEqual(type(packet), Packets.Error)
         return packet
 
@@ -470,7 +466,7 @@ class NeoUnitTestBase(NeoTestBase):
         calls = conn.mockGetNamedCalls('ask')
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEqual(type(packet), packet_type)
         return packet
 
@@ -479,7 +475,7 @@ class NeoUnitTestBase(NeoTestBase):
         calls = conn.mockGetNamedCalls('answer')
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEqual(type(packet), packet_type)
         return packet
 
@@ -487,7 +483,7 @@ class NeoUnitTestBase(NeoTestBase):
         """ Check if a notify-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('send')
         packet = calls.pop(packet_number).getParam(0)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEqual(type(packet), packet_type)
         return packet
 

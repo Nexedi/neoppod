@@ -31,8 +31,9 @@ from ..app import option_defaults
 from . import buildDatabaseManager, DatabaseFailure
 from .manager import DatabaseManager, Fallback
 from neo.lib import compress, logging, patch, util
+from neo.lib.exception import BackendNotImplemented
 from neo.lib.interfaces import implements
-from neo.lib.protocol import BackendNotImplemented, MAX_TID
+from neo.lib.protocol import MAX_TID
 
 patch.speedupFileStorageTxnLookup()
 

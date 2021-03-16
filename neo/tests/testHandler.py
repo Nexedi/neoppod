@@ -17,9 +17,9 @@
 import unittest
 from .mock import Mock
 from . import NeoUnitTestBase
-from neo.lib.handler import EventHandler
-from neo.lib.protocol import PacketMalformedError, UnexpectedPacketError, \
+from neo.lib.exception import PacketMalformedError, UnexpectedPacketError, \
     NotReadyError, ProtocolError
+from neo.lib.handler import EventHandler
 
 class HandlerTests(NeoUnitTestBase):
 
