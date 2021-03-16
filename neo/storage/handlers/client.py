@@ -181,8 +181,9 @@ class ClientOperationHandler(BaseHandler):
         getObjectFromTransaction = app.tm.getObjectFromTransaction
         object_tid_dict = {}
         for oid in oid_list:
-            r = findUndoTID(oid, ttid,
-                ltid, undone_tid, getObjectFromTransaction(ttid, oid))
+            transaction_object = getObjectFromTransaction(ttid, oid)
+            r = findUndoTID(oid, ltid, undone_tid,
+                transaction_object and (transaction_object[2] or ttid))
             if r:
                 if not r[0]:
                     p = Errors.OidNotFound(dump(oid))

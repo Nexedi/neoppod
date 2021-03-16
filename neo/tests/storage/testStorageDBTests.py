@@ -395,7 +395,7 @@ class StorageDBTests(NeoUnitTestBase):
         # Result: current tid is tid1, data_tid is None (undoing object
         # creation)
         self.assertEqual(
-            db.findUndoTID(oid1, tid5, tid4, tid1, None),
+            db.findUndoTID(oid1, tid4, tid1, None),
             (tid1, None, True))
 
         # Store a new transaction
@@ -407,13 +407,13 @@ class StorageDBTests(NeoUnitTestBase):
         # Undoing oid1 tid2, OK: tid2 is latest
         # Result: current tid is tid2, data_tid is tid1
         self.assertEqual(
-            db.findUndoTID(oid1, tid5, tid4, tid2, None),
+            db.findUndoTID(oid1, tid4, tid2, None),
             (tid2, tid1, True))
 
         # Undoing oid1 tid1, Error: tid2 is latest
         # Result: current tid is tid2, data_tid is -1
         self.assertEqual(
-            db.findUndoTID(oid1, tid5, tid4, tid1, None),
+            db.findUndoTID(oid1, tid4, tid1, None),
             (tid2, None, False))
 
         # Undoing oid1 tid1 with tid2 being undone in same transaction,
@@ -423,8 +423,7 @@ class StorageDBTests(NeoUnitTestBase):
         # Explanation of transaction_object: oid1, no data but a data serial
         # to tid1
         self.assertEqual(
-            db.findUndoTID(oid1, tid5, tid4, tid1,
-                (u64(oid1), None, tid1)),
+            db.findUndoTID(oid1, tid4, tid1, tid1),
             (tid1, None, True))
 
         # Store a new transaction
@@ -437,7 +436,7 @@ class StorageDBTests(NeoUnitTestBase):
         # Result: current tid is tid2, data_tid is None (undoing object
         # creation)
         self.assertEqual(
-            db.findUndoTID(oid1, tid5, tid4, tid1, None),
+            db.findUndoTID(oid1, tid4, tid1, None),
             (tid3, None, True))
 
 if __name__ == "__main__":

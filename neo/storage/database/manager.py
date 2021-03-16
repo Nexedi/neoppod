@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, errno, socket, struct, sys, threading, time
+import os, errno, socket, sys, threading, time
 from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
@@ -747,7 +747,7 @@ class DatabaseManager(object):
         r = self._getObject(oid, tid, before_tid)
         return (r[0], r[-1]) if r else (None, None)
 
-    def findUndoTID(self, oid, tid, ltid, undone_tid, transaction_object):
+    def findUndoTID(self, oid, ltid, undone_tid, current_tid):
         """
         oid
             Object OID
@@ -758,10 +758,9 @@ class DatabaseManager(object):
             the undo.
         undone_tid
             Transaction to undo
-        transaction_object
-            Object data from memory, if it was modified by running
-            transaction.
-            None if is was not modified by running transaction.
+        current_tid
+            Serial of object data from memory, if it was modified by running
+            transaction. None otherwise.
 
         Returns a 3-tuple:
         current_tid (p64)
@@ -778,11 +777,7 @@ class DatabaseManager(object):
             not current), True otherwise.
         """
         u64 = util.u64
-        p64 = util.p64
         oid = u64(oid)
-        tid = u64(tid)
-        if ltid:
-            ltid = u64(ltid)
         undone_tid = u64(undone_tid)
         def getDataTID(tid=None, before_tid=None):
             tid, data_tid = self._getDataTID(oid, tid, before_tid)
@@ -799,22 +794,22 @@ class DatabaseManager(object):
         found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
         if found_undone_tid is None:
             return
-        if transaction_object:
-            transaction_tid = transaction_object[2]
-            current_tid = current_data_tid = \
-                tid if transaction_tid is None else u64(transaction_tid)
+        if current_tid:
+            current_data_tid = u64(current_tid)
         else:
+            if ltid:
+                ltid = u64(ltid)
             current_tid, current_data_tid = getDataTID(before_tid=ltid)
             if current_tid is None:
                 return None, None, False
-        is_current = undone_data_tid in (current_data_tid, tid)
+            current_tid = util.p64(current_tid)
         # Load object data as it was before given transaction.
         # It can be None, in which case it means we are undoing object
         # creation.
         _, data_tid = getDataTID(before_tid=undone_tid)
         if data_tid is not None:
-            data_tid = p64(data_tid)
-        return p64(current_tid), data_tid, is_current
+            data_tid = util.p64(data_tid)
+        return current_tid, data_tid, undone_data_tid == current_data_tid
 
     @abstract
     def lockTransaction(self, tid, ttid):
