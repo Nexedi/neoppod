@@ -22,13 +22,8 @@ from . import ZODBTestCase
 
 class NEOZODBTests(ZODBTestCase, testZODB.ZODBTests):
 
-    def setUp(self):
-        super(NEOZODBTests, self).setUp()
-        self._db = ZODB.DB(self._storage)
-
-    def _tearDown(self, success):
-        self._db.close()
-        super(NEOZODBTests, self)._tearDown(success)
+    def open(self):
+        self._open(_db=ZODB.DB(self.neo.getZODBStorage()))
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(NEOZODBTests, 'check')

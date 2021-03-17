@@ -41,23 +41,53 @@ class ZODBTestCase(TestCase):
         if functional:
             kw['temp_dir'] = self.getTempDirectory()
         self.neo = NEOCluster(**kw)
-        self.neo.start()
-        self.open()
+
+    def __init__(self, methodName):
+        super(ZODBTestCase, self).__init__(methodName)
+        test = getattr(self, methodName).__func__
+        def runTest():
+            try:
+                self.neo.start()
+                self.open()
+                test(self)
+                if not functional:
+                    orphan = self.neo.storage.dm.getOrphanList()
+            finally:
+                self.close()
+                if functional:
+                    self.neo.stop()
+                else:
+                    self.neo.stop(None)
+            if functional:
+                dm = self.neo.getSQLConnection(*self.neo.db_list)
+                try:
+                    dm.setup()
+                    orphan = set(dm.getOrphanList())
+                    orphan.difference_update(dm._uncommitted_data)
+                finally:
+                    dm.close()
+            self.assertFalse(orphan)
+        setattr(self, methodName, runTest)
 
     def _tearDown(self, success):
-        try:
-            if functional:
-                self.neo.stop()
-            else:
-                self.neo.stop(None)
-        except Exception:
-            if success:
-                raise
-        del self.neo, self._storage
+        del self.neo
         super(ZODBTestCase, self)._tearDown(success)
 
     assertEquals = failUnlessEqual = TestCase.assertEqual
     assertNotEquals = failIfEqual = TestCase.assertNotEqual
 
     def open(self, **kw):
-        self._storage = self.neo.getZODBStorage(**kw)
+        self._open(_storage=self.neo.getZODBStorage(**kw))
+
+    def _open(self, **kw):
+        self.close()
+        (attr, value), = kw.iteritems()
+        setattr(self, attr, value)
+        def close():
+            getattr(self, attr).close()
+            delattr(self, attr)
+            del self.close
+        self.close = close
+
+    def close(self):
+        pass
