@@ -46,16 +46,18 @@ class ZODBTestCase(TestCase):
         super(ZODBTestCase, self).__init__(methodName)
         test = getattr(self, methodName).__func__
         def runTest():
+            failed = True
             try:
                 self.neo.start()
                 self.open()
                 test(self)
                 if not functional:
                     orphan = self.neo.storage.dm.getOrphanList()
+                failed = False
             finally:
                 self.close()
                 if functional:
-                    self.neo.stop()
+                    self.neo.stop(ignore_errors=failed)
                 else:
                     self.neo.stop(None)
             if functional:

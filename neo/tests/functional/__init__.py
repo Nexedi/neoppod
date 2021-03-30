@@ -476,7 +476,7 @@ class NEOCluster(object):
             return True, None
         self.expectCondition(start)
 
-    def stop(self, clients=True):
+    def stop(self, clients=True, ignore_errors=False):
         # Suspend all processes to kill before actually killing them, so that
         # nodes don't log errors because they get disconnected from other nodes:
         # otherwise, storage nodes would often flush MB of logs just because we
@@ -503,7 +503,7 @@ class NEOCluster(object):
                 zodb_storage.close()
             self.zodb_storage_list = []
         time.sleep(0.5)
-        if error_list:
+        if error_list and not ignore_errors:
             raise NodeProcessError('\n'.join(error_list))
 
     def waitAll(self):
