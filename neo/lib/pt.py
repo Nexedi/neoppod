@@ -120,13 +120,9 @@ class PartitionTable(object):
 
     def getReadableOffsetList(self, uuid):
         """ Return the partition assigned to the specified UUID """
-        assigned_partitions = []
-        for offset in xrange(self.np):
-            for cell in self.getCellList(offset, readable=True):
-                if cell.getUUID() == uuid:
-                    assigned_partitions.append(offset)
-                    break
-        return assigned_partitions
+        return [offset for offset, cell_list in enumerate(self.partition_list)
+                       if uuid in (cell.getUUID() for cell in cell_list
+                                                  if cell.isReadable())]
 
     def hasOffset(self, offset):
         try:
@@ -149,7 +145,7 @@ class PartitionTable(object):
         return list(self.partition_list[offset])
 
     def getPartition(self, oid_or_tid):
-        return u64(oid_or_tid) % self.getPartitions()
+        return u64(oid_or_tid) % self.np
 
     def getOutdatedOffsetListFor(self, uuid):
         return [
