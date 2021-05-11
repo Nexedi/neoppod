@@ -220,7 +220,7 @@ class TerminalNeoCTL(object):
           Parameters: [-n] [node [...]]
             -n: dry run
         """
-        dry_run = params[0] == '-n'
+        dry_run = params[0] == '-n' if params else False
         changed, row_list = self.neoctl.tweakPartitionTable(
             map(self.asNode, params[dry_run:]), dry_run)
         if changed:
