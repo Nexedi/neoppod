@@ -80,7 +80,12 @@ class Monitor(object):
                     # will be unknown for this cluster.
                     break
             else:
-                tid = self.ltid
+                try:
+                    tid = self.ltid
+                except AttributeError:
+                    # Downstream is in RUNNING state but if we've just started
+                    # whereas we're not operational, we didn't ask its last tid.
+                    break
                 upstream = None
             x = datetimeFromTID(tid)
             if upstream:

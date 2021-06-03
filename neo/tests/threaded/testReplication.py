@@ -1052,6 +1052,27 @@ class ReplicationTests(NEOThreadedTest):
         s = cluster.storage_list[1]
         self.assertRaises(SystemExit, cluster.neoctl.dropNode, s.uuid)
 
+    @backup_test()
+    def testUpstreamStartWithDownstreamRunning(self, backup):
+        upstream = backup.upstream
+        upstream.getTransaction() # "initial database creation" commit
+        self.tic()
+        backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
+        self.tic()
+        self.assertEqual(backup.neoctl.getClusterState(),
+                         ClusterStates.RUNNING)
+        admin = upstream.admin
+        admin.stop()
+        storage = upstream.storage
+        storage.stop()
+        upstream.join((admin, storage))
+        admin.resetNode()
+        admin.start()
+        self.tic()
+        upstream.resetNeoCTL()
+        self.assertEqual(upstream.neoctl.getClusterState(),
+                         ClusterStates.RECOVERING)
+
     @with_cluster(partitions=5, replicas=2, storage_count=3)
     def testCheckReplicas(self, cluster):
         from neo.storage import checker

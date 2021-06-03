@@ -851,10 +851,13 @@ class NEOCluster(object):
     def __exit__(self, t, v, tb):
         self.stop(None)
 
+    def resetNeoCTL(self):
+        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
+
     def start(self, storage_list=None, master_list=None, recovering=False):
         self.started = True
         self._patch()
-        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
+        self.resetNeoCTL()
         if master_list is None:
             master_list = self.master_list
         if storage_list is None:
