@@ -84,6 +84,7 @@ def _resolve_uri(uri):
         if scheme != "neos":
             raise ValueError("invalid uri: %s : credentials can be specified only with neos:// scheme" % uri)
         # ca=ca.crt;cert=my.crt;key=my.key
+        cred = cred.replace(';', '&') # ; is no longer in default separators set bugs.python.org/issue42967
         for k, v in OrderedDict(parse_qsl(cred)).items():
             if k not in _credopts:
                 raise ValueError("invalid uri: %s : unexpected credential %s" % (uri, k))
