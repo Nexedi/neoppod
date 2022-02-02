@@ -13,13 +13,6 @@
 ##############################################################################
 
 def patch():
-    # For msgpack & Py2/ZODB5.
-    try:
-        from zodbpickle import binary
-        binary._pack = bytes.__str__
-    except ImportError:
-        pass
-
     from hashlib import md5
     from ZODB.Connection import Connection
 

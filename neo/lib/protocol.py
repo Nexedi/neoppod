@@ -18,6 +18,12 @@ import threading
 from functools import partial
 from msgpack import packb
 
+# For msgpack & Py2/ZODB5.
+try:
+    from zodbpickle import binary
+except ImportError:
+    class binary: pass # stub, binary should not be used
+
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes.
 PROTOCOL_VERSION = 2
@@ -52,6 +58,8 @@ def Unpacker():
 
     iterable_types = set, tuple
     def default(obj):
+        if isinstance(obj, binary):
+            return obj.__str__()
         try:
             pack = obj._pack
         except AttributeError:
