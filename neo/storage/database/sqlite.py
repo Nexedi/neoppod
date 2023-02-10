@@ -165,7 +165,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         # parameters which affect the persistent data.
         schema_dict['config'] = """CREATE TABLE %s (
                  name TEXT NOT NULL PRIMARY KEY,
-                 value TEXT)
+                 value TEXT) WITHOUT ROWID
             """
 
         # The table "pt" stores a partition table.
@@ -173,7 +173,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                  partition INTEGER NOT NULL,
                  nid INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
-                 PRIMARY KEY (partition, nid))
+                 PRIMARY KEY (partition, nid)
+            ) WITHOUT ROWID
             """
 
         # The table "trans" stores information on committed transactions.
@@ -234,7 +235,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (tid, oid))
+                 PRIMARY KEY (tid, oid)
+            ) WITHOUT ROWID
             """
 
         if self.nonempty('config') is None:

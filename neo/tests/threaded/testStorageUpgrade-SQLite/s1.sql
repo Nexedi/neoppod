@@ -1,7 +1,8 @@
 BEGIN TRANSACTION;
 CREATE TABLE config (
                  name TEXT NOT NULL PRIMARY KEY,
-                 value TEXT);
+                 value TEXT) WITHOUT ROWID
+            ;
 INSERT INTO "config" VALUES('name','testStorageUpgrade');
 INSERT INTO "config" VALUES('nid','1');
 INSERT INTO "config" VALUES('partitions','3');
@@ -38,7 +39,9 @@ CREATE TABLE tobj (
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (tid, oid));
+                 PRIMARY KEY (tid, oid)
+            ) WITHOUT ROWID
+            ;
 CREATE TABLE trans (
                  partition INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
