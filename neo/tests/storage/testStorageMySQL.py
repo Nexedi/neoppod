@@ -63,30 +63,12 @@ class StorageMySQLdbTests(StorageDBTests):
             raise unittest.SkipTest(m)
         return db
 
-    def test_query1(self):
-        # fake result object
-        from array import array
-        result_object = Mock({
-            "num_rows": 1,
-            "fetch_row": ((1, 2, array('b', (1, 2, ))), ),
-        })
-        # expected formatted result
-        expected_result = (
-            (1, 2, '\x01\x02', ),
-        )
-        self.db.conn = Mock({ 'store_result': result_object })
-        result = self.db.query('SELECT ')
-        self.assertEqual(result, expected_result)
-        calls = self.db.conn.mockGetNamedCalls('query')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs('SELECT ')
-
-    def test_query2(self):
+    def test_ServerGone(self):
         with ServerGone(self.db) as p:
             self.assertRaises(ProgrammingError, self.db.query, 'QUERY')
             self.assertFalse(p.applied)
 
-    def test_query3(self):
+    def test_OperationalError(self):
         # OperationalError > raise DatabaseFailure exception
         class FakeConn(object):
             def close(self):

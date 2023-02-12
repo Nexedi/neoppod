@@ -221,10 +221,7 @@ class MySQLDatabaseManager(DatabaseManager):
         conn.query(query)
         if query.startswith("SELECT "):
             r = conn.store_result()
-            return tuple([
-                tuple([d.tostring() if isinstance(d, array) else d
-                      for d in row])
-                for row in r.fetch_row(r.num_rows())])
+            return r.fetch_row(r.num_rows())
         r = query.split(None, 1)[0]
         if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
             self._active = 1
