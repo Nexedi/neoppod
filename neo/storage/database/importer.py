@@ -15,20 +15,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import cPickle, pickle, sys, time
+import pickle, sys, time
 from bisect import bisect, insort
 from collections import deque
 from cStringIO import StringIO
 from ConfigParser import SafeConfigParser
 from ZConfig import loadConfigFile
 from ZODB import BaseStorage
+from ZODB._compat import dumps, loads, _protocol
 from ZODB.config import getStorageSchema, storageFromString
 from ZODB.POSException import POSKeyError
-try:
-    from ZODB._compat import dumps, loads, _protocol
-except ImportError:
-    from cPickle import dumps, loads
-    _protocol = 1
 from ZODB.FileStorage import FileStorage
 
 from ..app import option_defaults
@@ -430,14 +426,14 @@ class ImporterDatabaseManager(DatabaseManager):
         if zodb_state:
             logging.warning("Ignoring configuration file for oid mapping."
                             " Reloading it from NEO storage.")
-            zodb = cPickle.loads(zodb_state)
+            zodb = loads(zodb_state)
             for k, v in self.zodb:
                 zodb[k].connect(v["storage"])
         else:
             zodb = {k: ZODB(**v) for k, v in self.zodb}
             x, = (x for x in zodb.itervalues() if not x.oid)
             x.setup(zodb)
-            self.setConfiguration("zodb", cPickle.dumps(zodb))
+            self.setConfiguration("zodb", dumps(zodb))
         self.zodb_index, self.zodb = zip(*sorted(
             (x.shift_oid, x) for x in zodb.itervalues()))
         self.zodb_ltid = max(x.ltid for x in self.zodb)
@@ -745,7 +741,7 @@ class WriteBack(object):
                 self._idle = Event()
                 self._stop = Event()
                 self._np = 1 + self._db._getMaxPartition()
-                self._db = cPickle.dumps(self._db, 2)
+                self._db = dumps(self._db, 2)
                 self._process = Process(target=self._run)
                 self._process.daemon = True
                 self._process.start()
@@ -757,7 +753,7 @@ class WriteBack(object):
 
     def _run(self):
         util.setproctitle('neostorage: write back')
-        self._db = cPickle.loads(self._db)
+        self._db = loads(self._db)
         try:
             @self._db.autoReconnect
             def _():
