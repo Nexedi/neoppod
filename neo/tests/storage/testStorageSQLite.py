@@ -25,7 +25,7 @@ class StorageSQLiteTests(StorageDBTests):
         db = os.path.join(getTempDirectory(), DB_PREFIX + '0.sqlite')
         return SQLiteDatabaseManager(db)
 
-    def getDB(self, reset=0):
+    def _getDB(self, reset=False):
         db = SQLiteDatabaseManager(':memory:')
         db.setup(reset, True)
         return db
@@ -33,8 +33,8 @@ class StorageSQLiteTests(StorageDBTests):
     def test_lockDatabase(self):
         super(StorageSQLiteTests, self).test_lockDatabase()
         # No lock on temporary databases.
-        db = self.getDB()
-        self.getDB().close()
+        db = self._getDB()
+        self._getDB().close()
         db.close()
 
 del StorageDBTests

@@ -82,8 +82,9 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         app.pt = PartitionTable(3, 1)
         app.pt._id = 1
         ptid = 2
-        app.dm = Mock({ })
-        app.replicator = Mock({})
+        app.dm.close()
+        app.dm = Mock()
+        app.replicator = Mock()
         self.operation.notifyPartitionChanges(conn, ptid, 1, cells)
         # ptid set
         self.assertEqual(app.pt.getID(), ptid)

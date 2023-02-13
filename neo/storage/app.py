@@ -26,7 +26,7 @@ from neo.lib.pt import PartitionTable
 from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
-from .database import buildDatabaseManager, DATABASE_MANAGER_DICT
+from .database import buildDatabaseManager, DATABASE_MANAGERS
 from .handlers import identification, initialization, master
 from .replicator import Replicator
 from .transactions import TransactionManager
@@ -37,7 +37,7 @@ option_defaults = {
   'adapter': 'MySQL',
   'wait': 0,
 }
-assert option_defaults['adapter'] in DATABASE_MANAGER_DICT
+assert option_defaults['adapter'] in DATABASE_MANAGERS
 
 @buildOptionParser
 class Application(BaseApplication):
@@ -52,7 +52,7 @@ class Application(BaseApplication):
         cls.addCommonServerOptions('storage', '127.0.0.1')
 
         _ = parser.group('storage')
-        _('a', 'adapter', choices=sorted(DATABASE_MANAGER_DICT),
+        _('a', 'adapter', choices=DATABASE_MANAGERS,
             help="database adapter to use")
         _('d', 'database', required=True,
             help="database connections string")

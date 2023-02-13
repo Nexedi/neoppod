@@ -48,9 +48,10 @@ Requirements
 
 - Python 2.7.x (2.7.9 or later for SSL support)
 
-- For storage nodes using MySQL backend:
+- For storage nodes using MySQL, one of the following backends:
 
-  - MySQLdb: https://github.com/PyMySQL/mysqlclient-python
+  - MySQLdb: https://github.com/PyMySQL/mysqlclient
+  - PyMySQL: https://github.com/PyMySQL/PyMySQL
 
 - For client nodes: ZODB 4.4.5 or later
 

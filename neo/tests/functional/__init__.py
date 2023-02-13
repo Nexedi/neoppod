@@ -36,7 +36,7 @@ from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump, setproctitle
 from .. import (ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SSL,
-    buildUrlFromString, cluster, getTempDirectory, setupMySQLdb,
+    buildUrlFromString, cluster, getTempDirectory, setupMySQL,
     ImporterConfigParser, NeoTestBase, Patch)
 from neo.client.Storage import Storage
 from neo.storage.database import manager, buildDatabaseManager
@@ -55,8 +55,8 @@ command_dict = {
 DELAY_SAFETY_MARGIN = 10
 MAX_START_TIME = 30
 
-PYPY_EXECUTABLE = os.getenv('NEO_PYPY')
-if PYPY_EXECUTABLE:
+NEOMASTER_PYPY = os.getenv('NEOMASTER_PYPY')
+if NEOMASTER_PYPY:
     import neo, msgpack
     PYPY_TEMPLATE = """\
 import os, signal, sys
@@ -194,8 +194,8 @@ class Process(object):
                     from coverage import Coverage
                     coverage = Coverage(coverage_data_path)
                     coverage.start()
-                elif PYPY_EXECUTABLE and command == 'neomaster':
-                    os.execlp(PYPY_EXECUTABLE, PYPY_EXECUTABLE, '-c',
+                elif NEOMASTER_PYPY and command == 'neomaster':
+                    os.execlp(NEOMASTER_PYPY, NEOMASTER_PYPY, '-c',
                         PYPY_TEMPLATE % (
                             w, self._coverage_fd, w,
                             logging._max_size, logging._max_packet,
@@ -348,7 +348,7 @@ class NEOCluster(object):
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory ' + temp_dir
         if adapter == 'MySQL':
-            self.db_template = setupMySQLdb(db_list, clear_databases)
+            self.db_template = setupMySQL(db_list, clear_databases)
         elif adapter == 'SQLite':
             self.db_template = (lambda t: lambda db:
                 ':memory:' if db is None else db if os.sep in db else t % db

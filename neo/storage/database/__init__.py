@@ -16,18 +16,51 @@
 
 LOG_QUERIES = False
 
-DATABASE_MANAGER_DICT = {
-    'Importer': 'importer.ImporterDatabaseManager',
-    'MySQL': 'mysql.MySQLDatabaseManager',
-    'SQLite': 'sqlite.SQLiteDatabaseManager',
-}
-
-def getAdapterKlass(name):
+def useMySQLdb():
+    import platform
+    py = platform.python_implementation() == 'PyPy'
     try:
-        module, name = DATABASE_MANAGER_DICT[name or 'MySQL'].split('.')
-    except KeyError:
-        raise DatabaseFailure('Cannot find a database adapter <%s>' % name)
-    return getattr(__import__(module, globals(), level=1), name)
+        if py:
+            import pymysql
+        else:
+            import MySQLdb
+    except ImportError:
+        return py
+    return not py
+
+class getAdapterKlass(object):
+
+    def __new__(cls, name):
+        try:
+            m = getattr(cls, name or 'MySQL')
+        except AttributeError:
+            raise DatabaseFailure('Cannot find a database adapter <%s>' % name)
+        return m()
+
+    @staticmethod
+    def Importer():
+        from .importer import ImporterDatabaseManager as DM
+        return DM
+
+    @classmethod
+    def MySQL(cls, MySQLdb=None):
+        if MySQLdb is not None:
+            global useMySQLdb
+            useMySQLdb = lambda: MySQLdb
+        from .mysql import binding_name, MySQLDatabaseManager as DM
+        assert hasattr(cls, binding_name)
+        return DM
+
+    MySQLdb = classmethod(lambda cls: cls.MySQL(True))
+    PyMySQL = classmethod(lambda cls: cls.MySQL(False))
+
+    @staticmethod
+    def SQLite():
+        from .sqlite import SQLiteDatabaseManager as DM
+        return DM
+
+DATABASE_MANAGERS = tuple(sorted(
+    x for x in dir(getAdapterKlass) if not x.startswith('_')))
 
 def buildDatabaseManager(name, args=(), kw={}):
     return getAdapterKlass(name)(*args, **kw)

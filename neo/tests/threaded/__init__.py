@@ -40,7 +40,7 @@ from neo.lib.protocol import ZERO_OID, ZERO_TID, MAX_TID, uuid_str, \
     ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
 from neo.master.recovery import  RecoveryManager
-from .. import (getTempDirectory, setupMySQLdb,
+from .. import (getTempDirectory, setupMySQL,
     ImporterConfigParser, NeoTestBase, Patch,
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX)
 
@@ -787,7 +787,7 @@ class NEOCluster(object):
             db_list = ['%s%u' % (DB_PREFIX, self._allocate('db', index))
                        for _ in xrange(storage_count)]
         if adapter == 'MySQL':
-            db = setupMySQLdb(db_list, clear_databases)
+            db = setupMySQL(db_list, clear_databases)
         elif adapter == 'SQLite':
             db = os.path.join(getTempDirectory(), '%s.sqlite').__mod__
         else:

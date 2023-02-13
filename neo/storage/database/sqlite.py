@@ -83,8 +83,8 @@ class SQLiteDatabaseManager(DatabaseManager):
         self.lock(self.db)
         if self.UNSAFE:
             q = self.query
-            q("PRAGMA synchronous = OFF")
-            q("PRAGMA journal_mode = MEMORY")
+            q("PRAGMA synchronous = OFF").fetchall()
+            q("PRAGMA journal_mode = MEMORY").fetchall()
         self._config = {}
 
     def _getDevPath(self):

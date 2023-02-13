@@ -1663,6 +1663,9 @@ class Test(NEOThreadedTest):
             m2c, = cluster.master.getConnectionList(cluster.client)
             cluster.client._cache.clear()
             c.cacheMinimize()
+            if not hasattr(sys, 'getrefcount'): # PyPy
+                # See persistent commit ff64867cca3179b1a6379c93b6ef90db565da36c
+                import gc; gc.collect()
             # Make the master disconnects the client when the latter is about
             # to send a AskObject packet to the storage node.
             with cluster.client.filterConnection(cluster.storage) as c2s:

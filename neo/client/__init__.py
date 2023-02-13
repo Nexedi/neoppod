@@ -33,6 +33,7 @@ def patch():
 
     assert H(Connection.afterCompletion) in (
         'cd3a080b80fd957190ff3bb867149448', # Python 2.7
+        'b1d9685c13967d4b6d74c7ef86f68f17', # PyPy 2.7
         )
 
     def afterCompletion(self, *ignored):

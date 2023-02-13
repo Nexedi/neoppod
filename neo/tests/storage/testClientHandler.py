@@ -47,10 +47,15 @@ class StorageClientHandlerTests(NeoUnitTestBase):
     def _getConnection(self, uuid=None):
         return self.getFakeConnection(uuid=uuid, address=('127.0.0.1', 1000))
 
+    def fakeDM(self, **kw):
+        self.app.dm.close()
+        self.app.dm = dm = Mock(kw)
+        return dm
+
     def test_18_askTransactionInformation1(self):
         # transaction does not exists
         conn = self._getConnection()
-        self.app.dm = Mock({'getNumPartitions': 1})
+        self.fakeDM(getNumPartitions=1)
         self.operation.askTransactionInformation(conn, INVALID_TID)
         self.checkErrorPacket(conn)
 
@@ -58,7 +63,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         # invalid offsets => error
         app = self.app
         app.pt = Mock()
-        app.dm = Mock()
+        self.fakeDM()
         conn = self._getConnection()
         self.checkProtocolErrorRaised(self.operation.askTIDs, conn, 1, 1, None)
         self.assertEqual(len(app.pt.mockGetNamedCalls('getCellList')), 0)
@@ -68,7 +73,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         # well case => answer
         conn = self._getConnection()
         self.app.pt = Mock({'getPartitions': 1})
-        self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
+        self.fakeDM(getTIDList=(INVALID_TID,))
         self.operation.askTIDs(conn, 1, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEqual(len(calls), 1)
@@ -77,12 +82,11 @@ class StorageClientHandlerTests(NeoUnitTestBase):
 
     def test_26_askObjectHistory1(self):
         # invalid offsets => error
-        app = self.app
-        app.dm = Mock()
+        dm = self.fakeDM()
         conn = self._getConnection()
         self.checkProtocolErrorRaised(self.operation.askObjectHistory, conn,
             1, 1, None)
-        self.assertEqual(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
+        self.assertEqual(len(dm.mockGetNamedCalls('getObjectHistory')), 0)
 
     def test_askObjectUndoSerial(self):
         conn = self._getConnection(uuid=self.getClientUUID())
@@ -94,9 +98,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.tm = Mock({
             'getObjectFromTransaction': None,
         })
-        self.app.dm = Mock({
-            'findUndoTID': ReturnValues((None, None, False), )
-        })
+        self.fakeDM(findUndoTID=ReturnValues((None, None, False),))
         self.operation.askObjectUndoSerial(conn, tid, ltid, undone_tid, oid_list)
         self.checkErrorPacket(conn)
 

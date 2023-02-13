@@ -14,25 +14,45 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os, re, string, struct, sys, time
 from binascii import a2b_hex
 from collections import OrderedDict
 from functools import wraps
-import MySQLdb
-from MySQLdb import DataError, IntegrityError, \
-    OperationalError, ProgrammingError
-from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
-from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY, NO_SUCH_TABLE
+from . import useMySQLdb
+if useMySQLdb():
+    binding_name = 'MySQLdb'
+    from MySQLdb.connections import Connection
+    from MySQLdb import __version__ as binding_version, DataError, \
+        IntegrityError, OperationalError, ProgrammingError
+    InternalOrOperationalError = OperationalError
+    from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
+    from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY, NO_SUCH_TABLE
+    def fetch_all(conn):
+        r = conn.store_result()
+        return r.fetch_row(r.num_rows())
+    # for tests
+    from MySQLdb import NotSupportedError
+    from MySQLdb.constants.ER import BAD_DB_ERROR, UNKNOWN_STORAGE_ENGINE
+else:
+    binding_name = 'PyMySQL'
+    from pymysql.connections import Connection
+    from pymysql import __version__ as binding_version, DataError, \
+        IntegrityError, InternalError, OperationalError, ProgrammingError
+    InternalOrOperationalError = InternalError, OperationalError
+    from pymysql.constants.CR import (
+        CR_SERVER_GONE_ERROR as SERVER_GONE_ERROR,
+        CR_SERVER_LOST as SERVER_LOST)
+    from pymysql.constants.ER import DATA_TOO_LONG, DUP_ENTRY, NO_SUCH_TABLE
+    def fetch_all(conn):
+        return conn._result.rows
+    # for tests
+    from pymysql import NotSupportedError
+    from pymysql.constants.ER import BAD_DB_ERROR, UNKNOWN_STORAGE_ENGINE
 # BBB: the following 2 constants were added to mysqlclient 1.3.8
 DROP_LAST_PARTITION = 1508
 SAME_NAME_PARTITION = 1517
 from array import array
 from hashlib import sha1
-import os
-import re
-import string
-import struct
-import sys
-import time
 
 from . import LOG_QUERIES, DatabaseFailure
 from .manager import DatabaseManager, splitOIDField
@@ -68,7 +88,7 @@ def auto_reconnect(wrapped):
         while 1:
             try:
                 return wrapped(self, *args)
-            except OperationalError as m:
+            except InternalOrOperationalError as m:
                 # IDEA: Is it safe to retry in case of DISK_FULL ?
                 # XXX:  However, this would another case of failure that would
                 #       be unnoticed by other nodes (ADMIN & MASTER). When
@@ -121,6 +141,7 @@ class MySQLDatabaseManager(DatabaseManager):
         return super(MySQLDatabaseManager, self).__getattr__(attr)
 
     def _tryConnect(self):
+        # BBB: db/passwd are deprecated favour of database/password since 1.3.8
         kwd = {'db' : self.db}
         if self.user:
             kwd['user'] = self.user
@@ -128,8 +149,8 @@ class MySQLDatabaseManager(DatabaseManager):
                 kwd['passwd'] = self.passwd
         if self.socket:
             kwd['unix_socket'] = os.path.expanduser(self.socket)
-        logging.info('connecting to MySQL on the database %s with user %s',
-                     self.db, self.user)
+        logging.info('Using %s %s to connect to the database %s with user %s',
+                     binding_name, binding_version, self.db, self.user)
         self._active = 0
         if self._wait < 0:
             timeout_at = None
@@ -138,7 +159,7 @@ class MySQLDatabaseManager(DatabaseManager):
         last = None
         while True:
             try:
-                self.conn = MySQLdb.connect(**kwd)
+                self.conn = Connection(**kwd)
                 break
             except Exception as e:
                 if None is not timeout_at <= time.time():
@@ -154,15 +175,15 @@ class MySQLDatabaseManager(DatabaseManager):
         self._config = {}
         conn = self.conn
         conn.autocommit(False)
-        conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
-        conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
+        conn.query("SET"
+            " SESSION sql_mode = 'TRADITIONAL,NO_ENGINE_SUBSTITUTION',"
+            " SESSION group_concat_max_len = %u" % (2**32-1))
         if self._engine == 'RocksDB':
             # Maximum value for _deleteRange.
             conn.query("SET SESSION rocksdb_max_row_locks = %u" % 2**30)
         def query(sql):
             conn.query(sql)
-            r = conn.store_result()
-            return r.fetch_row(r.num_rows())
+            return fetch_all(conn)
         if self.LOCK:
             (locked,), = query("SELECT GET_LOCK('%s.%s', 0)"
                 % (self.db, self.LOCK))
@@ -220,8 +241,7 @@ class MySQLDatabaseManager(DatabaseManager):
         conn = self.conn
         conn.query(query)
         if query.startswith("SELECT "):
-            r = conn.store_result()
-            return r.fetch_row(r.num_rows())
+            return fetch_all(conn)
         r = query.split(None, 1)[0]
         if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
             self._active = 1

@@ -22,7 +22,7 @@ from cStringIO import StringIO
 from ConfigParser import SafeConfigParser
 from ZConfig import loadConfigFile
 from ZODB import BaseStorage
-from ZODB._compat import dumps, loads, _protocol
+from ZODB._compat import dumps, loads, _protocol, PersistentPickler
 from ZODB.config import getStorageSchema, storageFromString
 from ZODB.POSException import POSKeyError
 from ZODB.FileStorage import FileStorage
@@ -44,6 +44,35 @@ def transactionAsTuple(txn):
         dumps(ext, _protocol) if ext else '',
         txn.status == 'p', txn.tid)
 
+@apply
+def patch_save_reduce(): # for _noload.__reduce__
+    Pickler = PersistentPickler(None, StringIO()).__class__
+    try:
+        orig_save_reduce = Pickler.save_reduce.__func__
+    except AttributeError: # both cPickle and C zodbpickle accept
+        return             # that first reduce argument is None
+    BUILD = pickle.BUILD
+    REDUCE = pickle.REDUCE
+    def save_reduce(self, func, args, state=None,
+                    listitems=None, dictitems=None, obj=None):
+        if func is not None:
+            return orig_save_reduce(self,
+                func, args, state, listitems, dictitems, obj)
+        assert args is ()
+        save = self.save
+        write = self.write
+        save(func)
+        save(args)
+        self.write(REDUCE)
+        if obj is not None:
+            self.memoize(obj)
+        self._batch_appends(listitems)
+        self._batch_setitems(dictitems)
+        if state is not None:
+            save(state)
+            write(BUILD)
+    Pickler.save_reduce = save_reduce
+
 
 class Reference(object):
 
@@ -59,17 +88,15 @@ class Repickler(pickle.Unpickler):
         # Use python implementation for unpickling because loading can not
         # be customized enough with cPickle.
         pickle.Unpickler.__init__(self, self._f)
-        # For pickling, it is possible to use the fastest implementation,
-        # which also generates fewer useless PUT opcodes.
-        self._p = cPickle.Pickler(self._f, 1)
-        self.memo = self._p.memo # just a tiny optimization
-
         def persistent_id(obj):
             if isinstance(obj, Reference):
                 r = obj.value
                 del obj.value # minimize refcnt like for deque+popleft
                 return r
-        self._p.inst_persistent_id = persistent_id
+        # For pickling, it is possible to use the fastest implementation,
+        # which also generates fewer useless PUT opcodes.
+        self._p = PersistentPickler(persistent_id, self._f, 1)
+        self.memo = self._p.memo # just a tiny optimization
 
         def persistent_load(obj):
             new_obj = persistent_map(obj)
@@ -96,8 +123,10 @@ class Repickler(pickle.Unpickler):
             self.memo.clear()
         if self._changed:
             f.truncate(0)
+            dump = self._p.dump
             try:
-                self._p.dump(classmeta).dump(state)
+                dump(classmeta)
+                dump(state)
             finally:
                 self.memo.clear()
             return f.getvalue()

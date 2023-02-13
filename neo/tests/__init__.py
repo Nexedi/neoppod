@@ -28,7 +28,7 @@ import unittest
 import weakref
 import transaction
 
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from ConfigParser import SafeConfigParser
 from cStringIO import StringIO
 try:
@@ -75,6 +75,12 @@ DB_SOCKET = os.getenv('NEO_DB_SOCKET', '')
 DB_INSTALL = os.getenv('NEO_DB_INSTALL', 'mysql_install_db')
 DB_MYSQLD = os.getenv('NEO_DB_MYSQLD', '/usr/sbin/mysqld')
 DB_MYCNF = os.getenv('NEO_DB_MYCNF')
+
+adapter = os.getenv('NEO_TESTS_ADAPTER')
+if adapter:
+    from neo.storage.database import getAdapterKlass
+    if getAdapterKlass(adapter).__name__ == 'MySQLDatabaseManager':
+        os.environ['NEO_TESTS_ADAPTER'] = 'MySQL'
 
 IP_VERSION_FORMAT_DICT = {
     socket.AF_INET:  '127.0.0.1',
@@ -137,31 +143,28 @@ def getTempDirectory():
         print 'Using temp directory %r.' % temp_dir
     return temp_dir
 
-def setupMySQLdb(db_list, clear_databases=True):
+def setupMySQL(db_list, clear_databases=True):
     if mysql_pool:
         return mysql_pool.setup(db_list, clear_databases)
-    import MySQLdb
-    from MySQLdb.constants.ER import BAD_DB_ERROR
+    from neo.storage.database.mysql import \
+        Connection, OperationalError, BAD_DB_ERROR
     user = DB_USER
     password = ''
     kw = {'unix_socket': os.path.expanduser(DB_SOCKET)} if DB_SOCKET else {}
-    conn = MySQLdb.connect(user=DB_ADMIN, passwd=DB_PASSWD, **kw)
-    cursor = conn.cursor()
-    for database in db_list:
-        try:
-            conn.select_db(database)
-            if not clear_databases:
-                continue
-            cursor.execute('DROP DATABASE `%s`' % database)
-        except MySQLdb.OperationalError, (code, _):
-            if code != BAD_DB_ERROR:
-                raise
-            cursor.execute('GRANT ALL ON `%s`.* TO "%s"@"localhost" IDENTIFIED'
+    # BBB: passwd is deprecated favour of password since 1.3.8
+    with closing(Connection(user=DB_ADMIN, passwd=DB_PASSWD, **kw)) as conn:
+        for database in db_list:
+            try:
+                conn.select_db(database)
+                if not clear_databases:
+                    continue
+                conn.query('DROP DATABASE `%s`' % database)
+            except OperationalError, (code, _):
+                if code != BAD_DB_ERROR:
+                    raise
+                conn.query('GRANT ALL ON `%s`.* TO "%s"@"localhost" IDENTIFIED'
                            ' BY "%s"' % (database, user, password))
-        cursor.execute('CREATE DATABASE `%s`' % database)
-    cursor.close()
-    conn.commit()
-    conn.close()
+            conn.query('CREATE DATABASE `%s`' % database)
     return '{}:{}@%s{}'.format(user, password, DB_SOCKET).__mod__
 
 class MySQLPool(object):
@@ -178,7 +181,7 @@ class MySQLPool(object):
         self.kill(*self._mysqld_dict)
 
     def setup(self, db_list, clear_databases):
-        import MySQLdb
+        from neo.storage.database.mysql import Connection
         start_list = set(db_list).difference(self._mysqld_dict)
         if start_list:
             start_list = sorted(start_list)
@@ -221,12 +224,11 @@ class MySQLPool(object):
                     if x is not None:
                         raise subprocess.CalledProcessError(x, DB_MYSQLD)
         for db in db_list:
-            db = MySQLdb.connect(unix_socket=self._sock_template % db,
-                                 user='root')
-            if clear_databases:
-                db.query('DROP DATABASE IF EXISTS neo')
-            db.query('CREATE DATABASE IF NOT EXISTS neo')
-            db.close()
+            with closing(Connection(unix_socket=self._sock_template % db,
+                                    user='root')) as db:
+                if clear_databases:
+                    db.query('DROP DATABASE IF EXISTS neo')
+                db.query('CREATE DATABASE IF NOT EXISTS neo')
         return ('root@neo' + self._sock_template).__mod__
 
     def start(self, *db, **kw):
@@ -274,6 +276,8 @@ class NeoTestBase(unittest.TestCase):
         assert self.tearDown.im_func is NeoTestBase.tearDown.im_func
         self._tearDown(sys._getframe(1).f_locals['success'])
         assert not gc.garbage, gc.garbage
+        # XXX: I tried the following line to avoid random freezes on PyPy...
+        gc.collect()
 
     def _tearDown(self, success):
         # Kill all unfinished transactions for next test.
@@ -335,7 +339,7 @@ class NeoUnitTestBase(NeoTestBase):
         """ create empty databases """
         adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
         if adapter == 'MySQL':
-            db_template = setupMySQLdb(
+            db_template = setupMySQL(
                 [prefix + str(i) for i in xrange(number)])
             self.db_template = lambda i: db_template(prefix + str(i))
         elif adapter == 'SQLite':

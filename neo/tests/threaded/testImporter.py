@@ -128,7 +128,9 @@ class ImporterTests(NEOThreadedTest):
         r5["foo"] = "bar"
         state = {r2: r3, r4: r5}
         p = StringIO()
-        Pickler(p, 1).dump(Obj).dump(state)
+        pickler = Pickler(p, 1)
+        pickler.dump(Obj)
+        pickler.dump(state)
         p = p.getvalue()
         r = DummyRepickler()(p)
         load = Unpickler(StringIO(r)).load

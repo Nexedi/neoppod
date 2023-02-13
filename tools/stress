@@ -18,7 +18,7 @@ from neo.lib.debug import PdbSocket
 from neo.lib.node import Node
 from neo.lib.protocol import NodeTypes
 from neo.lib.util import datetimeFromTID, p64, u64
-from neo.storage.app import DATABASE_MANAGER_DICT, \
+from neo.storage.app import DATABASE_MANAGERS, \
     Application as StorageApplication
 from neo.tests import getTempDirectory, mysql_pool
 from neo.tests.ConflictFree import ConflictFreeLog
@@ -580,7 +580,7 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
 
 
 def main():
-    adapters = sorted(DATABASE_MANAGER_DICT)
+    adapters = list(DATABASE_MANAGERS)
     adapters.remove('Importer')
     default_adapter = 'SQLite'
     assert default_adapter in adapters

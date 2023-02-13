@@ -35,7 +35,7 @@ if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
     coverage.start()
 
 from neo.lib import logging
-from neo.tests import getTempDirectory, NeoTestBase, Patch, \
+from neo.tests import adapter, getTempDirectory, NeoTestBase, Patch, \
     __dict__ as neo_tests__dict__
 from neo.tests.benchmark import BenchmarkRunner
 
@@ -216,9 +216,11 @@ class NeoTestRunner(unittest.TextTestResult):
         add_status('Directory', self.temp_directory)
         if self.testsRun:
             add_status('Status', '%.3f%%' % (success * 100.0 / self.testsRun))
-        for var in os.environ:
-            if var.startswith('NEO_TEST'):
-                add_status(var, os.environ[var])
+        for k, v in os.environ.iteritems():
+            if k.startswith('NEO_TEST'):
+                if k == 'NEO_TESTS_ADAPTER' and v == 'MySQL':
+                    from neo.storage.database.mysql import binding_name as v
+                add_status(k, v)
         # visual
         header       = "%25s |  run  | unexpected | expected | skipped |  time    \n" % 'Test Module'
         separator    = "%25s-+-------+------------+----------+---------+----------\n" % ('-' * 25)
@@ -318,7 +320,7 @@ class TestRunner(BenchmarkRunner):
                  " passed.")
         parser.epilog = """
 Environment Variables:
-  NEO_PYPY                    PyPy executable to run master nodes in functional
+  NEOMASTER_PYPY              PyPy executable to run master nodes in functional
                               tests (and also in zodb tests depending on
                               NEO_TEST_ZODB_FUNCTIONAL).
   NEO_TESTS_ADAPTER           Default is SQLite for threaded clusters,

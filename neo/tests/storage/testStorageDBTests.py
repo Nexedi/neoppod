@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from binascii import a2b_hex
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import unittest
 from neo.lib.util import add64, p64, u64
 from neo.lib.protocol import CellStates, ZERO_HASH, ZERO_OID, ZERO_TID, MAX_TID
@@ -34,22 +34,18 @@ class StorageDBTests(NeoUnitTestBase):
         try:
             return self._db
         except AttributeError:
-            self.setNumPartitions(1)
+            self.setupDB(1)
             return self._db
 
-    def _tearDown(self, success):
-        try:
-            self.__dict__.pop('_db', None).close()
-        except AttributeError:
-            pass
-        NeoUnitTestBase._tearDown(self, success)
-
-    def getDB(self, reset=0):
+    def _getDB(self, reset):
         raise NotImplementedError
 
-    def setNumPartitions(self, num_partitions, reset=0):
+    def setupDB(self, num_partitions=None, reset=False):
         assert not hasattr(self, '_db')
-        self._db = db = self.getDB(reset)
+        self._db = db = self._getDB(reset)
+        self.addCleanup(db.close)
+        if num_partitions is None:
+            return
         uuid = self.getStorageUUID()
         db.setUUID(uuid)
         self.assertEqual(uuid, db.getUUID())
@@ -80,12 +76,12 @@ class StorageDBTests(NeoUnitTestBase):
             self.db.abortTransaction(ttid)
 
     def test_UUID(self):
-        db = self.getDB()
-        self.checkConfigEntry(db.getUUID, db.setUUID, 123)
+        self.setupDB()
+        self.checkConfigEntry(self.db.getUUID, self.db.setUUID, 123)
 
     def test_Name(self):
-        db = self.getDB()
-        self.checkConfigEntry(db.getName, db.setName, 'TEST_NAME')
+        self.setupDB()
+        self.checkConfigEntry(self.db.getName, self.db.setName, 'TEST_NAME')
 
     def getOIDs(self, count):
         return map(p64, xrange(count))
@@ -111,9 +107,8 @@ class StorageDBTests(NeoUnitTestBase):
         raise NotImplementedError
 
     def test_lockDatabase(self):
-        db = self._test_lockDatabase_open()
-        self.assertRaises(SystemExit, self._test_lockDatabase_open)
-        db.close()
+        with closing(self._test_lockDatabase_open()) as db:
+            self.assertRaises(SystemExit, self._test_lockDatabase_open)
         self._test_lockDatabase_open().close()
 
     def test_getUnfinishedTIDDict(self):
@@ -237,7 +232,7 @@ class StorageDBTests(NeoUnitTestBase):
 
     def test_deleteRange(self):
         np = 4
-        self.setNumPartitions(np)
+        self.setupDB(np)
         t1, t2, t3 = map(p64, (1, 2, 3))
         oid_list = self.getOIDs(np * 2)
         for tid in t1, t2, t3:
@@ -310,7 +305,7 @@ class StorageDBTests(NeoUnitTestBase):
         return tid_list
 
     def test_getTIDList(self):
-        self.setNumPartitions(2, True)
+        self.setupDB(2, True)
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
         # - all partitions
@@ -330,7 +325,7 @@ class StorageDBTests(NeoUnitTestBase):
         self.checkSet(result, [])
 
     def test_getReplicationTIDList(self):
-        self.setNumPartitions(2, True)
+        self.setupDB(2, True)
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # - one partition
         result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 0)
@@ -352,7 +347,7 @@ class StorageDBTests(NeoUnitTestBase):
         def check(trans, obj, *args):
             self.assertEqual(trans, self.db.checkTIDRange(*args))
             self.assertEqual(obj, self.db.checkSerialRange(*(args+(ZERO_OID,))))
-        self.setNumPartitions(2, True)
+        self.setupDB(2, True)
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         z = 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID
         # - one partition
@@ -380,7 +375,7 @@ class StorageDBTests(NeoUnitTestBase):
         check(y, x + y[1:], 1, 1, ZERO_TID, MAX_TID)
 
     def test_findUndoTID(self):
-        self.setNumPartitions(4, True)
+        self.setupDB(4, True)
         db = self.db
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()

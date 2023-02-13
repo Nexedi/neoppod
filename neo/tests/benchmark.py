@@ -51,13 +51,20 @@ class BenchmarkRunner(object):
 
     def build_report(self, content):
         fmt = "%-25s : %s"
+        py_impl = platform.python_implementation()
+        if py_impl == 'PyPy':
+            info = sys.pypy_version_info
+            py_impl += ' %s.%s.%s' % info[:3]
+            kind = info.releaselevel
+            if kind != 'final':
+                py_impl += kind[0] + str(info.serial)
         status = "\n".join([fmt % item for item in [
             ('Title', self._config.title),
             ('Date', datetime.date.today().isoformat()),
             ('Node', platform.node()),
             ('Machine', platform.machine()),
             ('System', platform.system()),
-            ('Python', platform.python_version()),
+            ('Python', '%s [%s]' % (platform.python_version(), py_impl)),
         ]])
         status += '\n\n'
         status += "\n".join([fmt % item for item in self._status])

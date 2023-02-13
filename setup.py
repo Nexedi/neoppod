@@ -10,6 +10,8 @@ Intended Audience :: Developers
 License :: OSI Approved :: GNU General Public License (GPL)
 Operating System :: POSIX :: Linux
 Programming Language :: Python :: 2.7
+Programming Language :: Python :: Implementation :: CPython
+Programming Language :: Python :: Implementation :: PyPy
 Topic :: Database
 Topic :: Software Development :: Libraries :: Python Modules
 """
@@ -53,6 +55,7 @@ extras_require = {
     'master': [],
     'storage-sqlite': [],
     'storage-mysqldb': ['mysqlclient'],
+    'storage-pymysql': ['PyMySQL'],
     'storage-importer': zodb_require + ['setproctitle'],
 }
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',

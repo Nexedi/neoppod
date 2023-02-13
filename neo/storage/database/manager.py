@@ -800,10 +800,9 @@ class DatabaseManager(object):
         if found_undone_tid is None:
             return
         if transaction_object:
-            try:
-                current_tid = current_data_tid = u64(transaction_object[2])
-            except struct.error:
-                current_tid = current_data_tid = tid
+            transaction_tid = transaction_object[2]
+            current_tid = current_data_tid = \
+                tid if transaction_tid is None else u64(transaction_tid)
         else:
             current_tid, current_data_tid = getDataTID(before_tid=ltid)
             if current_tid is None:

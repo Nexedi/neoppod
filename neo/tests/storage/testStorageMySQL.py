@@ -15,17 +15,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from contextlib import contextmanager
-from MySQLdb import NotSupportedError, OperationalError, ProgrammingError
-from MySQLdb.constants.CR import SERVER_GONE_ERROR
-from MySQLdb.constants.ER import UNKNOWN_STORAGE_ENGINE
+from contextlib import closing, contextmanager
 from ..mock import Mock
 from neo.lib.protocol import ZERO_OID
 from neo.lib.util import p64
-from .. import DB_PREFIX, DB_USER, Patch, setupMySQLdb
+from .. import DB_PREFIX, DB_USER, Patch, setupMySQL
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database import DatabaseFailure
-from neo.storage.database.mysql import MySQLDatabaseManager
+from neo.storage.database.mysql import (MySQLDatabaseManager,
+    NotSupportedError, OperationalError, ProgrammingError,
+    SERVER_GONE_ERROR, UNKNOWN_STORAGE_ENGINE)
 
 
 class ServerGone(object):
@@ -50,17 +49,21 @@ class StorageMySQLdbTests(StorageDBTests):
         database = self.db_template(0)
         return MySQLDatabaseManager(database, self.engine)
 
-    def getDB(self, reset=0):
+    def _getDB(self, reset):
         db = self._test_lockDatabase_open()
-        self.assertEqual(db.db, DB_PREFIX + '0')
-        self.assertEqual(db.user, DB_USER)
         try:
-            db.setup(reset, True)
-        except NotSupportedError as m:
-            code, m = m.args
-            if code != UNKNOWN_STORAGE_ENGINE:
-                raise
-            raise unittest.SkipTest(m)
+            self.assertEqual(db.db, DB_PREFIX + '0')
+            self.assertEqual(db.user, DB_USER)
+            try:
+                db.setup(reset, True)
+            except NotSupportedError as m:
+                code, m = m.args
+                if code != UNKNOWN_STORAGE_ENGINE:
+                    raise
+                raise unittest.SkipTest(m)
+        except:
+            db.close()
+            raise
         return db
 
     def test_ServerGone(self):
@@ -75,8 +78,9 @@ class StorageMySQLdbTests(StorageDBTests):
                 pass
             def query(*args):
                 raise OperationalError(-1, 'this is a test')
-        self.db.conn = FakeConn()
-        self.assertRaises(DatabaseFailure, self.db.query, 'QUERY')
+        with closing(self.db.conn):
+            self.db.conn = FakeConn()
+            self.assertRaises(DatabaseFailure, self.db.query, 'QUERY')
 
     def test_escape(self):
         self.assertEqual(self.db.escape('a"b'), 'a\\"b')
