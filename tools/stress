@@ -335,18 +335,18 @@ class Application(StressApplication):
 
         if kill_mysqld:
             from neo.scripts import neostorage
-            from neo.storage.database import mysqldb
+            from neo.storage.database import mysql
             neostorage_main = neostorage.main
             self._kill_mysqld = kill_mysqld = SimpleQueue()
             def main():
                 pid = os.getpid()
                 try:
                     neostorage_main()
-                except mysqldb.OperationalError as e:
+                except mysql.OperationalError as e:
                     code = e.args[0]
-                except mysqldb.MysqlError as e:
+                except mysql.MysqlError as e:
                     code = e.code
-                if mysqldb.SERVER_LOST != code != mysqldb.SERVER_GONE_ERROR:
+                if mysql.SERVER_LOST != code != mysql.SERVER_GONE_ERROR:
                     raise
                 kill_mysqld.put(pid)
             neostorage.main = main

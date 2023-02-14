@@ -25,7 +25,7 @@ from neo.lib.util import p64
 from .. import DB_PREFIX, DB_USER, Patch, setupMySQLdb
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database import DatabaseFailure
-from neo.storage.database.mysqldb import MySQLDatabaseManager
+from neo.storage.database.mysql import MySQLDatabaseManager
 
 
 class ServerGone(object):

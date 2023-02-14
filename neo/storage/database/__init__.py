@@ -18,7 +18,7 @@ LOG_QUERIES = False
 
 DATABASE_MANAGER_DICT = {
     'Importer': 'importer.ImporterDatabaseManager',
-    'MySQL': 'mysqldb.MySQLDatabaseManager',
+    'MySQL': 'mysql.MySQLDatabaseManager',
     'SQLite': 'sqlite.SQLiteDatabaseManager',
 }
 
