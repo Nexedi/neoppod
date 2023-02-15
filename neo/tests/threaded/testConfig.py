@@ -16,7 +16,7 @@
 
 import unittest
 from contextlib import contextmanager
-from ZConfig import ConfigurationSyntaxError
+from ZConfig import ConfigurationError
 from ZODB.config import databaseFromString
 from .. import Patch
 from . import ClientApplication, NEOThreadedTest, with_cluster
@@ -53,7 +53,8 @@ class ConfigTests(NEOThreadedTest):
         kw = self.dummy_required.copy()
         valid = ['false', 'true', 'zlib', 'zlib=9']
         for kw['compress'] in '9', 'best', 'zlib=0', 'zlib=100':
-            self.assertRaises(ConfigurationSyntaxError, databaseFromDict, **kw)
+            # BBB: DataConversionError since ZConfig 3.4.0
+            self.assertRaises(ConfigurationError, databaseFromDict, **kw)
         for compress in valid:
             with self._db(cluster, compress=compress) as db:
                 self.assertEqual((0,0,''), db.storage.app.compress(''))
