@@ -19,7 +19,7 @@ from contextlib import closing, contextmanager
 from ..mock import Mock
 from neo.lib.protocol import ZERO_OID
 from neo.lib.util import p64
-from .. import DB_PREFIX, DB_USER, Patch, setupMySQL
+from .. import DB_PREFIX, DB_USER, Patch
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database import DatabaseFailure
 from neo.storage.database.mysql import (MySQLDatabaseManager,
@@ -119,12 +119,6 @@ class StorageMySQLdbTests(StorageDBTests):
 class StorageMySQLdbRocksDBTests(StorageMySQLdbTests):
 
     engine = "RocksDB"
-    test_lockDatabase = None
-
-
-class StorageMySQLdbTokuDBTests(StorageMySQLdbTests):
-
-    engine = "TokuDB"
     test_lockDatabase = None
 
 del StorageDBTests

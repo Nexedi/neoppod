@@ -16,7 +16,7 @@ A NEO cluster is composed of the following types of nodes:
 
   Stores data, preserving history. All available storage nodes are in use
   simultaneously. This offers redundancy and data distribution.
-  Available backends: MySQL (InnoDB, RocksDB or TokuDB), SQLite
+  Available backends: MySQL (InnoDB or RocksDB), SQLite
 
 - "admin" nodes (mandatory for startup, optional after)
 

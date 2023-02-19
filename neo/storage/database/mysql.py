@@ -115,7 +115,7 @@ class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
     VERSION = 3
-    ENGINES = "InnoDB", "RocksDB", "TokuDB"
+    ENGINES = "InnoDB", "RocksDB"
     _engine = ENGINES[0] # default engine
 
     _use_partition = False
@@ -359,9 +359,6 @@ class MySQLDatabaseManager(DatabaseManager):
                  KEY (data_id){}
              ) ENGINE={}""".format(cf('obj_pk', True),
                  cf('append_meta'), cf('append_meta'), p)
-
-        if engine == "TokuDB":
-            engine += " compression='tokudb_uncompressed'"
 
         # The table "data" stores object data.
         # We'd like to have partial index on 'hash' column (e.g. hash(4))
