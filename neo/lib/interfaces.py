@@ -54,7 +54,7 @@ def implements(obj, ignore=()):
         while 1:
             name, func = base.pop()
             x = getattr(obj, name)
-            if type(getattr(x, '__self__', None)) is tobj:
+            if getattr(x, 'im_class', None) is tobj:
                 x = x.__func__
                 if x is func:
                     try:
