@@ -282,12 +282,14 @@ class ImporterTests(NEOThreadedTest):
             tid_list.append(tid)
         def fetchObject(orig, db, *args):
             if len(tid_list) == 5:
-                if isinstance(db, getAdapterKlass('MySQL')):
+                x = type(db).__name__
+                if x == 'MySQLDatabaseManager':
                     from neo.tests.storage.testStorageMySQL import ServerGone
                     with ServerGone(db):
                         orig(db, *args)
                     self.fail()
                 else:
+                    assert x == 'SQLiteDatabaseManager'
                     tid_list.append(None)
                     p.revert()
             return orig(db, *args)
