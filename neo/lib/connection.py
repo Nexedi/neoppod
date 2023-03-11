@@ -482,6 +482,7 @@ class Connection(BaseConnection):
     def readable(self):
         """Called when self is readable."""
         # last known remote activity
+        empty_queue = not self._queue
         try:
             try:
                 if self.connector.receive(self.read_buf):
@@ -499,7 +500,7 @@ class Connection(BaseConnection):
         except PacketMalformedError, e:
             logging.error('malformed packet from %r: %s', self, e)
             self._closure()
-        return not not self._queue
+        return empty_queue and not not self._queue
 
     def hasPendingMessages(self):
         """
