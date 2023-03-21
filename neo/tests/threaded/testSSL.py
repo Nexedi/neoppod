@@ -21,15 +21,17 @@ from .. import Patch, SSL
 from . import NEOCluster, test, testReplication
 
 
-class SSLMixin:
+class SSLMixin(object):
 
     @classmethod
     def setUpClass(cls):
+        super(SSLMixin, cls).setUpClass()
         NEOCluster.SSL = SSL
 
     @classmethod
     def tearDownClass(cls):
         NEOCluster.SSL = None
+        super(SSLMixin, cls).tearDownClass()
 
 
 class SSLTests(SSLMixin, test.Test):

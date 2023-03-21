@@ -201,14 +201,6 @@ class Process(object):
                             logging._max_size, logging._max_packet,
                             command),
                         *args)
-                # XXX: Sometimes, the handler is not called immediately.
-                #      The process is stuck at an unknown place and the test
-                #      never ends. strace unlocks:
-                #        strace: Process 5520 attached
-                #        close(25)                               = 0
-                #        getpid()                                = 5520
-                #        kill(5520, SIGSTOP)                     = 0
-                #        ...
                 signal.signal(signal.SIGUSR2, save_coverage)
                 os.close(self._coverage_fd)
                 os.write(w, '\0')

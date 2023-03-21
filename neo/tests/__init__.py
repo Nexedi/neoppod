@@ -20,6 +20,7 @@ import functools
 import gc
 import os
 import random
+import signal
 import socket
 import subprocess
 import sys
@@ -38,7 +39,7 @@ except ImportError:
 from functools import wraps
 from inspect import isclass
 from .mock import Mock
-from neo.lib import debug, logging
+from neo.lib import debug, event, logging
 from neo.lib.protocol import NodeTypes, Packet, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property
 from time import time, sleep
@@ -95,6 +96,12 @@ SSL = SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"
 logging.default_root_handler.handle = lambda record: None
 
 debug.register()
+
+# XXX: Not so important and complicated to make it work in the test process
+#      because there may be several EpollEventManager and threads.
+#      We only need it in child processes so that functional tests can stop.
+event.set_wakeup_fd = lambda fd, pid=os.getpid(): (
+    -1 if pid == os.getpid() else signal.set_wakeup_fd(fd))
 
 def mockDefaultValue(name, function):
     def method(self, *args, **kw):
@@ -621,7 +628,6 @@ class Patch(object):
 
     def __exit__(self, t, v, tb):
         self.__del__()
-
 
 def unpickle_state(data):
     unpickler = Unpickler(StringIO(data))
