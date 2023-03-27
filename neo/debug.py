@@ -39,6 +39,13 @@ def defer(task):
         app.em.wakeup(wrapper)
         break
 
+PROFILE_DURATION = 60
+
+def profile_path(app):
+    import time
+    from .lib.protocol import uuid_str
+    return 'neo-%s-%s.prof' % (uuid_str(app.uuid), time.time())
+
 IF = 'pdb'
 if IF == 'pdb':
     # List of (module, callables) to break at.
@@ -135,18 +142,31 @@ elif IF == 'frames':
     write("End of dump\n")
 
 elif IF == 'profile':
-    DURATION = 60
     def stop(prof, path):
         prof.disable()
         prof.dump_stats(path)
     @defer
     def profile(app):
-        import cProfile, threading, time
-        from .lib.protocol import uuid_str
-        path = 'neo-%s-%s.prof' % (uuid_str(app.uuid), time.time())
+        import cProfile, threading
+        path = profile_path(app)
         prof = cProfile.Profile()
-        threading.Timer(DURATION, stop, (prof, path)).start()
+        threading.Timer(PROFILE_DURATION, stop, (prof, path)).start()
         prof.enable()
+
+elif IF == 'yappi':
+    import thread, time, yappi
+    def profile():
+        path = profile_path(app)
+        yappi.set_clock_type("wall")
+        yappi.start()
+        time.sleep(PROFILE_DURATION)
+        yappi.stop()
+        yappi.get_func_stats().save(path, 'pstat')
+        yappi.clear_stats()
+    assert not yappi.is_running(), "yappi already running"
+    for app in app_set():
+        thread.start_new_thread(profile, ())
+        break
 
 elif IF == 'trace-cache':
     from struct import Struct
