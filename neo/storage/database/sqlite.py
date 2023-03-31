@@ -113,7 +113,9 @@ class SQLiteDatabaseManager(DatabaseManager):
         try:
             return bool(self.query(
                 "SELECT 1 FROM %s LIMIT 1" % table).fetchone())
-        except sqlite3.OperationalError as e:
+        except sqlite3.DatabaseError as e:
+            # XXX: Not idea why we sometimes get DatabaseError instead of
+            #      the usual OperationalError for 'no such table' error.
             if not e.args[0].startswith("no such table:"):
                 raise
 
