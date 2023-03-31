@@ -30,14 +30,14 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
     def answerLastTransaction(*args):
         pass
 
-class PrimaryNotificationsHandler(MTEventHandler):
-    """ Handler that process the notifications from the primary master """
-
     def notPrimaryMaster(self, *args):
         try:
-            super(PrimaryNotificationsHandler, self).notPrimaryMaster(*args)
+            super(PrimaryBootstrapHandler, self).notPrimaryMaster(*args)
         except PrimaryElected, e:
             self.app.primary_master_node, = e.args
+
+class PrimaryNotificationsHandler(MTEventHandler):
+    """ Handler that process the notifications from the primary master """
 
     def answerLastTransaction(self, conn, ltid):
         app = self.app
