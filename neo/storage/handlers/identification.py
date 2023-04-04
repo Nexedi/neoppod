@@ -41,8 +41,7 @@ class IdentificationHandler(EventHandler):
         if uuid is None:
             if node_type != NodeTypes.STORAGE:
                 raise ProtocolError('reject anonymous non-storage node')
-            handler = StorageOperationHandler(self.app)
-            conn.setHandler(handler)
+            conn.setHandler(StorageOperationHandler(app))
         else:
             if uuid == app.uuid:
                 raise ProtocolError("uuid conflict or loopback connection")
@@ -60,9 +59,7 @@ class IdentificationHandler(EventHandler):
                 force = app.uuid < uuid
             else:
                 raise ProtocolError('reject non-client-or-storage node')
-            # apply the handler and set up the connection
-            handler = handler(self.app)
-            conn.setHandler(handler)
+            conn.setHandler(handler(app))
             node.setConnection(conn, force)
         # accept the identification and trigger an event
         conn.answer(Packets.AcceptIdentification(
