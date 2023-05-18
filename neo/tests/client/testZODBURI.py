@@ -72,6 +72,10 @@ class ZODBURITests(unittest.TestCase):
         # db @ master not fully specified
         self.assertRaises(ValueError, _resolve_uri, "neo://master")
 
+        # master_nodes and name provided in options (they come in netloc)
+        self.assertRaises(ValueError, _resolve_uri, "neo://db@master?master_nodes=a,b,c")
+        self.assertRaises(ValueError, _resolve_uri, "neo://db@master?name=zzz")
+
         # verify zodburi resolver produces expected zconfig
         for uri, zconf_ok, dbkw_ok in testv:
             zconf_ok = "%import neo.client\n<NEOStorage>\n" + zconf_ok + \

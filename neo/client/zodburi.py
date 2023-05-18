@@ -66,6 +66,10 @@ def _resolve_uri(uri):
     neokw = OrderedDict()
     neokw['master_nodes'] = ' '.join(master_list)
     neokw['name'] = name
+    def setopt(k, v):
+        if k in ('master_nodes', 'name'):
+            raise ValueError("invalid uri: %s : invalid option %s" % (uri, k))
+        neokw[k] = v
 
     # get options from query: only those that are defined by NEO schema go to
     # storage - rest are returned as database options
@@ -73,14 +77,14 @@ def _resolve_uri(uri):
     neo_options = neo_zconf_options()
     for k, v in OrderedDict(parse_qsl(query)).items():
         if k in neo_options:
-            neokw[k] = v
+            setopt(k, v)
         else:
             # it might be option for storage, but not in canonical form e.g.
             # read_only -> read-only  (zodburi world settled on using "_" and
             # ZConfig world on "-" as separators)
             k2 = canonical_opt_name(k)
             if k2 in neo_options:
-                neokw[k2] = v
+                setopt(k2, v)
 
             # else keep this kv as db option
             else:
