@@ -2856,6 +2856,15 @@ class Test(NEOThreadedTest):
         self.assertRaises(SystemExit, cluster.neoctl.setClusterState,
                           ClusterStates.STARTING_BACKUP)
 
+    @with_cluster()
+    def testNeoctlVsDisconnectingMaster(self, cluster):
+        def setClusterState(orig, conn, *args):
+            conn.close()
+        with Patch(cluster.master.administration_handler,
+                   setClusterState=setClusterState):
+            self.assertRaises(RuntimeError, cluster.neoctl.setClusterState,
+                              ClusterStates.STARTING_BACKUP)
+
 
 if __name__ == "__main__":
     unittest.main()

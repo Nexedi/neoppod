@@ -42,14 +42,10 @@ class CommandEventHandler(EventHandler):
         super(CommandEventHandler, self).connectionFailed(conn)
         self.__disconnected()
 
-    def ack(self, conn, msg):
-        self.__respond((Packets.Error, ErrorCodes.ACK, msg))
-
-    def denied(self, conn, msg):
-        sys.exit(msg)
-
-    def notReady(self, conn, msg):
-        self.__respond((Packets.Error, ErrorCodes.NOT_READY, msg))
+    def error(self, conn, code, message, **kw):
+        if code == ErrorCodes.DENIED:
+            sys.exit(message)
+        self.__respond((Packets.Error, code, message))
 
     def __answer(packet_type):
         def answer(self, conn, *args):
