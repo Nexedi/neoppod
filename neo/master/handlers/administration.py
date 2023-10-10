@@ -105,6 +105,8 @@ class AdministrationHandler(MasterHandler):
             if app.tm.hasPending() or app.nm.getClientList(True):
                 raise AnswerDenied("Can not switch to %s state with pending"
                     " transactions or connected clients" % state)
+            if app.backup_app is None:
+                raise AnswerDenied(app.no_upstream_msg)
 
         conn.answer(Errors.Ack('Cluster state changed'))
         if state != app.cluster_state:

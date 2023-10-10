@@ -2851,6 +2851,11 @@ class Test(NEOThreadedTest):
         with self.expectedFailure(): \
         self.assertFalse(s0m.isClosed())
 
+    @with_cluster()
+    def testUnsetUpsteam(self, cluster):
+        self.assertRaises(SystemExit, cluster.neoctl.setClusterState,
+                          ClusterStates.STARTING_BACKUP)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -59,6 +59,8 @@ class Application(BaseApplication):
     backup_app = None
     truncate_tid = None
 
+    no_upstream_msg = "No upstream cluster to backup defined in configuration"
+
     def setUUID(self, uuid):
         node = self.nm.getByUUID(uuid)
         if node is not self._node:
@@ -171,10 +173,11 @@ class Application(BaseApplication):
     def run(self):
         try:
             self._run()
-        except Exception:
-            logging.exception('Pre-mortem data:')
-            self.log()
-            logging.flush()
+        except BaseException, e:
+            if not isinstance(e, SystemExit) or e.code:
+                logging.exception('Pre-mortem data:')
+                self.log()
+                logging.flush()
             raise
 
     def _run(self):
@@ -309,8 +312,7 @@ class Application(BaseApplication):
                         # self.provideService only returns without raising
                         # when switching to backup mode.
                     if self.backup_app is None:
-                        raise RuntimeError("No upstream cluster to backup"
-                                           " defined in configuration")
+                        sys.exit(self.no_upstream_msg)
                     truncate = Packets.Truncate(
                         self.backup_app.provideService())
                 except StoppedOperation, e:
