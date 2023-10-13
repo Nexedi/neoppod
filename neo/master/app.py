@@ -42,6 +42,7 @@ def monotonic_time():
 
 from .backup_app import BackupApplication
 from .handlers import identification, administration, client, master, storage
+from .pack import PackManager
 from .pt import PartitionTable
 from .recovery import RecoveryManager
 from .transactions import TransactionManager
@@ -51,7 +52,6 @@ from .verification import VerificationManager
 @buildOptionParser
 class Application(BaseApplication):
     """The master node application."""
-    packing = None
     storage_readiness = 0
     # Latest completely committed TID
     last_transaction = ZERO_TID
@@ -101,6 +101,7 @@ class Application(BaseApplication):
         super(Application, self).__init__(
             config.get('ssl'), config.get('dynamic_master_list'))
         self.tm = TransactionManager(self.onTransactionCommitted)
+        self.pm = PackManager()
 
         self.name = config['cluster']
         self.server = config['bind']
@@ -317,6 +318,8 @@ class Application(BaseApplication):
                     truncate = Packets.Truncate(*e.args) if e.args else None
                     # Automatic restart except if we truncate or retry to.
                     self._startup_allowed = not (self.truncate_tid or truncate)
+                finally:
+                    self.pm.reset()
                 self.storage_readiness = 0
                 self.storage_ready_dict.clear()
                 self.storage_starting_set.clear()
@@ -560,7 +563,8 @@ class Application(BaseApplication):
         tid = txn.getTID()
         transaction_node = txn.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
-        for client_node in self.nm.getClientList(only_identified=True):
+        client_list = self.nm.getClientList(only_identified=True)
+        for client_node in client_list:
             if client_node is transaction_node:
                 client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
                                  msg_id=txn.getMessageId())
@@ -570,8 +574,25 @@ class Application(BaseApplication):
         # Unlock Information to relevant storage nodes.
         notify_unlock = Packets.NotifyUnlockInformation(ttid)
         getByUUID = self.nm.getByUUID
-        for storage_uuid in txn.getUUIDList():
+        txn_storage_list = txn.getUUIDList()
+        for storage_uuid in txn_storage_list:
             getByUUID(storage_uuid).send(notify_unlock)
+
+        # Notify storage nodes about new pack order if any.
+        pack = self.pm.packs.get(tid)
+        if pack is not None is not pack.approved:
+            # We could exclude those that store transaction metadata, because
+            # they can deduce it upon NotifyUnlockInformation: quite simple but
+            # for the moment, let's optimize the case where there's no pack.
+            # We're only there in case of automatic approval.
+            assert pack.approved
+            pack = Packets.NotifyPackSigned((tid,), ())
+            for uuid in self.getStorageReadySet():
+                getByUUID(uuid).send(pack)
+            # Notify backup clusters.
+            for node in client_list:
+                if node.extra.get('backup'):
+                    node.send(pack)
 
         # Notify storage that have replications blocked by this transaction,
         # and clients that try to recover from a failure during tpc_finish.
@@ -612,6 +633,9 @@ class Application(BaseApplication):
         assert uuid not in self.storage_ready_dict, self.storage_ready_dict
         self.storage_readiness = self.storage_ready_dict[uuid] = \
             self.storage_readiness + 1
+        pack = self.pm.getApprovedRejected()
+        if any(pack):
+            self.nm.getByUUID(uuid).send(Packets.NotifyPackSigned(*pack))
         self.tm.executeQueuedEvents()
 
     def isStorageReady(self, uuid):
@@ -629,3 +653,12 @@ class Application(BaseApplication):
             getByUUID = self.nm.getByUUID
             for uuid in uuid_set:
                 getByUUID(uuid).send(p)
+
+    def updateCompletedPackId(self):
+        try:
+            pack_id = min(node.completed_pack_id
+                for node in self.pt.getNodeSet(True)
+                if hasattr(node, "completed_pack_id"))
+        except ValueError:
+            return
+        self.pm.notifyCompleted(pack_id)

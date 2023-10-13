@@ -19,10 +19,9 @@ from collections import deque
 from operator import itemgetter
 from . import logging
 from .connection import ConnectionClosed
-from .exception import PrimaryElected
-from .protocol import (NodeStates, NodeTypes, Packets, uuid_str,
-    Errors, BackendNotImplemented, NonReadableCell, NotReadyError,
-    PacketMalformedError, ProtocolError, UnexpectedPacketError)
+from .exception import (BackendNotImplemented, NonReadableCell, NotReadyError,
+    PacketMalformedError, PrimaryElected, ProtocolError, UnexpectedPacketError)
+from .protocol import NodeStates, NodeTypes, Packets, uuid_str, Errors
 from .util import cached_property
 
 

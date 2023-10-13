@@ -29,3 +29,33 @@ class StoppedOperation(NeoException):
 class NodeNotReady(NeoException):
     pass
 
+class ProtocolError(NeoException):
+    """ Base class for protocol errors, close the connection """
+
+class PacketMalformedError(ProtocolError):
+    pass
+
+class UnexpectedPacketError(ProtocolError):
+    pass
+
+class NotReadyError(ProtocolError):
+    pass
+
+class BackendNotImplemented(NeoException):
+    """ Method not implemented by backend storage """
+
+class NonReadableCell(NeoException):
+    """Read-access to a cell that is actually non-readable
+
+    This happens in case of race condition at processing partition table
+    updates: client's PT is older or newer than storage's. The latter case is
+    possible because the master must validate any end of replication, which
+    means that the storage node can't anticipate the PT update (concurrently,
+    there may be a first tweaks that moves the replicated cell to another node,
+    and a second one that moves it back).
+
+    On such event, the client must retry, preferably another cell.
+    """
+
+class UndoPackError(NeoException):
+    pass

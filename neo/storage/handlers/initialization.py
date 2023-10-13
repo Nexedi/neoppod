@@ -15,8 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import BaseMasterHandler
-from neo.lib import logging
-from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
+from neo.lib.exception import ProtocolError
+from neo.lib.protocol import Packets
 
 class InitializationHandler(BaseMasterHandler):
 
@@ -26,25 +26,11 @@ class InitializationHandler(BaseMasterHandler):
         pt.load(ptid, num_replicas, row_list, app.nm)
         if not pt.filled():
             raise ProtocolError('Partial partition table received')
-        # Install the partition table into the database for persistence.
-        cell_list = []
-        unassigned = range(pt.getPartitions())
-        for offset in reversed(unassigned):
-            for cell in pt.getCellList(offset):
-                cell_list.append((offset, cell.getUUID(), cell.getState()))
-                if cell.getUUID() == app.uuid:
-                    unassigned.remove(offset)
-        # delete objects database
+        cell_list = [(offset, cell.getUUID(), cell.getState())
+            for offset in xrange(pt.getPartitions())
+            for cell in pt.getCellList(offset)]
         dm = app.dm
-        if unassigned:
-          if app.disable_drop_partitions:
-            logging.info('partitions %r are discarded but actual deletion'
-                         ' of data is disabled', unassigned)
-          else:
-            logging.debug('drop data for partitions %r', unassigned)
-            dm.dropPartitions(unassigned)
-
-        dm.changePartitionTable(ptid, num_replicas, cell_list, reset=True)
+        dm.changePartitionTable(app, ptid, num_replicas, cell_list, reset=True)
         dm.commit()
 
     def truncate(self, conn, tid):
@@ -61,10 +47,15 @@ class InitializationHandler(BaseMasterHandler):
             app.dm.getTruncateTID()))
 
     def askLastIDs(self, conn):
-        dm = self.app.dm
+        app = self.app
+        dm = app.dm
         dm.truncate()
-        ltid, loid = dm.getLastIDs()
-        conn.answer(Packets.AnswerLastIDs(loid, ltid))
+        if not app.disable_pack:
+            packed = dm.getPackedIDs()
+            if packed:
+                self.app.completed_pack_id = pack_id = min(packed.itervalues())
+                conn.send(Packets.NotifyPackCompleted(pack_id))
+        conn.answer(Packets.AnswerLastIDs(*dm.getLastIDs()))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt
@@ -77,8 +68,8 @@ class InitializationHandler(BaseMasterHandler):
 
     def validateTransaction(self, conn, ttid, tid):
         dm = self.app.dm
-        dm.lockTransaction(tid, ttid)
-        dm.unlockTransaction(tid, ttid, True, True)
+        dm.lockTransaction(tid, ttid, True)
+        dm.unlockTransaction(tid, ttid, True, True, True)
         dm.commit()
 
     def startOperation(self, conn, backup):

@@ -16,7 +16,8 @@
 
 from neo.lib import logging
 from neo.lib.connection import ClientConnection
-from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
+from neo.lib.exception import ProtocolError
+from neo.lib.protocol import Packets, ClusterStates, NodeStates
 from .app import monotonic_time
 from .handlers import MasterHandler
 

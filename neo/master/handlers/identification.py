@@ -15,10 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.exception import PrimaryElected
+from neo.lib.exception import NotReadyError, PrimaryElected, ProtocolError
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, \
-    NodeTypes, NotReadyError, Packets, ProtocolError, uuid_str
+    NodeTypes, Packets, uuid_str
 from ..app import monotonic_time
 
 class IdentificationHandler(EventHandler):

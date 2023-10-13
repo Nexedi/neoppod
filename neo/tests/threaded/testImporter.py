@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from contextlib import contextmanager
 from cPickle import Pickler, Unpickler
 from cStringIO import StringIO
 from itertools import izip_longest
@@ -213,8 +214,8 @@ class ImporterTests(NEOThreadedTest):
             # does not import data too fast and we test read/write access
             # by the client during the import.
             dm = cluster.storage.dm
-            def doOperation(app):
-                del dm.doOperation
+            def operational(app):
+                del dm.operational
                 try:
                     while True:
                         if app.task_queue:
@@ -222,7 +223,9 @@ class ImporterTests(NEOThreadedTest):
                         app._poll()
                 except StopIteration:
                     app.task_queue.pop()
-            dm.doOperation = doOperation
+                assert not app.task_queue
+                yield
+            dm.operational = contextmanager(operational)
             cluster.start()
             t, c = cluster.getTransaction()
             r = c.root()['tree']
@@ -234,12 +237,14 @@ class ImporterTests(NEOThreadedTest):
             storage._cache.clear()
             storage.loadBefore(r._p_oid, r._p_serial)
             ##
-            self.assertRaisesRegexp(NotImplementedError, " getObjectHistory$",
+            self.assertRaisesRegexp(NotImplementedError,
+                                    " getObjectHistoryWithLength$",
                                     c.db().history, r._p_oid)
             h = random_tree.hashTree(r)
             h(30)
             logging.info("start migration")
-            dm.doOperation(cluster.storage)
+            with dm.operational(cluster.storage):
+                pass
             # Adjust if needed. Must remain > 0.
             beforeCheck(h, 22)
             # New writes after the switch to NEO.
@@ -285,16 +290,18 @@ class ImporterTests(NEOThreadedTest):
                 x = type(db).__name__
                 if x == 'MySQLDatabaseManager':
                     from neo.tests.storage.testStorageMySQL import ServerGone
-                    with ServerGone(db):
+                    with ServerGone(db, False):
                         orig(db, *args)
                     self.fail()
                 else:
                     assert x == 'SQLiteDatabaseManager'
-                    tid_list.append(None)
+                    tid_list.insert(-1, None)
                     p.revert()
             return orig(db, *args)
         def sleep(orig, seconds):
+            logging.info("sleep(%s)", seconds)
             self.assertEqual(len(tid_list), 5)
+            tid_list[-1] = None
             p.revert()
         with Patch(importer, FORK=False), \
              Patch(TransactionRecord, __init__=__init__), \
@@ -303,6 +310,7 @@ class ImporterTests(NEOThreadedTest):
             self._importFromFileStorage()
             self.assertFalse(p.applied)
         self.assertEqual(len(tid_list), 13)
+        self.assertIsNone(tid_list[4])
 
     def testThreadedWritebackWithUnbalancedPartitions(self):
         N = 7
@@ -409,7 +417,7 @@ class ImporterTests(NEOThreadedTest):
             storage = cluster.storage
             dm = storage.dm
             with storage.patchDeferred(dm._finished):
-                with storage.patchDeferred(dm.doOperation):
+                with storage.patchDeferred(storage.newTask):
                     cluster.start()
                     s = cluster.getZODBStorage()
                     check() # before import

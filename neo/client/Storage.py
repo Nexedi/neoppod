@@ -20,6 +20,7 @@ from zope.interface import implementer
 import ZODB.interfaces
 
 from neo.lib import logging
+from neo.lib.util import tidFromTime
 from .app import Application
 from .exception import NEOStorageNotFoundError, NEOStorageDoesNotExistError
 
@@ -235,7 +236,7 @@ class Storage(BaseStorage.BaseStorage,
             logging.warning('Garbage Collection is not available in NEO,'
                 ' please use an external tool. Packing without GC.')
         try:
-            self.app.pack(t)
+            self.app.pack(tidFromTime(t))
         except Exception:
             logging.exception('pack_time=%r', t)
             raise

@@ -15,9 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.handler import EventHandler
-from neo.lib.protocol import NodeTypes, NotReadyError, Packets
-from neo.lib.protocol import ProtocolError
+from neo.lib.exception import NotReadyError, ProtocolError
+from neo.lib.protocol import NodeTypes, Packets
+from . import EventHandler
 from .storage import StorageOperationHandler
 from .client import ClientOperationHandler, ClientReadOnlyOperationHandler
 

@@ -19,8 +19,9 @@ from ..mock import Mock
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
+from neo.lib.exception import ProtocolError
+from neo.lib.protocol import CellStates
 from neo.lib.pt import PartitionTable
-from neo.lib.protocol import CellStates, ProtocolError
 
 class StorageMasterHandlerTests(NeoUnitTestBase):
 
@@ -91,7 +92,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         # dm call
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(ptid, 1, cells)
+        calls[0].checkArgs(app, ptid, 1, cells)
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,9 +4,10 @@ from __future__ import division, print_function
 import argparse, curses, errno, os, random, select
 import signal, socket, subprocess, sys, threading, time
 from contextlib import contextmanager
+from ctypes import c_ulonglong
 from datetime import datetime
 from functools import partial
-from multiprocessing import Lock, RawArray
+from multiprocessing import Array, Lock, RawArray
 from multiprocessing.queues import SimpleQueue
 from struct import Struct
 from netfilterqueue import NetfilterQueue
@@ -17,7 +18,7 @@ from neo.lib.connector import SocketConnector
 from neo.lib.debug import PdbSocket
 from neo.lib.node import Node
 from neo.lib.protocol import NodeTypes
-from neo.lib.util import datetimeFromTID, p64, u64
+from neo.lib.util import datetimeFromTID, timeFromTID, p64, u64
 from neo.storage.app import DATABASE_MANAGERS, \
     Application as StorageApplication
 from neo.tests import getTempDirectory, mysql_pool
@@ -87,6 +88,7 @@ class Client(Process):
     def __init__(self, command, thread_count, **kw):
         super(Client, self).__init__(command)
         self.config = kw
+        self.ltid = Array(c_ulonglong, thread_count)
         self.count = RawArray('I', thread_count)
         self.thread_count = thread_count
 
@@ -136,6 +138,7 @@ class Client(Process):
             while 1:
                 txn = transaction_begin()
                 try:
+                    self.ltid[i] = u64(db.lastTransaction())
                     data = pack(j, name)
                     for log in random.sample(logs, 2):
                         log.append(data)
@@ -318,12 +321,14 @@ class Application(StressApplication):
 
     def __init__(self, client_count, thread_count,
                  fault_probability, restart_ratio, kill_mysqld,
-                 logrotate, *args, **kw):
+                 pack_period, pack_keep, logrotate, *args, **kw):
         self.client_count = client_count
         self.thread_count = thread_count
         self.logrotate = logrotate
         self.fault_probability = fault_probability
         self.restart_ratio = restart_ratio
+        self.pack_period = pack_period
+        self.pack_keep = pack_keep
         self.cluster = cluster = NEOCluster(*args, **kw)
         logging.setup(os.path.join(cluster.temp_dir, 'stress.log'))
         # Make the firewall also affect connections between storage nodes.
@@ -417,6 +422,10 @@ class Application(StressApplication):
                 **config)
             process_list.append(p)
             p.start()
+        if self.pack_period:
+            t = threading.Thread(target=self._pack_thread)
+            t.daemon = 1
+            t.start()
         if self.logrotate:
             t = threading.Thread(target=self._logrotate_thread)
             t.daemon = 1
@@ -443,6 +452,19 @@ class Application(StressApplication):
             del process_dict[NFQueue], process_dict[Client]
         except KeyError:
             pass
+
+    def _pack_thread(self):
+        process_dict = self.cluster.process_dict
+        storage = self.cluster.getZODBStorage()
+        try:
+            while 1:
+                time.sleep(self.pack_period)
+                if self._stress:
+                    storage.pack(timeFromTID(p64(self._getPackableTid()))
+                                 - self.pack_keep, None)
+        except:
+            if storage.app is not None: # closed ?
+                raise
 
     def _logrotate_thread(self):
         try:
@@ -530,13 +552,24 @@ class Application(StressApplication):
 
     _ids_height = 4
 
+    def _getPackableTid(self):
+        return min(min(client.ltid)
+            for client in self.cluster.process_dict[Client])
+
     def refresh_ids(self, y):
         attr = curses.A_NORMAL, curses.A_BOLD
         stdscr = self.stdscr
+        htid = self._getPackableTid()
         ltid = self.ltid
         stdscr.addstr(y, 0,
-            'last oid: 0x%x\nlast tid: 0x%x (%s)\nclients: '
-            % (u64(self.loid), u64(ltid), datetimeFromTID(ltid)))
+            'last oid: 0x%x\n'
+            'last tid: 0x%x (%s)\n'
+            'packable tid: 0x%x (%s)\n'
+            'clients: ' % (
+            u64(self.loid),
+            u64(ltid), datetimeFromTID(ltid),
+            htid, datetimeFromTID(p64(htid)),
+        ))
         before = after = 0
         for i, p in enumerate(self.cluster.process_dict[Client]):
             if i:
@@ -622,6 +655,11 @@ def main():
         help='number of thread workers per client process')
     _('-f', '--fault-probability', type=ratio, default=1, metavar='P',
         help='probability to cause faults every second')
+    _('-p', '--pack-period', type=float, default=10, metavar='N',
+        help='during stress, pack every N seconds, 0 to disable')
+    _('-P', '--pack-keep', type=float, default=0, metavar='N',
+        help='when packing, keep N seconds of history, relative to packable tid'
+             ' (which the oldest tid an ongoing transaction is reading)')
     _('-r', '--restart-ratio', type=ratio, default=.5, metavar='RATIO',
         help='probability to kill/restart a storage node, rather than just'
              ' RSTing a TCP connection with this node')
@@ -680,6 +718,7 @@ def main():
             parser.error('--kill-mysqld: ' + error)
         app = Application(args.clients, args.threads,
             args.fault_probability, args.restart_ratio, args.kill_mysqld,
+            args.pack_period, args.pack_keep,
             int(round(args.logrotate * 3600, 0)), **kw)
         t = threading.Thread(target=console, args=(args.console, app))
         t.daemon = 1

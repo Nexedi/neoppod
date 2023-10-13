@@ -15,10 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from ..app import monotonic_time
+from ..pack import RequestOld
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import Packets
+from neo.lib.protocol import Packets, ZERO_TID
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -40,11 +41,20 @@ class MasterHandler(EventHandler):
 
     def askLastIDs(self, conn):
         tm = self.app.tm
-        conn.answer(Packets.AnswerLastIDs(tm.getLastOID(), tm.getLastTID()))
+        conn.answer(Packets.AnswerLastIDs(tm.getLastTID(), tm.getLastOID()))
 
     def askLastTransaction(self, conn):
         conn.answer(Packets.AnswerLastTransaction(
             self.app.getLastTransaction()))
+
+    def _askPackOrders(self, conn, pack_id, only_first_approved):
+        app = self.app
+        if pack_id is not None is not app.pm.max_completed >= pack_id:
+            RequestOld(app, pack_id, only_first_approved,
+                conn.delayedAnswer(Packets.AnswerPackOrders))
+        else:
+            conn.answer(Packets.AnswerPackOrders(
+                app.pm.dump(pack_id or ZERO_TID, only_first_approved)))
 
     def _notifyNodeInformation(self, conn):
         app = self.app

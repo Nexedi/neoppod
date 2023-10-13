@@ -14,14 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, errno, socket, sys, threading, time
+import os, errno, socket, sys, thread, threading, weakref
 from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
-from functools import wraps
+from time import time
 from neo.lib import logging, util
+from neo.lib.exception import NonReadableCell
 from neo.lib.interfaces import abstract, requires
-from neo.lib.protocol import CellStates, NonReadableCell, MAX_TID, ZERO_TID
+from neo.lib.protocol import CellStates, MAX_TID, ZERO_TID
 from . import DatabaseFailure
 
 READABLE = CellStates.UP_TO_DATE, CellStates.FEEDING
@@ -42,20 +43,422 @@ class CreationUndone(Exception):
 class Fallback(object):
     pass
 
+class BackgroundWorker(object):
+
+    _processing = None, None
+    _exc_info = _thread = None
+    _packing = _stop = False
+    _orphan = _packed = None
+    _pack_info = None,
+
+    def __init__(self):
+        self._stat_dict = {}
+        self._drop_set = set()
+        self._pack_set = set()
+
+    def _delattr(self, *attrs):
+        for attr in attrs:
+            try:
+                delattr(self, attr)
+            except AttributeError:
+                assert hasattr(self, attr)
+
+    def _join(self, app, thread):
+        l = app.em.lock
+        l.release()
+        thread.join()
+        l.acquire()
+        del self._thread
+        self._delattr('_packing', '_processing', '_stop')
+        exc_info = self._exc_info
+        if exc_info:
+            del self._exc_info
+            etype, value, tb = exc_info
+            raise etype, value, tb
+
+    @contextmanager
+    def _maybeResume(self, app):
+        assert app.dm.lock._is_owned()
+        if self._stop:
+            self._join(app, self._thread)
+        yield
+        if app.operational and self._thread is None:
+            t = self._thread = threading.Thread(
+                name=self.__class__.__name__,
+                target=self._worker,
+                args=(weakref.ref(app),))
+            t.daemon = 1
+            t.start()
+
+    @contextmanager
+    def operational(self, app):
+        assert app.em.lock.locked()
+        try:
+            with self._maybeResume(app):
+                pass
+            app.dm.lock.release()
+            yield
+        finally:
+            thread = self._thread
+            if thread is not None:
+                self._stop = True
+                logging.info("waiting for background tasks to interrupt")
+                self._join(app, thread)
+            locked = app.dm.lock.acquire(0)
+            assert locked
+            self._pack_set.clear()
+            self._delattr('_pack_info', '_packed')
+
+    def _stats(self, task, dm, what='deleted'):
+        period = .01 if dm.LOCK else .1
+        stats = self._stat_dict
+        before = elapsed, count = stats.setdefault(task, (1e-99, 0))
+        while True:
+            start = time()
+            # Do not process too few lines or the efficiency would drop.
+            count += yield max(100, int(period * count / elapsed))
+            elapsed += time() - start
+            stats[task] = elapsed, count
+            end = yield
+            if end:
+                break
+        logging.info("%s (time: %ss/%ss, %s: %s/%s)",
+            end, round(elapsed - before[0], 3), round(elapsed, 3),
+            what, count - before[1], count)
+
+    def _worker(self, weak_app):
+        try:
+            em_lock = weak_app().em.lock
+            dm = dm2 = weak_app().dm
+            try:
+                mvcc = isinstance(dm, MVCCDatabaseManager)
+                while True:
+                    if mvcc:
+                        stats = self._stats('prune', dm)
+                        log = False
+                        while True:
+                            with em_lock:
+                                # Tasks shall not leave uncommitted changes,
+                                # so pass a dummy value as dm2 parameter
+                                # to avoid a useless commit.
+                                self._checkStop(dm, dm)
+                            with dm.lock:
+                                data_id_list = dm._dataIdsToPrune(next(stats))
+                                if not data_id_list:
+                                    break
+                                if not log:
+                                    logging.info(
+                                        "deferred pruning: processing...")
+                                    log = True
+                                stats.send(dm._pruneData(data_id_list))
+                                dm.commitFromTimeToTime()
+                        if log:
+                            stats.send(0)
+                            try:
+                                stats.send("deferred pruning: processed")
+                            except StopIteration:
+                                pass
+                    with dm.lock:
+                        if self._drop_set:
+                            task = self._task_drop
+                        elif self._pack_set:
+                            task = self._task_pack
+                            self._packing = True
+                        elif self._orphan is not None:
+                            task = self._task_orphan
+                        else:
+                            assert not dm.nonempty('todel')
+                            self._stop = True
+                        if self._stop:
+                            break
+                        if mvcc and dm is dm2:
+                            # The following commit is actually useless for
+                            # drop & orphan tasks. On the other hand, it is
+                            # required if a 0-day pack is requested whereas
+                            # the deferred commit for the latest tpc_finish
+                            # affecting this node hasn't been processed yet.
+                            dm.commit()
+                            dm2 = copy(dm)
+                    try:
+                        task(weak_app, dm, dm2)
+                    except DatabaseFailure, e:
+                        e.checkTransientFailure(dm2)
+                        with dm:
+                            dm.commit()
+                            dm2 = copy(dm)
+            finally:
+                dm is dm2 or dm2.close()
+        except SystemExit:
+            pass
+        except:
+            self._exc_info = sys.exc_info()
+        finally:
+            logging.info("background tasks stopped")
+            thread = self._thread
+            weak_app().em.wakeup(lambda: self._thread is thread
+                and self._join(weak_app(), thread))
+
+    def _checkStop(self, dm, dm2):
+        # Either em or dm lock shall be locked.
+        if self._stop:
+            dm is dm2 or dm2.commit()
+            with dm.lock:
+                dm.commit()
+            thread.exit()
+
+    def _dm21(self, dm, dm2):
+        if dm is dm2:
+            return threading.Lock # faster than contextlib.nullcontext
+        dm_lock = dm.lock
+        dm2_commit = dm2.commit
+        def dm21():
+            dm2_commit()
+            with dm_lock:
+                yield
+        return contextmanager(dm21)
+
+    def _task_drop(self, weak_app, dm, dm2):
+        stats = self._stats('drop', dm2)
+        dropped = 0
+        parts = self._drop_set
+        em_lock = weak_app().em.lock
+        dm21 = self._dm21(dm, dm2)
+        while True:
+            lock = threading.Lock()
+            with lock:
+                with em_lock:
+                    try:
+                        offset = min(parts) # same as in _task_pack
+                    except ValueError:
+                        if dropped:
+                            try:
+                                stats.send("%s partition(s) dropped" % dropped)
+                            except StopIteration:
+                                pass
+                        break
+                    self._processing = offset, lock
+                logging.info("dropping partition %s...", offset)
+                while True:
+                    with em_lock:
+                        self._checkStop(dm, dm2)
+                        if offset not in parts: # partition reassigned
+                            break
+                    with dm2.lock:
+                        deleted = dm2._dropPartition(offset, next(stats))
+                        if type(deleted) is list:
+                            try:
+                                deleted.remove(None)
+                                pass # XXX: not covered
+                            except ValueError:
+                                pass
+                            pruned = dm2._pruneData(deleted)
+                            stats.send(len(deleted) if pruned is None else
+                                       pruned)
+                        else:
+                            stats.send(deleted)
+                            if not deleted:
+                                with dm21():
+                                    try:
+                                        parts.remove(offset)
+                                    except KeyError:
+                                        pass
+                                    else:
+                                        dropped += 1
+                                        dm.commit()
+                                break
+                        dm2.commitFromTimeToTime()
+            if dm is not dm2:
+                # Process deferred pruning before dropping another partition.
+                parts = ()
+
+    def _task_pack(self, weak_app, dm, dm2):
+        stats = self._stats('pack', dm2)
+        pack_id, approved, partial, _oids, tid = self._pack_info
+        assert approved, self._pack_info
+        tid = util.u64(tid)
+        packed = 0
+        parts = self._pack_set
+        em_lock = weak_app().em.lock
+        dm21 = self._dm21(dm, dm2)
+        while True:
+            lock = threading.Lock()
+            with lock:
+                with em_lock, dm.lock:
+                    try:
+                        # Better than next(iter(...)) to resume work
+                        # on a partially-processed partition.
+                        offset = min(parts)
+                    except ValueError:
+                        if packed:
+                            try:
+                                stats.send(
+                                    "%s partition(s) processed for pack %s"
+                                    % (packed, util.dump(pack_id)))
+                            except StopIteration:
+                                pass
+                            weak_app().notifyPackCompleted()
+                        self._packing = False
+                        if not (self._stop or self._pack_set):
+                            weak_app().maybePack()
+                        break
+                    self._processing = offset, lock
+                if partial:
+                    np = dm.np
+                    oid_index = 0
+                    oids = [oid for oid in _oids if oid % np == offset]
+                    logging.info(
+                        "partial pack %s @%016x: partition %s (%s oids)...",
+                        util.dump(pack_id), tid, offset, len(oids))
+                else:
+                    oid = -1
+                    logging.info(
+                        "pack %s @%016x: partition %s...",
+                        util.dump(pack_id), tid, offset)
+                while True:
+                    with em_lock:
+                        self._checkStop(dm, dm2)
+                        if offset not in parts: # partition not readable anymore
+                            break
+                    with dm2.lock:
+                        limit = next(stats)
+                        if partial:
+                            i = oid_index + limit
+                            deleted = dm2._pack(offset,
+                                oids[oid_index:i], tid)[1]
+                            oid_index = i
+                        else:
+                            oid, deleted = dm2._pack(offset, oid+1, tid, limit)
+                        stats.send(deleted)
+                        if oid_index >= len(oids) if partial else oid is None:
+                            with dm21():
+                                try:
+                                    parts.remove(offset)
+                                except ValueError:
+                                    pass
+                                else:
+                                    packed += 1
+                                    i = util.u64(pack_id)
+                                    assert dm._getPartitionPacked(offset) < i
+                                    dm._setPartitionPacked(offset, i)
+                                    dm.commit()
+                            break
+                        dm2.commitFromTimeToTime()
+            if dm is not dm2:
+                # Process deferred pruning before packing another partition.
+                parts = ()
+
+    def _task_orphan(self, weak_app, dm, dm2):
+        dm21 = self._dm21(dm, dm2)
+        logging.info("searching for orphan records...")
+        with dm2.lock:
+            data_id_list = dm2.getOrphanList()
+            logging.info("found %s records that may be orphan",
+                         len(data_id_list))
+            if data_id_list and not self._orphan:
+                deleted = dm2._pruneData(data_id_list)
+                if deleted is not None:
+                    logging.info("deleted %s orphan records", deleted)
+                with dm21():
+                    dm.commit()
+            self._orphan = None
+
+    def checkNotProcessing(self, app, offset, min_tid):
+        assert offset not in self._drop_set, offset
+        if offset in self._pack_set:
+            # There are conditions to start packing when it's safe
+            # (see filterPackable), so reciprocally we have the same condition
+            # here to double check when it's safe to replicate during a pack.
+            assert self._pack_info[0] < min_tid, (
+                offset, min_tid, self._pack_info)
+            return
+        processing, lock = self._processing
+        if processing == offset:
+            if not lock.acquire(0):
+                assert min_tid == ZERO_TID # newly assigned
+                dm_lock = app.dm.lock
+                em_lock = app.em.lock
+                dm_lock.release()
+                em_lock.release()
+                lock.acquire()
+                em_lock.acquire()
+                dm_lock.acquire()
+            lock.release()
+
+    @contextmanager
+    def dropPartitions(self, app):
+        if app.disable_drop_partitions:
+            drop_set = set()
+            yield drop_set
+            if drop_set:
+                logging.info("don't drop data for partitions %r",
+                             sorted(drop_set))
+        else:
+            with self._maybeResume(app):
+                drop_set = self._drop_set
+                yield drop_set
+        self._pack_set -= drop_set
+
+    def isReadyToStartPack(self):
+        """
+        If ready to start a pack, return 2-tuple:
+        - last processed pack id (i.e. we already have all
+          information to resume this pack), None otherwise
+        - last completed pack for this storage node at the
+          time of the last call to pack()
+        Else return None.
+        """
+        if not (self._packing or self._pack_set):
+            return self._pack_info[0], self._packed
+
+    def pack(self, app, info, packed, offset_list):
+        assert app.operational
+        parts = self._pack_set
+        assert not parts
+        with self._maybeResume(app):
+            parts.update(offset_list)
+            if parts:
+                if info:
+                    pack_id, approved, partial, oids, tid = info
+                    self._pack_info = (pack_id, approved, partial,
+                        oids and map(util.u64, oids), tid)
+                    self._packed = packed
+                else:
+                    assert self._packed == packed
+            elif not packed:
+                # Release memory: oids may take several MB.
+                try:
+                    del self._pack_info, self._packed
+                except AttributeError:
+                    pass
+
+    def pruneOrphan(self, app, dry_run):
+        with self._maybeResume(app):
+            if self._orphan is None:
+                self._orphan = dry_run
+            else:
+                logging.error('already repairing')
+
+
 class DatabaseManager(object):
-    """This class only describes an interface for database managers."""
+    """Base class for database managers
+
+    It also describes the interface to be implemented.
+    """
 
     ENGINES = ()
+    TEST_IDENT = None
     UNSAFE = False
 
-    __lock = None
+    __lockFile = None
     LOCK = "neostorage"
     LOCKED = "error: database is locked"
 
-    _deferred = 0
-    _repairing = None
+    _deferred_commit = 0
+    _last_commit = 0
+    _uncommitted_data = () # for secondary connections
 
-    def __init__(self, database, engine=None, wait=None):
+    def __init__(self, database, engine=None, wait=None,
+                 background_worker_class=BackgroundWorker):
         """
             Initialize the object.
         """
@@ -69,6 +472,9 @@ class DatabaseManager(object):
         self._wait = wait or 0
         self._parse(database)
         self._init_attrs = tuple(self.__dict__)
+        self._background_worker = background_worker_class()
+        self.lock = threading.RLock()
+        self.lock.acquire()
         self._connect()
 
     def __getstate__(self):
@@ -82,18 +488,12 @@ class DatabaseManager(object):
         #self._init_attrs = tuple(self.__dict__)
         # Secondary connections don't lock.
         self.LOCK = None
+        self.lock = threading.RLock() # dummy lock
+        self.lock.acquire()
         self._connect()
 
-    @contextmanager
-    def _duplicate(self):
-        db = copy(self)
-        try:
-            yield db
-        finally:
-            db.close()
-
     _cached_attr_list = (
-        '_readable_set', '_getPartition', '_getReadablePartition')
+        'pt', '_readable_set', '_getPartition', '_getReadablePartition')
 
     def __getattr__(self, attr):
         if attr in self._cached_attr_list:
@@ -114,7 +514,7 @@ class DatabaseManager(object):
     def __exit__(self, t, v, tb):
         if v is None:
             # Deferring commits make no sense for secondary connections.
-            assert not self._deferred
+            assert not self._deferred_commit
             self._commit()
 
     @abstract
@@ -128,17 +528,16 @@ class DatabaseManager(object):
     def autoReconnect(self, f):
         """
         Placeholder for backends that may lose connection to the underlying
-        database: although a primary connection is reestablished transparently
-        when possible, secondary connections use transactions and they must
-        restart from the beginning.
+        database.
         For other backends, there's no expected transient failure so the
         default implementation is to execute the given task exactly once.
         """
-        f()
+        assert not self.LOCK, "not a secondary connection"
+        return f()
 
-    def lock(self, db_path):
+    def lockFile(self, db_path):
         if self.LOCK:
-            assert self.__lock is None, self.__lock
+            assert self.__lockFile is None, self.__lockFile
             # For platforms that don't support anonymous sockets,
             # we can either use zc.lockfile or an empty SQLite db
             # (with BEGIN EXCLUSIVE).
@@ -148,7 +547,7 @@ class DatabaseManager(object):
                 if e.errno != errno.ENOENT:
                     raise
                 return # in-memory or temporary database
-            s = self.__lock = socket.socket(socket.AF_UNIX)
+            s = self.__lockFile = socket.socket(socket.AF_UNIX)
             try:
                 s.bind('\0%s:%s:%s' % (self.LOCK, stat.st_dev, stat.st_ino))
             except socket.error as e:
@@ -211,40 +610,53 @@ class DatabaseManager(object):
             getattr(self, '_migrate%s' % version)(*args, **kw)
             self.setConfiguration("version", version)
 
-    def doOperation(self, app):
-        pass
+    @property
+    def operational(self):
+        return self._background_worker.operational
+
+    @property
+    def checkNotProcessing(self):
+        return self._background_worker.checkNotProcessing
 
     def _close(self):
         """Backend-specific code to close the database"""
 
     @requires(_close)
     def close(self):
-        self._deferredCommit()
+        if self._deferred_commit:
+            self.commit()
         self._close()
-        if self.__lock:
-            self.__lock.close()
-            del self.__lock
+        if self.__lockFile:
+            self.__lockFile.close()
+            del self.__lockFile
 
     def _commit(self):
         """Backend-specific code to commit the pending changes"""
 
     @requires(_commit)
     def commit(self):
+        assert self.lock._is_owned() or self.TEST_IDENT == thread.get_ident()
         logging.debug('committing...')
         self._commit()
+        self._last_commit = time()
         # Instead of cancelling a timeout that would be set to defer a commit,
         # we simply use to a boolean so that _deferredCommit() does nothing.
         # IOW, epoll may wait wake up for nothing but that should be rare,
         # because most immediate commits are usually quickly followed by
         # deferred commits.
-        self._deferred = 0
+        self._deferred_commit = 0
 
     def deferCommit(self):
-        self._deferred = 1
+        self._deferred_commit = 1
         return self._deferredCommit
 
     def _deferredCommit(self):
-        if self._deferred:
+        with self.lock:
+            if self._deferred_commit:
+                self.commit()
+
+    def commitFromTimeToTime(self, period=1):
+        if self._last_commit + period < time():
             self.commit()
 
     @abstract
@@ -273,8 +685,9 @@ class DatabaseManager(object):
 
     def _getPartitionTable(self):
         """Return a whole partition table as a sequence of rows. Each row
-        is again a tuple of an offset (row ID), the NID of a storage
-        node, and a cell state."""
+        is again a tuple of an offset (row ID), the NID of a storage node,
+        either a tid or the negative of a cell state, and a pack id.
+        """
 
     def getUUID(self):
         """
@@ -292,8 +705,8 @@ class DatabaseManager(object):
         old_nid = self.getUUID()
         if nid != old_nid:
             if old_nid:
-                self._changePartitionTable((offset, x, tid)
-                    for offset, x, tid in self._getPartitionTable()
+                self._changePartitionTable((offset, x, tid, pack)
+                    for offset, x, tid, pack in self._getPartitionTable()
                     if x == old_nid
                     for x, tid in ((x, None), (nid, tid)))
             self.setConfiguration('nid', str(nid))
@@ -342,15 +755,6 @@ class DatabaseManager(object):
         logging.debug('truncate_tid = %s', tid)
         return self._setConfiguration('truncate_tid', tid)
 
-    def _setPackTID(self, tid):
-        self._setConfiguration('_pack_tid', tid)
-
-    def _getPackTID(self):
-        try:
-            return int(self.getConfiguration('_pack_tid'))
-        except TypeError:
-            return -1
-
     # XXX: Consider splitting getLastIDs/_getLastIDs because
     #      sometimes the last oid is not wanted.
 
@@ -393,6 +797,73 @@ class DatabaseManager(object):
             return (None if tid is None else util.p64(tid),
                     None if oid is None else util.p64(oid))
         return None, None
+
+    def _getPackOrders(self, min_completed):
+      """Request list of pack orders excluding oldest completed ones.
+
+      Return information from pack orders with id >= min_completed,
+      only from readable partitions. As a iterable of:
+      - pack id (int)
+      - approved (None if not signed, else cast as boolean)
+      - partial (cast as boolean)
+      - oids (list of 8-byte strings)
+      - pack tid (int)
+      """
+
+    @requires(_getPackOrders)
+    def getPackOrders(self, min_completed):
+        p64 = util.p64
+        return [(
+            p64(id),
+            None if approved is None else bool(approved),
+            bool(partial),
+            oids,
+            p64(tid),
+        ) for id, approved, partial, oids, tid in self._getPackOrders(
+            util.u64(min_completed))]
+
+    @abstract
+    def getPackedIDs(self, up_to_date=False):
+        """Return pack status of assigned partitions
+
+        Return {offset: pack_id (as 8-byte)}
+        If up_to_date, returned dict shall only contain information
+        about UP_TO_DATE partitions.
+        """
+
+    @abstract
+    def _getPartitionPacked(self, partition):
+        """Get the last completed pack (id as int) for an assigned partition"""
+
+    @abstract
+    def _setPartitionPacked(self, partition, pack_id):
+        """Set the last completed pack (id as int) for an assigned partition"""
+
+    def updateCompletedPackByReplication(self, partition, pack_id):
+        """
+        The caller is going to replicate data from another node that may have
+        already packed objects and we must adjust our pack status so that we
+        don't do process too many or too few packs.
+
+        pack_id (as 8-byte) is the last completed pack id on the feeding nodes
+        so that must also be ours now if our last completed pack is more recent,
+        which means we'll have to redo some packs.
+        """
+        pack_id = util.u64(pack_id)
+        if pack_id < self._getPartitionPacked(partition):
+            self._setPartitionPacked(partition, pack_id)
+
+    @property
+    def pack(self):
+        return self._background_worker.pack
+
+    @property
+    def isReadyToStartPack(self):
+        return self._background_worker.isReadyToStartPack
+
+    @property
+    def repair(self):
+        return self._background_worker.pruneOrphan
 
     def _getUnfinishedTIDDict(self):
         """"""
@@ -508,13 +979,14 @@ class DatabaseManager(object):
     @requires(_getPartitionTable)
     def iterAssignedCells(self):
         my_nid = self.getUUID()
-        return ((offset, tid) for offset, nid, tid in self._getPartitionTable()
-                              if my_nid == nid)
+        return ((offset, tid)
+            for offset, nid, tid, pack in self._getPartitionTable()
+            if my_nid == nid)
 
     @requires(_getPartitionTable)
     def getPartitionTable(self):
-        return [(offset, nid, max(0, -state))
-            for offset, nid, state in self._getPartitionTable()]
+        return [(offset, nid, max(0, -tid))
+            for offset, nid, tid, pack in self._getPartitionTable()]
 
     @contextmanager
     def replicated(self, offset):
@@ -538,7 +1010,7 @@ class DatabaseManager(object):
     def _updateReadable(self, reset=True):
         if reset:
             readable_set = self._readable_set = set()
-            np = 1 + self._getMaxPartition()
+            np = self.np = 1 + self._getMaxPartition()
             def _getPartition(x, np=np):
                 return x % np
             def _getReadablePartition(x, np=np, r=readable_set):
@@ -559,7 +1031,8 @@ class DatabaseManager(object):
                                  if -x[1] in READABLE)
 
     @requires(_changePartitionTable, _getLastIDs, _getLastTID)
-    def changePartitionTable(self, ptid, num_replicas, cell_list, reset=False):
+    def changePartitionTable(self, app, ptid, num_replicas, cell_list,
+                             reset=False):
         my_nid = self.getUUID()
         pt = dict(self.iterAssignedCells())
         # In backup mode, the last transactions of a readable cell may be
@@ -567,23 +1040,48 @@ class DatabaseManager(object):
         backup_tid = self.getBackupTID()
         if backup_tid:
             backup_tid = util.u64(backup_tid)
-        def outofdate_tid(offset):
-            tid = pt.get(offset, 0)
-            if tid >= 0:
-                return tid
-            return -tid in READABLE and (backup_tid or
-                max(self._getLastIDs(offset)[0],
-                    self._getLastTID(offset))) or 0
-        cell_list = [(offset, nid, (
-                None if state == CellStates.DISCARDED else
-                -state if nid != my_nid or state != CellStates.OUT_OF_DATE else
-                outofdate_tid(offset)))
-            for offset, nid, state in cell_list]
-        self._changePartitionTable(cell_list, reset)
-        self._updateReadable(reset)
-        assert isinstance(ptid, (int, long)), ptid
-        self._setConfiguration('ptid', str(ptid))
-        self._setConfiguration('replicas', str(num_replicas))
+        max_offset = -1
+        assigned = []
+        cells = []
+        pack_set = self._background_worker._pack_set
+        app_last_pack_id = util.u64(app.last_pack_id)
+        with self._background_worker.dropPartitions(app) as drop_set:
+            for offset, nid, state in cell_list:
+                if max_offset < offset:
+                    max_offset = offset
+                pack = None
+                if state == CellStates.DISCARDED:
+                    if nid == my_nid:
+                        drop_set.add(offset)
+                        pack_set.discard(offset)
+                    tid = None
+                else:
+                    if nid == my_nid:
+                        assigned.append(offset)
+                        if state in READABLE:
+                            assert not (app_last_pack_id and reset), (
+                                reset, app_last_pack_id, cell_list)
+                            pack = 0
+                        else:
+                            pack_set.discard(offset)
+                            pack = app_last_pack_id
+                    if nid != my_nid or state != CellStates.OUT_OF_DATE:
+                        tid = -state
+                    else:
+                        tid = pt.get(offset, 0)
+                        if tid < 0:
+                            tid = -tid in READABLE and (backup_tid or
+                                max(self._getLastIDs(offset)[0],
+                                    self._getLastTID(offset))) or 0
+                cells.append((offset, nid, tid, pack))
+            if reset:
+                drop_set.update(xrange(max_offset + 1))
+            drop_set.difference_update(assigned)
+            self._changePartitionTable(cells, reset)
+            self._updateReadable(reset)
+            assert isinstance(ptid, (int, long)), ptid
+            self._setConfiguration('ptid', str(ptid))
+            self._setConfiguration('replicas', str(num_replicas))
 
     @requires(_changePartitionTable)
     def updateCellTID(self, partition, tid):
@@ -600,7 +1098,7 @@ class DatabaseManager(object):
         # we may end up in a special situation where an OUT_OF_DATE cell
         # is actually more up-to-date than an UP_TO_DATE one.
         assert t < tid or self.getBackupTID()
-        self._changePartitionTable([(partition, self.getUUID(), tid)])
+        self._changePartitionTable([(partition, self.getUUID(), tid, None)])
 
     def iterCellNextTIDs(self):
         p64 = util.p64
@@ -629,8 +1127,14 @@ class DatabaseManager(object):
                     yield offset, None
 
     @abstract
-    def dropPartitions(self, offset_list):
-        """Delete all data for specified partitions"""
+    def _dropPartition(self, offset, count):
+        """Delete rows for given partition
+
+        Delete at most 'count' rows of from obj:
+        - if there's no line to delete, purge trans and return
+          a boolean indicating if any row was deleted (from trans)
+        - else return data ids of deleted rows
+        """
 
     def _getUnfinishedDataIdList(self):
         """Drop any unfinished data from a database."""
@@ -681,11 +1185,22 @@ class DatabaseManager(object):
           an index or a refcount of all data ids of all objects)
 
         The returned value is the number of deleted rows from the data table.
+
+        When called by a secondary connection, the method must only add
+        data_id_list to the 'todel' table (see MVCCDatabaseManager) and
+        return None.
         """
 
     @abstract
-    def storeData(self, checksum, oid, data, compression):
+    def storeData(self, checksum, oid, data, compression, data_tid):
         """To be overridden by the backend to store object raw data
+
+        'checksum' must be the result of makeChecksum(data).
+        'compression' indicates if 'data' is compressed.
+        In the case of undo, 'data_tid' may not be None:
+        - if (oid, data_tid) exists, the related data_id must be returned;
+        - else, if it can happen (e.g. cell is not readable), the caller
+          must have passed valid (checksum, data, compression) as fallback.
 
         If same data was already stored, the storage only has to check there's
         no hash collision.
@@ -696,21 +1211,16 @@ class DatabaseManager(object):
         """Inverse of storeData
         """
 
-    def holdData(self, checksum_or_id, *args):
-        """Store raw data of temporary object
+    def holdData(self, *args):
+        """Store and hold data
 
-        If 'checksum_or_id' is a checksum, it must be the result of
-        makeChecksum(data) and extra parameters must be (data, compression)
-        where 'compression' indicates if 'data' is compressed.
-        A volatile reference is set to this data until 'releaseData' is called
-        with this checksum.
-        If called with only an id, it only increment the volatile
-        reference to the data matching the id.
+        The parameters are same as storeData.
+        A volatile reference is set to this data until 'releaseData' is called.
         """
-        if args:
-            checksum_or_id = self.storeData(checksum_or_id, *args)
-        self._uncommitted_data[checksum_or_id] += 1
-        return checksum_or_id
+        data_id = self.storeData(*args)
+        if data_id is not None:
+            self._uncommitted_data[data_id] += 1
+            return data_id
 
     def releaseData(self, data_id_list, prune=False):
         """Release 1 volatile reference to given list of data ids
@@ -726,28 +1236,15 @@ class DatabaseManager(object):
             else:
                 del refcount[data_id]
         if prune:
-            return self._pruneData(data_id_list)
+            self._pruneData(data_id_list)
 
-    @fallback
-    @requires(_getObject)
-    def _getDataTID(self, oid, tid=None, before_tid=None):
-        """
-        Return a 2-tuple:
-        tid (int)
-            tid corresponding to received parameters
-        serial
-            data tid of the found record
+    def _getObjectHistoryForUndo(self, oid, undo_tid):
+        """Return (undone_tid, history) where 'undone_tid' is the greatest tid
+        before 'undo_tid' and 'history' is the list of (tid, value_tid) after
+        'undo_tid'. If there's no record at 'undo_tid', return None."""
 
-        (None, None) is returned if requested object and transaction
-        could not be found.
-
-        This method only exists for performance reasons, by not returning data:
-        _getObject already returns these values but it is slower.
-        """
-        r = self._getObject(oid, tid, before_tid)
-        return (r[0], r[-1]) if r else (None, None)
-
-    def findUndoTID(self, oid, ltid, undone_tid, current_tid):
+    @requires(_getObjectHistoryForUndo)
+    def findUndoTID(self, oid, ltid, undo_tid, current_tid):
         """
         oid
             Object OID
@@ -756,7 +1253,7 @@ class DatabaseManager(object):
         ltid
             Upper (excluded) bound of transactions visible to transaction doing
             the undo.
-        undone_tid
+        undo_tid
             Transaction to undo
         current_tid
             Serial of object data from memory, if it was modified by running
@@ -768,58 +1265,113 @@ class DatabaseManager(object):
             see. This is used later to detect current conflicts (eg, another
             client modifying the same object in parallel)
         data_tid (int)
-            TID containing (without indirection) the data prior to undone
-            transaction.
+            TID containing the data prior to undone transaction.
             None if object doesn't exist prior to transaction being undone
               (its creation is being undone).
         is_current (bool)
             False if object was modified by later transaction (ie, data_tid is
             not current), True otherwise.
+
+        When undoing several times in such a way that several data_tid are
+        possible, the implementation guarantees to return the greatest one,
+        which makes undo compatible with pack without having to update the
+        value_tid of obj records. IOW, all records that are undo-identical
+        constitute a simply-linked list; after a pack, the value_tid of the
+        record with the smallest TID points to nowhere.
+
+        With a different implementation, it could fail as follows:
+            tid value_tid
+            10  -
+            20  10
+            30  10
+            40  20
+        After packing at 30, the DB would lose the information that 30 & 40
+        are undo-identical.
+
+        TODO: Since ZODB requires nothing about how undo-identical records are
+              linked, imported databases may not be packable without breaking
+              undo information. Same for existing databases because older NEO
+              implementation linked records differently. A background task to
+              fix value_tid should be implemented; for example, it would be
+              used automatically once Importer has finished, if it has seen
+              non-null value_tid.
         """
         u64 = util.u64
-        oid = u64(oid)
-        undone_tid = u64(undone_tid)
-        def getDataTID(tid=None, before_tid=None):
-            tid, data_tid = self._getDataTID(oid, tid, before_tid)
-            current_tid = tid
-            while data_tid:
-                if data_tid < tid:
-                    tid, data_tid = self._getDataTID(oid, data_tid)
-                    if tid is not None:
-                        continue
-                logging.error("Incorrect data serial for oid %s at tid %s",
-                              oid, current_tid)
-                return current_tid, current_tid
-            return current_tid, tid
-        found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
-        if found_undone_tid is None:
-            return
+        undo_tid = u64(undo_tid)
+        history = self._getObjectHistoryForUndo(u64(oid), undo_tid)
+        if not history:
+            return # nothing to undo for this oid at undo_tid
+        undone_tid, history = history
         if current_tid:
-            current_data_tid = u64(current_tid)
+            current = u64(current_tid)
         else:
-            if ltid:
-                ltid = u64(ltid)
-            current_tid, current_data_tid = getDataTID(before_tid=ltid)
-            if current_tid is None:
-                return None, None, False
-            current_tid = util.p64(current_tid)
-        # Load object data as it was before given transaction.
-        # It can be None, in which case it means we are undoing object
-        # creation.
-        _, data_tid = getDataTID(before_tid=undone_tid)
-        if data_tid is not None:
-            data_tid = util.p64(data_tid)
-        return current_tid, data_tid, undone_data_tid == current_data_tid
+            ltid = u64(ltid) if ltid else float('inf')
+            for current, _ in reversed(history):
+                if current < ltid:
+                    break
+            else:
+                if ltid <= undo_tid:
+                    return None, None, False
+                current = undo_tid
+            current_tid = util.p64(current)
+        is_current = current == undo_tid
+        for tid, data_tid in history:
+            if data_tid is not None:
+                if data_tid == undone_tid:
+                    undone_tid = tid
+                elif data_tid == undo_tid:
+                    if current == tid:
+                        is_current = True
+                    else:
+                        undo_tid = tid
+        return (current_tid,
+                None if undone_tid is None else util.p64(undone_tid),
+                is_current)
 
     @abstract
-    def lockTransaction(self, tid, ttid):
+    def storePackOrder(self, tid, approved, partial, oid_list, pack_tid):
+        """Store a pack order
+
+        - tid (8-byte)
+            pack id
+        - approved
+            not signed (None), rejected (False) or approved (True)
+        - partial (boolean)
+        - oid_list (list of 8-byte)
+        - pack_tid (8-byte)
+        """
+
+    def _signPackOrders(self, approved, rejected):
+        """Update signing status of pack orders
+
+        Both parameters are lists of pack ids as int.
+        Return list of pack orders (ids as int) that could be updated.
+        """
+
+    @requires(_signPackOrders)
+    def signPackOrders(self, approved, rejected, auto_commit=True):
+        u64 = util.u64
+        changed = map(util.p64, self._signPackOrders(
+            map(u64, approved), map(u64, rejected)))
+        if changed:
+            if auto_commit:
+                self.commit()
+            def _(signed):
+                signed = set(signed)
+                signed.difference_update(changed)
+                return sorted(signed)
+            return _(approved), _(rejected)
+        return approved, rejected
+
+    @abstract
+    def lockTransaction(self, tid, ttid, pack):
         """Mark voted transaction 'ttid' as committed with given 'tid'
 
         All pending changes are committed just before returning to the caller.
         """
 
     @abstract
-    def unlockTransaction(self, tid, ttid, trans, obj):
+    def unlockTransaction(self, tid, ttid, trans, obj, pack):
         """Finalize a transaction by moving data to a finished area."""
 
     @abstract
@@ -847,50 +1399,15 @@ class DatabaseManager(object):
             assert tid, tid
             cell_list = []
             my_nid = self.getUUID()
-            commit = 0
             for partition, state in self.iterAssignedCells():
-                if commit < time.time():
-                    if commit:
-                        self.commit()
-                    commit = time.time() + 10
                 if state > tid:
-                    cell_list.append((partition, my_nid, tid))
+                    cell_list.append((partition, my_nid, tid, None))
                 self._deleteRange(partition, tid)
+                self.commitFromTimeToTime(10)
             if cell_list:
                 self._changePartitionTable(cell_list)
             self._setTruncateTID(None)
             self.commit()
-
-    def repair(self, weak_app, dry_run):
-        t = self._repairing
-        if t and t.is_alive():
-            logging.error('already repairing')
-            return
-        def repair():
-            l = threading.Lock()
-            l.acquire()
-            def finalize():
-                try:
-                    if data_id_list and not dry_run:
-                        self.commit()
-                        logging.info("repair: deleted %s orphan records",
-                                     self._pruneData(data_id_list))
-                        self.commit()
-                finally:
-                    l.release()
-            try:
-                with self._duplicate() as db:
-                    data_id_list = db.getOrphanList()
-                logging.info("repair: found %s records that may be orphan",
-                             len(data_id_list))
-                weak_app().em.wakeup(finalize)
-                l.acquire()
-            finally:
-                del self._repairing
-            logging.info("repair: done")
-        t = self._repairing = threading.Thread(target=repair)
-        t.daemon = 1
-        t.start()
 
     @abstract
     def getTransaction(self, tid, all = False):
@@ -901,7 +1418,7 @@ class DatabaseManager(object):
         area as well."""
 
     @abstract
-    def getObjectHistory(self, oid, offset, length):
+    def getObjectHistoryWithLength(self, oid, offset, length):
         """Return a list of serials and sizes for a given object ID.
         The length specifies the maximum size of such a list. Result starts
         with latest serial, and the list must be sorted in descending order.
@@ -935,20 +1452,12 @@ class DatabaseManager(object):
         passed to filter out non-applicable TIDs."""
 
     @abstract
-    def pack(self, tid, updateObjectDataForPack):
-        """Prune all non-current object revisions at given tid.
-        updateObjectDataForPack is a function called for each deleted object
-        and revision with:
-        - OID
-        - packed TID
-        - new value_serial
-            If object data was moved to an after-pack-tid revision, this
-            parameter contains the TID of that revision, allowing to backlink
-            to it.
-        - getObjectData function
-            To call if value_serial is None and an object needs to be updated.
-            Takes no parameter, returns a 3-tuple: compression, data_id,
-            value
+    def _pack(self, offset, oid, tid, limit=None):
+        """
+        The undo feature is implemented in such a way that value_tid does not
+        have to be updated. This is important for performance reasons, but also
+        because pack must be idempotent to guarantee that up-to-date replicas
+        are identical.
         """
 
     @abstract
@@ -990,4 +1499,34 @@ class DatabaseManager(object):
             - biggest serial found for biggest OID found (ie, serial of last
               record read)
               ZERO_TID if no record found
+        """
+
+
+class MVCCDatabaseManager(DatabaseManager):
+    """Base class for MVCC database managers
+
+    Which means when it can work efficiently with several concurrent
+    connections to the underlying database.
+
+    An extra 'todel' table is needed to defer data pruning by secondary
+    connections.
+    """
+
+    @abstract
+    def _dataIdsToPrune(self, limit):
+        """Iterate over the 'todel' table
+
+        Return the next ids to be passed to '_pruneData'. 'limit' specifies
+        the maximum number of ids to return.
+
+        Because deleting rows gradually can be inefficient, it's always called
+        again until it returns no id at all, without any concurrent task that
+        could add new ids. This way, the database manager can just:
+        - remember the last greatest id returned (it does not have to
+          persistent, i.e. it should be fast enough to restart from the
+          beginning if it's interrupted);
+        - and recreate the table on the last call.
+
+        When returning no id whereas it previously returned ids,
+        the method must commit.
         """

@@ -19,8 +19,9 @@ from ..mock import Mock, ReturnValues
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.client import ClientOperationHandler
-from neo.lib.util import p64
+from neo.lib.exception import ProtocolError
 from neo.lib.protocol import INVALID_TID, Packets
+from neo.lib.util import p64
 
 class StorageClientHandlerTests(NeoUnitTestBase):
 
@@ -65,7 +66,8 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         app.pt = Mock()
         self.fakeDM()
         conn = self._getConnection()
-        self.checkProtocolErrorRaised(self.operation.askTIDs, conn, 1, 1, None)
+        self.assertRaises(ProtocolError, self.operation.askTIDs,
+                          conn, 1, 1, None)
         self.assertEqual(len(app.pt.mockGetNamedCalls('getCellList')), 0)
         self.assertEqual(len(app.dm.mockGetNamedCalls('getTIDList')), 0)
 
@@ -84,8 +86,8 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         # invalid offsets => error
         dm = self.fakeDM()
         conn = self._getConnection()
-        self.checkProtocolErrorRaised(self.operation.askObjectHistory, conn,
-            1, 1, None)
+        self.assertRaises(ProtocolError, self.operation.askObjectHistory,
+                          conn, 1, 1, None)
         self.assertEqual(len(dm.mockGetNamedCalls('getObjectHistory')), 0)
 
     def test_askObjectUndoSerial(self):

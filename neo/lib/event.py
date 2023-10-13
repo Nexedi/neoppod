@@ -14,8 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
+import fcntl, os
 from collections import deque
+from signal import set_wakeup_fd
 from time import time
 from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
 from errno import EAGAIN, EEXIST, EINTR, ENOENT
@@ -31,6 +32,15 @@ def dictionary_changed_size_during_iteration():
         return str(e)
     raise AssertionError
 
+def nonblock(fd):
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+# We use set_wakeup_fd to handle the case of a signal that happens between
+# Python checks for signals and epoll_wait is called. Otherwise, the signal
+# would not be processed as long as epoll_wait sleeps.
+# If a process has several instances of EpollEventManager like in threaded
+# tests, it does not matter which one is woke up by signals.
 
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
@@ -44,9 +54,17 @@ class EpollEventManager(object):
         self.epoll = epoll()
         self._pending_processing = deque()
         self._trigger_list = []
-        self._trigger_fd, w = os.pipe()
-        os.close(w)
+        r, w = os.pipe()
+        self._wakeup_rfd = r
+        self._wakeup_wfd = w
+        nonblock(r)
+        nonblock(w)
+        fd = set_wakeup_fd(w)
+        assert fd == -1, fd
+        self.epoll.register(r, EPOLLIN)
         self._trigger_lock = Lock()
+        self.lock = l = Lock()
+        l.acquire()
         close_list = []
         self._closeAppend = close_list.append
         l = Lock()
@@ -61,9 +79,12 @@ class EpollEventManager(object):
         self._closeRelease = release
 
     def close(self):
-        os.close(self._trigger_fd)
+        set_wakeup_fd(-1)
+        os.close(self._wakeup_wfd)
+        os.close(self._wakeup_rfd)
         for c in self.connection_dict.values():
             c.close()
+        self.epoll.close()
         del self.__dict__
 
     def getConnectionList(self):
@@ -188,6 +209,15 @@ class EpollEventManager(object):
             # granularity of 1ms and Python 2.7 rounds the timeout towards zero.
             # See also https://bugs.python.org/issue20452 (fixed in Python 3).
             blocking = .001 + max(0, timeout - time()) if timeout else -1
+            def poll(blocking):
+                l = self.lock
+                l.release()
+                try:
+                    return self.epoll.poll(blocking)
+                finally:
+                    l.acquire()
+        else:
+            poll = self.epoll.poll
         # From this point, and until we have processed all fds returned by
         # epoll, we must prevent any fd from being closed, because they could
         # be reallocated by new connection, either by this thread or by another.
@@ -195,7 +225,7 @@ class EpollEventManager(object):
         # 'finally' clause.
         self._closeAcquire()
         try:
-            event_list = self.epoll.poll(blocking)
+            event_list = poll(blocking)
         except IOError, exc:
             if exc.errno in (0, EAGAIN):
                 logging.info('epoll.poll triggered undocumented error %r',
@@ -213,6 +243,15 @@ class EpollEventManager(object):
                         try:
                             conn = self.connection_dict[fd]
                         except KeyError:
+                            if fd == self._wakeup_rfd:
+                                os.read(fd, 8)
+                                with self._trigger_lock:
+                                    action_list = self._trigger_list
+                                    try:
+                                        while action_list:
+                                            action_list.pop(0)()
+                                    finally:
+                                        del action_list[:]
                             continue
                         if conn.readable():
                             pending_processing.append(conn)
@@ -230,15 +269,6 @@ class EpollEventManager(object):
                     try:
                         conn = self.connection_dict[fd]
                     except KeyError:
-                        if fd == self._trigger_fd:
-                            with self._trigger_lock:
-                                self.epoll.unregister(fd)
-                                action_list = self._trigger_list
-                                try:
-                                    while action_list:
-                                        action_list.pop(0)()
-                                finally:
-                                    del action_list[:]
                         continue
                     if conn.readable():
                         pending_processing.append(conn)
@@ -261,12 +291,12 @@ class EpollEventManager(object):
     def wakeup(self, *actions):
         with self._trigger_lock:
             self._trigger_list += actions
-            try:
-                self.epoll.register(self._trigger_fd)
-            except IOError, e:
-                # Ignore if 'wakeup' is called several times in a row.
-                if e.errno != EEXIST:
-                    raise
+        try:
+            os.write(self._wakeup_wfd, '\0')
+        except OSError, e:
+            # Ignore if wakeup fd is triggered many times in a row.
+            if e.errno != EAGAIN:
+                raise
 
     def addReader(self, conn):
         connector = conn.getConnector()

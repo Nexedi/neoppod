@@ -15,7 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib.handler import DelayEvent
-from neo.lib.protocol import Packets, ProtocolError, MAX_TID, Errors
+from neo.lib.exception import ProtocolError
+from neo.lib.protocol import Packets, MAX_TID, Errors
 from ..app import monotonic_time
 from . import MasterHandler
 
@@ -31,6 +32,7 @@ class ClientServiceHandler(MasterHandler):
         app = self.app
         node = app.nm.getByUUID(conn.getUUID())
         assert node is not None, conn
+        app.pm.clientLost(conn)
         for x in app.tm.clientLost(node):
             app.notifyTransactionAborted(*x)
         node.setUnknown()
@@ -62,7 +64,7 @@ class ClientServiceHandler(MasterHandler):
         conn.answer((Errors.Ack if app.tm.vote(app, *args) else
                      Errors.IncompleteTransaction)())
 
-    def askFinishTransaction(self, conn, ttid, oid_list, checked_list):
+    def askFinishTransaction(self, conn, ttid, oid_list, checked_list, pack):
         app = self.app
         tid, node_list = app.tm.prepare(
             app,
@@ -72,7 +74,8 @@ class ClientServiceHandler(MasterHandler):
             conn.getPeerId(),
         )
         if tid:
-            p = Packets.AskLockInformation(ttid, tid)
+            p = Packets.AskLockInformation(ttid, tid,
+                app.pm.new(tid, *pack) if pack else False)
             for node in node_list:
                 node.ask(p)
         else:
@@ -99,18 +102,6 @@ class ClientServiceHandler(MasterHandler):
             tid = MAX_TID
         conn.answer(Packets.AnswerFinalTID(tid))
 
-    def askPack(self, conn, tid):
-        app = self.app
-        if app.packing is None:
-            storage_list = app.nm.getStorageList(only_identified=True)
-            app.packing = (conn, conn.getPeerId(),
-                {x.getUUID() for x in storage_list})
-            p = Packets.AskPack(tid)
-            for storage in storage_list:
-                storage.getConnection().ask(p)
-        else:
-            conn.answer(Packets.AnswerPack(False))
-
     def abortTransaction(self, conn, tid, uuid_list):
         # Consider a failure when the connection between the storage and the
         # client breaks while the answer to the first write is sent back.
@@ -125,6 +116,16 @@ class ClientServiceHandler(MasterHandler):
         involved.update(uuid_list)
         app.notifyTransactionAborted(tid, involved)
 
+    def askPackOrders(self, conn, pack_id):
+        return self._askPackOrders(conn, pack_id, False)
+
+    def waitForPack(self, conn, tid):
+        try:
+            pack = self.app.pm.packs[tid]
+        except KeyError:
+            conn.answer(Packets.WaitedForPack())
+        else:
+            pack.waitForPack(conn.delayedAnswer(Packets.WaitedForPack))
 
 # like ClientServiceHandler but read-only & only for tid <= backup_tid
 class ClientReadOnlyServiceHandler(ClientServiceHandler):

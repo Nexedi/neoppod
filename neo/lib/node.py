@@ -18,9 +18,9 @@ import errno, json, os
 from time import time
 
 from . import attributeTracker, logging
+from .exception import NotReadyError, ProtocolError
 from .handler import DelayEvent, EventQueue
-from .protocol import formatNodeList, uuid_str, \
-    NodeTypes, NodeStates, NotReadyError, ProtocolError
+from .protocol import formatNodeList, uuid_str, NodeTypes, NodeStates
 
 
 class Node(object):

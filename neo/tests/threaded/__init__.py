@@ -555,8 +555,12 @@ class LoggerThreadName(str):
         return id(self)
 
     def __str__(self):
+        t = threading.currentThread()
+        if t.name == 'BackgroundWorker':
+            t, = t._Thread__args
+            return t().node_name
         try:
-            return threading.currentThread().node_name
+            return t.node_name
         except AttributeError:
             return str.__str__(self)
 
@@ -1077,6 +1081,20 @@ class NEOCluster(object):
         x = {x.uuid: x for x in self.storage_list}
         self.storage_list[:] = (x[r] for r in r)
         return self.storage_list
+
+    def ticAndJoinStorageTasks(self):
+        while True:
+            Serialized.tic()
+            for s in self.storage_list:
+                try:
+                    join = s.dm._background_worker._thread.join
+                    break
+                except AttributeError:
+                    pass
+            else:
+                break
+            join()
+
 
 class NEOThreadedTest(NeoTestBase):
 

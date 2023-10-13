@@ -18,6 +18,7 @@ import os
 import pickle, sys, time
 from bisect import bisect, insort
 from collections import deque
+from contextlib import contextmanager
 from cStringIO import StringIO
 from ConfigParser import SafeConfigParser
 from ZConfig import loadConfigFile
@@ -31,8 +32,9 @@ from ..app import option_defaults
 from . import buildDatabaseManager, DatabaseFailure
 from .manager import DatabaseManager, Fallback
 from neo.lib import compress, logging, patch, util
+from neo.lib.exception import BackendNotImplemented
 from neo.lib.interfaces import implements
-from neo.lib.protocol import BackendNotImplemented, MAX_TID
+from neo.lib.protocol import MAX_TID
 
 patch.speedupFileStorageTxnLookup()
 
@@ -369,13 +371,14 @@ class ImporterDatabaseManager(DatabaseManager):
     """Proxy that transparently imports data from a ZODB storage
     """
     _writeback = None
-    _last_commit = 0
 
     def __init__(self, *args, **kw):
-        super(ImporterDatabaseManager, self).__init__(*args, **kw)
-        implements(self, """_getNextTID checkSerialRange checkTIDRange
-            deleteObject deleteTransaction dropPartitions _getLastTID
-            getReplicationObjectList _getTIDList nonempty""".split())
+        super(ImporterDatabaseManager, self).__init__(
+            background_worker_class=lambda: None,
+            *args, **kw)
+        implements(self, """_getNextTID checkSerialRange checkTIDRange _pack
+            deleteObject deleteTransaction _dropPartition _getLastTID nonempty
+            getReplicationObjectList _getTIDList _setPartitionPacked""".split())
 
     _getPartition = property(lambda self: self.db._getPartition)
     _getReadablePartition = property(lambda self: self.db._getReadablePartition)
@@ -408,7 +411,9 @@ class ImporterDatabaseManager(DatabaseManager):
                     updateCellTID getUnfinishedTIDDict dropUnfinishedData
                     abortTransaction storeTransaction lockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit
-                    _getDevPath dropPartitionsTemporary
+                    _getDevPath dropPartitionsTemporary lock
+                    getPackedIDs _getPartitionPacked
+                    _getPackOrders storePackOrder signPackOrders
                  """.split():
             setattr(self, x, getattr(db, x))
         if self._writeback:
@@ -416,7 +421,6 @@ class ImporterDatabaseManager(DatabaseManager):
         db_commit = db.commit
         def commit():
             db_commit()
-            self._last_commit = time.time()
             if self._writeback:
                 self._writeback.committed()
         self.commit = db.commit = commit
@@ -476,9 +480,11 @@ class ImporterDatabaseManager(DatabaseManager):
             else:
                 self._import = self._import()
 
-    def doOperation(self, app):
+    @contextmanager
+    def operational(self, app):
         if self._import:
             app.newTask(self._import)
+        yield
 
     def _import(self):
         p64 = util.p64
@@ -505,10 +511,10 @@ class ImporterDatabaseManager(DatabaseManager):
                 break
             if len(txn) == 3:
                 oid, data_id, data_tid = txn
-                if data_id is not None:
-                    checksum, data, compression = data_id
-                    data_id = self.holdData(checksum, oid, data, compression)
-                    data_id_list.append(data_id)
+                checksum, data, compression = data_id or (None, None, 0)
+                data_id = self.holdData(
+                    checksum, oid, data, compression, data_tid)
+                data_id_list.append(data_id)
                 object_list.append((oid, data_id, data_tid))
                 # Give the main loop the opportunity to process requests
                 # from other nodes. In particular, clients may commit. If the
@@ -518,7 +524,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 # solved when resuming the migration.
                 # XXX: The leak was solved by the deduplication,
                 #      but it was disabled by default.
-            else:
+            else: # len(txn) == 5
                 tid = txn[-1]
                 self.storeTransaction(tid, object_list,
                     ((x[0] for x in object_list),) + txn,
@@ -541,7 +547,7 @@ class ImporterDatabaseManager(DatabaseManager):
             " your configuration to use the native backend and restart.")
         self._import = None
         for x in """getObject getReplicationTIDList getReplicationObjectList
-                    _fetchObject _getDataTID getLastObjectTID
+                    _fetchObject _getObjectHistoryForUndo getLastObjectTID
                  """.split():
             setattr(self, x, getattr(self.db, x))
         for zodb in self.zodb:
@@ -728,13 +734,15 @@ class ImporterDatabaseManager(DatabaseManager):
         raise AssertionError
 
     getLastObjectTID = Fallback.getLastObjectTID.__func__
-    _getDataTID = Fallback._getDataTID.__func__
 
-    def getObjectHistory(self, *args, **kw):
-        raise BackendNotImplemented(self.getObjectHistory)
+    def _getObjectHistoryForUndo(self, *args, **kw):
+        raise BackendNotImplemented(self._getObjectHistoryForUndo)
 
-    def pack(self, *args, **kw):
-        raise BackendNotImplemented(self.pack)
+    def getObjectHistoryWithLength(self, *args, **kw):
+        raise BackendNotImplemented(self.getObjectHistoryWithLength)
+
+    def isReadyToStartPack(self):
+        pass # disable pack
 
 
 class WriteBack(object):
@@ -843,7 +851,7 @@ class WriteBack(object):
 class TransactionRecord(BaseStorage.TransactionRecord):
 
     def __init__(self, db, tid):
-        self._oid_list, user, desc, ext, _, _ = db.getTransaction(tid)
+        self._oid_list, user, desc, ext, _, _, _ = db.getTransaction(tid)
         super(TransactionRecord, self).__init__(tid, ' ', user, desc,
             loads(ext) if ext else {})
         self._db = db

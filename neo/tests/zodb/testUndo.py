@@ -19,7 +19,8 @@ from ZODB.tests.StorageTestBase import StorageTestBase
 from ZODB.tests.TransactionalUndoStorage import TransactionalUndoStorage
 from ZODB.tests.ConflictResolution import ConflictResolvingTransUndoStorage
 
-from .. import expectedFailure
+from neo.client.app import Application as ClientApplication
+from .. import expectedFailure, Patch
 from . import ZODBTestCase
 
 class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage,
@@ -28,7 +29,30 @@ class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage,
     checkTransactionalUndoAfterPack = expectedFailure()(
         TransactionalUndoStorage.checkTransactionalUndoAfterPack)
 
-if __name__ == "__main__":
-    suite = unittest.makeSuite(UndoTests, 'check')
-    unittest.main(defaultTest='suite')
+class AltUndoTests(UndoTests):
+    """
+    These tests covers the beginning of an alternate implementation of undo,
+    as described by the IDEA comment in the undo method of client's app.
+    More precisely, they check that the protocol keeps support for data=None
+    in AskStoreObject when cells are readable.
+    """
 
+    _patch = Patch(ClientApplication, _store=
+        lambda orig, self, txn_context, oid, serial, data, data_serial=None:
+            orig(self, txn_context, oid, serial,
+                 None if data_serial else data, data_serial))
+
+    def setUp(self):
+        super(AltUndoTests, self).setUp()
+        self._patch.apply()
+
+    def _tearDown(self, success):
+        self._patch.revert()
+        super(AltUndoTests, self)._tearDown(success)
+
+if __name__ == "__main__":
+    suite = unittest.TestSuite((
+        unittest.makeSuite(UndoTests, 'check'),
+        unittest.makeSuite(AltUndoTests, 'check'),
+        ))
+    unittest.main(defaultTest='suite')

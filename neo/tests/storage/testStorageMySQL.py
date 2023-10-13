@@ -30,13 +30,24 @@ from neo.storage.database.mysql import (MySQLDatabaseManager,
 class ServerGone(object):
 
     @contextmanager
-    def __new__(cls, db):
+    def __new__(cls, db, once):
         self = object.__new__(cls)
-        with Patch(db, conn=self) as self._p:
-            yield self._p
+        with Patch(db, conn=self) as p:
+            if once:
+                self.__revert = p.revert
+                try:
+                    yield p
+                finally:
+                    del self.__revert
+            else:
+                with Patch(db, close=lambda orig: None):
+                    yield
+
+    def __revert(self):
+        pass
 
     def query(self, *args):
-        self._p.revert()
+        self.__revert()
         raise OperationalError(SERVER_GONE_ERROR, 'this is a test')
 
 
@@ -67,7 +78,7 @@ class StorageMySQLdbTests(StorageDBTests):
         return db
 
     def test_ServerGone(self):
-        with ServerGone(self.db) as p:
+        with ServerGone(self.db, True) as p:
             self.assertRaises(ProgrammingError, self.db.query, 'QUERY')
             self.assertFalse(p.applied)
 
@@ -102,7 +113,7 @@ class StorageMySQLdbTests(StorageDBTests):
         self.assertEqual(2, max(len(self.db.escape(chr(x)))
                                 for x in xrange(256)))
         self.assertEqual(2, len(self.db.escape('\0')))
-        self.db.storeData('\0' * 20, ZERO_OID, '\0' * (2**24-1), 0)
+        self.db.storeData('\0' * 20, ZERO_OID, '\0' * (2**24-1), 0, None)
         size, = query_list
         max_allowed = self.db.__class__._max_allowed_packet
         self.assertTrue(max_allowed - 1024 < size <= max_allowed, size)

@@ -25,7 +25,6 @@ except ImportError:
     from cPickle import dumps, loads
     _protocol = 1
 from ZODB.POSException import UndoError, ConflictError, ReadConflictError
-from persistent.TimeStamp import TimeStamp
 
 from neo.lib import logging
 from neo.lib.compress import decompress_list, getCompress
@@ -35,6 +34,7 @@ from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Empty, Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.exception import NodeNotReady
+from . import TransactionMetaData
 from .exception import (NEOStorageError, NEOStorageCreationUndoneError,
     NEOStorageReadRetry, NEOStorageNotFoundError, NEOPrimaryMasterLost)
 from .handlers import storage, master
@@ -48,6 +48,8 @@ CHECKED_SERIAL = object()
 # How long before we might retry a connection to a node to which connection
 # failed in the past.
 MAX_FAILURE_AGE = 600
+
+TXN_PACK_DESC = 'IStorage.pack'
 
 try:
     from Signals.Signals import SignalHandler
@@ -64,6 +66,8 @@ class Application(ThreadedApplication):
     # the transaction is really committed, no matter for how long the master
     # is unreachable.
     max_reconnection_to_master = float('inf')
+    # For tests only. See end of pack() method.
+    wait_for_pack = False
 
     def __init__(self, master_nodes, name, compress=True, cache_size=None,
                  **kw):
@@ -499,7 +503,6 @@ class Application(ThreadedApplication):
             compression = 0
             checksum = ZERO_HASH
         else:
-            assert data_serial is None
             size, compression, compressed_data = self.compress(data)
             checksum = makeChecksum(compressed_data)
             txn_context.data_size += size
@@ -529,7 +532,7 @@ class Application(ThreadedApplication):
             if data is CHECKED_SERIAL:
                 raise ReadConflictError(oid=oid,
                     serials=(serial, old_serial))
-            # TODO: data can be None if a conflict happens during undo
+            # data can be None if a conflict happens when undoing creation
             if data:
                 txn_context.data_size -= len(data)
             if self.last_tid < serial:
@@ -591,7 +594,8 @@ class Application(ThreadedApplication):
         # user and description are cast to str in case they're unicode.
         # BBB: This is not required anymore with recent ZODB.
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
-            str(transaction.description), ext, list(txn_context.cache_dict))
+            str(transaction.description), ext, list(txn_context.cache_dict),
+            txn_context.pack)
         queue = txn_context.queue
         conn_dict = txn_context.conn_dict
         # Ask in parallel all involved storage nodes to commit object metadata.
@@ -706,7 +710,7 @@ class Application(ThreadedApplication):
             del cache_dict[oid]
         ttid = txn_context.ttid
         p = Packets.AskFinishTransaction(ttid, list(cache_dict),
-                                         checked_list)
+                                         checked_list, txn_context.pack)
         try:
             tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
             assert tid
@@ -760,7 +764,7 @@ class Application(ThreadedApplication):
             'partition_oid_dict': partition_oid_dict,
             'undo_object_tid_dict': undo_object_tid_dict,
         }
-        while partition_oid_dict:
+        while 1:
             for partition, oid_list in partition_oid_dict.iteritems():
                 cell_list = [cell
                     for cell in getCellList(partition, readable=True)
@@ -769,11 +773,17 @@ class Application(ThreadedApplication):
                     # only between the client and the storage, the latter would
                     # still be readable until we commit.
                     if txn_context.conn_dict.get(cell.getUUID(), 0) is not None]
-                storage_conn = getConnForNode(
+                conn = getConnForNode(
                     min(cell_list, key=getCellSortKey).getNode())
-                storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
-                    snapshot_tid, undone_tid, oid_list),
-                    partition=partition, **kw)
+                try:
+                    conn.ask(Packets.AskObjectUndoSerial(ttid,
+                        snapshot_tid, undone_tid, oid_list),
+                        partition=partition, **kw)
+                except AttributeError:
+                    if conn is not None:
+                        raise
+                except ConnectionClosed:
+                    pass
 
             # Wait for all AnswerObjectUndoSerial. We might get
             # OidNotFoundError, meaning that objects in transaction's oid_list
@@ -785,11 +795,38 @@ class Application(ThreadedApplication):
                 self.dispatcher.forget_queue(queue)
                 raise UndoError('non-undoable transaction')
 
+            if not partition_oid_dict:
+                break
+            # Do not retry too quickly, for example
+            # when there's an incoming PT update.
+            self.sync()
+
         # Send undo data to all storage nodes.
         for oid, (current_serial, undo_serial, is_current) in \
                 undo_object_tid_dict.iteritems():
             if is_current:
-                data = None
+                if undo_serial:
+                    # The data are used:
+                    # - by outdated cells that don't have them
+                    # - if there's a conflict to resolve
+                    # Otherwise, they're ignored.
+                    # IDEA: So as an optimization, if all cells we're going to
+                    #       write are readable, we could move the following
+                    #       load to _handleConflicts and simply pass None here.
+                    #       But evaluating such condition without race
+                    #       condition is not easy:
+                    #       1. The transaction context must have established
+                    #          with all nodes that will be involved (e.g.
+                    #          doable while processing partition_oid_dict).
+                    #       2. The partition table must be up-to-date by
+                    #          pinging the master (i.e. self.sync()).
+                    #       3. At last, the PT can be looked up here.
+                    try:
+                        data = self.load(oid, undo_serial)[0]
+                    except NEOStorageCreationUndoneError:
+                        data = None
+                else:
+                    data = None
             else:
                 # Serial being undone is not the latest version for this
                 # object. This is an undo conflict, try to resolve it.
@@ -945,12 +982,16 @@ class Application(ThreadedApplication):
     def sync(self):
         self._askPrimary(Packets.Ping())
 
-    def pack(self, t):
-        tid = TimeStamp(*time.gmtime(t)[:5] + (t % 60, )).raw()
-        if tid == ZERO_TID:
-            raise NEOStorageError('Invalid pack time')
-        self._askPrimary(Packets.AskPack(tid))
-        # XXX: this is only needed to make ZODB unit tests pass.
+    def pack(self, tid, _oids=None): # TODO: API for partial pack
+        transaction = TransactionMetaData(description=TXN_PACK_DESC)
+        self.tpc_begin(None, transaction)
+        self._txn_container.get(transaction).pack = _oids and sorted(_oids), tid
+        tid = self.tpc_finish(transaction)
+        if not self.wait_for_pack:
+            return
+        # Waiting for pack to be finished is only needed
+        # to make ZODB unit tests pass.
+        self._askPrimary(Packets.WaitForPack(tid))
         # It should not be otherwise required (clients should be free to load
         # old data as long as it is available in cache, event if it was pruned
         # by a pack), so don't bother invalidating on other clients.

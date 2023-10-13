@@ -93,7 +93,7 @@ from neo.lib import logging
 from neo.lib.protocol import CellStates, NodeTypes, NodeStates, \
     Packets, INVALID_TID, ZERO_TID, ZERO_OID
 from neo.lib.connection import ClientConnection, ConnectionClosed
-from neo.lib.util import add64, dump, p64
+from neo.lib.util import add64, dump, p64, u64
 from .handlers.storage import StorageOperationHandler
 
 FETCH_COUNT = 1000
@@ -101,7 +101,10 @@ FETCH_COUNT = 1000
 
 class Partition(object):
 
-    __slots__ = 'next_trans', 'next_obj', 'max_ttid'
+    __slots__ = 'next_trans', 'next_obj', 'max_ttid', 'pack'
+
+    def __init__(self):
+        self.pack = [], [] # approved, rejected
 
     def __repr__(self):
         return '<%s(%s) at 0x%x>' % (self.__class__.__name__,
@@ -365,11 +368,13 @@ class Replicator(object):
         assert self.current_node.getConnection().isClient(), self.current_node
         offset = self.current_partition
         p = self.partition_dict[offset]
+        dm = self.app.dm
         if min_tid:
             # More than one chunk ? This could be a full replication so avoid
             # restarting from the beginning by committing now.
-            self.app.dm.commit()
+            dm.commit()
             p.next_trans = min_tid
+            ask_pack_info = False
         else:
             try:
                 addr, name = self.source_dict[offset]
@@ -383,11 +388,13 @@ class Replicator(object):
             logging.debug("starting replication of <partition=%u"
                 " min_tid=%s max_tid=%s> from %r", offset, dump(min_tid),
                 dump(self.replicate_tid), self.current_node)
+            ask_pack_info = True
+            dm.checkNotProcessing(self.app, offset, min_tid)
         max_tid = self.replicate_tid
-        tid_list = self.app.dm.getReplicationTIDList(min_tid, max_tid,
+        tid_list = dm.getReplicationTIDList(min_tid, max_tid,
             FETCH_COUNT, offset)
         self._conn_msg_id = self.current_node.ask(Packets.AskFetchTransactions(
-            offset, FETCH_COUNT, min_tid, max_tid, tid_list))
+            offset, FETCH_COUNT, min_tid, max_tid, tid_list, ask_pack_info))
 
     def fetchObjects(self, min_tid=None, min_oid=ZERO_OID):
         offset = self.current_partition
@@ -398,10 +405,12 @@ class Replicator(object):
             p.next_obj = min_tid
             self.updateBackupTID()
             dm.updateCellTID(offset, add64(min_tid, -1))
-            dm.commit() # like in fetchTransactions
         else:
             min_tid = p.next_obj
             p.next_trans = add64(max_tid, 1)
+        if any(p.pack): # only useful in backup mode
+            p.pack = self.app.dm.signPackOrders(*p.pack, auto_commit=False)
+        dm.commit()
         object_dict = {}
         for serial, oid in dm.getReplicationObjectList(min_tid,
                 max_tid, FETCH_COUNT, offset, min_oid):
@@ -429,6 +438,8 @@ class Replicator(object):
             app.tm.replicated(offset, tid)
         logging.debug("partition %u replicated up to %s from %r",
                       offset, dump(tid), self.current_node)
+        if app.pt.getCell(offset, app.uuid).isUpToDate():
+            app.maybePack() # only useful in backup mode
         self.getCurrentConnection().setReconnectionNoDelay()
         self._nextPartition()
 
@@ -476,3 +487,22 @@ class Replicator(object):
                              ' up to %s', offset, addr, dump(tid))
         # Make UP_TO_DATE cells really UP_TO_DATE
         self._nextPartition()
+
+    def filterPackable(self, tid, parts):
+        backup = self.app.dm.getBackupTID()
+        for offset in parts:
+            if backup:
+                p = self.partition_dict[offset]
+                if (None is not p.next_trans <= tid or
+                    None is not p.next_obj <= tid):
+                    continue
+            yield offset
+
+    def keepPendingSignedPackOrders(self, *args):
+        np = self.app.pt.getPartitions()
+        for i, x in enumerate(args):
+            for x in x:
+                try:
+                    self.partition_dict[u64(x) % np].pack[i].append(x)
+                except KeyError:
+                    pass

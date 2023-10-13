@@ -48,16 +48,13 @@ UNIT_TEST_MODULES = [
     'neo.tests.testUtil',
     'neo.tests.testPT',
     # master application
-    'neo.tests.master.testClientHandler',
     'neo.tests.master.testMasterApp',
     'neo.tests.master.testMasterPT',
-    'neo.tests.master.testStorageHandler',
     'neo.tests.master.testTransactions',
     # storage application
     'neo.tests.storage.testClientHandler',
     'neo.tests.storage.testMasterHandler',
     'neo.tests.storage.testStorage' + os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
-    'neo.tests.storage.testTransactions',
     # client application
     'neo.tests.client.testClientApp',
     'neo.tests.client.testMasterHandler',
@@ -66,6 +63,7 @@ UNIT_TEST_MODULES = [
     'neo.tests.threaded.test',
     'neo.tests.threaded.testConfig',
     'neo.tests.threaded.testImporter',
+    'neo.tests.threaded.testPack',
     'neo.tests.threaded.testReplication',
     'neo.tests.threaded.testSSL',
 ]

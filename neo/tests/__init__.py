@@ -20,10 +20,12 @@ import functools
 import gc
 import os
 import random
+import signal
 import socket
 import subprocess
 import sys
 import tempfile
+import thread
 import unittest
 import weakref
 import transaction
@@ -37,10 +39,12 @@ except ImportError:
     from cPickle import Unpickler
 from functools import wraps
 from inspect import isclass
+from itertools import islice
 from .mock import Mock
-from neo.lib import debug, logging, protocol
-from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
+from neo.lib import debug, event, logging
+from neo.lib.protocol import NodeTypes, Packet, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property
+from neo.storage.database.manager import DatabaseManager
 from time import time, sleep
 from struct import pack, unpack
 from unittest.case import _ExpectedFailure, _UnexpectedSuccess
@@ -76,6 +80,8 @@ DB_INSTALL = os.getenv('NEO_DB_INSTALL', 'mysql_install_db')
 DB_MYSQLD = os.getenv('NEO_DB_MYSQLD', '/usr/sbin/mysqld')
 DB_MYCNF = os.getenv('NEO_DB_MYCNF')
 
+DatabaseManager.TEST_IDENT = thread.get_ident()
+
 adapter = os.getenv('NEO_TESTS_ADAPTER')
 if adapter:
     from neo.storage.database import getAdapterKlass
@@ -95,6 +101,12 @@ SSL = SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"
 logging.default_root_handler.handle = lambda record: None
 
 debug.register()
+
+# XXX: Not so important and complicated to make it work in the test process
+#      because there may be several EpollEventManager and threads.
+#      We only need it in child processes so that functional tests can stop.
+event.set_wakeup_fd = lambda fd, pid=os.getpid(): (
+    -1 if pid == os.getpid() else signal.set_wakeup_fd(fd))
 
 def mockDefaultValue(name, function):
     def method(self, *args, **kw):
@@ -432,10 +444,6 @@ class NeoUnitTestBase(NeoTestBase):
         conn.connecting = False
         return conn
 
-    def checkProtocolErrorRaised(self, method, *args, **kwargs):
-        """ Check if the ProtocolError exception was raised """
-        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
-
     def checkAborted(self, conn):
         """ Ensure the connection was aborted """
         self.assertEqual(len(conn.mockGetNamedCalls('abort')), 1)
@@ -461,7 +469,7 @@ class NeoUnitTestBase(NeoTestBase):
         calls = conn.mockGetNamedCalls("answer")
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEqual(type(packet), Packets.Error)
         return packet
 
@@ -470,7 +478,7 @@ class NeoUnitTestBase(NeoTestBase):
         calls = conn.mockGetNamedCalls('ask')
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEqual(type(packet), packet_type)
         return packet
 
@@ -479,7 +487,7 @@ class NeoUnitTestBase(NeoTestBase):
         calls = conn.mockGetNamedCalls('answer')
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEqual(type(packet), packet_type)
         return packet
 
@@ -487,7 +495,7 @@ class NeoUnitTestBase(NeoTestBase):
         """ Check if a notify-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('send')
         packet = calls.pop(packet_number).getParam(0)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEqual(type(packet), packet_type)
         return packet
 
@@ -626,6 +634,9 @@ class Patch(object):
     def __exit__(self, t, v, tb):
         self.__del__()
 
+def consume(iterator, n):
+    """Advance the iterator n-steps ahead and returns the last consumed item"""
+    return next(islice(iterator, n-1, n))
 
 def unpickle_state(data):
     unpickler = Unpickler(StringIO(data))

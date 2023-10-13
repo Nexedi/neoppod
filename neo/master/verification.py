@@ -16,7 +16,8 @@
 
 from collections import defaultdict
 from neo.lib import logging
-from neo.lib.protocol import ClusterStates, Packets, NodeStates
+from neo.lib.protocol import ClusterStates, Packets, NodeStates, ZERO_TID
+from neo.lib.util import add64
 from .handlers import BaseServiceHandler
 
 
@@ -70,6 +71,15 @@ class VerificationManager(BaseServiceHandler):
         app.setLastTransaction(app.tm.getLastTID())
         # Just to not return meaningless information in AnswerRecovery.
         app.truncate_tid = None
+        # Set up pack manager.
+        node_set = app.pt.getNodeSet(readable=True)
+        try:
+            pack_id = add64(min(node.completed_pack_id
+                for node in node_set
+                if hasattr(node, "completed_pack_id")), 1)
+        except ValueError:
+            pack_id = ZERO_TID
+        self._askStorageNodesAndWait(Packets.AskPackOrders(pack_id), node_set)
 
     def verifyData(self):
         app = self.app
@@ -126,11 +136,20 @@ class VerificationManager(BaseServiceHandler):
                 for node in getIdentifiedList(pool_set=uuid_set):
                     node.send(packet)
 
-    def answerLastIDs(self, conn, loid, ltid):
+    def notifyPackCompleted(self, conn, pack_id):
+        self.app.nm.getByUUID(conn.getUUID()).completed_pack_id = pack_id
+
+    def answerLastIDs(self, conn, ltid, loid):
         self._uuid_set.remove(conn.getUUID())
         tm = self.app.tm
-        tm.setLastOID(loid)
         tm.setLastTID(ltid)
+        tm.setLastOID(loid)
+
+    def answerPackOrders(self, conn, pack_list):
+        self._uuid_set.remove(conn.getUUID())
+        add = self.app.pm.add
+        for pack_order in pack_list:
+            add(*pack_order)
 
     def answerLockedTransactions(self, conn, tid_dict):
         uuid = conn.getUUID()

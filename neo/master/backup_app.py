@@ -75,6 +75,7 @@ class BackupApplication(object):
         self.nm.createMasters(master_addresses)
 
     em = property(lambda self: self.app.em)
+    pm = property(lambda self: self.app.pm)
     ssl = property(lambda self: self.app.ssl)
 
     def close(self):
@@ -117,8 +118,19 @@ class BackupApplication(object):
                     app.changeClusterState(ClusterStates.BACKINGUP)
                     del bootstrap, node
                     self.ignore_invalidations = True
+                    self.ignore_pack_notifications = True
                     conn.setHandler(BackupHandler(self))
                     conn.ask(Packets.AskLastTransaction())
+                    assert app.backup_tid == pt.getBackupTid()
+                    min_tid = add64(app.backup_tid, 1)
+                    p = app.pm.packs
+                    for tid in sorted(p):
+                        if min_tid <= tid:
+                            break
+                        if p[tid].approved is None:
+                            min_tid = tid
+                            break
+                    conn.ask(Packets.AskPackOrders(min_tid), min_tid=min_tid)
                     # debug variable to log how big 'tid_list' can be.
                     self.debug_tid_count = 0
                     while True:
@@ -375,3 +387,12 @@ class BackupApplication(object):
         if node_list:
             min(node_list, key=lambda node: node.getUUID()).send(
                 Packets.NotifyUpstreamAdmin(addr))
+
+    def broadcastApprovedRejected(self, min_tid):
+        app = self.app
+        p = app.pm.getApprovedRejected(min_tid)
+        if any(p):
+            getByUUID = app.nm.getByUUID
+            p = Packets.NotifyPackSigned(*p)
+            for uuid in app.getStorageReadySet():
+                getByUUID(uuid).send(p)

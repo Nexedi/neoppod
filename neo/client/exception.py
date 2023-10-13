@@ -37,6 +37,13 @@ class NEOStorageCreationUndoneError(NEOStorageDoesNotExistError):
     some object existed at some point, but its creation was undone.
     """
 
+class NEOUndoPackError(NEOStorageNotFoundError):
+    """Race condition between undo & pack
+
+    While undoing a transaction, an oid record disappeared.
+    This can happen if the storage node is packing.
+    """
+
 # TODO: Inherit from transaction.interfaces.TransientError
 #       (not recognized yet by ERP5 as a transient error).
 class NEOPrimaryMasterLost(POSException.ReadConflictError):

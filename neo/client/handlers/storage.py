@@ -25,8 +25,10 @@ from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
 from . import AnswerBaseHandler
 from ..transactions import Transaction
-from ..exception import NEOStorageError, NEOStorageNotFoundError
-from ..exception import NEOStorageReadRetry, NEOStorageDoesNotExistError
+from ..exception import (
+    NEOStorageError, NEOStorageNotFoundError, NEOUndoPackError,
+    NEOStorageReadRetry, NEOStorageDoesNotExistError,
+)
 
 @apply
 class _DeadlockPacket(object):
@@ -193,6 +195,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def tidNotFound(self, conn, message):
         # This can happen when requiring txn informations
         raise NEOStorageNotFoundError(message)
+
+    def undoPackError(self, conn, message):
+        raise NEOUndoPackError(message)
 
     def nonReadableCell(self, conn, message):
         logging.info('non readable cell')

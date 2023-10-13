@@ -17,8 +17,10 @@
 import weakref
 from functools import wraps
 from neo.lib.connection import ConnectionClosed
-from neo.lib.handler import DelayEvent, EventHandler
-from neo.lib.protocol import Errors, Packets, ProtocolError, ZERO_HASH
+from neo.lib.exception import ProtocolError
+from neo.lib.handler import DelayEvent
+from neo.lib.protocol import Errors, Packets, ZERO_HASH
+from . import EventHandler
 
 def checkConnectionIsReplicatorConnection(func):
     def wrapper(self, conn, *args, **kw):
@@ -46,16 +48,17 @@ class StorageOperationHandler(EventHandler):
     def connectionLost(self, conn, new_state):
         app = self.app
         if app.operational and conn.isClient():
-            uuid = conn.getUUID()
-            if uuid:
-                node = app.nm.getByUUID(uuid)
-            else:
-                node = app.nm.getByAddress(conn.getAddress())
-                node.setUnknown()
-            replicator = app.replicator
-            if replicator.current_node is node:
-                replicator.abort()
-            app.checker.connectionLost(conn)
+            with app.dm.lock:
+                uuid = conn.getUUID()
+                if uuid:
+                    node = app.nm.getByUUID(uuid)
+                else:
+                    node = app.nm.getByAddress(conn.getAddress())
+                    node.setUnknown()
+                replicator = app.replicator
+                if replicator.current_node is node:
+                    replicator.abort()
+                app.checker.connectionLost(conn)
 
     # Client
 
@@ -68,33 +71,36 @@ class StorageOperationHandler(EventHandler):
         self.app.checker.connected(node)
 
     @checkConnectionIsReplicatorConnection
-    def answerFetchTransactions(self, conn, pack_tid, next_tid, tid_list):
+    def answerFetchTransactions(self, conn, next_tid, tid_list, completed_pack):
+        app = self.app
         if tid_list:
-            deleteTransaction = self.app.dm.deleteTransaction
+            deleteTransaction = app.dm.deleteTransaction
             for tid in tid_list:
                 deleteTransaction(tid)
-        assert not pack_tid, "TODO"
+        if completed_pack is not None:
+            app.dm.updateCompletedPackByReplication(
+                app.replicator.current_partition, completed_pack)
         if next_tid:
-            self.app.replicator.fetchTransactions(next_tid)
+            app.replicator.fetchTransactions(next_tid)
         else:
-            self.app.replicator.fetchObjects()
+            app.replicator.fetchObjects()
 
     @checkConnectionIsReplicatorConnection
     def addTransaction(self, conn, tid, user, desc, ext, packed, ttid,
-                                   oid_list):
+                                   oid_list, pack):
         # Directly store the transaction.
         self.app.dm.storeTransaction(tid, (),
             (oid_list, user, desc, ext, packed, ttid), False)
+        if pack:
+            self.app.dm.storePackOrder(tid, *pack)
 
     @checkConnectionIsReplicatorConnection
-    def answerFetchObjects(self, conn, pack_tid, next_tid,
-                                       next_oid, object_dict):
+    def answerFetchObjects(self, conn, next_tid, next_oid, object_dict):
         if object_dict:
             deleteObject = self.app.dm.deleteObject
             for serial, oid_list in object_dict.iteritems():
                 for oid in oid_list:
                     deleteObject(oid, serial)
-        assert not pack_tid, "TODO"
         if next_tid:
             # TODO also provide feedback to master about current replication state (tid)
             self.app.replicator.fetchObjects(next_tid, next_oid)
@@ -106,13 +112,10 @@ class StorageOperationHandler(EventHandler):
     def addObject(self, conn, oid, serial, compression,
                               checksum, data, data_serial):
         dm = self.app.dm
-        if data or checksum != ZERO_HASH:
-            data_id = dm.storeData(checksum, oid, data, compression)
-        else:
-            data_id = None
-        # Directly store the transaction.
-        obj = oid, data_id, data_serial
-        dm.storeTransaction(serial, (obj,), None, False)
+        if not data and checksum == ZERO_HASH:
+            checksum = data = None
+        data_id = dm.storeData(checksum, oid, data, compression, data_serial)
+        dm.storeTransaction(serial, ((oid, data_id, data_serial),), None, False)
 
     @checkConnectionIsReplicatorConnection
     def replicationError(self, conn, message):
@@ -178,7 +181,7 @@ class StorageOperationHandler(EventHandler):
 
     @checkFeedingConnection(check=False)
     def askFetchTransactions(self, conn, partition, length, min_tid, max_tid,
-            tid_list):
+            tid_list, ask_pack_info):
         app = self.app
         if app.tm.isLockedTid(max_tid):
             # Wow, backup cluster is fast. Requested transactions are still in
@@ -192,12 +195,12 @@ class StorageOperationHandler(EventHandler):
         conn = weakref.proxy(conn)
         peer_tid_set = set(tid_list)
         dm = app.dm
+        completed_pack = dm.getPackedIDs()[partition] if ask_pack_info else None
         tid_list = dm.getReplicationTIDList(min_tid, max_tid, length + 1,
             partition)
         next_tid = tid_list.pop() if length < len(tid_list) else None
         def push():
             try:
-                pack_tid = None # TODO
                 for tid in tid_list:
                     if tid in peer_tid_set:
                         peer_tid_set.remove(tid)
@@ -208,11 +211,11 @@ class StorageOperationHandler(EventHandler):
                                 "partition %u dropped"
                                 % partition), msg_id)
                             return
-                        oid_list, user, desc, ext, packed, ttid = t
+                        oid_list, user, desc, ext, packed, ttid, pack = t
                         # Sending such packet does not mark the connection
                         # for writing if there's too little data in the buffer.
                         conn.send(Packets.AddTransaction(tid, user,
-                            desc, ext, bool(packed), ttid, oid_list), msg_id)
+                            desc, ext, packed, ttid, oid_list, pack), msg_id)
                         # To avoid delaying several connections simultaneously,
                         # and also prevent the backend from scanning different
                         # parts of the DB at the same time, we ask the
@@ -221,7 +224,7 @@ class StorageOperationHandler(EventHandler):
                         # is flushing another one for a concurrent connection.
                         yield conn.buffering
                 conn.send(Packets.AnswerFetchTransactions(
-                    pack_tid, next_tid, peer_tid_set), msg_id)
+                    next_tid, peer_tid_set, completed_pack), msg_id)
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
@@ -244,7 +247,6 @@ class StorageOperationHandler(EventHandler):
             next_tid = next_oid = None
         def push():
             try:
-                pack_tid = None # TODO
                 for serial, oid in object_list:
                     oid_set = object_dict.get(serial)
                     if oid_set:
@@ -267,7 +269,7 @@ class StorageOperationHandler(EventHandler):
                     conn.send(Packets.AddObject(oid, *object), msg_id)
                     yield conn.buffering
                 conn.send(Packets.AnswerFetchObjects(
-                    pack_tid, next_tid, next_oid, object_dict), msg_id)
+                    next_tid, next_oid, object_dict), msg_id)
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
                 pass

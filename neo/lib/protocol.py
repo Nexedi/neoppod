@@ -26,7 +26,7 @@ except ImportError:
 
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes.
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 # By encoding the handshake packet with msgpack, the whole NEO stream can be
 # decoded with msgpack. The first byte is 0x92, which is different from TLS
 # Handshake (0x16).
@@ -173,6 +173,7 @@ def ErrorCodes():
     NON_READABLE_CELL
     READ_ONLY_ACCESS
     INCOMPLETE_TRANSACTION
+    UNDO_PACK_ERROR
 
 @Enum
 def NodeStates():
@@ -233,34 +234,6 @@ uuid_str = (lambda ns: lambda uuid:
     ns[uuid >> 24] + str(uuid & 0xffffff) if uuid else str(uuid)
     )({v: str(k)[0] for k, v in UUID_NAMESPACES.iteritems()})
 
-class ProtocolError(Exception):
-    """ Base class for protocol errors, close the connection """
-
-class PacketMalformedError(ProtocolError):
-    """Close the connection"""
-
-class UnexpectedPacketError(ProtocolError):
-    """Close the connection"""
-
-class NotReadyError(ProtocolError):
-    """ Just close the connection """
-
-class BackendNotImplemented(Exception):
-    """ Method not implemented by backend storage """
-
-class NonReadableCell(Exception):
-    """Read-access to a cell that is actually non-readable
-
-    This happens in case of race condition at processing partition table
-    updates: client's PT is older or newer than storage's. The latter case is
-    possible because the master must validate any end of replication, which
-    means that the storage node can't anticipate the PT update (concurrently,
-    there may be a first tweaks that moves the replicated cell to another node,
-    and a second one that moves it back).
-
-    On such event, the client must retry, preferably another cell.
-    """
-
 
 class Packet(object):
     """
@@ -301,21 +274,24 @@ class Packet(object):
         assert isinstance(other, Packet)
         return self._code == other._code
 
-    def isError(self):
-        return self._code == RESPONSE_MASK
+    @classmethod
+    def isError(cls):
+        return cls._code == RESPONSE_MASK
 
-    def isResponse(self):
-        return self._code & RESPONSE_MASK
+    @classmethod
+    def isResponse(cls):
+        return cls._code & RESPONSE_MASK
 
     def getAnswerClass(self):
         return self._answer
 
-    def ignoreOnClosedConnection(self):
+    @classmethod
+    def ignoreOnClosedConnection(cls):
         """
         Tells if this packet must be ignored when its connection is closed
         when it is handled.
         """
-        return self._ignore_when_closed
+        return cls._ignore_when_closed
 
 
 class PacketRegistryFactory(dict):
@@ -697,11 +673,37 @@ class Packets(dict):
         :nodes: C -> S
         """)
 
-    AskPack, AnswerPack = request("""
-        Request a pack at given TID.
+    WaitForPack, WaitedForPack = request("""
+        Wait until pack given by tid is completed.
 
-        :nodes: C -> M -> S
-        """, ignore_when_closed=False)
+        :nodes: C -> M
+        """)
+
+    AskPackOrders, AnswerPackOrders = request("""
+        Request list of pack orders excluding oldest completed ones.
+
+        :nodes: M -> S; C, S -> M
+        """)
+
+    NotifyPackSigned = notify("""
+        Send ids of pack orders to be processed. Also used to fix replicas
+        that may have lost them.
+
+        When a pack order is auto-approved, the master also notifies storage
+        that store it, even though they're already notified via
+        AskLockInformation. In addition to make the implementation simpler,
+        storage nodes don't have to detect this case and it's slightly faster
+        when there's no pack.
+
+        :nodes: M -> S, backup
+        """)
+
+    NotifyPackCompleted = notify("""
+        Notify the master node that partitions have been successfully
+        packed up to the given ids.
+
+        :nodes: S -> M
+        """)
 
     CheckReplicas = request("""
         Ask the cluster to search for mismatches between replicas, metadata
