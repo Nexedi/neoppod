@@ -197,12 +197,6 @@ class Application(BaseApplication, Monitor):
         self.master_conn = None
         self.master_node = None
 
-    def log(self):
-        self.em.log()
-        self.nm.log()
-        if self.pt is not None:
-            self.pt.log()
-
     def run(self):
         try:
             self._run()

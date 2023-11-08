@@ -147,12 +147,9 @@ class Application(BaseApplication):
         self.em.poll(1)
 
     def log(self):
-        self.em.log()
-        self.nm.log()
+        super(Application, self).log()
         if self.tm:
             self.tm.log()
-        if self.pt is not None:
-            self.pt.log()
 
     def loadConfiguration(self):
         """Load persistent configuration data from the database.

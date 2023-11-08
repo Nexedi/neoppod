@@ -162,13 +162,10 @@ class Application(BaseApplication):
         super(Application, self).close()
 
     def log(self):
-        self.em.log()
+        super(Application, self).log()
+        self.tm.log()
         if self.backup_app is not None:
             self.backup_app.log()
-        self.nm.log()
-        self.tm.log()
-        if self.pt is not None:
-            self.pt.log()
 
     def run(self):
         try:

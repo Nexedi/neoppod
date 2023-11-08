@@ -98,13 +98,6 @@ class ThreadedApplication(BaseApplication):
     def setHandlerData(self, data):
         self._thread_container.answer = data
 
-    def log(self):
-        self.em.log()
-        self.nm.log()
-        pt = self.__dict__.get('pt')
-        if pt is not None:
-            pt.log()
-
     def _handlePacket(self, conn, packet, kw={}, handler=None):
         """
           conn

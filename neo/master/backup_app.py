@@ -88,6 +88,7 @@ class BackupApplication(object):
             logging.info('Upstream Node ID: %s', uuid_str(uuid))
 
     def log(self):
+        logging.info('Backup:')
         self.nm.log()
         if self.pt is not None:
             self.pt.log()

@@ -103,6 +103,13 @@ class BaseApplication(object):
         self.em.close()
         self.__dict__.clear()
 
+    def log(self):
+        self.em.log()
+        self.nm.log()
+        pt = self.__dict__.get('pt')
+        if pt is not None:
+            pt.log()
+
     def setUUID(self, uuid):
         if self.uuid != uuid:
             self.uuid = uuid
