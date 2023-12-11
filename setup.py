@@ -108,6 +108,7 @@ setup(
         ],
         'zodburi.resolvers': [
             'neo = neo.client.zodburi:resolve_uri [client]',
+            'neos = neo.client.zodburi:resolve_uri [client]',
         ],
     },
     install_requires = [

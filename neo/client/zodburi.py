@@ -18,11 +18,13 @@
 URI format:
 
     neo://name@master1,master2,...,masterN?options
+    neos://----//---- with $NEO_CA, $NEO_CERT and $NEO_KEY providing defaults for ca/cert/key options
 """
 
 import ZODB.config
 import ZConfig
 
+import os
 from cStringIO import StringIO
 from collections import OrderedDict
 from urlparse import urlsplit, parse_qsl
@@ -52,8 +54,8 @@ def canonical_opt_name(name):
 def _resolve_uri(uri):
     scheme, netloc, path, query, frag = urlsplit(uri)
 
-    if scheme != "neo":
-        raise ValueError("invalid uri: %s : expected neo:// scheme" % uri)
+    if scheme not in ("neo", "neos"):
+        raise ValueError("invalid uri: %s : expected neo:// or neos:// scheme" % uri)
     if path != "":
         raise ValueError("invalid uri: %s : non-empty path" % uri)
     if frag != "":
@@ -90,6 +92,18 @@ def _resolve_uri(uri):
             else:
                 dbkw[k] = v
 
+    # neo://   use TLS only if ca/cert/key are explicitly specified in uri
+    # neos://  force TLS to be used and take ca/cert/key from environment if
+    #          TLS credentials are not explicitly specified in uri
+    if scheme == "neos":
+        for k in ('ca', 'cert', 'key'):
+            if k in neokw:
+                continue
+            kenv = "NEO_"+k.upper()
+            v = os.environ.get(kenv)
+            if v is None:
+                raise ValueError("invalid uri: %s : option %s not specified and $%s is also not set" % (uri, k, kenv))
+            setopt(k, v)
 
     # now we have everything. Let ZConfig do actual work for validation options
     # and borning the storage
