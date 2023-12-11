@@ -73,6 +73,9 @@ class BaseApplication(object):
                     " provided: the CA certificate, and the certificate"
                     " of this node with its private key.")
             ca, cert, key = ssl
+            # remember ca/cert/key, so that zstor_2zurl in wendelin.core could
+            # retrieve them and fully reconstruct neos:// url of the storage
+            self.ssl_credentials = ssl
             import ssl
             version, version_name = max((getattr(ssl, k), k)
                 for k in dir(ssl) if k.startswith("PROTOCOL_TLSv"))
