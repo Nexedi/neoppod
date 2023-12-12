@@ -46,10 +46,6 @@ def neo_zconf_options():
 
     return options
 
-# canonical_opt_name returns "oPtion_nAme" as "option-name"
-def canonical_opt_name(name):
-    return name.lower().replace('_', '-')
-
 # worker entrypoint for resolve_uri and tests
 def _resolve_uri(uri):
     scheme, netloc, path, query, frag = urlsplit(uri)
@@ -84,7 +80,7 @@ def _resolve_uri(uri):
             # it might be option for storage, but not in canonical form e.g.
             # read_only -> read-only  (zodburi world settled on using "_" and
             # ZConfig world on "-" as separators)
-            k2 = canonical_opt_name(k)
+            k2 = k.replace('_', '-')
             if k2 in neo_options:
                 setopt(k2, v)
 
