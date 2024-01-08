@@ -1,0 +1,579 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import argparse, logging, os, threading, sys, time
+from bisect import insort
+from collections import defaultdict
+from functools import partial
+from io import BytesIO
+from pkg_resources import iter_entry_points
+import ZODB
+from ZODB._compat import dumps, loads, HIGHEST_PROTOCOL, PersistentUnpickler
+from ZODB.POSException import ConflictError, POSKeyError
+from ZODB.serialize import referencesf
+from ZODB.utils import p64, u64, z64
+from zope.interface import implementer
+
+TXN_GC_DESC = 'neoppod.git/reflink/incgc@%x'
+VERSION = 1
+
+if 0:
+    from ZODB._compat import dumps as _dumps, loads, HIGHEST_PROTOCOL
+    dumps = lambda x: _dumps(x, HIGHEST_PROTOCOL)
+else:
+    from msgpack import dumps, loads
+
+if 0:
+    from zlib import decompress, compress, Z_BEST_COMPRESSION
+else:
+    Z_BEST_COMPRESSION = None
+    decompress = compress = lambda x, *_: x
+
+SHORTEN = 2
+
+try:
+    from ZODB.Connection import TransactionMetaData
+except ImportError: # BBB: ZODB < 5
+    from ZODB.BaseStorage import TransactionRecord
+    TransactionMetaData = lambda user='', description='', extension=None: \
+        TransactionRecord(None, None, user, description, extension)
+
+def openStorage(uri):
+    scheme = uri[:uri.find(':')]
+    for ep in iter_entry_points('zodburi.resolvers'):
+        if ep.name == scheme:
+            factory, dbkw = ep.load()(uri)
+            if dbkw:
+                raise ValueError("Unexpected database options: %r" % dbkw)
+            return factory()
+    else:
+        raise KeyError('No resolver found for uri: %s' % uri)
+
+
+class InvalidationListener(object):
+
+    def __init__(self, storage, tid):
+        self.min_tid = tid
+        self._lock = l = threading.Lock()
+        self._new = e = threading.Event()
+        storage.registerDB(self)
+        self.invalidateCache = lambda: None
+        ltid = storage.lastTransaction()
+        del self.invalidateCache
+        with l:
+            if hasattr(self, 'last_tid'):
+                return
+            self.last_tid = ltid
+        e.set()
+
+    def invalidateCache(self):
+        raise NotImplementedError
+
+    def invalidate(self, transaction_id, oids, version=''):
+        with self._lock:
+            self.last_tid = transaction_id
+            self._new.set()
+
+    def tpc_finish(self, tid):
+        self.last_tid = self.min_tid = tid
+        self._new.set()
+
+    def idle(self, tid):
+        with self._lock:
+            if tid == self.last_tid:
+                self._new.clear()
+                return True
+        return False
+
+    def wait(self, tid):
+        self._new.wait()
+        return None if tid == z64 else p64(u64(tid) + 1)
+
+    transform_record_data = untransform_record_data = None
+
+
+class Object(object):
+
+    __slots__ = 'referrers', 'referents', 'prev_orphan', 'next_orphan'
+
+    def __init__(self, oid, referrers=(), referents=(),
+                 prev_orphan=None, next_orphan=None):
+      if SHORTEN:
+        self.referrers = [p64(oid + i) for i in referrers]
+        self.referents = {p64(oid + i) for i in referents}
+        self.prev_orphan = None if prev_orphan is None else \
+            p64(oid + prev_orphan)
+        self.next_orphan = None if next_orphan is None else \
+            p64(oid + next_orphan)
+      else:
+        self.referrers = list(referrers)
+        self.referents = set(referents)
+        self.prev_orphan = prev_orphan
+        self.next_orphan = next_orphan
+
+    def maybeOrphan(self):
+        return self.referents.issuperset(self.referrers)
+
+
+class Changeset(object):
+
+    def __init__(self, storage):
+        self.storage = storage
+        self.buckets = buckets = {}
+        bucket = self._get(z64)
+        new = buckets[z64][0] is None
+        if new:
+            bucket['__reflink_version__'] = VERSION
+        else:
+            version = bucket.get('__reflink_version__')
+            if version != VERSION:
+                raise Exception("unsupported reflink DB version %r"
+                                " (expected %r)" % (version, VERSION))
+        self.check_orphan = check_orphan = {}
+        self.get(z64) # for self._root ...
+        if not new:   # ... and revert other side-effects (mainly for -g)
+            buckets.clear()
+            check_orphan.clear()
+
+    def _get(self, oid):
+        try:
+            return self.buckets[oid][2]
+        except KeyError:
+            try:
+                orig, serial = self.storage.load(oid, '')
+            except POSKeyError:
+                bucket = {}
+                self.buckets[oid] = None, z64, bucket
+            else:
+                bucket = loads(decompress(orig))
+                self.buckets[oid] = orig, serial, bucket
+        return bucket
+
+    def get(self, oid):
+        bucket = self._get(b'\0' + oid[:-1])
+        key = ord(oid[-1]) # Py3
+        obj = bucket.get(key, ())
+        if not isinstance(obj, Object):
+            obj = bucket[key] = Object(
+                u64(oid) if SHORTEN == 2 else 0, *obj)
+            if oid == z64:
+                self._root = obj
+        if oid not in self.check_orphan:
+            self.check_orphan[oid] =  not (
+                obj.prev_orphan or obj.maybeOrphan())
+        return obj
+
+    def commit(self, tid):
+        storage = self.storage
+        print('commit @ %x' % u64(tid))
+        buckets = self.buckets
+        txn = TransactionMetaData()
+        storage.tpc_begin(txn, tid)
+        if SHORTEN:
+            def shortenVal(i):
+                if i:
+                    return u64(i) - shorten_oid
+            def shortenSeq(l):
+                return tuple(u64(i) - shorten_oid for i in l)
+        else:
+            shortenVal = lambda i: i
+            shortenSeq = tuple
+        def shortenObj(x):
+            if v[-1] == x:
+                del v[-1]
+                return True
+        for oid, (orig, serial, bucket) in buckets.iteritems():
+            base_oid = u64(oid) << 8
+            data = {}
+            for k, v in bucket.iteritems():
+                if isinstance(v, Object):
+                    shorten_oid = base_oid + k if SHORTEN == 2 else 0
+                    v = [shortenSeq(v.referrers),
+                         shortenSeq(sorted(v.referents)),
+                         shortenVal(v.prev_orphan),
+                         shortenVal(v.next_orphan)]
+                    if (shortenObj(None) and shortenObj(None) and
+                        shortenObj(()) and shortenObj(())):
+                        continue
+                    v = tuple(v)
+                data[k] = v
+            if data:
+                data = compress(dumps(data), Z_BEST_COMPRESSION)
+                if orig != data:
+                    storage.store(oid, serial, data, '', txn)
+            elif orig:
+                storage.deleteObject(oid, serial, txn)
+        storage.tpc_vote(txn)
+        storage.tpc_finish(txn)
+        buckets.clear()
+
+    def full(self, main_storage):
+        load = self.storage.load
+        orphans = set()
+        for oid in self.storage.app.oids():
+            h = u64(oid) << 8
+            orphans.update(h + l for l in self._get(oid) if isinstance(l, int))
+        stack = [z64]
+        get = self.get
+        while True:
+            try:
+                oid = stack.pop()
+            except IndexError:
+                self.buckets.clear()
+                self.check_orphan.clear()
+                return map(p64, orphans)
+            try:
+                orphans.remove(u64(oid))
+            except KeyError:
+                continue
+            stack += get(oid).referents
+
+    @property
+    def orphan(self):
+        return self._root.next_orphan
+
+    def orphans(self):
+        get = self.get
+        orphans = set()
+        check_orphan = set()
+        check_cycle = []
+        keep = {}
+        obj = self._root
+        if __debug__:
+            seen = set()
+        while True:
+            oid = obj.next_orphan
+            if not oid:
+                break
+            if __debug__:
+                assert oid not in seen, u64(oid)
+                seen.add(oid)
+            obj = get(oid)
+            if obj.referrers:
+                assert obj.maybeOrphan(), (oid, obj.referrers)
+                check_cycle.append((oid, obj))
+            else:
+                orphans.add(oid)
+                check_orphan |= obj.referents
+        while check_orphan:
+            oid = check_orphan.pop()
+            obj = get(oid)
+            if orphans.issuperset(obj.referrers):
+                orphans.add(oid)
+                check_orphan |= obj.referents
+            else:
+                check_cycle.append((oid, obj))
+        while check_cycle:
+            oid, obj = check_cycle.pop()
+            check_orphan = []
+            cycle = {oid}
+            x = obj
+            while True:
+                referrers = set(x.referrers) - cycle - orphans
+                x = x.referents - cycle - orphans
+                if not referrers.issubset(x):
+                    # not a simple cycle, give up
+                    if obj.prev_orphan:
+                        keep[oid] = obj
+                    break
+                check_orphan += x
+                cycle |= x
+                try:
+                    x = get(check_orphan.pop())
+                except IndexError:
+                    orphans |= cycle
+                    break
+        x = [u64(oid) for oid in keep if self.path(oid)[-1] != z64]
+        self.buckets.clear()
+        self.check_orphan.clear()
+        if keep:
+            if x:
+                logging.error(
+                    "It looks like the following oids can be"
+                    " garbage-collected: %s. Please report.",
+                    ','.join(map('%x'.__mod__, x)))
+            for obj in keep.itervalues():
+                self.keep(obj)
+        return orphans
+
+    def keep(self, obj):
+        prev = obj.prev_orphan
+        obj.prev_orphan = None
+        oid = self.get(prev).next_orphan = obj.next_orphan
+        if oid:
+            obj.next_orphan = None
+            self.get(oid).prev_orphan = prev
+
+    def path(self, oid):
+        orphan = []
+        path = []
+        stack = []
+        x = iter((oid,))
+        while True:
+            try:
+                oid = next(x)
+            except StopIteration:
+                if len(orphan) < len(path):
+                    orphan = path[:]
+                try:
+                    x = stack.pop()
+                except IndexError:
+                    return orphan
+                del path[-1]
+            else:
+                if oid in path:
+                    continue
+                path.append(oid)
+                if oid == z64:
+                    return path
+                stack.append(x)
+                x = iter(self.get(oid).referrers)
+
+
+class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
+
+    def _format_action(self, action):
+        if not (action.help or action.default in (None, argparse.SUPPRESS)):
+            action.help = '(default: %(default)s)'
+        return super(ArgumentDefaultsHelpFormatter, self)._format_action(action)
+
+
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+
+    kw = dict(formatter_class=ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="External ZODB GC by tracking references between OIDs and"
+                    " marking orphaned objects as deleted automatically.",
+        **kw)
+    _ = parser.add_argument
+    _('refs', metavar="REFS_URI", help="ZODB containing tracking data."
+        " If the main DB is truncated, then this DB must be truncated at the"
+        " same TID. Packing this DB does not need any GC.")
+    parsers = parser.add_subparsers(dest='command')
+
+    s = parsers.add_parser('run',
+        help="Track references and GC automatically. This is the main command."
+             " A GC is done whenever there's no new transaction to process.",
+             **kw)
+    x = s.add_mutually_exclusive_group().add_argument
+    x('-g', '--gc', action='store_true',
+        help="Do a GC immediately, ignoring new transactions, and exit.")
+    x('-i', '--commit-interval', type=float, metavar="SECONDS", default=10,
+        help="Commit every SECONDS of work.")
+    x = s.add_mutually_exclusive_group().add_argument
+    x('-0', '--exit-before-gc', action='store_true',
+        help="Exit before a GC.")
+    x('-1', '--exit-after-gc', action='store_true',
+        help="Exit after a GC.")
+    _ = s.add_argument
+    _('-f', '--full', action='store_true',
+        help="Always perform a full GC. This should only be used occasionally,"
+             " with either -g or -1, and preferably with -n to only check"
+             " if a normal GC is enough.")
+    _('-n', '--dry-run', metavar="DUMP",
+        help="Save OIDs that would be deleted during a GC into the specified"
+             " file and exit.")
+    _('main', metavar="MAIN_URI", help="ZODB to track.")
+
+    _ = parsers.add_parser('dump',
+        help="Dump the whole reflink DB to stdout. This uses a lot of RAM.",
+        **kw).add_argument
+
+    _ = parsers.add_parser('path',
+        help="Get ancestors of an OID.",
+        **kw).add_argument
+    _('oid', metavar="OID", type=eval)
+    _('main', metavar="MAIN_URI", nargs='?',
+        help="Tracked ZODB, for class information.")
+
+    args = parser.parse_args(args)
+    command = args.command
+    changeset = Changeset(openStorage(args.refs))
+
+    if command == "dump":
+        for oid in xrange(u64(changeset.storage.new_oid()) << 8):
+            obj = changeset.get(p64(oid))
+            if (obj.referents or obj.referrers
+                    or obj.prev_orphan or obj.next_orphan):
+                print(oid, map(u64, obj.referents), map(u64, obj.referrers),
+                      obj.prev_orphan and u64(obj.prev_orphan),
+                      obj.next_orphan and u64(obj.next_orphan))
+        return
+
+    tid = changeset.storage.lastTransaction()
+
+    if args.main:
+        main_storage = openStorage(args.main)
+        for iface in (ZODB.interfaces.IStorageIteration,
+                      ZODB.interfaces.IExternalGC):
+            if not iface.providedBy(main_storage):
+                return "Main storage shall implement " + iface.__name__
+
+    if command == "path":
+        tid = p64(u64(tid) + 1)
+        def find_global(*args):
+            x.extend(args)
+        for oid in reversed(changeset.path(p64(args.oid))):
+            x = [hex(u64(oid))]
+            if args.main:
+                data = main_storage.loadBefore(oid, tid)[0]
+                PersistentUnpickler(find_global, None,
+                                    BytesIO(data)).load()
+            print(*x)
+        return
+
+    assert command == "run", command
+    if args.gc:
+        commit_interval = 0
+    else:
+        commit_interval = args.commit_interval
+        if commit_interval <= 0:
+            parser.error("--commit-interval must be strictly positive.")
+
+    if args.full:
+        try:
+            changeset.storage.app.oids.__call__
+        except Exception:
+            return ("Unable to iterate over all non-deleted OIDs of the"
+                    " reflink ZODB, which is required for a full GC."
+                    " Only NEO is known to have this non-standard API.")
+
+    dry_run = args.dry_run
+    if dry_run:
+        dry_run_stats = defaultdict(list)
+        def find_global(*args):
+            dry_run_stats[args].append(u64(oid))
+
+    invalidation_listener = InvalidationListener(main_storage, tid)
+
+    next_commit = time.time() + commit_interval
+    while True:
+        if not commit_interval or invalidation_listener.idle(tid):
+            if args.full or changeset.orphan:
+                if changeset.buckets:
+                    next_commit = time.time() + commit_interval
+                    changeset.commit(tid)
+                if args.exit_before_gc:
+                    break
+                print('gc')
+                orphans = changeset.full(main_storage) if args.full else \
+                          changeset.orphans()
+                txn = TransactionMetaData(description=TXN_GC_DESC % u64(tid))
+                main_storage.tpc_begin(txn)
+                try:
+                    abort = True
+                    for oid in orphans:
+                        try:
+                            data, serial = main_storage.load(oid)
+                        except POSKeyError:
+                            continue
+                        if tid < serial:
+                            abort = True
+                            break
+                        main_storage.deleteObject(oid, serial, txn)
+                        if dry_run:
+                            try:
+                                PersistentUnpickler(find_global, None,
+                                                    BytesIO(data)).load()
+                            except Exception:
+                                assert data is not None, oid
+                                dry_run_stats[
+                                    ('corrupted',) if data else ('empty',)
+                                    ].append(u64(oid))
+                        abort = False
+                    if not abort:
+                        print('  tpc_vote')
+                        main_storage.tpc_vote(txn)
+                        if dry_run:
+                            abort = True
+                            with os.fdopen(os.open(dry_run,
+                                    os.O_WRONLY | os.O_CREAT | os.O_EXCL, # Py3
+                                    0o666), 'w') as f:
+                                for x, orphans in sorted(
+                                        dry_run_stats.iteritems()):
+                                    orphans.sort()
+                                    print(len(orphans), '.'.join(x),
+                                          ','.join(map('%x'.__mod__, orphans)),
+                                          file=f)
+                            break
+                        print('  tpc_finish')
+                        main_storage.tpc_finish(txn,
+                            invalidation_listener.tpc_finish)
+                except ConflictError:
+                    abort = True
+                finally:
+                    if abort:
+                        main_storage.tpc_abort(txn)
+                del orphans
+            if args.exit_after_gc or not commit_interval:
+                break
+
+        t = time.time()
+        tid = invalidation_listener.wait(tid)
+        next_commit += time.time() - t
+        for trans in main_storage.iterator(tid):
+            tid = trans.tid
+            # print("tid=%x" % u64(tid))
+            check_orphan = {}
+            for record in trans:
+                oid = record.oid
+                # print("  oid=%x" % u64(oid))
+                src = changeset.get(oid)
+                data = record.data
+                prev_set = src.referents
+                if data is None:
+                    # print("    deleted")
+                    if src.prev_orphan:
+                        changeset.keep(src)
+                    new_set = set()
+                else:
+                    if not (src.prev_orphan or prev_set or src.referrers
+                            or oid == z64):
+                        # After a pack, an oid may be orphan from its creation.
+                        check_orphan[oid] = src
+                    try:
+                        new_set = set(referencesf(data))
+                    except Exception:
+                        logging.warning("Corrupted record %x@%x",
+                                        u64(oid), u64(tid))
+                        new_set = set()
+                    else:
+                        new_set.discard(oid)
+                if new_set == prev_set:
+                    continue
+                src.referents = new_set
+                for referent in new_set - prev_set:
+                    # print("  + %x" % u64(referent))
+                    dst = changeset.get(referent)
+                    insort(dst.referrers, oid)
+                    if dst.prev_orphan:
+                        changeset.keep(dst)
+                prev_set.difference_update(new_set)
+                for referent in prev_set:
+                    # print("  - %x" % u64(referent))
+                    dst = changeset.get(referent)
+                    dst.referrers.remove(oid)
+                    if changeset.check_orphan[referent]:
+                        changeset.check_orphan[referent] = False
+                        check_orphan[referent] = dst
+            for oid, obj in check_orphan.iteritems():
+                if obj.maybeOrphan():
+                    assert not (obj.prev_orphan or obj.next_orphan), oid
+                    obj.prev_orphan = z64
+                    prev_orphan = changeset.get(z64)
+                    next_orphan = prev_orphan.next_orphan
+                    if next_orphan:
+                        changeset.get(next_orphan).prev_orphan = oid
+                        obj.next_orphan = next_orphan
+                    prev_orphan.next_orphan = oid
+            changeset.check_orphan.clear()
+
+            t = time.time()
+            if next_commit <= t and invalidation_listener.min_tid < tid:
+                next_commit = t + commit_interval
+                changeset.commit(tid)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
