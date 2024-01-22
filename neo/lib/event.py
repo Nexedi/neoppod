@@ -42,6 +42,33 @@ def nonblock(fd):
 # If a process has several instances of EpollEventManager like in threaded
 # tests, it does not matter which one is woke up by signals.
 
+class WakeupFD(object):
+
+    _lock = Lock()
+    _fds = []
+
+    @classmethod
+    def add(cls, fd):
+        fds = cls._fds
+        with cls._lock:
+            if fds:
+                assert fd not in fds, (fd, fds)
+            else:
+                prev = set_wakeup_fd(fd)
+                assert prev == -1, (fd, prev)
+            fds.append(fd)
+
+    @classmethod
+    def remove(cls, fd):
+        fds = cls._fds
+        with cls._lock:
+            i = fds.index(fd)
+            del fds[i]
+            if not (i and fds):
+                prev = set_wakeup_fd(fds[0] if fds else -1)
+                assert prev == fd, (fd, prev)
+
+
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
 
@@ -59,8 +86,7 @@ class EpollEventManager(object):
         self._wakeup_wfd = w
         nonblock(r)
         nonblock(w)
-        fd = set_wakeup_fd(w)
-        assert fd == -1, fd
+        WakeupFD.add(w)
         self.epoll.register(r, EPOLLIN)
         self._trigger_lock = Lock()
         self.lock = l = Lock()
@@ -79,7 +105,7 @@ class EpollEventManager(object):
         self._closeRelease = release
 
     def close(self):
-        set_wakeup_fd(-1)
+        WakeupFD.remove(self._wakeup_wfd)
         os.close(self._wakeup_wfd)
         os.close(self._wakeup_rfd)
         for c in self.connection_dict.values():

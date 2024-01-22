@@ -102,12 +102,6 @@ logging.default_root_handler.handle = lambda record: None
 
 debug.register()
 
-# XXX: Not so important and complicated to make it work in the test process
-#      because there may be several EpollEventManager and threads.
-#      We only need it in child processes so that functional tests can stop.
-event.set_wakeup_fd = lambda fd, pid=os.getpid(): (
-    -1 if pid == os.getpid() else signal.set_wakeup_fd(fd))
-
 def mockDefaultValue(name, function):
     def method(self, *args, **kw):
         if name in self.mockReturnValues:
