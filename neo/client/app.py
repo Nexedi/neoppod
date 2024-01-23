@@ -464,8 +464,8 @@ class Application(ThreadedApplication):
                 = self._askStorage(conn, packet)
             if data or checksum != ZERO_HASH:
                 if checksum != makeChecksum(data):
-                    logging.error('wrong checksum from %s for oid %s',
-                              conn, dump(oid))
+                    logging.error('wrong checksum from %s for %s@%s',
+                                  conn, dump(oid), dump(tid))
                     raise NEOStorageReadRetry(False)
                 return (decompress_list[compression](data),
                         tid, next_tid, data_tid)
