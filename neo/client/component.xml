@@ -34,6 +34,7 @@
     <key name="logfile" datatype="existing-dirpath">
       <description>
         Log debugging information to specified SQLite DB.
+        Limitation: there can be only 1 log per process.
       </description>
     </key>
     <key name="cache-size" datatype="byte-size" default="20MB">

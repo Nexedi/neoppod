@@ -175,6 +175,15 @@ Note also that you can't mix non-SSL nodes and SSL nodes, even between a
 upstream cluster and a backup one. In doing so, connections can get stuck,
 or fail with malformed packets or SSL handshake errors.
 
+Only 1 log file per process
+---------------------------
+
+Having multiple log file per process is not implemented yet. This limitation is
+mainly visible because client configuration offers an option to specify a log
+file whereas NEO events are logged in the one that's specificied last.
+This is not considered an issue so far because each event in the log contains
+the id & cluster of the node that emitted it.
+
 Deployment
 ==========
 
