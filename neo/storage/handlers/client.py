@@ -244,6 +244,13 @@ class ClientOperationHandler(BaseHandler):
                     logging.info('CheckCurrentSerial delay: %.02fs', duration)
         conn.answer(Packets.AnswerCheckCurrentSerial(locked))
 
+    def askOIDsFrom(self, conn, partition, length, min_oid, tid):
+        app = self.app
+        if app.tm.isLockedTid(tid):
+            raise DelayEvent
+        conn.answer(Packets.AnswerOIDsFrom(
+            *app.dm.oidsFrom(partition, length, min_oid, tid)))
+
 
 # like ClientOperationHandler but read-only & only for tid <= backup_tid
 class ClientReadOnlyOperationHandler(ClientOperationHandler):

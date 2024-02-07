@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import random
 import sys
 import threading
 import time
@@ -141,6 +142,42 @@ class Test(NEOThreadedTest):
                             storage._cache.clear()
                     self.assertRaises(POSException.POSKeyError,
                         storage.load, oid, '')
+
+    @with_cluster(storage_count=3, replicas=1, partitions=5)
+    def testIterOIDs(self, cluster):
+        storage = cluster.getZODBStorage()
+        client = cluster.client
+        oids = []
+        for i in xrange(5):
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn)
+            for i in xrange(7):
+                oid = client.new_oid()
+                oids.append(u64(oid))
+                storage.store(oid, None, '', '', txn)
+            client.new_oid()
+            storage.tpc_vote(txn)
+            storage.tpc_finish(txn)
+        tid = client.last_tid
+        self.assertEqual(oids, map(u64, client.oids(tid)))
+        def askOIDsFrom(orig, self, conn, partition, length, min_oid, tid):
+            return orig(self, conn, partition, 3, min_oid, tid)
+        with Patch(ClientOperationHandler, askOIDsFrom=askOIDsFrom):
+            self.assertEqual(oids[3:-3],
+                map(u64, client.oids(tid, p64(oids[3]), p64(oids[-4]))))
+            random.shuffle(oids)
+            while oids:
+                txn = transaction.Transaction()
+                storage.tpc_begin(txn)
+                for i in oids[-6:]:
+                    oid = p64(i)
+                    storage.deleteObject(oid, storage.load(oid)[1], txn)
+                storage.tpc_vote(txn)
+                i = storage.tpc_finish(txn)
+                self.assertEqual(sorted(oids), map(u64, client.oids(tid)))
+                del oids[-6:]
+                tid = i
+                self.assertEqual(sorted(oids), map(u64, client.oids(tid)))
 
     def _testUndoConflict(self, cluster, *inc):
         def waitResponses(orig, *args):

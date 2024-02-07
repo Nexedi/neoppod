@@ -168,6 +168,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
         logging.debug('Get %u TIDs from %r', len(tid_list), conn)
         self.app.setHandlerData(tid_list)
 
+    def answerOIDsFrom(self, conn, *args):
+        self.app.setHandlerData(args)
+
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
         self.app.setHandlerData(({

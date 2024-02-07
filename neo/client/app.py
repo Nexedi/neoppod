@@ -18,6 +18,7 @@ import heapq
 import random
 import time
 from collections import defaultdict
+from functools import partial
 
 try:
     from ZODB._compat import dumps, loads, _protocol
@@ -29,7 +30,7 @@ from ZODB.POSException import UndoError, ConflictError, ReadConflictError
 from neo.lib import logging
 from neo.lib.compress import decompress_list, getCompress
 from neo.lib.protocol import NodeTypes, Packets, \
-    INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_TID
+    INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_OID, ZERO_TID
 from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Empty, Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
@@ -951,6 +952,42 @@ class Application(ThreadedApplication):
             txn_info['ext'] = loads(txn_ext) if txn_ext else {}
             append(txn_info)
         return (tid, txn_list)
+
+    def oids(self, tid=None, min_oid=None, max_oid=None):
+        if tid is None:
+            tid = self.last_tid
+        h = []
+        def oids(offset, oid=min_oid or ZERO_OID):
+            while True:
+                oid, oid_list = self._askStorageForRead(offset,
+                    Packets.AskOIDsFrom(offset, 1000, oid, tid))
+                i = partial(next, iter(oid_list))
+                try:
+                    return [i(), i, offset, oid]
+                except StopIteration:
+                    if oid is None or None is not max_oid < oid:
+                        return
+        h = [x for x in map(oids, xrange(self.pt.getPartitions())) if x]
+        heapq.heapify(h)
+        heappop = partial(heapq.heappop, h)
+        heappushpop = partial(heapq.heappushpop, h)
+        while h:
+            x = heappop()
+            while True:
+                oid = x[0]
+                if None is not max_oid < oid:
+                    return
+                yield oid
+                try:
+                    x[0] = x[1]()
+                except StopIteration:
+                    oid = x[3]
+                    if oid is None:
+                        break
+                    x = oids(x[2], oid)
+                    if not x:
+                        break
+                x = heappushpop(x)
 
     def history(self, oid, size=1, filter=None):
         packet = Packets.AskObjectHistory(oid, 0, size)

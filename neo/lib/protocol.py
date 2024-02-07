@@ -26,7 +26,7 @@ except ImportError:
 
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes.
-PROTOCOL_VERSION = 3
+PROTOCOL_VERSION = 4
 # By encoding the handshake packet with msgpack, the whole NEO stream can be
 # decoded with msgpack. The first byte is 0x92, which is different from TLS
 # Handshake (0x16).
@@ -669,6 +669,13 @@ class Packets(dict):
     AskTIDsFrom, AnswerTIDsFrom = request("""
         Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
         Used by `iterator`.
+
+        :nodes: C -> S
+        """)
+
+    AskOIDsFrom, AnswerOIDsFrom = request("""
+        Iterate over non-deleted OIDs starting at min_oid.
+        The order of OIDs is ascending.
 
         :nodes: C -> S
         """)

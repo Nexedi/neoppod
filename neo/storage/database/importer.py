@@ -378,7 +378,8 @@ class ImporterDatabaseManager(DatabaseManager):
             *args, **kw)
         implements(self, """_getNextTID checkSerialRange checkTIDRange _pack
             deleteObject deleteTransaction _dropPartition _getLastTID nonempty
-            getReplicationObjectList _getTIDList _setPartitionPacked""".split())
+            getReplicationObjectList _getTIDList _setPartitionPacked oidsFrom
+            """.split())
 
     _getPartition = property(lambda self: self.db._getPartition)
     _getReadablePartition = property(lambda self: self.db._getReadablePartition)

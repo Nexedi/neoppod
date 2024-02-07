@@ -52,7 +52,7 @@ else:
 from . import LOG_QUERIES, DatabaseFailure
 from .manager import MVCCDatabaseManager, splitOIDField
 from neo.lib import logging, util
-from neo.lib.exception import UndoPackError
+from neo.lib.exception import NonReadableCell, UndoPackError
 from neo.lib.interfaces import implements
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 
@@ -975,6 +975,22 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
             "SELECT tid FROM trans WHERE `partition` in (%s)"
             " ORDER BY tid DESC LIMIT %d,%d"
             % (','.join(map(str, partition_list)), offset, length)))
+
+    def oidsFrom(self, partition, length, min_oid, tid):
+        if partition not in self._readable_set:
+            raise NonReadableCell
+        p64 = util.p64
+        u64 = util.u64
+        r = self.query("SELECT oid, data_id"
+            " FROM obj FORCE INDEX(PRIMARY) JOIN ("
+                "SELECT `partition`, oid, MAX(tid) AS tid"
+                " FROM obj FORCE INDEX(PRIMARY)"
+                " WHERE `partition`=%s AND oid>=%s AND tid<=%s"
+                " GROUP BY oid LIMIT %s"
+                ") AS t USING (`partition`, oid, tid)"
+            % (partition, u64(min_oid), u64(tid), length))
+        return None if len(r) < length else p64(r[-1][0] + self.np), \
+            [p64(oid) for oid, data_id in r if data_id is not None]
 
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         u64 = util.u64

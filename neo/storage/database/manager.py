@@ -1446,6 +1446,14 @@ class DatabaseManager(object):
         return ()
 
     @abstract
+    def oidsFrom(self, partition, length, min_oid, tid):
+        """Return a 2-tuple where the second item is a list of non-deleted OIDs
+        of the specified partition, at given tid, in ascending order starting
+        from min_oid and at most the specified length. The first item of the
+        returned value is the min_oid value to use to get the next OIDs.
+        """
+
+    @abstract
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         """Return a list of TIDs in ascending order from an initial tid value,
         at most the specified length up to max_tid. The partition number is
