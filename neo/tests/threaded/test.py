@@ -1391,8 +1391,7 @@ class Test(NEOThreadedTest):
             client.tpc_begin(None, txn)
             txn_context = client._txn_container.get(txn)
             txn_context.ttid = add64(txn_context.ttid, 1)
-            self.assertRaises(POSException.StorageError,
-                              client.tpc_finish, txn)
+            self.assertRaises(NEOStorageError, client.tpc_finish, txn)
 
     @with_cluster()
     def testStorageFailureDuringTpcFinish(self, cluster):
@@ -1497,7 +1496,7 @@ class Test(NEOThreadedTest):
             t, c = cluster.getTransaction()
             c.root()['x'] = PCounter() # 1 store() to each storage
             with Patch(cluster.client, waitStoreResponses=waitStoreResponses):
-                self.assertRaises(POSException.StorageError, t.commit)
+                self.assertRaises(NEOStorageError, t.commit)
             self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
 

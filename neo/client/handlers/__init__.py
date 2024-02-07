@@ -15,12 +15,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import handler
-from ZODB.POSException import StorageError, ReadOnlyError
+from ..exception import NEOStorageError
+from ZODB.POSException import ReadOnlyError
 
 class AnswerBaseHandler(handler.AnswerBaseHandler): # XXX
 
     def protocolError(self, conn, message):
-        raise StorageError("protocol error: %s" % message)
+        raise NEOStorageError("protocol error: %s" % message)
 
     def readOnlyAccess(self, conn, message):
         raise ReadOnlyError(message)
