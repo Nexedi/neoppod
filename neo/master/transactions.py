@@ -282,11 +282,14 @@ class TransactionManager(EventQueue):
         if tid is None:
             # No TID requested, generate a temporary one
             tid = self._nextTID()
+        elif tid <= self._last_tid:
+            raise ProtocolError(
+                "new TID must be greater than the last committed one")
         else:
             # Use of specific TID requested, queue it immediately and update
             # last TID.
             self._queue.append(tid)
-            self.setLastTID(tid)
+            self._last_tid = tid
         txn = self._ttid_dict[tid] = Transaction(node, storage_readiness, tid)
         logging.debug('Begin %s', txn)
         return tid

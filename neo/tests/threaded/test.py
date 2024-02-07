@@ -2864,6 +2864,23 @@ class Test(NEOThreadedTest):
             self.assertRaises(RuntimeError, cluster.neoctl.setClusterState,
                               ClusterStates.STARTING_BACKUP)
 
+    @with_cluster()
+    def testTpcBeginWithInvalidTID(self, cluster):
+        storage = cluster.getZODBStorage()
+        txn = transaction.Transaction()
+        storage.tpc_begin(txn)
+        storage.store(ZERO_OID, None, 'foo', '', txn)
+        storage.tpc_vote(txn)
+        tid = storage.tpc_finish(txn)
+        self.assertRaises(NEOStorageError, storage.tpc_begin,
+                          transaction.Transaction(), tid)
+        new_tid = add64(tid, 1)
+        txn = transaction.Transaction()
+        storage.tpc_begin(txn, new_tid)
+        storage.store(ZERO_OID, tid, 'bar', '', txn)
+        storage.tpc_vote(txn)
+        self.assertEqual(add64(tid, 1), storage.tpc_finish(txn))
+
 
 if __name__ == "__main__":
     unittest.main()
