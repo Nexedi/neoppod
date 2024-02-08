@@ -411,6 +411,8 @@ class Application(ThreadedApplication):
                         result = self._cache.load(oid, before_tid)
                     if result:
                         return result
+                    u64(oid) # check type to not pollute _loading
+                             #  or crash storage nodes
                     load_lock = self._loading[oid][0]
                     acquired = load_lock.acquire(0)
                 # Several concurrent cache misses for the same oid are probably
