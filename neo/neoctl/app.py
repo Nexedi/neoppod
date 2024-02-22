@@ -353,7 +353,7 @@ class Application(object):
         try:
             return action(args[level:])
         except NotReadyException, message:
-            sys.exit('ERROR: ' + message)
+            sys.exit('ERROR: %s' % message)
 
     def _usage(self, action_dict, level=0):
         result = []
