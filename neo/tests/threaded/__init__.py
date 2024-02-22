@@ -949,13 +949,14 @@ class NEOCluster(object):
                 for node in getattr(self, node_type + '_list'):
                     node.resetNode(**reset_kw)
 
-    def _newClient(self):
+    def _newClient(self, **kw):
+        kw.setdefault('compress', self.compress)
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
-                                 compress=self.compress, ssl=self.SSL)
+                                 ssl=self.SSL, **kw)
 
     @contextmanager
-    def newClient(self, with_db=False):
-        x = self._newClient()
+    def newClient(self, with_db=False, **kw):
+        x = self._newClient(**kw)
         try:
             t = x.poll_thread
             closed = []

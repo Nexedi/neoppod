@@ -25,6 +25,9 @@ class NEOStorageReadRetry(NEOStorageError):
 class NEOStorageNotFoundError(NEOStorageError):
     pass
 
+class NEOStorageWrongChecksum(NEOStorageError):
+    pass
+
 class NEOStorageDoesNotExistError(NEOStorageNotFoundError):
     """
     This error is a refinement of NEOStorageNotFoundError: this means

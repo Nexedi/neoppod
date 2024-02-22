@@ -125,8 +125,8 @@ class ClientOperationHandler(BaseHandler):
         # register the transaction
         self.app.tm.register(conn, ttid)
         if data or checksum != ZERO_HASH:
-            # TODO: return an appropriate error packet
-            assert makeChecksum(data) == checksum
+            if makeChecksum(data) != checksum:
+                raise ProtocolError('invalid checksum')
         else:
             checksum = data = None
         try:

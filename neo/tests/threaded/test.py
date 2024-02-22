@@ -40,6 +40,7 @@ from .. import Patch, TransactionalResource, getTransactionMetaData
 from . import ClientApplication, ConnectionFilter, LockLock, NEOCluster, \
     NEOThreadedTest, RandomConflictDict, Serialized, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
+from neo.client import exception
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.handlers.storage import _DeadlockPacket
 from neo.client.transactions import Transaction
@@ -2880,6 +2881,31 @@ class Test(NEOThreadedTest):
         storage.store(ZERO_OID, tid, 'bar', '', txn)
         storage.tpc_vote(txn)
         self.assertEqual(add64(tid, 1), storage.tpc_finish(txn))
+
+    @with_cluster()
+    def testCorruptedData(self, cluster):
+        def holdData(orig, *args):
+            args = list(args)
+            args[2] = '!' + args[2]
+            return orig(*args)
+        data = 'foo' * 10
+        tid = None
+        for compress in False, True:
+            with cluster.newClient(ignore_wrong_checksum=True,
+                                   compress=compress) as client, \
+                 Patch(cluster.storage.dm, holdData=holdData):
+                storage = cluster.getZODBStorage(client=client)
+                txn = transaction.Transaction()
+                storage.tpc_begin(txn)
+                storage.store(ZERO_OID, tid, data, '', txn)
+                storage.tpc_vote(txn)
+                tid = storage.tpc_finish(txn)
+                storage._cache.clear()
+                self.assertEqual(('' if compress else '!' + data, tid),
+                                 storage.load(ZERO_OID))
+            with self.assertRaises(exception.NEOStorageWrongChecksum) as cm:
+                cluster.client.load(ZERO_OID)
+            self.assertEqual(tid, cm.exception.args[1])
 
 
 if __name__ == "__main__":

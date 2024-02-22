@@ -36,7 +36,8 @@ from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.exception import NodeNotReady
 from . import TransactionMetaData
 from .exception import (NEOStorageError, NEOStorageCreationUndoneError,
-    NEOStorageReadRetry, NEOStorageNotFoundError, NEOPrimaryMasterLost)
+    NEOStorageReadRetry, NEOStorageNotFoundError, NEOStorageWrongChecksum,
+    NEOPrimaryMasterLost)
 from .handlers import storage, master
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
@@ -70,7 +71,7 @@ class Application(ThreadedApplication):
     wait_for_pack = False
 
     def __init__(self, master_nodes, name, compress=True, cache_size=None,
-                 **kw):
+                 ignore_wrong_checksum=False, **kw):
         super(Application, self).__init__(parseMasterList(master_nodes),
                                           name, **kw)
         # Internal Attributes common to all thread
@@ -106,6 +107,7 @@ class Application(ThreadedApplication):
         self._connecting_to_storage_node = Lock()
         self._node_failure_dict = {}
         self.compress = getCompress(compress)
+        self.ignore_wrong_checksum = ignore_wrong_checksum
 
     def __getattr__(self, attr):
         if attr in ('last_tid', 'pt'):
@@ -459,6 +461,7 @@ class Application(ThreadedApplication):
         return data, tid, next_tid
 
     def _loadFromStorage(self, oid, at_tid, before_tid):
+        wrong_checksum = [] # Py3
         def askStorage(conn, packet):
             tid, next_tid, compression, checksum, data, data_tid \
                 = self._askStorage(conn, packet)
@@ -466,13 +469,28 @@ class Application(ThreadedApplication):
                 if checksum != makeChecksum(data):
                     logging.error('wrong checksum from %s for %s@%s',
                                   conn, dump(oid), dump(tid))
+                    wrong_checksum.append((tid, next_tid, compression,
+                                           checksum, data, data_tid))
                     raise NEOStorageReadRetry(False)
                 return (decompress_list[compression](data),
                         tid, next_tid, data_tid)
             raise NEOStorageCreationUndoneError(dump(oid))
-        return self._askStorageForRead(oid,
-            Packets.AskObject(oid, at_tid, before_tid),
-            askStorage)
+        try:
+            return self._askStorageForRead(oid,
+                Packets.AskObject(oid, at_tid, before_tid),
+                askStorage)
+        except NEOStorageError:
+            if not wrong_checksum:
+                raise
+        tid, next_tid, compression, checksum, data, data_tid = \
+            wrong_checksum[0]
+        if self.ignore_wrong_checksum:
+            try:
+                data = decompress_list[compression](data)
+            except Exception:
+                data = ''
+            return data, tid, next_tid, data_tid
+        raise NEOStorageWrongChecksum(oid, tid)
 
     def tpc_begin(self, storage, transaction, tid=None, status=' '):
         """Begin a new transaction."""

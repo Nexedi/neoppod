@@ -51,6 +51,13 @@
         be added/removed without requiring a config change each time.
       </description>
     </key>
+    <key name="ignore-wrong-checksum" datatype="boolean">
+      <description>
+        If true whereas checksum does not match, return whatever is stored
+        instead of raising. When compression is enabled, decompression is
+        likely to fail and an empty record is returned.
+      </description>
+    </key>
     <key name="ca" datatype="existing-file">
       <description>
         Certificate authority in PEM format.
