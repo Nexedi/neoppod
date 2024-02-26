@@ -233,6 +233,12 @@ class TransactionManager(EventQueue):
         object_list = transaction.store_dict.itervalues()
         if txn_info:
             user, desc, ext, oid_list, pack = txn_info
+            # Check MySQL limitation (MEDIUMBLOB). It is enforced to all
+            # backends in order to avoid issues when switching to MySQL.
+            # Anyway, next limitation would be at protocol level.
+            if not (len(oid_list) < 0x200000 > len(pack and pack[0] or ())):
+                raise ProtocolError("Too many modified OIDs (the default"
+                    " storage backend has a limitation of 2^21-1)")
             txn_info = oid_list, user, desc, ext, False, ttid
             transaction.voted = 2
         else:
