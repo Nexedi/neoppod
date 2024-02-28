@@ -1,17 +1,21 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import argparse, logging, os, threading, sys, time
+import argparse, code, logging, os, threading, sys, time
 from bisect import insort
 from collections import defaultdict
+from contextlib import contextmanager
 from functools import partial
 from io import BytesIO
+from operator import attrgetter
+from select import select
+
 from pkg_resources import iter_entry_points
 import ZODB
+from persistent.TimeStamp import TimeStamp
 from ZODB._compat import dumps, loads, HIGHEST_PROTOCOL, PersistentUnpickler
 from ZODB.POSException import ConflictError, POSKeyError
 from ZODB.serialize import referencesf
 from ZODB.utils import p64, u64, z64
-from zope.interface import implementer
 
 TXN_GC_DESC = 'neoppod.git/reflink/incgc@%x'
 VERSION = 1
@@ -48,13 +52,18 @@ def openStorage(uri):
     else:
         raise KeyError('No resolver found for uri: %s' % uri)
 
+def inc64(tid):
+    return p64(u64(tid) + 1)
+
 
 class InvalidationListener(object):
 
     def __init__(self, storage, tid):
-        self.min_tid = tid
+        self.last_gc = tid
         self._lock = l = threading.Lock()
-        self._new = e = threading.Event()
+        # Py3: use threading.Event (which has efficient timeout)
+        self._new_pipe = r, w = os.pipe()
+        self._new_flag = False
         storage.registerDB(self)
         self.invalidateCache = lambda: None
         ltid = storage.lastTransaction()
@@ -63,7 +72,6 @@ class InvalidationListener(object):
             if hasattr(self, 'last_tid'):
                 return
             self.last_tid = ltid
-        e.set()
 
     def invalidateCache(self):
         raise NotImplementedError
@@ -71,22 +79,24 @@ class InvalidationListener(object):
     def invalidate(self, transaction_id, oids, version=''):
         with self._lock:
             self.last_tid = transaction_id
-            self._new.set()
+            if not self._new_flag:
+                self._new_flag = True
+                os.write(self._new_pipe[1], '\0')
 
     def tpc_finish(self, tid):
-        self.last_tid = self.min_tid = tid
-        self._new.set()
+        self.last_tid = self.last_gc = tid
 
-    def idle(self, tid):
+    def wait(self, tid, timeout):
         with self._lock:
-            if tid == self.last_tid:
-                self._new.clear()
-                return True
-        return False
-
-    def wait(self, tid):
-        self._new.wait()
-        return None if tid == z64 else p64(u64(tid) + 1)
+            if tid != self.last_tid:
+                return 0
+            if self._new_flag:
+                self._new_flag = True
+                if os.write(self._new_pipe[0], 2) != '\0':
+                    raise RuntimeError
+        t = time.time()
+        select(self._new_pipe[:1], (), (), timeout)
+        return time.time() - t
 
     transform_record_data = untransform_record_data = None
 
@@ -118,6 +128,7 @@ class Changeset(object):
 
     def __init__(self, storage):
         self.storage = storage
+        self._load = storage.load
         self.buckets = buckets = {}
         bucket = self._get(z64)
         new = buckets[z64][0] is None
@@ -128,18 +139,23 @@ class Changeset(object):
             if version != VERSION:
                 raise Exception("unsupported reflink DB version %r"
                                 " (expected %r)" % (version, VERSION))
+        self._last_gc = bucket.get('__reflink_last_gc__', z64)
         self.check_orphan = check_orphan = {}
         self.get(z64) # for self._root ...
-        if not new:   # ... and revert other side-effects (mainly for -g)
+        if not new:   # ... and revert other side-effects (mainly for 'gc')
             buckets.clear()
             check_orphan.clear()
+
+    @partial(property, attrgetter('_last_gc'))
+    def last_gc(self, value):
+        self._last_gc = self._get(z64)['__reflink_last_gc__'] = value
 
     def _get(self, oid):
         try:
             return self.buckets[oid][2]
         except KeyError:
             try:
-                orig, serial = self.storage.load(oid, '')
+                orig, serial = self._load(oid)
             except POSKeyError:
                 bucket = {}
                 self.buckets[oid] = None, z64, bucket
@@ -206,85 +222,96 @@ class Changeset(object):
         storage.tpc_finish(txn)
         buckets.clear()
 
-    def full(self, main_storage):
-        load = self.storage.load
-        orphans = set()
-        for oid in self.storage.app.oids():
-            h = u64(oid) << 8
-            orphans.update(h + l for l in self._get(oid) if isinstance(l, int))
-        stack = [z64]
-        get = self.get
-        while True:
-            try:
-                oid = stack.pop()
-            except IndexError:
-                self.buckets.clear()
-                self.check_orphan.clear()
-                return map(p64, orphans)
-            try:
-                orphans.remove(u64(oid))
-            except KeyError:
-                continue
-            stack += get(oid).referents
+    @contextmanager
+    def historical(self, tid):
+        assert not (self.buckets or self.check_orphan)
+        storage = self.storage
+        load = partial(storage.loadBefore, tid=inc64(tid))
+        try:
+            self._load = lambda oid: load(oid)[:2]
+            yield
+        finally:
+            self._load = storage.load
+            self.buckets.clear()
+            self.check_orphan.clear()
+
+    def full(self, tid):
+        with self.historical(tid):
+            orphans = set()
+            for oid in self.storage.app.oids(tid):
+                h = u64(oid) << 8
+                orphans.update(h + l for l in self._get(oid)
+                                     if isinstance(l, int))
+            stack = [z64]
+            get = self.get
+            while True:
+                try:
+                    oid = stack.pop()
+                except IndexError:
+                    return map(p64, orphans)
+                try:
+                    orphans.remove(u64(oid))
+                except KeyError:
+                    continue
+                stack += get(oid).referents
 
     @property
     def orphan(self):
         return self._root.next_orphan
 
-    def orphans(self):
-        get = self.get
-        orphans = set()
-        check_orphan = set()
-        check_cycle = []
-        keep = {}
-        obj = self._root
-        if __debug__:
-            seen = set()
-        while True:
-            oid = obj.next_orphan
-            if not oid:
-                break
+    def orphans(self, tid):
+        with self.historical(tid):
+            get = self.get
+            orphans = set()
+            check_orphan = set()
+            check_cycle = []
+            keep = {}
+            obj = self._root
             if __debug__:
-                assert oid not in seen, u64(oid)
-                seen.add(oid)
-            obj = get(oid)
-            if obj.referrers:
-                assert obj.maybeOrphan(), (oid, obj.referrers)
-                check_cycle.append((oid, obj))
-            else:
-                orphans.add(oid)
-                check_orphan |= obj.referents
-        while check_orphan:
-            oid = check_orphan.pop()
-            obj = get(oid)
-            if orphans.issuperset(obj.referrers):
-                orphans.add(oid)
-                check_orphan |= obj.referents
-            else:
-                check_cycle.append((oid, obj))
-        while check_cycle:
-            oid, obj = check_cycle.pop()
-            check_orphan = []
-            cycle = {oid}
-            x = obj
+                seen = set()
             while True:
-                referrers = set(x.referrers) - cycle - orphans
-                x = x.referents - cycle - orphans
-                if not referrers.issubset(x):
-                    # not a simple cycle, give up
-                    if obj.prev_orphan:
-                        keep[oid] = obj
+                oid = obj.next_orphan
+                if not oid:
                     break
-                check_orphan += x
-                cycle |= x
-                try:
-                    x = get(check_orphan.pop())
-                except IndexError:
-                    orphans |= cycle
-                    break
-        x = [u64(oid) for oid in keep if self.path(oid)[-1] != z64]
-        self.buckets.clear()
-        self.check_orphan.clear()
+                if __debug__:
+                    assert oid not in seen, u64(oid)
+                    seen.add(oid)
+                obj = get(oid)
+                if obj.referrers:
+                    assert obj.maybeOrphan(), (oid, obj.referrers)
+                    check_cycle.append((oid, obj))
+                else:
+                    orphans.add(oid)
+                    check_orphan |= obj.referents
+            while check_orphan:
+                oid = check_orphan.pop()
+                obj = get(oid)
+                if orphans.issuperset(obj.referrers):
+                    orphans.add(oid)
+                    check_orphan |= obj.referents
+                else:
+                    check_cycle.append((oid, obj))
+            while check_cycle:
+                oid, obj = check_cycle.pop()
+                check_orphan = []
+                cycle = {oid}
+                x = obj
+                while True:
+                    referrers = set(x.referrers) - cycle - orphans
+                    x = x.referents - cycle - orphans
+                    if not referrers.issubset(x):
+                        # not a simple cycle, give up
+                        if obj.prev_orphan:
+                            keep[oid] = obj
+                        break
+                    check_orphan += x
+                    cycle |= x
+                    try:
+                        x = get(check_orphan.pop())
+                    except IndexError:
+                        orphans |= cycle
+                        break
+            x = [u64(oid) for oid in keep if self.path(oid)[-1] != z64]
         if keep:
             if x:
                 logging.error(
@@ -352,33 +379,29 @@ def main(args=None):
         " same TID. Packing this DB does not need any GC.")
     parsers = parser.add_subparsers(dest='command')
 
-    s = parsers.add_parser('run',
-        help="Track references and GC automatically. This is the main command."
-             " A GC is done whenever there's no new transaction to process.",
-             **kw)
-    x = s.add_mutually_exclusive_group().add_argument
-    x('-g', '--gc', action='store_true',
-        help="Do a GC immediately, ignoring new transactions, and exit.")
-    x('-i', '--commit-interval', type=float, metavar="SECONDS", default=10,
-        help="Commit every SECONDS of work.")
-    x = s.add_mutually_exclusive_group().add_argument
-    x('-0', '--exit-before-gc', action='store_true',
-        help="Exit before a GC.")
-    x('-1', '--exit-after-gc', action='store_true',
-        help="Exit after a GC.")
-    _ = s.add_argument
-    _('-f', '--full', action='store_true',
-        help="Always perform a full GC. This should only be used occasionally,"
-             " with either -g or -1, and preferably with -n to only check"
-             " if a normal GC is enough.")
-    _('-n', '--dry-run', metavar="DUMP",
-        help="Save OIDs that would be deleted during a GC into the specified"
-             " file and exit.")
-    _('main', metavar="MAIN_URI", help="ZODB to track.")
+    def gc():
+        _ = s.add_argument
+        _('-f', '--full', action='store_true',
+            help="Always perform a full GC. This should only be used"
+                " occasionally, preferably with -n to only check"
+                " if a normal GC is enough.")
+        _('-n', '--dry-run', metavar="DUMP",
+            help="Save OIDs that would be deleted during a GC into the"
+                " specified file and exit.")
+        _('main', metavar="MAIN_URI", help="ZODB to track.")
 
-    _ = parsers.add_parser('dump',
+    parsers.add_parser('console',
+        help="Open a console to inspect REFS DB.",
+        **kw)
+
+    parsers.add_parser('dump',
         help="Dump the whole reflink DB to stdout. This uses a lot of RAM.",
-        **kw).add_argument
+        **kw)
+
+    s = parsers.add_parser('gc',
+        help="Do a GC immediately, ignoring new transactions, and exit.",
+        **kw)
+    gc()
 
     _ = parsers.add_parser('path',
         help="Get ancestors of an OID.",
@@ -387,9 +410,32 @@ def main(args=None):
     _('main', metavar="MAIN_URI", nargs='?',
         help="Tracked ZODB, for class information.")
 
+    s = parsers.add_parser('run',
+        help="Track references and GC automatically. This is the main command."
+             " GCs are performed when there's no new transaction to process.",
+             **kw)
+    gc()
+    _ = s.add_mutually_exclusive_group().add_argument
+    _('-0', '--exit-before-gc', action='store_true',
+        help="Exit before a GC.")
+    _('-1', '--exit-after-gc', action='store_true',
+        help="Exit after a GC.")
+    _ = s.add_argument
+    _('-i', '--commit-interval', type=float, metavar="SECONDS", default=10,
+        help="Commit every SECONDS of work.")
+    _('-p', '--period', type=float, metavar="SECONDS", default=86400,
+        help="Age of the historical revision at which a GC is performed"
+             " (this can be seen as a grace period). For performance reasons,"
+             " this revision won't be older than the previous GC commit"
+             " so GCs may be delayed this number of seconds.")
+
     args = parser.parse_args(args)
     command = args.command
     changeset = Changeset(openStorage(args.refs))
+
+    if command == "console":
+        code.interact(banner="", local=dict(globals(), changeset=changeset))
+        return
 
     if command == "dump":
         for oid in xrange(u64(changeset.storage.new_oid()) << 8):
@@ -411,7 +457,7 @@ def main(args=None):
                 return "Main storage shall implement " + iface.__name__
 
     if command == "path":
-        tid = p64(u64(tid) + 1)
+        tid = inc64(tid)
         def find_global(*args):
             x.extend(args)
         for oid in reversed(changeset.path(p64(args.oid))):
@@ -423,15 +469,23 @@ def main(args=None):
             print(*x)
         return
 
-    assert command == "run", command
-    if args.gc:
-        commit_interval = 0
+    if command == 'gc':
+        commit_interval = period = 0
+        exit_before_gc = False
+        exit_after_gc = True
     else:
+        assert command == "run", command
         commit_interval = args.commit_interval
         if commit_interval <= 0:
             parser.error("--commit-interval must be strictly positive.")
+        period = args.period
+        if period < 0:
+            parser.error("--period must be positive.")
+        exit_before_gc = args.exit_before_gc
+        exit_after_gc = args.exit_after_gc
 
-    if args.full:
+    full = args.full
+    if full:
         try:
             changeset.storage.app.oids.__call__
         except Exception:
@@ -445,74 +499,14 @@ def main(args=None):
         def find_global(*args):
             dry_run_stats[args].append(u64(oid))
 
+    del args, command, parser
+
     invalidation_listener = InvalidationListener(main_storage, tid)
 
     next_commit = time.time() + commit_interval
     while True:
-        if not commit_interval or invalidation_listener.idle(tid):
-            if args.full or changeset.orphan:
-                if changeset.buckets:
-                    next_commit = time.time() + commit_interval
-                    changeset.commit(tid)
-                if args.exit_before_gc:
-                    break
-                print('gc')
-                orphans = changeset.full(main_storage) if args.full else \
-                          changeset.orphans()
-                txn = TransactionMetaData(description=TXN_GC_DESC % u64(tid))
-                main_storage.tpc_begin(txn)
-                try:
-                    abort = True
-                    for oid in orphans:
-                        try:
-                            data, serial = main_storage.load(oid)
-                        except POSKeyError:
-                            continue
-                        if tid < serial:
-                            abort = True
-                            break
-                        main_storage.deleteObject(oid, serial, txn)
-                        if dry_run:
-                            try:
-                                PersistentUnpickler(find_global, None,
-                                                    BytesIO(data)).load()
-                            except Exception:
-                                assert data is not None, oid
-                                dry_run_stats[
-                                    ('corrupted',) if data else ('empty',)
-                                    ].append(u64(oid))
-                        abort = False
-                    if not abort:
-                        print('  tpc_vote')
-                        main_storage.tpc_vote(txn)
-                        if dry_run:
-                            abort = True
-                            with os.fdopen(os.open(dry_run,
-                                    os.O_WRONLY | os.O_CREAT | os.O_EXCL, # Py3
-                                    0o666), 'w') as f:
-                                for x, orphans in sorted(
-                                        dry_run_stats.iteritems()):
-                                    orphans.sort()
-                                    print(len(orphans), '.'.join(x),
-                                          ','.join(map('%x'.__mod__, orphans)),
-                                          file=f)
-                            break
-                        print('  tpc_finish')
-                        main_storage.tpc_finish(txn,
-                            invalidation_listener.tpc_finish)
-                except ConflictError:
-                    abort = True
-                finally:
-                    if abort:
-                        main_storage.tpc_abort(txn)
-                del orphans
-            if args.exit_after_gc or not commit_interval:
-                break
-
-        t = time.time()
-        tid = invalidation_listener.wait(tid)
-        next_commit += time.time() - t
-        for trans in main_storage.iterator(tid):
+        for trans in main_storage.iterator(
+                inc64(tid)) if commit_interval else ():
             tid = trans.tid
             # print("tid=%x" % u64(tid))
             check_orphan = {}
@@ -526,6 +520,8 @@ def main(args=None):
                     # print("    deleted")
                     if src.prev_orphan:
                         changeset.keep(src)
+                    elif check_orphan.pop(oid, None) is None:
+                        changeset.check_orphan[oid] = False
                     new_set = set()
                 else:
                     if not (src.prev_orphan or prev_set or src.referrers
@@ -570,9 +566,96 @@ def main(args=None):
             changeset.check_orphan.clear()
 
             t = time.time()
-            if next_commit <= t and invalidation_listener.min_tid < tid:
-                next_commit = t + commit_interval
+            if next_commit <= t:
                 changeset.commit(tid)
+                if not next_commit and exit_after_gc:
+                    return
+                next_commit = t + commit_interval
+
+        t = time.time() - period
+        gc_tid = TimeStamp(*time.gmtime(t)[:5]+(t%60,)).raw()
+        if changeset.last_gc <= gc_tid:
+            if full or changeset.orphan:
+                if changeset.buckets:
+                    next_commit = time.time() + commit_interval
+                    changeset.commit(tid)
+                if exit_before_gc:
+                    break
+                print('gc')
+                orphans = sorted((changeset.full if full else
+                                  changeset.orphans)(gc_tid))
+                print('found %s OIDs to delete' % len(orphans))
+                txn = TransactionMetaData(description=TXN_GC_DESC % u64(gc_tid))
+                main_storage.tpc_begin(txn)
+                try:
+                    abort = True
+                    count = 0
+                    for oid in orphans:
+                        try:
+                            data, serial = main_storage.load(oid)
+                        except POSKeyError:
+                            continue
+                        if gc_tid < serial:
+                            abort = True
+                            break
+                        main_storage.deleteObject(oid, serial, txn)
+                        if dry_run:
+                            try:
+                                PersistentUnpickler(find_global, None,
+                                                    BytesIO(data)).load()
+                            except Exception:
+                                assert data is not None, oid
+                                dry_run_stats[
+                                    ('corrupted',) if data else ('empty',)
+                                    ].append(u64(oid))
+                        abort = False
+                        count += 1
+                        if count == 0x1fffff: # MySQL limitation (MEDIUMBLOB)
+                            logging.warning(
+                                "Found %s OIDs to delete."
+                                " Processed only %s for the moment,"
+                                " due to a limitation of some storage types.",
+                                len(orphans), count)
+                            break
+                    if not abort:
+                        print('  tpc_vote')
+                        main_storage.tpc_vote(txn)
+                        if dry_run:
+                            abort = True
+                            with os.fdopen(os.open(dry_run,
+                                    os.O_WRONLY | os.O_CREAT | os.O_EXCL, # Py3
+                                    0o666), 'w') as f:
+                                for x, orphans in sorted(
+                                        dry_run_stats.iteritems()):
+                                    orphans.sort()
+                                    print(len(orphans), '.'.join(x),
+                                          ','.join(map('%x'.__mod__, orphans)),
+                                          file=f)
+                            break
+                        print('  tpc_finish')
+                        main_storage.tpc_finish(txn,
+                            invalidation_listener.tpc_finish)
+                except ConflictError:
+                    abort = True
+                finally:
+                    if abort:
+                        main_storage.tpc_abort(txn)
+                        changeset.last_gc = invalidation_listener.last_tid
+                    del orphans
+                if not commit_interval:
+                    break
+                if not abort:
+                    changeset.last_gc = invalidation_listener.last_gc
+                    next_commit = 0
+                    continue
+            if exit_after_gc:
+                break
+            x = tid
+        else:
+            x = changeset.last_gc
+        x = TimeStamp(x).timeTime() - t
+
+        next_commit += invalidation_listener.wait(tid, None if x < 0 else x)
 
 
 if __name__ == '__main__':
