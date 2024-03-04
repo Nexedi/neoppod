@@ -29,8 +29,7 @@ if useMySQLdb():
     from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
     from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY, NO_SUCH_TABLE
     def fetch_all(conn):
-        r = conn.store_result()
-        return r.fetch_row(r.num_rows())
+        return conn.store_result().fetch_row(0)
     # for tests
     from MySQLdb import NotSupportedError
     from MySQLdb.constants.ER import BAD_DB_ERROR, UNKNOWN_STORAGE_ENGINE
