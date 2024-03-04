@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import argparse, code, logging, os, threading, sys, time
+import argparse, logging, os, threading, sys, time
 from bisect import insort
 from collections import defaultdict
 from contextlib import contextmanager
@@ -8,6 +8,7 @@ from functools import partial
 from io import BytesIO
 from operator import attrgetter
 from select import select
+from Queue import Queue
 
 from pkg_resources import iter_entry_points
 import ZODB
@@ -91,8 +92,8 @@ class InvalidationListener(object):
             if tid != self.last_tid:
                 return 0
             if self._new_flag:
-                self._new_flag = True
-                if os.write(self._new_pipe[0], 2) != '\0':
+                self._new_flag = False
+                if os.read(self._new_pipe[0], 2) != '\0':
                     raise RuntimeError
         t = time.time()
         select(self._new_pipe[:1], (), (), timeout)
@@ -122,6 +123,11 @@ class Object(object):
 
     def maybeOrphan(self):
         return self.referents.issuperset(self.referrers)
+
+    def __repr__(self):
+        return '<%s%s>' % (self.__class__.__name__, ' '.join(
+            '%s=%r' % (attr, getattr(self, attr))
+            for attr in self.__slots__))
 
 
 class Changeset(object):
@@ -266,7 +272,7 @@ class Changeset(object):
             check_orphan = set()
             check_cycle = []
             keep = {}
-            obj = self._root
+            obj = self.get(z64)
             if __debug__:
                 seen = set()
             while True:
@@ -389,6 +395,11 @@ def main(args=None):
             help="Save OIDs that would be deleted during a GC into the"
                 " specified file and exit.")
         _('main', metavar="MAIN_URI", help="ZODB to track.")
+    def period(default=0, extra_help=""):
+        s.add_argument(
+            '-p', '--period', type=float, metavar="SECONDS", default=default,
+            help="Age of the historical revision at which a GC is performed"
+                " (this can be seen as a grace period)." + extra_help)
 
     parsers.add_parser('console',
         help="Open a console to inspect REFS DB.",
@@ -402,6 +413,7 @@ def main(args=None):
         help="Do a GC immediately, ignoring new transactions, and exit.",
         **kw)
     gc()
+    period()
 
     _ = parsers.add_parser('path',
         help="Get ancestors of an OID.",
@@ -423,19 +435,13 @@ def main(args=None):
     _ = s.add_argument
     _('-i', '--commit-interval', type=float, metavar="SECONDS", default=10,
         help="Commit every SECONDS of work.")
-    _('-p', '--period', type=float, metavar="SECONDS", default=86400,
-        help="Age of the historical revision at which a GC is performed"
-             " (this can be seen as a grace period). For performance reasons,"
-             " this revision won't be older than the previous GC commit"
-             " so GCs may be delayed this number of seconds.")
+    period(86400,
+        " For performance reasons, this revision won't be older than the"
+        " previous GC commit so GCs may be delayed this number of seconds.")
 
     args = parser.parse_args(args)
     command = args.command
     changeset = Changeset(openStorage(args.refs))
-
-    if command == "console":
-        code.interact(banner="", local=dict(globals(), changeset=changeset))
-        return
 
     if command == "dump":
         for oid in xrange(u64(changeset.storage.new_oid()) << 8):
@@ -470,7 +476,7 @@ def main(args=None):
         return
 
     if command == 'gc':
-        commit_interval = period = 0
+        commit_interval = 0
         exit_before_gc = False
         exit_after_gc = True
     else:
@@ -478,11 +484,11 @@ def main(args=None):
         commit_interval = args.commit_interval
         if commit_interval <= 0:
             parser.error("--commit-interval must be strictly positive.")
-        period = args.period
-        if period < 0:
-            parser.error("--period must be positive.")
         exit_before_gc = args.exit_before_gc
         exit_after_gc = args.exit_after_gc
+    period = args.period
+    if period < 0:
+        parser.error("--period must be positive.")
 
     full = args.full
     if full:
@@ -503,74 +509,113 @@ def main(args=None):
 
     invalidation_listener = InvalidationListener(main_storage, tid)
 
+    queue = Queue(3)
+    exc_info = [] # Py3
+    def iterTrans(x):
+        put = queue.put
+        try:
+            for x in x:
+                put(x)
+                for x in x:
+                    put(x)
+                put(None)
+        except:
+            exc_info[:] = sys.exc_info()
+        put(None)
+    def checkExc():
+        if exc_info:
+            etype, value, tb = exc_info
+            raise etype, value, tb
+
     next_commit = time.time() + commit_interval
     while True:
-        for trans in main_storage.iterator(
-                inc64(tid)) if commit_interval else ():
-            tid = trans.tid
-            # print("tid=%x" % u64(tid))
-            check_orphan = {}
-            for record in trans:
-                oid = record.oid
-                # print("  oid=%x" % u64(oid))
-                src = changeset.get(oid)
-                data = record.data
-                prev_set = src.referents
-                if data is None:
-                    # print("    deleted")
-                    if src.prev_orphan:
-                        changeset.keep(src)
-                    elif check_orphan.pop(oid, None) is None:
-                        changeset.check_orphan[oid] = False
-                    new_set = set()
-                else:
-                    if not (src.prev_orphan or prev_set or src.referrers
-                            or oid == z64):
-                        # After a pack, an oid may be orphan from its creation.
-                        check_orphan[oid] = src
-                    try:
-                        new_set = set(referencesf(data))
-                    except Exception:
-                        logging.warning("Corrupted record %x@%x",
-                                        u64(oid), u64(tid))
+        if commit_interval:
+            thread = threading.Thread(target=iterTrans,
+                args=(main_storage.iterator(inc64(tid)),))
+            thread.daemon = True
+            thread.start()
+            while True:
+                t = queue.get()
+                if t is None:
+                    checkExc()
+                    break
+                tid = t.tid
+                # print("tid=%x" % u64(tid))
+                check_orphan = {}
+                while True:
+                    record = queue.get()
+                    if record is None:
+                        checkExc()
+                        break
+                    oid = record.oid
+                    # print("  oid=%x" % u64(oid))
+                    src = changeset.get(oid)
+                    data = record.data
+                    prev_set = src.referents
+                    if data is None:
+                        # print("    deleted")
+                        if src.prev_orphan:
+                            changeset.keep(src)
+                        elif check_orphan.pop(oid, None) is None:
+                            changeset.check_orphan[oid] = False
                         new_set = set()
                     else:
-                        new_set.discard(oid)
-                if new_set == prev_set:
-                    continue
-                src.referents = new_set
-                for referent in new_set - prev_set:
-                    # print("  + %x" % u64(referent))
-                    dst = changeset.get(referent)
-                    insort(dst.referrers, oid)
-                    if dst.prev_orphan:
-                        changeset.keep(dst)
-                prev_set.difference_update(new_set)
-                for referent in prev_set:
-                    # print("  - %x" % u64(referent))
-                    dst = changeset.get(referent)
-                    dst.referrers.remove(oid)
-                    if changeset.check_orphan[referent]:
-                        changeset.check_orphan[referent] = False
-                        check_orphan[referent] = dst
-            for oid, obj in check_orphan.iteritems():
-                if obj.maybeOrphan():
-                    assert not (obj.prev_orphan or obj.next_orphan), oid
-                    obj.prev_orphan = z64
-                    prev_orphan = changeset.get(z64)
-                    next_orphan = prev_orphan.next_orphan
-                    if next_orphan:
-                        changeset.get(next_orphan).prev_orphan = oid
-                        obj.next_orphan = next_orphan
-                    prev_orphan.next_orphan = oid
-            changeset.check_orphan.clear()
+                        if not (src.prev_orphan or prev_set or src.referrers
+                                or oid == z64):
+                            # After a pack, an oid may be
+                            # orphan from its creation.
+                            check_orphan[oid] = src
+                        try:
+                            new_set = set(referencesf(data))
+                        except Exception:
+                            logging.warning("Corrupted record %x@%x",
+                                            u64(oid), u64(tid))
+                            new_set = set()
+                        else:
+                            new_set.discard(oid)
+                    if new_set == prev_set:
+                        continue
+                    src.referents = new_set
+                    for referent in new_set - prev_set:
+                        # print("  + %x" % u64(referent))
+                        dst = changeset.get(referent)
+                        insort(dst.referrers, oid)
+                        if dst.prev_orphan:
+                            changeset.keep(dst)
+                    prev_set.difference_update(new_set)
+                    for referent in prev_set:
+                        # print("  - %x" % u64(referent))
+                        dst = changeset.get(referent)
+                        dst.referrers.remove(oid)
+                        if changeset.check_orphan[referent]:
+                            changeset.check_orphan[referent] = False
+                            check_orphan[referent] = dst
+                t = inc64(tid)
+                for oid, obj in check_orphan.iteritems():
+                    if obj.maybeOrphan():
+                        assert not (obj.prev_orphan or obj.next_orphan), oid
+                        if not obj.referents:
+                            try:
+                                if main_storage.loadBefore(oid, t) is None:
+                                    continue
+                            except POSKeyError:
+                                continue
+                        obj.prev_orphan = z64
+                        prev_orphan = changeset.get(z64)
+                        next_orphan = prev_orphan.next_orphan
+                        if next_orphan:
+                            changeset.get(next_orphan).prev_orphan = oid
+                            obj.next_orphan = next_orphan
+                        prev_orphan.next_orphan = oid
+                changeset.check_orphan.clear()
 
-            t = time.time()
-            if next_commit <= t:
-                changeset.commit(tid)
-                if not next_commit and exit_after_gc:
-                    return
-                next_commit = t + commit_interval
+                t = time.time()
+                if next_commit <= t:
+                    changeset.commit(tid)
+                    if not next_commit and exit_after_gc:
+                        return
+                    next_commit = t + commit_interval
+            thread.join()
 
         t = time.time() - period
         gc_tid = TimeStamp(*time.gmtime(t)[:5]+(t%60,)).raw()
@@ -584,7 +629,7 @@ def main(args=None):
                 print('gc')
                 orphans = sorted((changeset.full if full else
                                   changeset.orphans)(gc_tid))
-                print('found %s OIDs to delete' % len(orphans))
+                print('  found %s OIDs to delete' % len(orphans))
                 txn = TransactionMetaData(description=TXN_GC_DESC % u64(gc_tid))
                 main_storage.tpc_begin(txn)
                 try:
