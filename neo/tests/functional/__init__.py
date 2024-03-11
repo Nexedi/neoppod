@@ -328,7 +328,7 @@ class NEOCluster(object):
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
                  address_type=ADDRESS_TYPE, bind_ip=None, logger=True,
-                 importer=None, storage_kw={}):
+                 importer=None, storage_kw={}, autostart=False):
         if not adapter:
             adapter = 'MySQL'
         self.adapter = adapter
@@ -384,9 +384,12 @@ class NEOCluster(object):
         # create admin node
         self._newProcess(NodeTypes.ADMIN, logger and 'admin', admin_port)
         # create master nodes
+        kw = dict(partitions=partitions, replicas=replicas)
+        if autostart:
+            kw['autostart'] = len(db_list)
         for i, port in enumerate(master_node_list):
             self._newProcess(NodeTypes.MASTER, logger and 'master_%u' % i,
-                             port, partitions=partitions, replicas=replicas)
+                             port, **kw)
         # create storage nodes
         for i, db in enumerate(db_list):
             self._newProcess(NodeTypes.STORAGE, logger and 'storage_%u' % i,
