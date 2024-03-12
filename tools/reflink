@@ -11,6 +11,7 @@ from select import select
 from time import gmtime, time
 from Queue import Queue
 
+from msgpack import dumps, loads
 from pkg_resources import iter_entry_points
 import ZODB
 from persistent.TimeStamp import TimeStamp
@@ -21,20 +22,6 @@ from ZODB.utils import p64, u64, z64
 
 TXN_GC_DESC = 'neoppod.git/reflink/incgc@%x'
 VERSION = 1
-
-if 0:
-    from ZODB._compat import dumps as _dumps, loads, HIGHEST_PROTOCOL
-    dumps = lambda x: _dumps(x, HIGHEST_PROTOCOL)
-else:
-    from msgpack import dumps, loads
-
-if 0:
-    from zlib import decompress, compress, Z_BEST_COMPRESSION
-else:
-    Z_BEST_COMPRESSION = None
-    decompress = compress = lambda x, *_: x
-
-SHORTEN = 2
 
 try:
     from ZODB.Connection import TransactionMetaData
@@ -118,18 +105,12 @@ class Object(object):
 
     def __init__(self, oid, referrers=(), referents=(),
                  prev_orphan=None, next_orphan=None):
-      if SHORTEN:
         self.referrers = [p64(oid + i) for i in referrers]
         self.referents = {p64(oid + i) for i in referents}
         self.prev_orphan = None if prev_orphan is None else \
             p64(oid + prev_orphan)
         self.next_orphan = None if next_orphan is None else \
             p64(oid + next_orphan)
-      else:
-        self.referrers = list(referrers)
-        self.referents = set(referents)
-        self.prev_orphan = prev_orphan
-        self.next_orphan = next_orphan
 
     def maybeOrphan(self):
         return self.referents.issuperset(self.referrers)
@@ -193,7 +174,7 @@ class Changeset(object):
                 bucket = {}
                 self.buckets[oid] = None, z64, bucket
             else:
-                bucket = loads(decompress(orig))
+                bucket = loads(orig)
                 self.buckets[oid] = orig, serial, bucket
         return bucket
 
@@ -202,8 +183,7 @@ class Changeset(object):
         key = ord(oid[-1]) # Py3
         obj = bucket.get(key, ())
         if not isinstance(obj, Object):
-            obj = bucket[key] = Object(
-                u64(oid) if SHORTEN == 2 else 0, *obj)
+            obj = bucket[key] = Object(u64(oid), *obj)
         if oid not in self.check_orphan and self._bootstrap is None:
             self.check_orphan[oid] =  not (
                 obj.prev_orphan or obj.maybeOrphan())
@@ -215,15 +195,11 @@ class Changeset(object):
         buckets = self.buckets
         txn = TransactionMetaData()
         storage.tpc_begin(txn, tid)
-        if SHORTEN:
-            def shortenVal(i):
-                if i:
-                    return u64(i) - shorten_oid
-            def shortenSeq(l):
-                return tuple(u64(i) - shorten_oid for i in l)
-        else:
-            shortenVal = lambda i: i
-            shortenSeq = tuple
+        def shortenVal(i):
+            if i:
+                return u64(i) - shorten_oid
+        def shortenSeq(l):
+            return tuple(u64(i) - shorten_oid for i in l)
         def shortenObj(x):
             if v[-1] == x:
                 del v[-1]
@@ -234,7 +210,7 @@ class Changeset(object):
             data = {}
             for k, v in bucket.iteritems():
                 if isinstance(v, Object):
-                    shorten_oid = base_oid + k if SHORTEN == 2 else 0
+                    shorten_oid = base_oid + k
                     v = [shortenSeq(v.referrers),
                          shortenSeq(sorted(v.referents)),
                          shortenVal(v.prev_orphan),
@@ -245,7 +221,7 @@ class Changeset(object):
                     v = tuple(v)
                 data[k] = v
             if data:
-                data = compress(dumps(data), Z_BEST_COMPRESSION)
+                data = dumps(data)
                 if orig != data:
                     storage.store(oid, serial, data, '', txn)
             elif orig:
