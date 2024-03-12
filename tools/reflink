@@ -15,7 +15,7 @@ from msgpack import dumps, loads
 from pkg_resources import iter_entry_points
 import ZODB
 from persistent.TimeStamp import TimeStamp
-from ZODB._compat import dumps, loads, HIGHEST_PROTOCOL, PersistentUnpickler
+from ZODB._compat import PersistentUnpickler
 from ZODB.POSException import ConflictError, POSKeyError
 from ZODB.serialize import referencesf
 from ZODB.utils import p64, u64, z64
@@ -52,6 +52,9 @@ def openStorage(uri):
 
 def inc64(tid):
     return p64(u64(tid) + 1)
+
+def tidFromTime(t):
+    return TimeStamp(*gmtime(t)[:5]+(t%60,)).raw()
 
 
 class InvalidationListener(object):
@@ -145,11 +148,18 @@ class Changeset(object):
             checkAPI(storage)
             self.bootstrap = bootstrap, 0
         self._last_gc = bucket.get('__reflink_last_gc__', z64)
+        self._last_pack = bucket.get('__reflink_last_pack__', z64)
+        self._pack = None
         self.check_orphan = {}
 
     @partial(property, attrgetter('_last_gc'))
     def last_gc(self, value):
         self._last_gc = self._get(z64)['__reflink_last_gc__'] = value
+
+    def pack(self, tid):
+        self.storage.app.setPackOrder.__call__ # check non-standard API
+        if self._last_pack < tid:
+            self._pack = tid
 
     @partial(property, attrgetter('_bootstrap'))
     def bootstrap(self, value):
@@ -205,6 +215,11 @@ class Changeset(object):
                 del v[-1]
                 return True
         bootstrap = self._bootstrap
+        pack = self._pack
+        if pack and not bootstrap:
+            self._pack = None
+            self._last_pack = self._get(z64)['__reflink_last_pack__'] = pack
+            storage.app.setPackOrder(txn, pack)
         for oid, (orig, serial, bucket) in buckets.iteritems():
             base_oid = u64(oid) << 8
             data = {}
@@ -453,24 +468,22 @@ def main(args=None):
                 " argument is not 0, a GC calculates twice the list of OIDs to"
                 " delete, now and in the past, to exclude those that should be"
                 " kept." % extra_help)
-    def tid(**kw):
-        s.add_argument('tid', metavar="TID", type=eval,
-            help="TID as Python integer.", **kw)
+    tid_arg = dict(metavar="TID", type=eval, help="TID as Python integer.")
 
-    s = parsers.add_parser('bootstrap',
+    _ = parsers.add_parser('bootstrap',
         help="By default, all transactions since the creation of main DB are"
              " scanned. In the case where such history would take too long to"
              " process, you can try this command so that the 'run' command"
              " starts with 2 extra steps: scan the whole main DB at the given"
              " TID and do a full GC. Both DB must provide a non-standard API"
              " that only NEO is known to have.",
-        **kw)
-    tid()
+        **kw).add_argument
+    _('tid', **tid_arg)
 
-    s = parsers.add_parser('dump',
+    _ = parsers.add_parser('dump',
         help="Dump the whole reflink DB to stdout.",
-        **kw)
-    tid(nargs='?')
+        **kw).add_argument
+    _('tid', nargs='?', **tid_arg)
 
     s = parsers.add_parser('gc',
         help="Do a GC immediately, ignoring new transactions, and exit.",
@@ -481,6 +494,7 @@ def main(args=None):
     _ = parsers.add_parser('path',
         help="Get ancestors of an OID.",
         **kw).add_argument
+    _('--tid', **tid_arg)
     _('oid', metavar="OID", type=eval,
         help="OID as Python integer.")
     _('main', metavar="MAIN_URI", nargs='?',
@@ -499,6 +513,12 @@ def main(args=None):
     _ = s.add_argument
     _('-i', '--commit-interval', type=float, metavar="SECONDS", default=10,
         help="Commit every SECONDS of work.")
+    _('--pack-neo', type=float, metavar="EPOCH",
+        help="Pack time in seconds since the epoch. This argument is ignored"
+             " during bootstrap and it is only to pack the refs DB when it is"
+             " run by NEO. Other IStorage implementations don't store pack"
+             " commands in transactions and pack() can be used as long as it's"
+             " done without GC.")
     period(86400,
         " For performance reasons, this revision won't be older than the"
         " previous GC commit so GCs may be delayed this number of seconds.")
@@ -518,7 +538,7 @@ def main(args=None):
 
     if bootstrap:
         changeset.commit(inc64(tid))
-        print("Bootstrap at %s. You can now use the 'run' command."
+        print("Bootstrap at %s UTC. You can now use the 'run' command."
               % TimeStamp(p64(args.tid)))
         return
 
@@ -530,16 +550,22 @@ def main(args=None):
                 return "Main storage shall implement " + iface.__name__
 
     if command == "path":
-        tid = inc64(tid)
+        t = args.tid
+        if t is None:
+            tid = inc64(tid)
+        else:
+            tid = p64(t + 1)
+            t = p64(t)
         def find_global(*args):
             x.extend(args)
-        for oid in reversed(changeset.path(p64(args.oid))):
-            x = [hex(u64(oid))]
-            if args.main:
-                data = main_storage.loadBefore(oid, tid)[0]
-                PersistentUnpickler(find_global, None,
-                                    BytesIO(data)).load()
-            print(*x)
+        with changeset.historical(t):
+            for oid in reversed(changeset.path(p64(args.oid))):
+                x = [hex(u64(oid))]
+                if args.main:
+                    data = main_storage.loadBefore(oid, tid)[0]
+                    PersistentUnpickler(find_global, None,
+                                        BytesIO(data)).load()
+                print(*x)
         return
 
     if command == 'gc':
@@ -555,6 +581,9 @@ def main(args=None):
             parser.error("--commit-interval must be strictly positive.")
         exit_before_gc = args.exit_before_gc
         exit_after_gc = args.exit_after_gc
+        t = args.pack_neo
+        if t:
+            changeset.pack(tidFromTime(t))
     period = args.period
     if period < 0:
         parser.error("--period must be positive.")
@@ -742,11 +771,8 @@ def main(args=None):
                     break
                 print('gc')
                 gc = changeset.full if full or bootstrap else changeset.orphans
-                if bootstrap or not period:
-                    gc_tid = tid
-                else:
-                    t = time() - period
-                    gc_tid = TimeStamp(*gmtime(t)[:5]+(t%60,)).raw()
+                gc_tid = tid if bootstrap or not period else \
+                    tidFromTime(time() - period)
                 if gc_tid < tid:
                     if gc_tid < changeset.last_gc:
                         logging.warning(
