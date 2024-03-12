@@ -262,22 +262,25 @@ class Changeset(object):
         try:
             if bootstrap is None:
                 self._bootstrap = True
-            for oid in self.storage.app.oids(tid):
-                try:
-                    bucket = self._get(oid)
-                    oid = u64(oid) << 8
-                    if not oid:
-                        for x in sorted(x for x in bucket if type(x) is str):
-                            print(x, bucket.pop(x))
-                    for x in sorted(bucket):
-                        x += oid
-                        obj = self.get(p64(x))
-                        print(x,
-                            map(u64, obj.referrers), map(u64, obj.referents),
-                            obj.prev_orphan and u64(obj.prev_orphan),
-                            obj.next_orphan and u64(obj.next_orphan))
-                finally:
-                    buckets.clear()
+            with self.historical(tid):
+                for oid in self.storage.app.oids(tid):
+                    try:
+                        bucket = self._get(oid)
+                        oid = u64(oid) << 8
+                        if not oid:
+                            for x in sorted(x for x in bucket
+                                              if type(x) is str):
+                                print(x, repr(bucket.pop(x)))
+                        for x in sorted(bucket):
+                            x += oid
+                            obj = self.get(p64(x))
+                            print(x,
+                                map(u64, obj.referrers),
+                                map(u64, obj.referents),
+                                obj.prev_orphan and u64(obj.prev_orphan),
+                                obj.next_orphan and u64(obj.next_orphan))
+                    finally:
+                        buckets.clear()
         finally:
             self._bootstrap = bootstrap
             assert not (buckets or self.check_orphan)
@@ -638,6 +641,7 @@ def main(args=None):
             if next_commit <= t:
                 tid = inc64(tid)
                 changeset.bootstrap = bootstrap[0], u64(oid) + 1
+                print("oid=%x" % u64(oid))
                 changeset.commit(tid)
                 next_commit = t + commit_interval
         changeset.bootstrap = bootstrap[0], None
@@ -658,6 +662,7 @@ def main(args=None):
             exc_info[:] = sys.exc_info()
         put(None)
 
+    next_gc = TimeStamp(changeset.last_gc).timeTime() + period
     next_commit = time() + commit_interval
     while True:
         if commit_interval:
@@ -748,31 +753,37 @@ def main(args=None):
                     next_commit = t + commit_interval
             thread.join()
 
-        if bootstrap:
-            gc_tid = tid
-        else:
-            t = time() - period
-            gc_tid = min(tid, TimeStamp(*gmtime(t)[:5]+(t%60,)).raw())
-        if changeset.last_gc <= gc_tid or not commit_interval:
+        t = time()
+        timeout = next_gc - t
+        if timeout <= 0 or not commit_interval:
+            timeout = None
             if full or changeset.orphan or bootstrap:
                 if changeset.buckets:
-                    next_commit = time() + commit_interval
+                    next_commit = t + commit_interval
                     changeset.commit(tid)
                 assert tid == changeset.storage.lastTransaction()
                 if exit_before_gc:
                     break
-                if gc_tid < changeset.last_gc:
-                    logging.warning(
-                        "Doing GC at a TID (0x%x) older than"
-                        " the previous one (0x%x)",
-                        u64(gc_tid), u64(changeset.last_gc))
                 print('gc')
                 gc = changeset.full if full or bootstrap else changeset.orphans
-                print(gc)
-                orphans = gc(None)
-                if period and not bootstrap:
-                    changeset.abort()
-                    orphans &= gc(gc_tid)
+                if bootstrap or not period:
+                    gc_tid = tid
+                else:
+                    t = time() - period
+                    gc_tid = TimeStamp(*gmtime(t)[:5]+(t%60,)).raw()
+                if gc_tid < tid:
+                    if gc_tid < changeset.last_gc:
+                        logging.warning(
+                            "Doing GC at a TID (0x%x) older than"
+                            " the previous one (0x%x)",
+                            u64(gc_tid), u64(changeset.last_gc))
+                    orphans = gc(gc_tid)
+                    if orphans:
+                        changeset.abort()
+                        orphans &= gc(None)
+                else:
+                    gc_tid = tid
+                    orphans = gc(None)
                 orphans = sorted(orphans)
                 print('  found %s OIDs to delete' % len(orphans))
                 count = 0
@@ -823,6 +834,7 @@ def main(args=None):
                             print('  tpc_finish')
                             main_storage.tpc_finish(txn,
                                 invalidation_listener.tpc_finish)
+                            changeset.last_gc = invalidation_listener.last_gc
                             continue
                     except ConflictError:
                         count = None
@@ -831,25 +843,19 @@ def main(args=None):
                             count = 0
                         else:
                             main_storage.tpc_abort(txn)
-                            changeset.last_gc = invalidation_listener.last_tid
                     break
                 del orphans
-                if bootstrap and count == 0:
-                    bootstrap = changeset.bootstrap = None
-                if not commit_interval:
-                    break
                 if count == 0:
-                    changeset.last_gc = invalidation_listener.last_gc
-                    next_commit = 0
-                    continue
-            if exit_after_gc:
+                    timeout = period
+                    next_gc = time() + timeout
+                    if bootstrap:
+                        bootstrap = changeset.bootstrap = None
+                    if exit_after_gc:
+                        break
+            if not commit_interval:
                 break
-            x = tid
-        else:
-            x = changeset.last_gc
-        x = TimeStamp(x).timeTime() - t
 
-        next_commit += invalidation_listener.wait(tid, None if x < 0 else x)
+        next_commit += invalidation_listener.wait(tid, timeout)
 
 
 if __name__ == '__main__':
