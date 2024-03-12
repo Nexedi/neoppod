@@ -22,7 +22,7 @@ from time import time
 import transaction
 from persistent import Persistent
 from ZODB.POSException import UndoError
-from neo.client.exception import NEOUndoPackError
+from neo.client.exception import NEOStorageError, NEOUndoPackError
 from neo.lib import logging
 from neo.lib.protocol import ClusterStates, Packets
 from neo.lib.util import add64, p64
@@ -79,6 +79,10 @@ class PackTests(NEOThreadedTest):
             t.commit()
             yield cluster.client.last_tid
         c.close()
+
+    def assertPopulated(self, c):
+        r = c.root()
+        self.assertEqual([3, 3, 2, 1], [r[x].value for x in 'abcd'])
 
     @with_cluster(partitions=3, replicas=1, storage_count=3)
     def testOutdatedNodeIsBack(self, cluster):
@@ -264,17 +268,28 @@ class PackTests(NEOThreadedTest):
         client.pack(tid)
         deque(populate, 0)
         t, c = cluster.getTransaction()
-        r = c.root()
         history = c.db().history
         def check(*counts):
             c.cacheMinimize()
             client._cache.clear()
-            self.assertEqual([3, 3, 2, 1], [r[x].value for x in 'abcd'])
+            self.assertPopulated(c)
             self.assertSequenceEqual(counts,
                 [len(history(p64(i), 10)) for i in xrange(5)])
         check(4, 2, 4, 2, 2)
         reset0(disable_pack=False)
         check(1, 2, 2, 2, 2)
+
+    @with_cluster()
+    def testInvalidPackTID(self, cluster):
+        deque(self.populate(cluster), 0)
+        client = cluster.client
+        client.wait_for_pack = True
+        tid = client.last_tid
+        self.assertRaises(NEOStorageError, client.pack, add64(tid, 1))
+        client.pack(tid)
+        t, c = cluster.getTransaction()
+        self.assertPopulated(c)
+
 
 if __name__ == "__main__":
     unittest.main()

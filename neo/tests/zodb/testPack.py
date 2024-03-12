@@ -20,7 +20,7 @@ from ZODB.tests.PackableStorage import \
     PackableStorageWithOptionalGC, PackableUndoStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from .. import expectedFailure
+from .. import expectedFailure, Patch
 from . import ZODBTestCase
 
 class PackableTests(ZODBTestCase, StorageTestBase,
@@ -29,6 +29,14 @@ class PackableTests(ZODBTestCase, StorageTestBase,
     checkPackAllRevisions = expectedFailure()(
         PackableStorageWithOptionalGC.checkPackAllRevisions)
     checkPackUndoLog = expectedFailure()(PackableUndoStorage.checkPackUndoLog)
+
+    def checkPackAllRevisionsNoGC(self):
+        def pack(orig, t, referencesf, gc):
+            assert referencesf is not None
+            assert gc is False
+            return orig(t)
+        with Patch(self._storage, pack=pack):
+            super(PackableTests, self).checkPackAllRevisionsNoGC()
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(PackableTests, 'check')

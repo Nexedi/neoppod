@@ -231,12 +231,13 @@ class Storage(BaseStorage.BaseStorage,
             logging.exception('source=%r', source)
             raise
 
-    def pack(self, t, referencesf, gc=False):
-        if gc:
+    def pack(self, t, referencesf=None):
+        if referencesf is not None:
             logging.warning('Garbage Collection is not available in NEO,'
                 ' please use an external tool. Packing without GC.')
         try:
-            self.app.pack(tidFromTime(t))
+            app = self.app
+            app.pack(min(tidFromTime(t), app.last_tid))
         except Exception:
             logging.exception('pack_time=%r', t)
             raise

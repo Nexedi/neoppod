@@ -16,7 +16,7 @@
 
 from neo.lib.handler import DelayEvent
 from neo.lib.exception import ProtocolError
-from neo.lib.protocol import Packets, MAX_TID, Errors
+from neo.lib.protocol import Packets, MAX_TID, ZERO_TID, Errors
 from ..app import monotonic_time
 from . import MasterHandler
 
@@ -66,6 +66,10 @@ class ClientServiceHandler(MasterHandler):
 
     def askFinishTransaction(self, conn, ttid, oid_list, checked_list, pack):
         app = self.app
+        if pack:
+            tid = pack[1]
+            if tid is None or not ZERO_TID < tid <= app.getLastTransaction():
+                raise ProtocolError("invalid pack time")
         tid, node_list = app.tm.prepare(
             app,
             ttid,

@@ -1039,11 +1039,20 @@ class Application(ThreadedApplication):
     def sync(self):
         self._askPrimary(Packets.Ping())
 
-    def pack(self, tid, _oids=None): # TODO: API for partial pack
+    def setPackOrder(self, transaction, tid, oids=None):
+        self._txn_container.get(transaction).pack = oids and sorted(oids), tid
+
+    def pack(self, tid, oids=None):
+        if tid == ZERO_TID:
+            return
         transaction = TransactionMetaData(description=TXN_PACK_DESC)
-        self.tpc_begin(None, transaction)
-        self._txn_container.get(transaction).pack = _oids and sorted(_oids), tid
-        tid = self.tpc_finish(transaction)
+        try:
+            self.tpc_begin(None, transaction)
+            self.setPackOrder(transaction, tid, oids)
+            tid = self.tpc_finish(transaction)
+        except:
+            self.tpc_abort(transaction)
+            raise
         if not self.wait_for_pack:
             return
         # Waiting for pack to be finished is only needed
