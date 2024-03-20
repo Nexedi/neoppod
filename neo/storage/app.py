@@ -192,7 +192,7 @@ class Application(BaseApplication):
 
     def run(self):
         try:
-            with self.dm.lock:
+            with self.em.wakeup_fd(), self.dm.lock:
                 self._run()
         except Exception:
             logging.exception('Pre-mortem data:')

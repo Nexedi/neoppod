@@ -169,7 +169,8 @@ class Application(BaseApplication):
 
     def run(self):
         try:
-            self._run()
+            with self.em.wakeup_fd():
+                self._run()
         except BaseException, e:
             if not isinstance(e, SystemExit) or e.code:
                 logging.exception('Pre-mortem data:')

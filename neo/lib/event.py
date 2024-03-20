@@ -16,6 +16,7 @@
 
 import fcntl, os
 from collections import deque
+from contextlib import contextmanager
 from signal import set_wakeup_fd
 from time import time
 from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
@@ -36,38 +37,6 @@ def nonblock(fd):
     flags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
-# We use set_wakeup_fd to handle the case of a signal that happens between
-# Python checks for signals and epoll_wait is called. Otherwise, the signal
-# would not be processed as long as epoll_wait sleeps.
-# If a process has several instances of EpollEventManager like in threaded
-# tests, it does not matter which one is woke up by signals.
-
-class WakeupFD(object):
-
-    _lock = Lock()
-    _fds = []
-
-    @classmethod
-    def add(cls, fd):
-        fds = cls._fds
-        with cls._lock:
-            if fds:
-                assert fd not in fds, (fd, fds)
-            else:
-                prev = set_wakeup_fd(fd)
-                assert prev == -1, (fd, prev)
-            fds.append(fd)
-
-    @classmethod
-    def remove(cls, fd):
-        fds = cls._fds
-        with cls._lock:
-            i = fds.index(fd)
-            del fds[i]
-            if not (i and fds):
-                prev = set_wakeup_fd(fds[0] if fds else -1)
-                assert prev == fd, (fd, prev)
-
 
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
@@ -86,7 +55,6 @@ class EpollEventManager(object):
         self._wakeup_wfd = w
         nonblock(r)
         nonblock(w)
-        WakeupFD.add(w)
         self.epoll.register(r, EPOLLIN)
         self._trigger_lock = Lock()
         self.lock = l = Lock()
@@ -105,13 +73,32 @@ class EpollEventManager(object):
         self._closeRelease = release
 
     def close(self):
-        WakeupFD.remove(self._wakeup_wfd)
         os.close(self._wakeup_wfd)
         os.close(self._wakeup_rfd)
         for c in self.connection_dict.values():
             c.close()
         self.epoll.close()
         del self.__dict__
+
+    @contextmanager
+    def wakeup_fd(self):
+        """
+        We use set_wakeup_fd to handle the case of a signal that happens
+        between Python checks for signals and epoll_wait is called. Otherwise,
+        the signal would not be processed as long as epoll_wait sleeps.
+        """
+        fd = self._wakeup_wfd
+        try:
+            prev = set_wakeup_fd(fd)
+        except ValueError: # not main thread
+            yield
+        else:
+            assert prev != fd
+            try:
+                yield
+            finally:
+                prev = set_wakeup_fd(prev)
+                assert prev == fd, prev
 
     def getConnectionList(self):
         # XXX: use index

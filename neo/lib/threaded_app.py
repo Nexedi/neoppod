@@ -77,7 +77,8 @@ class ThreadedApplication(BaseApplication):
     def run(self):
         logging.debug("Started %s", self.poll_thread)
         try:
-            self._run()
+            with self.em.wakeup_fd():
+                self._run()
         finally:
             super(ThreadedApplication, self).close()
             logging.debug("Poll thread stopped")

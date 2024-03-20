@@ -65,16 +65,17 @@ class NeoCTL(BaseApplication):
 
     def __ask(self, packet):
         # TODO: make thread-safe
-        connection = self.__getConnection()
-        connection.ask(packet)
-        response_queue = self.response_queue
-        assert len(response_queue) == 0
-        while self.connected:
-            self.em.poll(1)
-            if response_queue:
-                break
-        else:
-            raise NotReadyException, 'Connection closed'
+        with self.em.wakeup_fd():
+            connection = self.__getConnection()
+            connection.ask(packet)
+            response_queue = self.response_queue
+            assert not response_queue
+            while self.connected:
+                self.em.poll(1)
+                if response_queue:
+                    break
+            else:
+                raise NotReadyException('Connection closed')
         response = response_queue.pop()
         if response[0] == Packets.Error and \
            response[1] == ErrorCodes.NOT_READY:
@@ -212,10 +213,11 @@ class NeoCTL(BaseApplication):
         return response[2]
 
     def flushLog(self):
-        conn = self.__getConnection()
-        conn.send(Packets.FlushLog())
-        while conn.pending():
-            self.em.poll(1)
+        with self.em.wakeup_fd():
+            conn = self.__getConnection()
+            conn.send(Packets.FlushLog())
+            while conn.pending():
+                self.em.poll(1)
 
     def getMonitorInformation(self):
         response = self.__ask(Packets.AskMonitorInformation())

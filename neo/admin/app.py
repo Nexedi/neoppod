@@ -199,7 +199,8 @@ class Application(BaseApplication, Monitor):
 
     def run(self):
         try:
-            self._run()
+            with self.em.wakeup_fd():
+                self._run()
         except Exception:
             logging.exception('Pre-mortem data:')
             self.log()
