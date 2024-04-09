@@ -17,13 +17,13 @@
 
 import random, sys, threading, time
 import transaction
-from ZODB.POSException import ReadOnlyError, POSKeyError
+from ZODB.POSException import (
+    POSKeyError, ReadOnlyError, StorageTransactionError)
 import unittest
 from collections import defaultdict
 from functools import wraps
 from itertools import product
 from neo.lib import logging
-from neo.client.exception import NEOStorageError
 from neo.master.handlers.backup import BackupHandler
 from neo.storage.checker import CHECK_COUNT
 from neo.storage.database.manager import DatabaseManager
@@ -1112,7 +1112,9 @@ class ReplicationTests(NEOThreadedTest):
         B = backup
         U = B.upstream
         Z = U.getZODBStorage()
-        #Zb = B.getZODBStorage()    # XXX see below about invalidations
+        with B.newClient() as client, self.assertRaises(ReadOnlyError):
+            client.last_tid
+        #Zb = B.getZODBStorage(read_only=True) # XXX see below about invalidations
 
         oid_list = []
         tid_list = []
@@ -1157,7 +1159,7 @@ class ReplicationTests(NEOThreadedTest):
                 # read data from B and verify it is what it should be
                 # XXX we open new ZODB storage every time because invalidations
                 # are not yet implemented in read-only mode.
-                Zb = B.getZODBStorage()
+                Zb = B.getZODBStorage(read_only=True)
                 for j, oid in enumerate(oid_list):
                     if cutoff <= i < recover and j >= cutoff:
                         self.assertRaises(POSKeyError, Zb.load, oid, '')
@@ -1170,7 +1172,6 @@ class ReplicationTests(NEOThreadedTest):
                 # not-yet-fully fetched backup state (transactions committed at
                 # [cutoff, recover) should not be there; otherwise transactions
                 # should be fully there)
-                Zb = B.getZODBStorage()
                 Btxn_list = list(Zb.iterator())
                 self.assertEqual(len(Btxn_list), cutoff if cutoff <= i < recover
                                                  else i+1)
@@ -1185,15 +1186,12 @@ class ReplicationTests(NEOThreadedTest):
 
                 # try to commit something to backup storage and make sure it is
                 # really read-only
-                Zb._cache.max_size = 0     # make store() do work in sync way
                 txn = transaction.Transaction()
                 self.assertRaises(ReadOnlyError, Zb.tpc_begin, txn)
                 self.assertRaises(ReadOnlyError, Zb.new_oid)
-                self.assertRaises(ReadOnlyError, Zb.store, oid_list[-1],
-                                            tid_list[-1], 'somedata', '', txn)
-                # tpc_vote first checks whether there were store replies -
+                # tpc_vote first checks whether the transaction has begun -
                 # thus not ReadOnlyError
-                self.assertRaises(NEOStorageError, Zb.tpc_vote, txn)
+                self.assertRaises(StorageTransactionError, Zb.tpc_vote, txn)
 
                 if i == loop // 2:
                     # Check that we survive a disconnection from upstream
@@ -1203,8 +1201,6 @@ class ReplicationTests(NEOThreadedTest):
                     conn.close()
                     self.tic()
 
-                # close storage because client app is otherwise shared in
-                # threaded tests and we need to refresh last_tid on next run
                 # (XXX see above about invalidations not working)
                 Zb.close()
 

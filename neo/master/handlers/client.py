@@ -131,12 +131,13 @@ class ClientServiceHandler(MasterHandler):
         else:
             pack.waitForPack(conn.delayedAnswer(Packets.WaitedForPack))
 
-# like ClientServiceHandler but read-only & only for tid <= backup_tid
+
 class ClientReadOnlyServiceHandler(ClientServiceHandler):
 
+    _read_only_message = 'read-only access as requested by the client'
+
     def _readOnly(self, conn, *args, **kw):
-        conn.answer(Errors.ReadOnlyAccess(
-            'read-only access because cluster is in backuping mode'))
+        conn.answer(Errors.ReadOnlyAccess(self._read_only_message))
 
     askBeginTransaction     = _readOnly
     askNewOIDs              = _readOnly
@@ -145,9 +146,15 @@ class ClientReadOnlyServiceHandler(ClientServiceHandler):
     askPack                 = _readOnly
     abortTransaction        = _readOnly
 
+
+# like ClientReadOnlyServiceHandler but only for tid <= backup_tid
+class ClientBackupServiceHandler(ClientReadOnlyServiceHandler):
+
+    _read_only_message = 'read-only access because cluster is in backuping mode'
+
     # XXX LastIDs is not used by client at all, and it requires work to determine
     # last_oid up to backup_tid, so just make it non-functional for client.
-    askLastIDs              = _readOnly
+    askLastIDs = ClientReadOnlyServiceHandler._readOnly.__func__ # Py3
 
     # like in MasterHandler but returns backup_tid instead of last_tid
     def askLastTransaction(self, conn):

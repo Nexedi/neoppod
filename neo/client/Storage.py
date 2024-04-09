@@ -14,8 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ZODB import BaseStorage, ConflictResolution, POSException
-from ZODB.POSException import ConflictError, UndoError
+from ZODB import BaseStorage, ConflictResolution
+from ZODB.POSException import (
+    ConflictError, POSKeyError, ReadOnlyError, UndoError)
 from zope.interface import implementer
 import ZODB.interfaces
 
@@ -25,7 +26,7 @@ from .app import Application
 from .exception import NEOStorageNotFoundError, NEOStorageDoesNotExistError
 
 def raiseReadOnlyError(*args, **kw):
-    raise POSException.ReadOnlyError()
+    raise ReadOnlyError
 
 @implementer(
         ZODB.interfaces.IStorage,
@@ -39,7 +40,7 @@ class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
 
-    def __init__(self, master_nodes, name, read_only=False,
+    def __init__(self, master_nodes, name,
             compress=None, logfile=None, _app=None, **kw):
         """
         Do not pass those parameters (used internally):
@@ -50,29 +51,27 @@ class Storage(BaseStorage.BaseStorage,
         if logfile:
             logging.setup(logfile)
         BaseStorage.BaseStorage.__init__(self, 'NEOStorage(%s)' % (name, ))
-        # Warning: _is_read_only is used in BaseStorage, do not rename it.
-        self._is_read_only = read_only
-        if read_only:
-            for method_id in (
-                        'new_oid',
-                        'tpc_begin',
-                        'tpc_vote',
-                        'tpc_abort',
-                        'store',
-                        'deleteObject',
-                        'undo',
-                        'undoLog',
-                    ):
-                setattr(self, method_id, raiseReadOnlyError)
         if _app is None:
             ssl = [kw.pop(x, None) for x in ('ca', 'cert', 'key')]
             _app = Application(master_nodes, name, compress=compress,
                                ssl=ssl if any(ssl) else None, **kw)
         self.app = _app
+        if __debug__ and self._is_read_only:
+            # For ZODB checkWriteMethods:
+            self.store = self.undo = raiseReadOnlyError
+            # For tpc_begin, it's checked in Application because it's used
+            # internally (e.g. pack) and the caller does not want to clean up
+            # with tpc_abort.
+            # For other methods, either the master rejects with
+            # READ_ONLY_ACCESS or the call is outside of a transaction.
 
     @property
     def _cache(self):
         return self.app._cache
+
+    @property
+    def _is_read_only(self): # used in BaseStorage, do not rename it
+        return self.app.read_only
 
     def load(self, oid, version=''):
         # XXX: interface definition states that version parameter is
@@ -82,7 +81,7 @@ class Storage(BaseStorage.BaseStorage,
         try:
             return self.app.load(oid)[:2]
         except NEOStorageNotFoundError:
-            raise POSException.POSKeyError(oid)
+            raise POSKeyError(oid)
         except Exception:
             logging.exception('oid=%r', oid)
             raise
@@ -151,7 +150,7 @@ class Storage(BaseStorage.BaseStorage,
         try:
             return self.app.load(oid, serial)[0]
         except NEOStorageNotFoundError:
-            raise POSException.POSKeyError(oid)
+            raise POSKeyError(oid)
         except Exception:
             logging.exception('oid=%r, serial=%r', oid, serial)
             raise
@@ -160,7 +159,7 @@ class Storage(BaseStorage.BaseStorage,
         try:
             return self.app.load(oid, None, tid)
         except NEOStorageDoesNotExistError:
-            raise POSException.POSKeyError(oid)
+            raise POSKeyError(oid)
         except NEOStorageNotFoundError:
             return None
         except Exception:
@@ -195,7 +194,7 @@ class Storage(BaseStorage.BaseStorage,
         try:
             data, serial, _ = self.app.load(oid)
         except NEOStorageNotFoundError:
-            raise POSException.POSKeyError(oid)
+            raise POSKeyError(oid)
         except Exception:
             logging.exception('oid=%r', oid)
             raise
@@ -215,7 +214,7 @@ class Storage(BaseStorage.BaseStorage,
         try:
             return self.app.history(oid, *args, **kw)
         except NEOStorageNotFoundError:
-            raise POSException.POSKeyError(oid)
+            raise POSKeyError(oid)
         except Exception:
             logging.exception('oid=%r', oid)
             raise

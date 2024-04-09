@@ -1027,8 +1027,12 @@ class NEOCluster(object):
             if not cell.isReadable()]
 
     def getZODBStorage(self, **kw):
-        kw['_app'] = kw.pop('client', self.client)
-        return Storage.Storage(None, self.name, **kw)
+        try:
+            app = kw.pop('client')
+            assert not kw, kw
+        except KeyError:
+            app = self._newClient(**kw) if kw else self.client
+        return Storage.Storage(None, self.name, _app=app)
 
     def importZODB(self, dummy_zodb=None, random=random):
         if dummy_zodb is None:
