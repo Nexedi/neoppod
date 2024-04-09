@@ -150,7 +150,10 @@ class Application(BaseApplication):
         self.election_handler = master.ElectionHandler(self)
         self.secondary_handler = master.SecondaryHandler(self)
         self.client_service_handler = client.ClientServiceHandler(self)
-        self.client_ro_service_handler = client.ClientReadOnlyServiceHandler(self)
+        self.client_ro_service_handler = client.ClientReadOnlyServiceHandler(
+            self)
+        self.client_backup_service_handler = client.ClientBackupServiceHandler(
+            self)
         self.storage_service_handler = storage.StorageServiceHandler(self)
 
         registerLiveDebugger(on_log=self.log)

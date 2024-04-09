@@ -25,7 +25,8 @@ try:
 except ImportError:
     from cPickle import dumps, loads
     _protocol = 1
-from ZODB.POSException import UndoError, ConflictError, ReadConflictError
+from ZODB.POSException import (
+    ConflictError, ReadConflictError, ReadOnlyError, UndoError)
 
 from neo.lib import logging
 from neo.lib.compress import decompress_list, getCompress
@@ -72,7 +73,7 @@ class Application(ThreadedApplication):
     wait_for_pack = False
 
     def __init__(self, master_nodes, name, compress=True, cache_size=None,
-                 ignore_wrong_checksum=False, **kw):
+                 read_only=False, ignore_wrong_checksum=False, **kw):
         super(Application, self).__init__(parseMasterList(master_nodes),
                                           name, **kw)
         # Internal Attributes common to all thread
@@ -108,6 +109,7 @@ class Application(ThreadedApplication):
         self._connecting_to_storage_node = Lock()
         self._node_failure_dict = {}
         self.compress = getCompress(compress)
+        self.read_only = read_only
         self.ignore_wrong_checksum = ignore_wrong_checksum
 
     def __getattr__(self, attr):
@@ -228,7 +230,8 @@ class Application(ThreadedApplication):
                         node=node,
                         dispatcher=self.dispatcher)
                     p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                        self.uuid, None, self.name, None, {})
+                        self.uuid, None, self.name, None,
+                        {'read_only': True} if self.read_only else {})
                     try:
                         ask(conn, p, handler=handler)
                     except ConnectionClosed:
@@ -505,6 +508,8 @@ class Application(ThreadedApplication):
 
     def tpc_begin(self, storage, transaction, tid=None, status=' '):
         """Begin a new transaction."""
+        if self.read_only:
+            raise ReadOnlyError
         # First get a transaction, only one is allowed at a time
         txn_context = self._txn_container.new(transaction)
         # use the given TID or request a new one to the master

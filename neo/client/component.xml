@@ -26,9 +26,9 @@
     </key>
     <key name="read-only" datatype="boolean">
       <description>
-        If true, only reads may be executed against the storage.  Note
-        that the "pack" operation is not considered a write operation
-        and is still allowed on a read-only neostorage.
+        If true, only reads may be executed against the storage.
+        If false when cluster is backing up, POSException.ReadOnlyError
+        is raised.
       </description>
     </key>
     <key name="logfile" datatype="existing-dirpath">
