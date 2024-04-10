@@ -20,8 +20,9 @@ import sqlite3
 from hashlib import sha1
 import string
 import traceback
+from urlparse import urlsplit, parse_qsl
 
-from . import LOG_QUERIES
+from . import LOG_QUERIES, DatabaseFailure
 from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.exception import NonReadableCell, UndoPackError
@@ -72,7 +73,22 @@ class SQLiteDatabaseManager(DatabaseManager):
     VERSION = 4
 
     def _parse(self, database):
-        self.db = os.path.expanduser(database)
+        pragmas = self.pragmas = {}
+        if database.startswith('file:'):
+            database = urlsplit(database)
+            for k, v in parse_qsl(database.query, keep_blank_values=True,
+                                  strict_parsing=True):
+                if k in pragmas:
+                    raise DatabaseFailure("duplicate pragma: " + k)
+                if k not in ('cache_size', 'journal_mode', 'synchronous'):
+                    raise DatabaseFailure("unsupported pragma: " + k)
+                pragmas[k] = v
+            self.db = database.path
+        else:
+            self.db = os.path.expanduser(database)
+        if self.UNSAFE:
+            pragmas.setdefault('synchronous', 'OFF')
+            pragmas.setdefault('journal_mode', 'MEMORY')
 
     def _close(self):
         self.conn.close()
@@ -82,10 +98,14 @@ class SQLiteDatabaseManager(DatabaseManager):
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
         self.conn.text_factory = str
         self.lockFile(self.db)
-        if self.UNSAFE:
-            q = self.query
-            q("PRAGMA synchronous = OFF").fetchall()
-            q("PRAGMA journal_mode = MEMORY").fetchall()
+        try:
+            for pragma in map("PRAGMA %s = %s".__mod__,
+                              self.pragmas.iteritems()):
+                logging.info(pragma)
+                self.query(pragma).fetchall()
+        except Exception:
+            self.close()
+            raise
         self._config = {}
 
     def _getDevPath(self):
