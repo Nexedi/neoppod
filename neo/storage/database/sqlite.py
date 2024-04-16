@@ -488,21 +488,23 @@ class SQLiteDatabaseManager(DatabaseManager):
         T = 't' if temporary else ''
         obj_sql = "INSERT OR FAIL INTO %sobj VALUES (?,?,?,?,?)" % T
         q = self.query
+        row_list = []
         for oid, data_id, value_serial in object_list:
             oid = u64(oid)
-            partition = self._getPartition(oid)
-            if value_serial:
-                value_serial = u64(value_serial)
+            row_list.append((self._getPartition(oid), oid, tid, data_id,
+                             value_serial and u64(value_serial)))
+        row_list.sort()
+        for row in row_list:
             try:
-                q(obj_sql, (partition, oid, tid, data_id, value_serial))
+                q(obj_sql, row)
             except sqlite3.IntegrityError:
                 # This may happen if a previous replication of 'obj' was
                 # interrupted.
                 if not T:
                     r, = q("SELECT data_id, value_tid FROM obj"
                            " WHERE partition=? AND oid=? AND tid=?",
-                           (partition, oid, tid))
-                    if r == (data_id, value_serial):
+                           row[:3])
+                    if r == row[3:]:
                         continue
                 raise
         if transaction:

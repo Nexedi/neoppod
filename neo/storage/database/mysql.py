@@ -623,13 +623,15 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
         sql = ["REPLACE INTO %s VALUES " % obj_table]
         values_max = self._max_allowed_packet - len(sql[0])
         values_size = 0
+        row_list = []
         for oid, data_id, value_serial in object_list:
             oid = u64(oid)
-            partition = self._getPartition(oid)
-            value = "(%s,%s,%s,%s,%s)," % (
-                partition, oid, tid,
+            row_list.append((self._getPartition(oid), oid,
                 'NULL' if data_id is None else data_id,
-                u64(value_serial) if value_serial else 'NULL')
+                u64(value_serial) if value_serial else 'NULL'))
+        row_list.sort()
+        row_list = map(("(%%s,%%s,%s,%%s,%%s)," % tid).__mod__, row_list)
+        for value in row_list:
             values_size += len(value)
             # actually: max_values < values_size + EXTRA - len(final comma)
             # (test_max_allowed_packet checks that EXTRA == 2)
