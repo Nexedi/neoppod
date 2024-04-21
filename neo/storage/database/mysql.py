@@ -172,6 +172,7 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
         conn = self.conn
         conn.autocommit(False)
         conn.query("SET"
+            " SESSION wait_timeout = 2147483," # we'd like to disable it
             " SESSION sql_mode = 'TRADITIONAL,NO_ENGINE_SUBSTITUTION',"
             " SESSION group_concat_max_len = %u" % (2**32-1))
         if self._engine == 'RocksDB':
