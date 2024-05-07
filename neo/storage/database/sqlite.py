@@ -19,6 +19,7 @@ import os
 import sqlite3
 from hashlib import sha1
 import string
+import subprocess
 import traceback
 from urlparse import urlsplit, parse_qsl
 
@@ -72,12 +73,20 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     VERSION = 4
 
+    cksumvfs = None
+
     def _parse(self, database):
         pragmas = self.pragmas = {}
         if database.startswith('file:'):
             database = urlsplit(database)
             for k, v in parse_qsl(database.query, keep_blank_values=True,
                                   strict_parsing=True):
+                if k == 'cksumvfs':
+                    if self.cksumvfs is not None or v not in ('0', '1'):
+                        raise DatabaseFailure(
+                            "invalid or duplicate %s value" % k)
+                    self.cksumvfs = int(v)
+                    continue
                 if k in pragmas:
                     raise DatabaseFailure("duplicate pragma: " + k)
                 if k not in ('cache_size', 'journal_mode', 'synchronous'):
@@ -86,6 +95,13 @@ class SQLiteDatabaseManager(DatabaseManager):
             self.db = database.path
         else:
             self.db = os.path.expanduser(database)
+        if self.cksumvfs:
+            db = sqlite3.connect(':memory:')
+            try:
+                db.enable_load_extension(True)
+                db.load_extension('cksumvfs.so')
+            finally:
+                db.close()
         if self.UNSAFE:
             pragmas.setdefault('synchronous', 'OFF')
             pragmas.setdefault('journal_mode', 'MEMORY')
@@ -95,10 +111,22 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
+        if self.cksumvfs and not os.path.exists(self.db):
+            subprocess.check_output(('sqlite3', ':memory:',
+                '.load cksumvfs.so',
+                '.open "%s"' % self.db.replace('\\', r'\\').replace('"', r'\"'),
+                '.filectrl reserve_bytes 8',
+                'vacuum')) # PY3: check_call(..., stdout=subprocess.DEVNULL)
+            os.stat(self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
         self.conn.text_factory = str
         self.lockFile(self.db)
         try:
+            if self.cksumvfs:
+                self.cksumvfs = 0
+                (x,), = self.query("PRAGMA checksum_verification").fetchall()
+                if not int(x):
+                    raise DatabaseFailure("Can't enable cksumvfs.")
             for pragma in map("PRAGMA %s = %s".__mod__,
                               self.pragmas.iteritems()):
                 logging.info(pragma)
