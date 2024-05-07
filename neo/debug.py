@@ -146,7 +146,7 @@ elif IF == 'profile':
         prof.disable()
         prof.dump_stats(path)
     @defer
-    def profile(app):
+    def _(app):
         import cProfile, threading
         path = profile_path(app)
         prof = cProfile.Profile()
@@ -220,7 +220,7 @@ elif IF == 'trace-cache':
             self._cache.invalidate(oid, tid)
 
     @defer
-    def profile(app):
+    def _(app):
         with app._cache_lock:
             cache = app._cache
             if type(cache) is ClientCache:
@@ -229,3 +229,14 @@ elif IF == 'trace-cache':
                 app._cache.clear()
             else:
                 app._cache = cache.close()
+
+elif IF == 'commit':
+    @defer
+    def _(app):
+        try:
+            dm = app.dm
+        except AttributeError:
+            return
+        if dm is not None:
+            with dm.lock:
+                dm.commit()
