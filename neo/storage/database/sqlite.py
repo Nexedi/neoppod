@@ -740,17 +740,29 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
             min_oid):
+        if max_tid < min_tid or length == 0:
+            return ()
         u64 = util.u64
         p64 = util.p64
         min_tid = u64(min_tid)
-        if length is None:
+        if not length:
             length = -1
-        return [(p64(serial), p64(oid)) for serial, oid in self.query("""\
-            SELECT tid, oid FROM obj
-            WHERE partition=? AND tid<=?
-            AND (tid=? AND ?<=oid OR ?<tid)
-            ORDER BY tid ASC, oid ASC LIMIT ?""",
-            (partition, u64(max_tid), min_tid, u64(min_oid), min_tid, length))]
+        r = [(p64(serial), p64(oid)) for serial, oid in self.query(
+                "SELECT tid, oid FROM obj"
+                " WHERE partition=? AND tid=? AND ?<=oid"
+                " ORDER BY tid ASC, oid ASC LIMIT ?",
+                (partition, min_tid, u64(min_oid), length))]
+        if length > 0:
+            length -= len(r)
+            if not length:
+                return r
+        for serial, oid in self.query(
+                "SELECT tid, oid FROM obj"
+                " WHERE partition=? AND ?<tid AND tid<=?"
+                " ORDER BY tid ASC, oid ASC LIMIT ?",
+                (partition, min_tid, u64(max_tid), length)):
+            r.append((p64(serial), p64(oid)))
+        return r
 
     def _getTIDList(self, offset, length, partition_list):
         return (t[0] for t in self.query(
