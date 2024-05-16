@@ -114,7 +114,7 @@ class SocketConnector(object):
         self.is_server = self.is_closed = False
         try:
             self._connect(addr)
-        except socket.error, e:
+        except socket.error as e:
             if e.errno == errno.EINPROGRESS:
                 return False
             self._error('connect', e)
@@ -127,7 +127,7 @@ class SocketConnector(object):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self._bind(self.addr)
             self.socket.listen(self.SOMAXCONN)
-        except socket.error, e:
+        except socket.error as e:
             self.is_closed = True
             self.socket.close()
             self._error('listen', e)
@@ -161,13 +161,13 @@ class SocketConnector(object):
             s, addr = self.socket.accept()
             s = self.__class__(addr, s)
             return s, s.addr
-        except socket.error, e:
+        except socket.error as e:
             self._error('accept', e)
 
     def receive(self, read_buf):
         try:
             data = self.socket.recv(65536)
-        except socket.error, e:
+        except socket.error as e:
             self._error('recv', e)
         if data:
             read_buf.feed(data)
@@ -184,7 +184,7 @@ class SocketConnector(object):
         if msg:
             try:
                 n = self.socket.send(msg)
-            except socket.error, e:
+            except socket.error as e:
                 self._error('send', e)
             # Do nothing special if n == 0:
             # - it never happens for simple sockets;
@@ -210,7 +210,7 @@ class SocketConnector(object):
             pass
         try:
             self.socket.shutdown(socket.SHUT_RDWR)
-        except socket.error, e:
+        except socket.error as e:
             if e.errno != errno.ENOTCONN:
                 raise
         return self.socket.close
@@ -283,7 +283,7 @@ class _SSL:
                 read_buf.feed(data)
         except ssl.SSLWantReadError:
             pass
-        except socket.error, e:
+        except socket.error as e:
             self._error('recv', e)
 
 @overlay_connector_class
@@ -320,7 +320,7 @@ class _SSLHandshake(_SSL):
             return read_buf is None
         except ssl.SSLWantWriteError:
             return read_buf is not None
-        except socket.error, e:
+        except socket.error as e:
             # OpenSSL 1.1 may raise socket.error(0)
             # where previous versions raised SSLEOFError.
             self._error('send' if read_buf is None else 'recv',
@@ -346,7 +346,7 @@ class _SSLHandshake(_SSL):
     def receive(self, read_buf):
         try:
             content_type = self.socket._sock.recv(1, socket.MSG_PEEK)
-        except socket.error, e:
+        except socket.error as e:
             self._error('recv', e)
         if content_type == '\26': # handshake
             return self.send(read_buf)

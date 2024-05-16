@@ -181,7 +181,7 @@ class BackgroundWorker(object):
                             dm2 = copy(dm)
                     try:
                         task(weak_app, dm, dm2)
-                    except DatabaseFailure, e:
+                    except DatabaseFailure as e:
                         e.checkTransientFailure(dm2)
                         with dm:
                             dm.commit()

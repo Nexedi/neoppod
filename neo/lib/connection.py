@@ -497,7 +497,7 @@ class Connection(BaseConnection):
                     self._queue.append(packet)
         except ConnectorException:
             self._closure()
-        except PacketMalformedError, e:
+        except PacketMalformedError as e:
             logging.error('malformed packet from %r: %s', self, e)
             self._closure()
         return empty_queue and not not self._queue
@@ -651,7 +651,7 @@ class ClientConnection(Connection):
     def _connect(self):
         try:
             connected = self.connector.makeClientConnection()
-        except ConnectorDelayedConnection, c:
+        except ConnectorDelayedConnection as c:
             connect_limit, = c.args
             self.getTimeout = lambda: connect_limit
             self.onTimeout = self._delayedConnect
@@ -713,7 +713,7 @@ class MTConnectionType(type):
             #      to test whether we own the lock or not.
             assert self.lock._is_owned(), (self, args, kw)
             return getattr(super(cls, self), name)(*args, **kw)
-        return wraps(getattr(cls, name).im_func)(wrapper)
+        return wraps(getattr(cls, name).__func__)(wrapper)
 
     def lockWrapper(cls, name, maybe_closed=False):
         if maybe_closed:
@@ -727,7 +727,7 @@ class MTConnectionType(type):
             def wrapper(self, *args, **kw):
                 with self.lock:
                     return getattr(super(cls, self), name)(*args, **kw)
-        return wraps(getattr(cls, name).im_func)(wrapper)
+        return wraps(getattr(cls, name).__func__)(wrapper)
 
 
 class MTClientConnection(ClientConnection):

@@ -210,7 +210,7 @@ class Application(BaseApplication, Monitor):
     def _run(self):
         """Make sure that the status is sane and start a loop."""
         if len(self.name) == 0:
-            raise RuntimeError, 'cluster name must be non-empty'
+            raise RuntimeError('cluster name must be non-empty')
 
         # Make a listening port.
         handler = AdminEventHandler(self)

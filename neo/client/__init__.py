@@ -16,7 +16,7 @@ def patch():
     from hashlib import md5
     from ZODB.Connection import Connection
 
-    H = lambda f: md5(f.func_code.co_code).hexdigest()
+    H = lambda f: md5(f.__code__.co_code).hexdigest()
 
     if hasattr(Connection, '_handle_serial'): # merged upstream ?
         assert hasattr(Connection, '_warn_about_returned_serial')

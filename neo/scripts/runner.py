@@ -172,7 +172,7 @@ class NeoTestRunner(unittest.TextTestResult):
                 continue
             try:
                 test_module = __import__(test_module, fromlist=('*',), level=0)
-            except ImportError, err:
+            except ImportError as err:
                 self.failedImports[test_module] = err
                 print "Import of %s failed : %s" % (test_module, err)
                 traceback.print_exc()

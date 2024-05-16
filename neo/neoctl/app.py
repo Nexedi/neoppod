@@ -352,7 +352,7 @@ class Application(object):
         action = getattr(self.neoctl, current_action)
         try:
             return action(args[level:])
-        except NotReadyException, message:
+        except NotReadyException as message:
             sys.exit('ERROR: %s' % message)
 
     def _usage(self, action_dict, level=0):

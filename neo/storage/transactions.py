@@ -197,7 +197,7 @@ class TransactionManager(EventQueue):
                     locked = self.lockObject(ttid, txn.serial_dict[oid], oid)
                 except ConflictError:
                     self._unstore(txn, oid)
-                except (DelayEvent, NonReadableCell), e: # pragma: no cover
+                except (DelayEvent, NonReadableCell) as e: # pragma: no cover
                     raise AssertionError(e)
                 else:
                     assert locked, (oid, ttid, txn)
@@ -468,7 +468,7 @@ class TransactionManager(EventQueue):
             # And we'll likely be delayed.
         try:
             self.lockObject(ttid, serial, oid)
-        except ConflictError, e:
+        except ConflictError as e:
             # Move the data back to the client for conflict resolution,
             # since the client may not have it anymore.
             return serial, e.tid, self._unstore(transaction, oid)

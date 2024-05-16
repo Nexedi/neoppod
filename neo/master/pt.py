@@ -52,7 +52,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
 
     def setNextID(self):
         if self._id is None:
-            raise RuntimeError, 'I do not know the last Partition Table ID'
+            raise RuntimeError('I do not know the last Partition Table ID')
         self._id += 1
         return self._id
 

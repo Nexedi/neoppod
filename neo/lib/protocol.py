@@ -90,7 +90,7 @@ class Enum(tuple):
             return other == int(self)
 
     def __new__(cls, func):
-        names = func.func_code.co_names
+        names = func.__code__.co_names
         self = tuple.__new__(cls, map(cls.Item, xrange(len(names))))
         self._name = func.__name__
         pack = registerExtType(int, self.__getitem__)

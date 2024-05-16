@@ -103,7 +103,7 @@ class StorageServiceHandler(BaseServiceHandler):
         else:
             try:
                 cell_list = self.app.pt.setUpToDate(node, offset)
-            except PartitionTableException, e:
+            except PartitionTableException as e:
                 raise ProtocolError(str(e))
             if not cell_list:
                 logging.info("ignored late notification that"

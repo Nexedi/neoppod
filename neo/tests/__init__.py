@@ -60,7 +60,7 @@ def expectedFailure(exception=AssertionError):
         def wrapper(*args, **kw):
             try:
                 func(*args, **kw)
-            except exception, e:
+            except exception as e:
                 # XXX: passing sys.exc_info() causes deadlocks
                 raise _ExpectedFailure((type(e), None, None))
             raise _UnexpectedSuccess
@@ -135,13 +135,13 @@ def getTempDirectory():
             try:
                 os.makedirs(temp_dir)
                 break
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
         last = os.path.join(neo_dir, "last")
         try:
             os.remove(last)
-        except OSError, e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
         os.symlink(temp_name, last)
@@ -207,7 +207,7 @@ class MySQLPool(object):
                     if os.path.exists(datadir):
                         try:
                             os.remove(sock)
-                        except OSError, e:
+                        except OSError as e:
                             if e.errno != errno.ENOENT:
                                 raise
                     else:
@@ -279,7 +279,7 @@ class NeoTestBase(unittest.TestCase):
         logging.setup(os.path.join(getTempDirectory(), test_case + '.log'))
 
     def tearDown(self):
-        assert self.tearDown.im_func is NeoTestBase.tearDown.im_func
+        assert self.tearDown.__func__ is NeoTestBase.tearDown.__func__
         self._tearDown(sys._getframe(1).f_locals['success'])
         assert not gc.garbage, gc.garbage
         # XXX: I tried the following line to avoid random freezes on PyPy...
@@ -354,7 +354,7 @@ class NeoUnitTestBase(NeoTestBase):
             for i in xrange(number):
                 try:
                     os.remove(self.db_template(i))
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.ENOENT:
                         raise
         else:

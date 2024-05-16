@@ -115,7 +115,7 @@ class Log(object):
                 self._reload(p[0])
             except StopIteration:
                 p = None
-            except sqlite3.DatabaseError, e:
+            except sqlite3.DatabaseError as e:
                 yield time.time(), None, 'PACKET', self._exc(e)
                 p = None
             try:
@@ -124,20 +124,20 @@ class Log(object):
                         yield self._packet(*p)
                         try:
                             p = next(np, None)
-                        except sqlite3.DatabaseError, e:
+                        except sqlite3.DatabaseError as e:
                             yield time.time(), None, 'PACKET', self._exc(e)
                             p = None
                     self._log_date = date
                     yield (date, self._node(name, cluster, nid),
                            getLevelName(level), msg.splitlines())
-            except sqlite3.DatabaseError, e:
+            except sqlite3.DatabaseError as e:
                 yield time.time(), None, 'LOG', self._exc(e)
             if p:
                 yield self._packet(*p)
                 try:
                     for p in np:
                         yield self._packet(*p)
-                except sqlite3.DatabaseError, e:
+                except sqlite3.DatabaseError as e:
                     yield time.time(), None, 'PACKET', self._exc(e)
         finally:
             self._db.rollback()
@@ -312,7 +312,7 @@ def emit_many(log_list, color=False):
                 while event[0] <= next_date:
                     emit(*event, color=color)
                     event = next()
-            except IOError, e:
+            except IOError as e:
                 if e.errno == errno.EPIPE:
                     sys.exit(1)
                 raise

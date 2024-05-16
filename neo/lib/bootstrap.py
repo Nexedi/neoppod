@@ -71,7 +71,7 @@ class BootstrapManager(EventHandler):
                     if self.current.isIdentified():
                         return self.current, self.current.getConnection()
                     poll(1)
-            except PrimaryElected, e:
+            except PrimaryElected as e:
                 if self.current:
                     self.current.getConnection().close()
                 self.current, = e.args

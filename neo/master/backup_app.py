@@ -136,7 +136,7 @@ class BackupApplication(object):
                     self.debug_tid_count = 0
                     while True:
                         poll(1)
-                except PrimaryFailure, msg:
+                except PrimaryFailure as msg:
                     logging.error('upstream master is down: %s', msg)
                 finally:
                     app.backup_tid = pt.getBackupTid()
@@ -150,7 +150,7 @@ class BackupApplication(object):
                         pass
                     for node in app.nm.getClientList(True):
                         node.getConnection().close()
-            except StateChangedException, e:
+            except StateChangedException as e:
                 if e.args[0] != ClusterStates.STOPPING_BACKUP:
                     raise
                 app.changeClusterState(*e.args)
