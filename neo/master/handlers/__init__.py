@@ -41,7 +41,7 @@ class MasterHandler(EventHandler):
 
     def askLastIDs(self, conn):
         tm = self.app.tm
-        conn.answer(Packets.AnswerLastIDs(tm.getLastTID(), tm.getLastOID()))
+        conn.answer(Packets.AnswerLastIDs(tm.getLastTID(), tm.getLastOID(), tm.getFirstTID()))
 
     def askLastTransaction(self, conn):
         conn.answer(Packets.AnswerLastTransaction(

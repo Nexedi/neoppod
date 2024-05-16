@@ -343,6 +343,13 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
+    def _getFirstTID(self, partition):
+        try:
+            return self.query("SELECT MIN(tid) FROM trans WHERE partition=?",
+                             (partition,)).fetchone()[0]
+        except TypeError:
+            pass
+
     def _getLastTID(self, partition, max_tid=None):
         x = self.query
         if max_tid is None:

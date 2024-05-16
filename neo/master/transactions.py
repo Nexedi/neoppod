@@ -179,6 +179,7 @@ class TransactionManager(EventQueue):
         self._ttid_dict = {}
         self._last_oid = ZERO_OID
         self._last_tid = ZERO_TID
+        self._first_tid = None
         # queue filled with ttids pointing to transactions with increasing tids
         self._queue = deque()
 
@@ -211,6 +212,14 @@ class TransactionManager(EventQueue):
         oid_list = [pack('!Q', oid + i) for i in xrange(num_oids)]
         self._last_oid = oid_list[-1]
         return oid_list
+
+    def setFirstTID(self, tid):
+        first_tid = self._first_tid
+        if first_tid is None or first_tid > tid:
+            self._first_tid = tid
+
+    def getFirstTID(self):
+        return self._first_tid
 
     def setLastOID(self, oid):
         if self._last_oid < oid:
@@ -420,7 +429,10 @@ class TransactionManager(EventQueue):
         is required is when some storages are already busy by other tasks.
         """
         queue = self._queue
-        self._on_commit(self._ttid_dict.pop(queue.popleft()))
+        txn = self._ttid_dict.pop(queue.popleft())
+        if self._first_tid is None:
+            self._first_tid = txn.getTID()
+        self._on_commit(txn)
         while queue:
             ttid = queue[0]
             txn = self._ttid_dict[ttid]

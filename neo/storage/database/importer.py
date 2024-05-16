@@ -601,6 +601,9 @@ class ImporterDatabaseManager(DatabaseManager):
         zodb = self.zodb[bisect(self.zodb_index, oid) - 1]
         return zodb, oid - zodb.shift_oid
 
+    def getFirstTID(self):
+        return self.db.getFirstTID()
+
     def getLastIDs(self):
         tid, oid = self.db.getLastIDs()
         return (max(tid, util.p64(self.zodb_ltid)),

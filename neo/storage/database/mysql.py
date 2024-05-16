@@ -457,6 +457,14 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
     def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
+    def _getFirstTID(self, partition):
+        tid_list = self.query(
+            "SELECT MIN(tid) as t FROM trans FORCE INDEX (PRIMARY) "
+            "WHERE `partition`=%s" % partition)
+        if tid_list:
+            (tid, ), = tid_list
+            return tid
+
     def _getLastTID(self, partition, max_tid=None):
         x = "WHERE `partition`=%s" % partition
         if max_tid:
