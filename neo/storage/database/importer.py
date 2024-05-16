@@ -602,6 +602,7 @@ class ImporterDatabaseManager(DatabaseManager):
         return zodb, oid - zodb.shift_oid
 
     def getFirstTID(self):
+        # TODO: read from ZODB if not already available in db, but how ?
         return self.db.getFirstTID()
 
     def getLastIDs(self):
