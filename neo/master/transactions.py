@@ -20,7 +20,7 @@ from struct import pack, unpack
 from neo.lib import logging
 from neo.lib.exception import ProtocolError
 from neo.lib.handler import DelayEvent, EventQueue
-from neo.lib.protocol import uuid_str, ZERO_OID, ZERO_TID
+from neo.lib.protocol import uuid_str, ZERO_OID, ZERO_TID, MAX_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
 class Transaction(object):
@@ -179,6 +179,9 @@ class TransactionManager(EventQueue):
         self._ttid_dict = {}
         self._last_oid = ZERO_OID
         self._last_tid = ZERO_TID
+        self._first_tid = MAX_TID
+        # avoid the overhead of min_tid on every _unlockPending
+        self._unlockPending = self._firstUnlockPending
         # queue filled with ttids pointing to transactions with increasing tids
         self._queue = deque()
 
@@ -211,6 +214,13 @@ class TransactionManager(EventQueue):
         oid_list = [pack('!Q', oid + i) for i in xrange(num_oids)]
         self._last_oid = oid_list[-1]
         return oid_list
+
+    def setFirstTID(self, tid):
+        if self._first_tid > tid:
+            self._first_tid = tid
+
+    def getFirstTID(self):
+        return self._first_tid
 
     def setLastOID(self, oid):
         if self._last_oid < oid:
@@ -411,6 +421,16 @@ class TransactionManager(EventQueue):
                 # do not break: we must call storageLost() on all transactions
         if unlock:
             self._unlockPending()
+
+    def _firstUnlockPending(self):
+        """Set first TID when the first transaction is committed
+
+        Masks _unlockPending on reset.
+        Unmasks and call it when called.
+        """
+        self.setFirstTID(self._ttid_dict[self._queue[0]].getTID())
+        del self._unlockPending
+        self._unlockPending()
 
     def _unlockPending(self):
         """Serialize transaction unlocks

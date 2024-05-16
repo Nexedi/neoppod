@@ -239,6 +239,9 @@ class AdministrationHandler(MasterHandler):
         app = self.app
         if app.getLastTransaction() <= tid:
             raise AnswerDenied("Truncating after last transaction does nothing")
+        if app.tm.getFirstTID() > tid:
+            raise AnswerDenied("Truncating before first transaction is"
+                               " probably not what you intended to do")
         if app.pm.getApprovedRejected(add64(tid, 1))[0]:
             # TODO: The protocol must be extended to support safe cases
             #       (e.g. no started pack whose id is after truncation tid).
