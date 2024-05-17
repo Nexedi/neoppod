@@ -475,6 +475,7 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
     def _getPackOrders(self, min_completed):
         return self.query(
             "SELECT * FROM pack WHERE tid >= %s AND tid %% %s IN (%s)"
+            " ORDER BY tid"
             % (min_completed, self.np, ','.join(map(str, self._readable_set))))
 
     def getPackedIDs(self, up_to_date=False):
@@ -986,7 +987,7 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
                 "SELECT `partition`, oid, MAX(tid) AS tid"
                 " FROM obj FORCE INDEX(PRIMARY)"
                 " WHERE `partition`=%s AND oid>=%s AND tid<=%s"
-                " GROUP BY oid LIMIT %s"
+                " GROUP BY oid ORDER BY oid LIMIT %s"
                 ") AS t USING (`partition`, oid, tid)"
             % (partition, u64(min_oid), u64(tid), length))
         return None if len(r) < length else p64(r[-1][0] + self.np), \
@@ -1005,17 +1006,18 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
     def _pack(self, offset, oid, tid, limit=None):
         q = self.query
         data_id_set = set()
-        sql = ("SELECT obj.oid,"
+        sql = ("SELECT obj.oid AS oid,"
                 " IF(data_id IS NULL OR n>1, tid + (data_id IS NULL), NULL)"
             " FROM (SELECT COUNT(*) AS n, oid, MAX(tid) AS max_tid"
                 " FROM obj FORCE INDEX(PRIMARY)"
                 " WHERE `partition`=%s AND oid%s AND tid<=%s"
                 " GROUP BY oid%s) AS t"
-            " JOIN obj ON `partition`=%s AND t.oid=obj.oid AND tid=max_tid") % (
+            " JOIN obj ON `partition`=%s AND t.oid=obj.oid AND tid=max_tid"
+            " ORDER BY oid") % (
             offset,
             ">=%s" % oid if limit else " IN (%s)" % ','.join(map(str, oid)),
             tid,
-            " LIMIT %s" % limit if limit else "",
+            " ORDER BY oid LIMIT %s" % limit if limit else "",
             offset)
         oid = None
         for oid, tid in q(sql):

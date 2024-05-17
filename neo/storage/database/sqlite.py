@@ -361,6 +361,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _getPackOrders(self, min_completed):
         return self.query(
             "SELECT * FROM pack WHERE tid >= ? AND tid %% %s IN (%s)"
+            " ORDER BY tid"
             % (self.np, ','.join(map(str, self._readable_set))),
             (min_completed,))
 
@@ -778,7 +779,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         r = self.query("SELECT oid, data_id FROM obj JOIN ("
                 "SELECT `partition`, oid, MAX(tid) AS tid FROM obj"
                 " WHERE partition=? AND oid>=? AND tid<=?"
-                " GROUP BY oid LIMIT ?"
+                " GROUP BY oid ORDER BY oid LIMIT ?"
                 ") AS t USING (`partition`, oid, tid)",
             (partition, u64(min_oid), u64(tid), length)).fetchall()
         return None if len(r) < length else p64(r[-1][0] + self.np), \
@@ -808,7 +809,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                " WHERE partition=%s AND tid<=%s AND oid%s GROUP BY oid%s") % (
             offset, tid,
             ">=%s" % oid if limit else " IN (%s)" % ','.join(map(str, oid)),
-            " LIMIT %s" % limit if limit else "")
+            " ORDER BY oid LIMIT %s" % limit if limit else "")
         oid = None
         for x, oid, max_tid in q(sql):
             for x in q("SELECT tid + (data_id IS NULL) FROM obj"
