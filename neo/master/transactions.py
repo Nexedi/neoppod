@@ -215,7 +215,7 @@ class TransactionManager(EventQueue):
 
     def setFirstTID(self, tid):
         first_tid = self._first_tid
-        if first_tid is None or first_tid > tid:
+        if tid is not None and (first_tid is None or first_tid > tid):
             self._first_tid = tid
 
     def getFirstTID(self):
