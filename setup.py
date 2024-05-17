@@ -59,6 +59,7 @@ extras_require = {
     'storage-importer': zodb_require + ['setproctitle'],
 }
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
+    'mock', # ZODB test dependency
     'neoppod[%s]' % ', '.join(extras_require)]
 extras_require['stress'] = ['NetfilterQueue', 'gevent', 'neoppod[tests]',
     'cython-zstd', # recommended (log rotation)
@@ -112,7 +113,7 @@ setup(
         ],
     },
     install_requires = [
-        'msgpack>=0.5.6',
+        'msgpack>=0.5.6,<1',
         'python-dateutil', # neolog --from
         ],
     extras_require = extras_require,
