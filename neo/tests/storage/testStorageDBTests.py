@@ -200,7 +200,7 @@ class StorageDBTests(NeoUnitTestBase):
                 ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
             self.assertEqual(self.db.getTransaction(tid1, False), None)
             self.assertEqual(self.db.getTransaction(tid2, False), None)
-        self.assertEqual(self.db.getFirstTID(), u64(tid1))
+        self.assertEqual(self.db.getFirstTID(), tid1)
         self.assertEqual(self.db.getTransaction(tid1, True),
             ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
         self.assertEqual(self.db.getTransaction(tid2, True),

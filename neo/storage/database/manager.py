@@ -767,12 +767,17 @@ class DatabaseManager(object):
     @requires(_getFirstTID)
     def getFirstTID(self):
         """Return tud of first transaction
-
-        tids are in unpacked format.
         """
         x = self._readable_set
         if x:
-            return min(self._getFirstTID(x) for x in x)
+            getFirstTID = self._getFirstTID
+            min_tid = None
+            for partition in x:
+                tid = getFirstTID(partition)
+                if tid is not None and (min_tid is None or tid < min_tid):
+                    min_tid = tid
+            if min_tid is not None:
+                return util.p64(min_tid)
 
     def _getLastTID(self, partition, max_tid=None):
         """Return tid of last transaction <= 'max_tid' in given 'partition'
