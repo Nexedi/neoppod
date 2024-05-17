@@ -156,5 +156,5 @@ class SecondaryIdentificationHandler(EventHandler):
             for node in app.nm.getMasterList()]
         conn.send(Packets.NotPrimaryMaster(
             primary and known_master_list.index(primary),
-            known_master_list))
+            known_master_list), msg_id=conn.peer_id)
         conn.abort()
