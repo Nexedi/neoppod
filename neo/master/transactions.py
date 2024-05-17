@@ -180,6 +180,7 @@ class TransactionManager(EventQueue):
         self._last_oid = ZERO_OID
         self._last_tid = ZERO_TID
         self._first_tid = None
+        self._unlockPending = self._firstUnlockPending
         # queue filled with ttids pointing to transactions with increasing tids
         self._queue = deque()
 
@@ -421,6 +422,16 @@ class TransactionManager(EventQueue):
         if unlock:
             self._unlockPending()
 
+    def _firstUnlockPending(self):
+        """Set first TID when the first transaction is committed
+
+        Masks _unlockPending on reset.
+        Unmasks and call it when called.
+        """
+        self.setFirstTID(self._ttid_dict[self._queue[0]].getTID())
+        del self._unlockPending
+        self._unlockPending()
+
     def _unlockPending(self):
         """Serialize transaction unlocks
 
@@ -429,10 +440,7 @@ class TransactionManager(EventQueue):
         is required is when some storages are already busy by other tasks.
         """
         queue = self._queue
-        txn = self._ttid_dict.pop(queue.popleft())
-        if self._first_tid is None:
-            self._first_tid = txn.getTID()
-        self._on_commit(txn)
+        self._on_commit(self._ttid_dict.pop(queue.popleft()))
         while queue:
             ttid = queue[0]
             txn = self._ttid_dict[ttid]
