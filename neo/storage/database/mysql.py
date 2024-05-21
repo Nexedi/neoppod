@@ -53,7 +53,7 @@ from .manager import MVCCDatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.exception import NonReadableCell, UndoPackError
 from neo.lib.interfaces import implements
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
+from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH, MAX_TID
 
 
 class MysqlError(DatabaseFailure):
@@ -464,6 +464,7 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
         if tid_list:
             (tid, ), = tid_list
             return tid
+        return util.u64(MAX_TID)
 
     def _getLastTID(self, partition, max_tid=None):
         x = "WHERE `partition`=%s" % partition

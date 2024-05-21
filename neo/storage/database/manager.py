@@ -770,14 +770,8 @@ class DatabaseManager(object):
         """
         x = self._readable_set
         if x:
-            getFirstTID = self._getFirstTID
-            min_tid = None
-            for partition in x:
-                tid = getFirstTID(partition)
-                if tid is not None and (min_tid is None or tid < min_tid):
-                    min_tid = tid
-            if min_tid is not None:
-                return util.p64(min_tid)
+            return util.p64(min(map(self._getFirstTID, x)))
+        return MAX_TID
 
     def _getLastTID(self, partition, max_tid=None):
         """Return tid of last transaction <= 'max_tid' in given 'partition'

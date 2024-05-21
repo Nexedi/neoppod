@@ -183,7 +183,7 @@ class StorageDBTests(NeoUnitTestBase):
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid2])
         # nothing in database
-        self.assertEqual(self.db.getFirstTID(), None)
+        self.assertEqual(self.db.getFirstTID(), MAX_TID)
         self.assertEqual(self.db.getLastIDs(), (None, None))
         self.assertEqual(self.db.getUnfinishedTIDDict(), {})
         self.assertEqual(self.db.getObject(oid1), None)

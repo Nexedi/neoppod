@@ -28,7 +28,7 @@ from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.exception import NonReadableCell, UndoPackError
 from neo.lib.interfaces import implements
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
+from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH, MAX_TID
 
 def unique_constraint_message(table, *columns):
     c = sqlite3.connect(":memory:")
@@ -344,11 +344,11 @@ class SQLiteDatabaseManager(DatabaseManager):
         return self.query("SELECT * FROM pt")
 
     def _getFirstTID(self, partition):
-        try:
-            return self.query("SELECT MIN(tid) FROM trans WHERE partition=?",
-                             (partition,)).fetchone()[0]
-        except TypeError:
-            pass
+        tid = self.query("SELECT MIN(tid) FROM trans WHERE partition=?",
+                         (partition,)).fetchone()[0]
+        if tid is None:
+            return util.u64(MAX_TID)
+        return tid
 
     def _getLastTID(self, partition, max_tid=None):
         x = self.query
