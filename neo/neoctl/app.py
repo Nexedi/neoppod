@@ -70,9 +70,9 @@ class TerminalNeoCTL(object):
         return getattr(ClusterStates, value.upper())
 
     def asTID(self, value):
-        if '.' in value:
-            return tidFromTime(float(value))
-        return p64(int(value, 0))
+        if value.lower().startswith('tid:'):
+            return p64(int(value[4:], 0))
+        return tidFromTime(float(value))
 
     asNode = staticmethod(uuid_int)
 

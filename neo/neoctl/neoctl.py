@@ -137,7 +137,7 @@ class NeoCTL(BaseApplication):
         response = self.__ask(Packets.AskLastIDs())
         if response[0] != Packets.AnswerLastIDs:
             raise RuntimeError(response)
-        return response[1:]
+        return response[1:3]
 
     def getLastTransaction(self):
         response = self.__ask(Packets.AskLastTransaction())

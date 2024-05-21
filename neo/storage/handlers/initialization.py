@@ -55,7 +55,8 @@ class InitializationHandler(BaseMasterHandler):
             if packed:
                 self.app.completed_pack_id = pack_id = min(packed.itervalues())
                 conn.send(Packets.NotifyPackCompleted(pack_id))
-        conn.answer(Packets.AnswerLastIDs(*dm.getLastIDs()))
+        last_tid, last_oid = dm.getLastIDs() # PY3
+        conn.answer(Packets.AnswerLastIDs(last_tid, last_oid, dm.getFirstTID()))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt
