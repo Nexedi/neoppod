@@ -200,56 +200,64 @@ class Application(ThreadedApplication):
         fail_count = 0
         ask = self._ask
         handler = self.primary_bootstrap_handler
-        while 1:
-            self.ignore_invalidations = True
-            # Get network connection to primary master
-            while fail_count < self.max_reconnection_to_master:
-                self.nm.reset()
-                if self.primary_master_node is not None:
-                    # If I know a primary master node, pinpoint it.
-                    node = self.primary_master_node
-                    self.primary_master_node = None
-                else:
-                    # Otherwise, check one by one.
-                    master_list = self.nm.getMasterList()
-                    if not master_list:
-                        # XXX: On shutdown, it already happened that this list
-                        #      is empty, leading to ZeroDivisionError. This
-                        #      looks a minor issue so let's wait to have more
-                        #      information.
-                        logging.error('%r', self.__dict__)
-                    index = (index + 1) % len(master_list)
-                    node = master_list[index]
-                # Connect to master
-                conn = MTClientConnection(self,
+        conn = None
+        try:
+            while 1:
+                self.ignore_invalidations = True
+                # Get network connection to primary master
+                while fail_count < self.max_reconnection_to_master:
+                    self.nm.reset()
+                    if self.primary_master_node is not None:
+                        # If I know a primary master node, pinpoint it.
+                        node = self.primary_master_node
+                        self.primary_master_node = None
+                    else:
+                        # Otherwise, check one by one.
+                        master_list = self.nm.getMasterList()
+                        if not master_list:
+                            # XXX: On shutdown, it already happened that this
+                            #      list is empty, leading to ZeroDivisionError.
+                            #      This looks a minor issue so let's wait to
+                            #      have more information.
+                            logging.error('%r', self.__dict__)
+                        index = (index + 1) % len(master_list)
+                        node = master_list[index]
+                    # Connect to master
+                    conn = MTClientConnection(self,
                         self.notifications_handler,
                         node=node,
                         dispatcher=self.dispatcher)
-                p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                    self.uuid, None, self.name, None, {})
-                try:
-                    ask(conn, p, handler=handler)
-                except ConnectionClosed:
-                    fail_count += 1
+                    p = Packets.RequestIdentification(NodeTypes.CLIENT,
+                        self.uuid, None, self.name, None, {})
+                    try:
+                        ask(conn, p, handler=handler)
+                    except ConnectionClosed:
+                        conn = None
+                        fail_count += 1
+                    else:
+                        self.primary_master_node = node
+                        break
                 else:
-                    self.primary_master_node = node
-                    break
-            else:
-                raise NEOPrimaryMasterLost(
-                    "Too many connection failures to the primary master")
-            logging.info('Connected to %s', self.primary_master_node)
-            try:
-                # Request identification and required informations to be
-                # operational. Might raise ConnectionClosed so that the new
-                # primary can be looked-up again.
-                logging.info('Initializing from master')
-                ask(conn, Packets.AskLastTransaction(), handler=handler)
-                if self.pt.operational():
-                    break
-            except ConnectionClosed:
-                logging.error('Connection to %s lost', self.trying_master_node)
-                self.primary_master_node = None
-            fail_count += 1
+                    raise NEOPrimaryMasterLost(
+                        "Too many connection failures to the primary master")
+                logging.info('Connected to %s', self.primary_master_node)
+                try:
+                    # Request identification and required informations to be
+                    # operational. Might raise ConnectionClosed so that the new
+                    # primary can be looked-up again.
+                    logging.info('Initializing from master')
+                    ask(conn, Packets.AskLastTransaction(), handler=handler)
+                    if self.pt.operational():
+                        break
+                except ConnectionClosed:
+                    conn = self.primary_master_node = None
+                    logging.error('Connection to %s lost',
+                                  self.trying_master_node)
+                fail_count += 1
+        except:
+            if conn is not None:
+                conn.close()
+            raise
         logging.info("Connected and ready")
         return conn
 
