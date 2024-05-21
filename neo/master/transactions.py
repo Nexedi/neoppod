@@ -20,7 +20,7 @@ from struct import pack, unpack
 from neo.lib import logging
 from neo.lib.exception import ProtocolError
 from neo.lib.handler import DelayEvent, EventQueue
-from neo.lib.protocol import uuid_str, ZERO_OID, ZERO_TID
+from neo.lib.protocol import uuid_str, ZERO_OID, ZERO_TID, MAX_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
 class Transaction(object):
@@ -179,7 +179,7 @@ class TransactionManager(EventQueue):
         self._ttid_dict = {}
         self._last_oid = ZERO_OID
         self._last_tid = ZERO_TID
-        self._first_tid = None
+        self._first_tid = MAX_TID
         self._unlockPending = self._firstUnlockPending
         # queue filled with ttids pointing to transactions with increasing tids
         self._queue = deque()
@@ -215,8 +215,7 @@ class TransactionManager(EventQueue):
         return oid_list
 
     def setFirstTID(self, tid):
-        first_tid = self._first_tid
-        if tid is not None and (first_tid is None or first_tid > tid):
+        if self._first_tid > tid:
             self._first_tid = tid
 
     def getFirstTID(self):

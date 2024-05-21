@@ -239,8 +239,7 @@ class AdministrationHandler(MasterHandler):
         app = self.app
         if app.getLastTransaction() <= tid:
             raise AnswerDenied("Truncating after last transaction does nothing")
-        first_tid = app.tm.getFirstTID()
-        if first_tid is None or first_tid > tid:
+        if app.tm.getFirstTID() > tid:
             raise AnswerDenied("Truncating before first transaction is "
                                "probably not what you intended to do")
         if app.pm.getApprovedRejected(add64(tid, 1))[0]:
