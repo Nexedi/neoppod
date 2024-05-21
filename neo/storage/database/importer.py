@@ -602,7 +602,7 @@ class ImporterDatabaseManager(DatabaseManager):
         return zodb, oid - zodb.shift_oid
 
     def getFirstTID(self):
-        return self.db.getFirstTID()
+        return min(next(zodb.iterator()).tid for zodb in self.zodb)
 
     def getLastIDs(self):
         tid, oid = self.db.getLastIDs()
