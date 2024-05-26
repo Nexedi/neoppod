@@ -559,23 +559,22 @@ class Application(BaseApplication):
         # I have received all the lock answers now:
         # - send a Notify Transaction Finished to the initiated client node
         # - Invalidate Objects to the other client nodes
-        ttid = txn.getTTID()
-        tid = txn.getTID()
-        transaction_node = txn.getNode()
-        invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
+        ttid = txn.ttid
+        tid = txn.tid
+        transaction_node = txn.node
+        invalidate_objects = Packets.InvalidateObjects(tid, txn.oid_list)
         client_list = self.nm.getClientList(only_identified=True)
         for client_node in client_list:
             if client_node is transaction_node:
                 client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
-                                 msg_id=txn.getMessageId())
+                                 msg_id=txn.msg_id)
             else:
                 client_node.send(invalidate_objects)
 
         # Unlock Information to relevant storage nodes.
         notify_unlock = Packets.NotifyUnlockInformation(ttid)
         getByUUID = self.nm.getByUUID
-        txn_storage_list = txn.getUUIDList()
-        for storage_uuid in txn_storage_list:
+        for storage_uuid in txn.involved:
             getByUUID(storage_uuid).send(notify_unlock)
 
         # Notify storage nodes about new pack order if any.

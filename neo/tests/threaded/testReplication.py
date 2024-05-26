@@ -220,7 +220,7 @@ class ReplicationTests(NEOThreadedTest):
             counts[0] += 1
             if counts[0] > 1:
                 node_list = orig.im_self.nm.getClientList(only_identified=True)
-                node_list.remove(txn.getNode())
+                node_list.remove(txn.node)
                 node_list[0].getConnection().close()
             return orig(txn)
         with NEOCluster(partitions=np, replicas=0, storage_count=1) as upstream:
