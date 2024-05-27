@@ -63,13 +63,12 @@ class BackupHandler(EventHandler):
             raise RuntimeError("upstream DB truncated")
         app.ignore_invalidations = False
 
-    def invalidateObjects(self, conn, tid, oid_list):
+    def invalidatePartitions(self, conn, tid, partition_list):
         app = self.app
         if app.ignore_invalidations:
             return
-        getPartition = app.app.pt.getPartition
-        partition_set = set(map(getPartition, oid_list))
-        partition_set.add(getPartition(tid))
+        partition_set = set(partition_list)
+        partition_set.add(app.app.pt.getPartition(tid))
         prev_tid = app.app.getLastTransaction()
         app.invalidatePartitions(tid, prev_tid, partition_set)
 

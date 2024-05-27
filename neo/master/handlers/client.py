@@ -64,7 +64,8 @@ class ClientServiceHandler(MasterHandler):
         conn.answer((Errors.Ack if app.tm.vote(app, *args) else
                      Errors.IncompleteTransaction)())
 
-    def askFinishTransaction(self, conn, ttid, oid_list, checked_list, pack):
+    def askFinishTransaction(self, conn, ttid, oid_list,
+                             deleted, checked, pack):
         app = self.app
         if pack:
             tid = pack[1]
@@ -74,7 +75,8 @@ class ClientServiceHandler(MasterHandler):
             app,
             ttid,
             oid_list,
-            checked_list,
+            deleted,
+            checked,
             conn.getPeerId(),
         )
         if tid:

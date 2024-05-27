@@ -44,7 +44,7 @@ class Transaction(object):
         self._notification_set = set()
 
     def __repr__(self):
-        return "<%s(client=%r, tid=%r, oids=%r, storages=%r, age=%.2fs) at %x>" % (
+        return "<%s(client=%r, tid=%r, invalidated=%r, storages=%r, age=%.2fs) at %x>" % (
                 self.__class__.__name__,
                 self.node,
                 dump(self.tid),
@@ -67,9 +67,10 @@ class Transaction(object):
         """
         return list(self._notification_set)
 
-    def prepare(self, tid, oid_list, involved, msg_id):
+    def prepare(self, tid, oid_list, partition_list, involved, msg_id):
         self.tid = tid
         self.oid_list = oid_list
+        self.partition_list = partition_list
         self.msg_id = msg_id
         self.involved = involved
         self.locking = involved.copy()
@@ -270,7 +271,7 @@ class TransactionManager(EventQueue):
             txn.failed = failed
         return True
 
-    def prepare(self, app, ttid, oid_list, checked_list, msg_id):
+    def prepare(self, app, ttid, oid_list, deleted, checked, msg_id):
         """
             Prepare a transaction to be finished
         """
@@ -283,8 +284,10 @@ class TransactionManager(EventQueue):
         ready = app.getStorageReadySet(txn.storage_readiness)
         getPartition = pt.getPartition
         partition_set = set(map(getPartition, oid_list))
-        partition_set.update(map(getPartition, checked_list))
+        partition_set.update(deleted)
+        partition_list = list(partition_set)
         partition_set.add(getPartition(ttid))
+        partition_set.update(checked)
         node_list = []
         involved = set()
         for partition in partition_set:
@@ -316,7 +319,7 @@ class TransactionManager(EventQueue):
             self._queue.append(ttid)
         logging.debug('Finish TXN %s for %s (was %s)',
                       dump(tid), txn.node, dump(ttid))
-        txn.prepare(tid, oid_list, involved, msg_id)
+        txn.prepare(tid, oid_list, partition_list, involved, msg_id)
         # check if greater and foreign OID was stored
         if oid_list:
             self.setLastOID(max(oid_list))

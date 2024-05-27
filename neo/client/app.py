@@ -523,6 +523,9 @@ class Application(ThreadedApplication):
             compressed_data = ''
             compression = 0
             checksum = ZERO_HASH
+            if data_serial is None:
+                assert oid not in txn_context.resolved_dict, oid
+                txn_context.delete_list.append(oid)
         else:
             size, compression, compressed_data = self.compress(data)
             checksum = makeChecksum(compressed_data)
@@ -573,6 +576,7 @@ class Application(ThreadedApplication):
                 'Conflict resolution succeeded for %s@%s with %s',
                 dump(oid), dump(old_serial), dump(serial))
             # Mark this conflict as resolved
+            assert oid not in txn_context.delete_list, oid
             resolved_dict[oid] = serial
             # Try to store again
             self._store(txn_context, oid, serial, data)
@@ -725,13 +729,22 @@ class Application(ThreadedApplication):
             self.tpc_vote(transaction)
         txn_context = txn_container.pop(transaction)
         cache_dict = txn_context.cache_dict
-        checked_list = [oid for oid, data  in cache_dict.iteritems()
-                            if data is CHECKED_SERIAL]
-        for oid in checked_list:
-            del cache_dict[oid]
+        getPartition = self.pt.getPartition
+        checked = set()
+        for oid, data in cache_dict.items():
+            if data is CHECKED_SERIAL:
+                del cache_dict[oid]
+                checked.add(getPartition(oid))
+        deleted = txn_context.delete_list
+        if deleted:
+            oids = set(cache_dict)
+            oids.difference_update(deleted)
+            deleted = map(getPartition, deleted)
+        else:
+            oids = list(cache_dict)
         ttid = txn_context.ttid
-        p = Packets.AskFinishTransaction(ttid, list(cache_dict),
-                                         checked_list, txn_context.pack)
+        p = Packets.AskFinishTransaction(ttid, oids, deleted, checked,
+                                         txn_context.pack)
         try:
             tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
             assert tid

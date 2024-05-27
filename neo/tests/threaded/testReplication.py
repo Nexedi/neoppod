@@ -266,7 +266,7 @@ class ReplicationTests(NEOThreadedTest):
     def testBackupUpstreamStorageDead(self, backup):
         upstream = backup.upstream
         with ConnectionFilter() as f:
-            f.delayInvalidateObjects()
+            f.delayInvalidatePartitions()
             upstream.importZODB()(1)
         count = [0]
         def _connect(orig, conn):
@@ -1229,6 +1229,30 @@ class ReplicationTests(NEOThreadedTest):
             upstream.ticAndJoinStorageTasks()
         backup.ticAndJoinStorageTasks()
         self.assertEqual(1, self.checkBackup(backup))
+
+
+    @backup_test(3)
+    def testDeleteObject(self, backup):
+        upstream = backup.upstream
+        storage = upstream.getZODBStorage()
+        for clear_cache in 0, 1:
+            for tst in 'a.', 'bcd.':
+                oid = storage.new_oid()
+                serial = None
+                for data in tst:
+                    txn = transaction.Transaction()
+                    storage.tpc_begin(txn)
+                    if data == '.':
+                        storage.deleteObject(oid, serial, txn)
+                    else:
+                        storage.store(oid, serial, data, '', txn)
+                    storage.tpc_vote(txn)
+                    serial = storage.tpc_finish(txn)
+                    self.tic()
+                    self.assertEqual(3, self.checkBackup(backup))
+                    if clear_cache:
+                        storage._cache.clear()
+                self.assertRaises(POSKeyError, storage.load, oid, '')
 
 
 if __name__ == "__main__":

@@ -497,7 +497,14 @@ class Packets(dict):
 
     InvalidateObjects = notify("""
         Notify about a new transaction modifying objects,
-        invalidating client caches.
+        invalidating client caches. Deleted objects are excluded.
+
+        :nodes: M -> C
+        """)
+
+    InvalidatePartitions = notify("""
+        Notify about a new transaction, listing partitions
+        with modified or deleted objects.
 
         :nodes: M -> C
         """)

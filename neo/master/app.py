@@ -563,13 +563,17 @@ class Application(BaseApplication):
         tid = txn.tid
         transaction_node = txn.node
         invalidate_objects = Packets.InvalidateObjects(tid, txn.oid_list)
+        invalidate_partitions = Packets.InvalidatePartitions(
+            tid, txn.partition_list)
         client_list = self.nm.getClientList(only_identified=True)
         for client_node in client_list:
             if client_node is transaction_node:
                 client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
                                  msg_id=txn.msg_id)
             else:
-                client_node.send(invalidate_objects)
+                client_node.send(invalidate_partitions
+                    if client_node.extra.get('backup') else
+                    invalidate_objects)
 
         # Unlock Information to relevant storage nodes.
         notify_unlock = Packets.NotifyUnlockInformation(ttid)
