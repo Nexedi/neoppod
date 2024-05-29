@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import argparse, errno, logging, os, socket, sys, threading
+from array import array
 from bisect import insort
 from collections import defaultdict
 from contextlib import closing, contextmanager
@@ -28,6 +29,11 @@ MAX_TXN_SIZE = 0x1fffff # MySQL limitation (MEDIUMBLOB)
 VERSION = 1
 
 logger = logging.getLogger('reflink')
+
+for array32u in 'IL':
+    array32u = partial(array, array32u)
+    if array32u().itemsize == 4:
+        break
 
 try:
     from ZODB.Connection import TransactionMetaData
@@ -105,6 +111,61 @@ class InvalidationListener(object):
         return time() - t
 
     transform_record_data = untransform_record_data = None
+
+
+class OidArray(object):
+
+    __slots__ = 'arrays',
+
+    def __init__(self, arrays):
+        self.arrays = arrays
+
+    def __iand__(self, other):
+        arrays = self.arrays
+        other = other.arrays
+        for i, a in enumerate(arrays):
+            a = set(a)
+            try:
+                a.intersection_update(other[i])
+            except IndexError:
+                del arrays[i:]
+                break
+            arrays[i] = array32u(sorted(a))
+        return self
+
+    def __nonzero__(self):
+        return any(self.arrays)
+
+    def __len__(self):
+        return sum(map(len, self.arrays))
+
+    def __iter__(self):
+        for i, x in enumerate(self.arrays):
+            i <<= 32
+            for x in x:
+                yield p64(i | x)
+
+    def __delitem__(self, key):
+        assert None is key.start is key.step, key
+        n = key.stop
+        for x in self.arrays:
+            k = len(x)
+            del x[:n]
+            n -= k
+            if n <= 0:
+                break
+
+    def append(self, oid):
+        oid = u64(oid)
+        i = oid >> 32
+        oid &= 0xFFFFFFFF
+        arrays = self.arrays
+        while True:
+            try:
+                arrays[i].append(oid)
+                break
+            except IndexError:
+                arrays.append(array32u())
 
 
 class Object(object):
@@ -338,7 +399,13 @@ class Changeset(object):
                         try:
                             oid = stack.pop()
                         except IndexError:
-                            return {p64(*x) for x in q('SELECT oid FROM t')}
+                            x, = q('SELECT MAX(oid) >> 32 FROM t').fetchone()
+                            return OidArray([
+                                array32u(x for x, in q(
+                                    'SELECT oid & 0xFFFFFFFF FROM t'
+                                    ' WHERE oid>=? AND oid<? ORDER BY oid',
+                                    (x << 32, x+1 << 32)))
+                                for x in xrange(x + 1)])
                         k = oid,
                         try:
                             (v,), = q('SELECT referents FROM t WHERE oid=?', k)
@@ -605,15 +672,15 @@ def main(args=None):
                 return "Main storage shall implement " + iface.__name__
 
     if command == "path":
-        t = args.tid
-        if t is None:
+        x = args.tid
+        if x is None:
             tid = inc64(tid)
         else:
-            tid = p64(t + 1)
-            t = p64(t)
+            tid = p64(x + 1)
+            x = p64(x)
         def find_global(*args):
             obj.extend(args)
-        with changeset.historical(t):
+        with changeset.historical(x):
             for oid in reversed(changeset.path(p64(args.oid))):
                 obj = [hex(u64(oid))]
                 if args.main:
@@ -638,9 +705,9 @@ def main(args=None):
         exit_before_gc = args.exit_before_gc
         exit_after_gc = args.exit_after_gc
         no_gc = args.no_gc
-        t = args.pack_neo
-        if t:
-            changeset.pack(tidFromTime(t))
+        x = args.pack_neo
+        if x:
+            changeset.pack(tidFromTime(x))
     job_count = args.jobs
     if job_count <= 0:
         parser.error("--jobs must be strictly positive.")
@@ -739,12 +806,12 @@ def main(args=None):
             src.referents = referents
             for referent in referents:
                 insort(changeset.get(referent).referrers, oid)
-            t = time()
-            if next_commit <= t:
+            x = time()
+            if next_commit <= x:
                 tid = inc64(tid)
                 changeset.bootstrap = bootstrap[0], u64(oid) + 1
                 changeset.commit(tid, "oid=%x" % u64(oid))
-                next_commit = t + commit_interval
+                next_commit = x + commit_interval
         changeset.bootstrap = bootstrap[0], None
         tid = p64(bootstrap[0])
         changeset.commit(tid)
@@ -811,20 +878,29 @@ def main(args=None):
 
     invalidation_listener = InvalidationListener(main_storage, tid)
 
-    def iterTrans(x):
-        put = queue.put
-        try:
-            for x in x:
-                put(x)
+    if commit_interval:
+        deleted_dict = {}
+        def iterTrans(x):
+            put = queue.put
+            try:
                 for x in x:
-                    put(x)
-                put(None)
-        except:
-            exc_info[:] = sys.exc_info()
-        put(None)
+                    tid = x.tid
+                    put(tid)
+                    try:
+                        x = deleted_dict.pop(tid)
+                    except KeyError:
+                        for x in x:
+                            put((x.oid, x.data))
+                    else:
+                        for x in x:
+                            put((x, None))
+                    put(None)
+            except:
+                exc_info[:] = sys.exc_info()
+            put(None)
 
     if not no_gc:
-        gc_lock_name = "\0reflink-%s" % os.getuid()
+        gc_lock_name = "\0reflink-%s" % os.getpid()
     next_gc = period and TimeStamp(changeset.last_gc).timeTime() + period
     next_commit = time() + commit_interval
     while True:
@@ -834,22 +910,21 @@ def main(args=None):
             thread.daemon = True
             thread.start()
             while True:
-                t = queue.get()
-                if t is None:
+                x = queue.get()
+                if x is None:
                     checkExc()
                     break
-                tid = t.tid
+                tid = x
                 # logger.debug("tid=%x", u64(tid))
                 check_orphan = {}
                 while True:
-                    record = queue.get()
-                    if record is None:
+                    x = queue.get()
+                    if x is None:
                         checkExc()
                         break
-                    oid = record.oid
+                    oid, data = x
                     # logger.debug("  oid=%x", u64(oid))
                     src = changeset.get(oid)
-                    data = record.data
                     prev_set = src.referents
                     if data is None:
                         # logger.debug("    deleted")
@@ -892,13 +967,13 @@ def main(args=None):
                         if changeset.check_orphan.get(referent):
                             changeset.check_orphan[referent] = False
                             check_orphan[referent] = dst
-                t = inc64(tid)
+                x = inc64(tid)
                 for oid, obj in check_orphan.iteritems():
                     if obj.maybeOrphan():
                         assert not (obj.prev_orphan or obj.next_orphan), oid
                         if not obj.referents:
                             try:
-                                if main_storage.loadBefore(oid, t) is None:
+                                if main_storage.loadBefore(oid, x) is None:
                                     continue
                             except POSKeyError:
                                 continue
@@ -911,19 +986,20 @@ def main(args=None):
                         prev_orphan.next_orphan = oid
                 changeset.check_orphan.clear()
 
-                t = time()
-                if next_commit <= t:
+                x = time()
+                if next_commit <= x:
                     changeset.commit(tid)
-                    next_commit = t + commit_interval
+                    next_commit = x + commit_interval
             thread.join()
+            assert not deleted_dict, list(deleted_dict)
 
-        t = time()
-        timeout = next_gc - t
+        x = time()
+        timeout = next_gc - x
         if timeout <= 0 or not commit_interval:
             timeout = None
             if (full or changeset.orphan or bootstrap) and not no_gc:
                 if changeset.buckets:
-                    next_commit = t + commit_interval
+                    next_commit = x + commit_interval
                     changeset.commit(tid)
                 assert tid == changeset.storage.lastTransaction()
                 if exit_before_gc:
@@ -954,7 +1030,8 @@ def main(args=None):
                 else:
                     gc_tid = tid
                     orphans = gc(None)
-                orphans = sorted(orphans)
+                if isinstance(orphans, set):
+                    orphans = sorted(orphans)
                 logger.info('  found %s OID(s) to delete', len(orphans))
                 log_remaining = False
                 count = 0
@@ -966,20 +1043,22 @@ def main(args=None):
                     with closing(socket.socket(socket.AF_UNIX,
                                                socket.SOCK_STREAM)) as s:
                         try:
-                            with closing(s.connect(gc_lock_name)) as s:
-                                s.recv(1)
+                            s.connect(gc_lock_name)
+                            s.recv(1)
                         except socket.error:
                             pass
+                    deleted = OidArray([])
                     txn = TransactionMetaData(
                         description=TXN_GC_DESC % u64(gc_tid))
                     main_storage.tpc_begin(txn)
                     try:
                         for i, oid, data, serial in iter_orphans(
-                                enumerate(orphans), main_storage.load):
+                                enumerate(orphans, 1), main_storage.load):
                             if gc_tid < serial:
                                 count = None
                                 break
                             main_storage.deleteObject(oid, serial, txn)
+                            deleted.append(oid)
                             if dry_run:
                                 oid = u64(oid)
                                 try:
@@ -1024,13 +1103,15 @@ def main(args=None):
                             logger.info('  tpc_finish...')
                             main_storage.tpc_finish(txn,
                                 invalidation_listener.tpc_finish)
-                            changeset.last_gc = invalidation_listener.last_gc
+                            x = changeset.last_gc = \
+                                invalidation_listener.last_gc
+                            if commit_interval:
+                                deleted_dict[x] = deleted
                             next_commit = 0
                             if period:
                                 # We don't want future `gc(gc_tid)` to waste
                                 # time with OIDs that are already deleted.
-                                next_gc = TimeStamp(changeset.last_gc
-                                                    ).timeTime() + period
+                                next_gc = TimeStamp(x).timeTime() + period
                             continue
                     except ConflictError:
                         count = None
@@ -1039,6 +1120,7 @@ def main(args=None):
                             count = 0
                         else:
                             main_storage.tpc_abort(txn)
+                        del deleted
                     break
                 del orphans
                 if count == 0:
