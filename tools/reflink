@@ -118,29 +118,33 @@ class OidArray(object):
     __slots__ = 'arrays',
 
     def __init__(self, arrays):
-        self.arrays = arrays
+        a = self.arrays = defaultdict(array32u)
+        for k, v in arrays:
+            if v:
+                a[k] = v
 
     def __iand__(self, other):
         arrays = self.arrays
         other = other.arrays
-        for i, a in enumerate(arrays):
-            a = set(a)
-            try:
-                a.intersection_update(other[i])
-            except IndexError:
-                del arrays[i:]
-                break
-            arrays[i] = array32u(sorted(a))
+        for i in sorted(arrays):
+            a = set(arrays[i])
+            a.intersection_update(other.get(i, ()))
+            if a:
+                arrays[i] = array32u(sorted(a))
+            else:
+                del arrays[i]
         return self
 
     def __nonzero__(self):
-        return any(self.arrays)
+        return any(self.arrays.itervalues())
 
     def __len__(self):
-        return sum(map(len, self.arrays))
+        return sum(map(len, self.arrays.itervalues()))
 
     def __iter__(self):
-        for i, x in enumerate(self.arrays):
+        arrays = self.arrays
+        for i in sorted(arrays):
+            x = arrays[i]
             i <<= 32
             for x in x:
                 yield p64(i | x)
@@ -148,24 +152,19 @@ class OidArray(object):
     def __delitem__(self, key):
         assert None is key.start is key.step, key
         n = key.stop
-        for x in self.arrays:
+        arrays = self.arrays
+        for i in sorted(arrays):
+            x = arrays[i]
             k = len(x)
-            del x[:n]
-            n -= k
-            if n <= 0:
+            if n < k:
+                del x[:n]
                 break
+            n -= k
+            del arrays[i]
 
     def append(self, oid):
         oid = u64(oid)
-        i = oid >> 32
-        oid &= 0xFFFFFFFF
-        arrays = self.arrays
-        while True:
-            try:
-                arrays[i].append(oid)
-                break
-            except IndexError:
-                arrays.append(array32u())
+        self.arrays[oid >> 32].append(oid & 0xFFFFFFFF)
 
 
 class Object(object):
@@ -399,13 +398,14 @@ class Changeset(object):
                         try:
                             oid = stack.pop()
                         except IndexError:
-                            x, = q('SELECT MAX(oid) >> 32 FROM t').fetchone()
-                            return OidArray([
-                                array32u(x for x, in q(
+                            (k, x), = q(
+                                'SELECT MIN(oid) >> 32, MAX(oid) >> 32 FROM t')
+                            return OidArray(() if k is None else ((k,
+                                array32u(v for v, in q(
                                     'SELECT oid & 0xFFFFFFFF FROM t'
                                     ' WHERE oid>=? AND oid<? ORDER BY oid',
-                                    (x << 32, x+1 << 32)))
-                                for x in xrange(x + 1)])
+                                    (k << 32, k+1 << 32))))
+                                for k in xrange(k, x + 1)))
                         k = oid,
                         try:
                             (v,), = q('SELECT referents FROM t WHERE oid=?', k)
