@@ -30,12 +30,13 @@ from ..exception import (
     NEOStorageReadRetry, NEOStorageDoesNotExistError,
 )
 
-@apply
 class _DeadlockPacket(object):
 
     handler_method_name = 'notifyDeadlock'
     _args = ()
     getId = int
+
+DEADLOCK_PACKET = _DeadlockPacket()
 
 class StorageEventHandler(MTEventHandler):
 
@@ -45,7 +46,7 @@ class StorageEventHandler(MTEventHandler):
     def notifyDeadlock(self, conn, ttid, oid):
         for txn_context in self.app.txn_contexts():
             if txn_context.ttid == ttid:
-                txn_context.queue.put((conn, _DeadlockPacket, {'oid': oid}))
+                txn_context.queue.put((conn, DEADLOCK_PACKET, {'oid': oid}))
                 break
 
 class StorageBootstrapHandler(AnswerBaseHandler):

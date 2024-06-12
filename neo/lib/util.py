@@ -19,7 +19,7 @@ import os, socket
 from binascii import a2b_hex, b2a_hex
 from datetime import timedelta, datetime
 from hashlib import sha1
-from Queue import deque
+from collections import deque
 from struct import pack, unpack, Struct
 from time import gmtime
 

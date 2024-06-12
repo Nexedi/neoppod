@@ -36,7 +36,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
     def notPrimaryMaster(self, *args):
         try:
             super(PrimaryNotificationsHandler, self).notPrimaryMaster(*args)
-        except PrimaryElected, e:
+        except PrimaryElected as e:
             self.app.primary_master_node, = e.args
 
     def answerLastTransaction(self, conn, ltid):

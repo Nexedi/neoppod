@@ -14,7 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import thread, threading, weakref
+from six.moves import _thread
+import threading, weakref
 from . import debug, logging
 from .app import BaseApplication
 from .dispatcher import Dispatcher
@@ -67,7 +68,7 @@ class ThreadedApplication(BaseApplication):
                 conn.close()
             # Stop polling thread
             logging.debug('Stopping %s', self.poll_thread)
-            self.em.wakeup(thread.exit)
+            self.em.wakeup(_thread.exit)
         else:
             super(ThreadedApplication, self).close()
 
@@ -114,14 +115,16 @@ class ThreadedApplication(BaseApplication):
             # connection
             node = self.nm.getByAddress(conn.getAddress())
             if node is None:
-                raise ValueError, 'Expecting an answer from a node ' \
-                    'which type is not known... Is this right ?'
+                raise ValueError(
+                  'Expecting an answer from a node '
+                  'which type is not known... Is this right ?'
+                )
             if node.isStorage():
                 handler = self.storage_handler
             elif node.isMaster():
                 handler = self.primary_handler
             else:
-                raise ValueError, 'Unknown node type: %r' % (node.__class__, )
+                raise ValueError('Unknown node type: %r' % (node.__class__, ))
         with conn.lock:
             handler.dispatch(conn, packet, kw)
 

@@ -16,7 +16,7 @@
 
 import argparse, os, sys
 from functools import wraps
-from ConfigParser import SafeConfigParser
+from six.moves.configparser import SafeConfigParser
 
 class _DefaultList(list):
     """

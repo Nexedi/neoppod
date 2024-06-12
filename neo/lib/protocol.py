@@ -17,6 +17,8 @@
 import threading
 from functools import partial
 from msgpack import packb
+import six
+from six.moves import range
 
 # For msgpack & Py2/ZODB5.
 try:
@@ -43,8 +45,7 @@ RESPONSE_MASK = 0x8000
 # that we could compare the stream position (Unpacker.tell); it's not worth it.
 UNPACK_BUFFER_SIZE = 0x4000000
 
-@apply
-def Unpacker():
+def create_unpacker():
     global registerExtType, packb
     from msgpack import ExtType, unpackb, Packer, Unpacker
     ext_type_dict = []
@@ -75,10 +76,15 @@ def Unpacker():
     return partial(Unpacker, use_list=False, max_buffer_size=UNPACK_BUFFER_SIZE,
         ext_hook=lambda code, data: ext_type_dict[code](data))
 
+Unpacker = create_unpacker()
+
 class Enum(tuple):
 
     class Item(int):
-        __slots__ = '_name', '_enum', '_pack'
+        # int is variable-length in Python 3 (like long in Python 2).
+        # Thus, it does not support __slots__.
+        # They are left here as a reference of the available attributes.
+        # __slots__ = '_name', '_enum', '_pack'
         def __str__(self):
             return self._name
         def __repr__(self):
@@ -89,9 +95,19 @@ class Enum(tuple):
                 return other is self
             return other == int(self)
 
+        def __hash__(self):
+            """
+            Hash of the enumeration item.
+
+            This needs to be defined explicitly in Python 3 if we override the
+            `__eq__` method.
+            We use the same hash as the integer equivalent of this item.
+            """
+            return hash(int(self))
+
     def __new__(cls, func):
-        names = func.func_code.co_names
-        self = tuple.__new__(cls, map(cls.Item, xrange(len(names))))
+        names = six.get_function_code(func).co_names
+        self = tuple.__new__(cls, map(cls.Item, range(len(names))))
         self._name = func.__name__
         pack = registerExtType(int, self.__getitem__)
         for item, name in zip(self, names):
@@ -232,7 +248,7 @@ UUID_NAMESPACES = {
 }
 uuid_str = (lambda ns: lambda uuid:
     ns[uuid >> 24] + str(uuid & 0xffffff) if uuid else str(uuid)
-    )({v: str(k)[0] for k, v in UUID_NAMESPACES.iteritems()})
+    )({v: str(k)[0] for k, v in six.iteritems(UUID_NAMESPACES)})
 
 
 class Packet(object):
@@ -878,7 +894,7 @@ def formatNodeList(node_list, prefix='', _sort_key=itemgetter(2)):
             for node_type, addr, uuid, state, id_timestamp
                 in sorted(node_list, key=_sort_key)]
         t = ''.join('%%-%us | ' % max(len(x[i]) for x in node_list)
-                    for i in xrange(len(node_list[0]) - 1))
+                    for i in range(len(node_list[0]) - 1))
         return map((prefix + t + '%s').__mod__, node_list)
     return ()
 

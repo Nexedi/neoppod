@@ -210,7 +210,7 @@ class MasterDB(object):
         try:
             with open(path) as db:
                 self._set = set(map(tuple, json.load(db)))
-        except IOError, e:
+        except IOError as e:
             if e.errno != errno.ENOENT:
                 raise
             self._set = set()
@@ -504,8 +504,7 @@ class NodeManager(EventQueue):
                 map(Node.asTuple, self._node_set), ' * ')))
         self.logQueuedEvents()
 
-@apply
-def NODE_TYPE_MAPPING():
+def create_node_type_mapping():
     def setmethod(cls, attr, value):
         assert not hasattr(cls, attr), (cls, attr)
         setattr(cls, attr, value)
@@ -539,3 +538,5 @@ def NODE_TYPE_MAPPING():
         setfullmethod(NodeManager, 'get%sList' % name, getList(node_type))
 
     return node_type_dict
+
+NODE_TYPE_MAPPING = create_node_type_mapping()

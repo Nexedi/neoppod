@@ -19,7 +19,6 @@ from .locking import Lock, Empty
 EMPTY = {}
 NOBODY = []
 
-@apply
 class _ConnectionClosed(object):
 
     handler_method_name = 'connectionClosed'
@@ -28,6 +27,8 @@ class _ConnectionClosed(object):
     class getId(object):
         def __eq__(self, other):
             return True
+
+CONNECTION_CLOSED = _ConnectionClosed()
 
 def giant_lock(func):
     def wrapped(self, *args, **kw):
@@ -97,7 +98,7 @@ class Dispatcher:
                     continue
                 queue_id = id(queue)
                 if queue_id not in notified_set:
-                    queue.put((conn, _ConnectionClosed, EMPTY))
+                    queue.put((conn, CONNECTION_CLOSED, EMPTY))
                     notified_set.add(queue_id)
                 _decrefQueue(queue)
         finally:
