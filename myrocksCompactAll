@@ -1,0 +1,10 @@
+#!/bin/sh -e
+: ${MYSQL:=mysql}
+for cf in `$MYSQL -se '
+SELECT DISTINCT cf_name FROM information_schema.rocksdb_cf_options
+WHERE cf_name != "__system__";
+'`; do
+  set "SET GLOBAL rocksdb_compact_cf = \`$cf\`;"
+  echo -n "$1 -- "
+  $MYSQL -Bse "SELECT NOW(3) INTO @start; $1; SELECT TIMEDIFF(NOW(3), @start);"
+done
