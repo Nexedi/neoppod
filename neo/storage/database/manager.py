@@ -758,6 +758,21 @@ class DatabaseManager(object):
     # XXX: Consider splitting getLastIDs/_getLastIDs because
     #      sometimes the last oid is not wanted.
 
+    def _getFirstTID(self, partition):
+        """Return tid of first transaction in given 'partition'
+
+        tids are in unpacked format.
+        """
+
+    @requires(_getFirstTID)
+    def getFirstTID(self):
+        """Return tud of first transaction
+        """
+        x = self._readable_set
+        if x:
+            return util.p64(min(map(self._getFirstTID, x)))
+        return MAX_TID
+
     def _getLastTID(self, partition, max_tid=None):
         """Return tid of last transaction <= 'max_tid' in given 'partition'
 

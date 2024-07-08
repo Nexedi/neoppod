@@ -139,11 +139,12 @@ class VerificationManager(BaseServiceHandler):
     def notifyPackCompleted(self, conn, pack_id):
         self.app.nm.getByUUID(conn.getUUID()).completed_pack_id = pack_id
 
-    def answerLastIDs(self, conn, ltid, loid):
+    def answerLastIDs(self, conn, ltid, loid, ftid):
         self._uuid_set.remove(conn.getUUID())
         tm = self.app.tm
         tm.setLastTID(ltid)
         tm.setLastOID(loid)
+        tm.setFirstTID(ftid)
 
     def answerPackOrders(self, conn, pack_list):
         self._uuid_set.remove(conn.getUUID())
