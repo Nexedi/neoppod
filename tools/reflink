@@ -30,10 +30,8 @@ VERSION = 1
 
 logger = logging.getLogger('reflink')
 
-for array32u in 'IL':
-    array32u = partial(array, array32u)
-    if array32u().itemsize == 4:
-        break
+array32u = partial(array, 'I')
+assert array32u().itemsize == 4
 
 try:
     from ZODB.Connection import TransactionMetaData
