@@ -458,16 +458,16 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
         return self.query("SELECT * FROM pt")
 
     def _getLastTID(self, partition, max_tid=None):
-        x = "WHERE `partition`=%s" % partition
+        sql = ("SELECT MAX(tid) as t FROM trans FORCE INDEX (PRIMARY)"
+               " WHERE `partition`=%s") % partition
         if max_tid:
-            x += " AND tid<=%s" % max_tid
-        (tid,), = self.query(
-            "SELECT MAX(tid) as t FROM trans FORCE INDEX (PRIMARY)" + x)
+            sql += " AND tid<=%s" % max_tid
+        (tid,), = self.query(sql)
         return tid
 
     def _getLastIDs(self, partition):
         q = self.query
-        x = "WHERE `partition`=%s" % partition
+        x = " WHERE `partition`=%s" % partition
         (oid,), = q("SELECT MAX(oid) FROM obj FORCE INDEX (PRIMARY)" + x)
         (tid,), = q("SELECT MAX(tid) FROM obj FORCE INDEX (tid)" + x)
         return tid, oid
