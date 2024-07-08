@@ -23,7 +23,7 @@ from .exception import (BackendNotImplemented, NonReadableCell, NotReadyError,
     PacketMalformedError, PrimaryElected, ProtocolError, UnexpectedPacketError)
 from .protocol import NodeStates, NodeTypes, Packets, uuid_str, Errors
 from .util import cached_property
-
+from six import reraise
 
 class AnswerDenied(Exception):
     """Helper exception to stop packet processing and answer a Denied error"""
@@ -72,32 +72,32 @@ class EventHandler(object):
                 raise UnexpectedPacketError('no handler found')
             args = packet._args
             method(conn, *args, **kw)
-        except DelayEvent, e:
+        except DelayEvent as e:
             assert not kw, kw
             self.getEventQueue().queueEvent(method, conn, args, *e.args)
-        except UnexpectedPacketError, e:
+        except UnexpectedPacketError as e:
             if not conn.isClosed():
                 self.__unexpectedPacket(conn, packet, *e.args)
-        except NotReadyError, message:
+        except NotReadyError as message:
             if not conn.isClosed():
                 if not message.args:
                     message = 'Retry Later'
                 message = str(message)
                 conn.answer(Errors.NotReady(message))
                 conn.abort()
-        except ProtocolError, message:
+        except ProtocolError as message:
             if not conn.isClosed():
                 message = str(message)
                 conn.answer(Errors.ProtocolError(message))
                 conn.abort()
-        except BackendNotImplemented, message:
+        except BackendNotImplemented as message:
             m = message[0]
             conn.answer(Errors.BackendNotImplemented(
                 "%s.%s does not implement %s"
                 % (m.im_class.__module__, m.im_class.__name__, m.__name__)))
-        except NonReadableCell, e:
+        except NonReadableCell as e:
             conn.answer(Errors.NonReadableCell())
-        except AnswerDenied, e:
+        except AnswerDenied as e:
             conn.answer(Errors.Denied(str(e)))
         except AssertionError:
             e = sys.exc_info()
@@ -106,7 +106,7 @@ class EventHandler(object):
                     conn.close()
                 except Exception:
                     logging.exception("")
-                raise e[0], e[1], e[2]
+                reraise(e[0], e[1], e[2])
             finally:
                 del e
 

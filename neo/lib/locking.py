@@ -4,7 +4,8 @@ import threading
 import traceback
 from collections import deque
 from time import time
-from Queue import Empty
+from six.moves.queue import Empty
+from six import reraise
 
 """
   Verbose locking classes.
@@ -108,7 +109,7 @@ class VerboseLockBase(object):
         except self._error_class:
             t, v, tb = sys.exc_info()
             if str(v) == self._release_error:
-                raise t, "%s %s (%s)" % (v, self, me), tb
+                reraise(t, "%s %s (%s)" % (v, self, me), tb)
             raise
 
     def __exit__(self, t, v, tb):

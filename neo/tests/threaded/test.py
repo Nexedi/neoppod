@@ -43,7 +43,7 @@ from . import ClientApplication, ConnectionFilter, LockLock, NEOCluster, \
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client import exception
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
-from neo.client.handlers.storage import _DeadlockPacket
+from neo.client.handlers.storage import DEADLOCK_PACKET
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.pt import PartitionTable
@@ -2237,7 +2237,7 @@ class Test(NEOThreadedTest):
                         except IndexError:
                             pass
         def _handlePacket(orig, *args):
-            if args[2] is _DeadlockPacket:
+            if args[2] is DEADLOCK_PACKET:
                 return sched(orig, *args)
             return orig(*args)
         with RandomConflictDict, \

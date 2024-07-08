@@ -3,6 +3,7 @@
 
 from setuptools import setup, find_packages
 import os
+import itertools
 
 classifiers = """\
 Framework :: ZODB
@@ -58,9 +59,13 @@ extras_require = {
     'storage-pymysql': ['PyMySQL'],
     'storage-importer': zodb_require + ['setproctitle'],
 }
+
+all_extra_deps = list(itertools.chain(extras_require.values()))
+
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
     'mock', # ZODB test dependency
-    'neoppod[%s]' % ', '.join(extras_require)]
+]
+extras_require['tests'] += all_extra_deps
 extras_require['stress'] = ['NetfilterQueue', 'gevent', 'neoppod[tests]',
     'cython-zstd', # recommended (log rotation)
     ]
@@ -115,7 +120,8 @@ setup(
     install_requires = [
         'msgpack>=0.5.6,<1',
         'python-dateutil', # neolog --from
-        ],
+        'six',
+    ],
     extras_require = extras_require,
     package_data = {
         'neo.client': [
