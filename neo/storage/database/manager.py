@@ -417,6 +417,7 @@ class BackgroundWorker(object):
         with self._maybeResume(app):
             parts.update(offset_list)
             if parts:
+                assert not app.disable_pack, (info, packed, parts)
                 if info:
                     pack_id, approved, partial, oids, tid = info
                     self._pack_info = (pack_id, approved, partial,
