@@ -1226,6 +1226,32 @@ class ReplicationTests(NEOThreadedTest):
         backup.ticAndJoinStorageTasks()
         self.assertEqual(1, self.checkBackup(backup))
 
+    @backup_test()
+    def testUpstreamTruncated(self, backup):
+        upstream = backup.upstream
+        importZODB = upstream.importZODB()
+        importZODB(10)
+        tid1 = upstream.last_tid
+        importZODB(10)
+        tid2 = upstream.last_tid
+        self.tic()
+        getBackupState = backup.neoctl.getClusterState
+        self.assertEqual(getBackupState(), ClusterStates.BACKINGUP)
+        self.assertEqual(backup.last_tid, tid2)
+        upstream.neoctl.truncate(tid1)
+        self.tic()
+        self.assertEqual(getBackupState(), ClusterStates.RUNNING)
+        self.assertEqual(backup.last_tid, tid2)
+        backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
+        self.tic()
+        self.assertEqual(getBackupState(), ClusterStates.RUNNING)
+        self.assertEqual(backup.last_tid, tid2)
+        backup.neoctl.truncate(tid1)
+        self.tic()
+        backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
+        self.tic()
+        self.assertEqual(getBackupState(), ClusterStates.BACKINGUP)
+        self.assertEqual(backup.last_tid, tid1)
 
     @backup_test(3)
     def testDeleteObject(self, backup):

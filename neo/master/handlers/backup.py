@@ -14,9 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from ..app import StateChangedException
+from neo.lib import logging
 from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import NodeTypes, NodeStates, Packets
+from neo.lib.protocol import ClusterStates, NodeTypes, NodeStates, Packets
 from neo.lib.pt import PartitionTable
 
 class BackupHandler(EventHandler):
@@ -60,7 +62,9 @@ class BackupHandler(EventHandler):
             # backup_tid could remain stuck to an old tid if upstream is idle.
             app.invalidatePartitions(tid, tid, xrange(app.pt.getPartitions()))
         else:
-            raise RuntimeError("upstream DB truncated")
+            logging.critical("Upstream DB truncated. Leaving backup mode"
+                " in case this backup DB needs to be truncated.")
+            raise StateChangedException(ClusterStates.STOPPING_BACKUP)
         app.ignore_invalidations = False
 
     def invalidatePartitions(self, conn, tid, partition_list):
