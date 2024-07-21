@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2006-2019  Nexedi SA
 #
@@ -70,9 +71,9 @@ class TerminalNeoCTL(object):
         return getattr(ClusterStates, value.upper())
 
     def asTID(self, value):
-        if '.' in value:
-            return tidFromTime(float(value))
-        return p64(int(value, 0))
+        if value.lower().startswith('tid:'):
+            return p64(int(value[4:], 0))
+        return tidFromTime(float(value))
 
     asNode = staticmethod(uuid_int)
 
@@ -386,7 +387,8 @@ class Application(object):
 
     def usage(self):
         output_list = ('Available commands:', self._usage(action_dict),
-            "TID arguments can be either integers or timestamps as floats,"
-            " e.g. '257684787499560686', '0x3937af2eeeeeeee' or '1325421296.'"
-            " for 2012-01-01 12:34:56 UTC")
+            "The syntax of « TID » arguments is either tid:<integer>"
+            " (case insensitive) for a TID or <float> for a UNIX timestamp,"
+            " e.g. 'tid:257684787499560686', 'tid:0x3937af2eeeeeeee' or"
+            " '1325421296' for 2012-01-01 12:34:56 UTC.")
         return '\n'.join(output_list)

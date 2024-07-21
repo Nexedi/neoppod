@@ -25,7 +25,8 @@ try:
 except ImportError:
     from cPickle import dumps, loads
     _protocol = 1
-from ZODB.POSException import UndoError, ConflictError, ReadConflictError
+from ZODB.POSException import (
+    ConflictError, ReadConflictError, ReadOnlyError, UndoError)
 
 from neo.lib import logging
 from neo.lib.compress import decompress_list, getCompress
@@ -72,7 +73,7 @@ class Application(ThreadedApplication):
     wait_for_pack = False
 
     def __init__(self, master_nodes, name, compress=True, cache_size=None,
-                 ignore_wrong_checksum=False, **kw):
+                 read_only=False, ignore_wrong_checksum=False, **kw):
         super(Application, self).__init__(parseMasterList(master_nodes),
                                           name, **kw)
         # Internal Attributes common to all thread
@@ -108,6 +109,7 @@ class Application(ThreadedApplication):
         self._connecting_to_storage_node = Lock()
         self._node_failure_dict = {}
         self.compress = getCompress(compress)
+        self.read_only = read_only
         self.ignore_wrong_checksum = ignore_wrong_checksum
 
     def __getattr__(self, attr):
@@ -200,56 +202,65 @@ class Application(ThreadedApplication):
         fail_count = 0
         ask = self._ask
         handler = self.primary_bootstrap_handler
-        while 1:
-            self.ignore_invalidations = True
-            # Get network connection to primary master
-            while fail_count < self.max_reconnection_to_master:
-                self.nm.reset()
-                if self.primary_master_node is not None:
-                    # If I know a primary master node, pinpoint it.
-                    node = self.primary_master_node
-                    self.primary_master_node = None
-                else:
-                    # Otherwise, check one by one.
-                    master_list = self.nm.getMasterList()
-                    if not master_list:
-                        # XXX: On shutdown, it already happened that this list
-                        #      is empty, leading to ZeroDivisionError. This
-                        #      looks a minor issue so let's wait to have more
-                        #      information.
-                        logging.error('%r', self.__dict__)
-                    index = (index + 1) % len(master_list)
-                    node = master_list[index]
-                # Connect to master
-                conn = MTClientConnection(self,
+        conn = None
+        try:
+            while 1:
+                self.ignore_invalidations = True
+                # Get network connection to primary master
+                while fail_count < self.max_reconnection_to_master:
+                    self.nm.reset()
+                    if self.primary_master_node is not None:
+                        # If I know a primary master node, pinpoint it.
+                        node = self.primary_master_node
+                        self.primary_master_node = None
+                    else:
+                        # Otherwise, check one by one.
+                        master_list = self.nm.getMasterList()
+                        if not master_list:
+                            # XXX: On shutdown, it already happened that this
+                            #      list is empty, leading to ZeroDivisionError.
+                            #      This looks a minor issue so let's wait to
+                            #      have more information.
+                            logging.error('%r', self.__dict__)
+                        index = (index + 1) % len(master_list)
+                        node = master_list[index]
+                    # Connect to master
+                    conn = MTClientConnection(self,
                         self.notifications_handler,
                         node=node,
                         dispatcher=self.dispatcher)
-                p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                    self.uuid, None, self.name, None, {})
-                try:
-                    ask(conn, p, handler=handler)
-                except ConnectionClosed:
-                    fail_count += 1
+                    p = Packets.RequestIdentification(NodeTypes.CLIENT,
+                        self.uuid, None, self.name, None,
+                        {'read_only': True} if self.read_only else {})
+                    try:
+                        ask(conn, p, handler=handler)
+                    except ConnectionClosed:
+                        conn = None
+                        fail_count += 1
+                    else:
+                        self.primary_master_node = node
+                        break
                 else:
-                    self.primary_master_node = node
-                    break
-            else:
-                raise NEOPrimaryMasterLost(
-                    "Too many connection failures to the primary master")
-            logging.info('Connected to %s', self.primary_master_node)
-            try:
-                # Request identification and required informations to be
-                # operational. Might raise ConnectionClosed so that the new
-                # primary can be looked-up again.
-                logging.info('Initializing from master')
-                ask(conn, Packets.AskLastTransaction(), handler=handler)
-                if self.pt.operational():
-                    break
-            except ConnectionClosed:
-                logging.error('Connection to %s lost', self.trying_master_node)
-                self.primary_master_node = None
-            fail_count += 1
+                    raise NEOPrimaryMasterLost(
+                        "Too many connection failures to the primary master")
+                logging.info('Connected to %s', self.primary_master_node)
+                try:
+                    # Request identification and required informations to be
+                    # operational. Might raise ConnectionClosed so that the new
+                    # primary can be looked-up again.
+                    logging.info('Initializing from master')
+                    ask(conn, Packets.AskLastTransaction(), handler=handler)
+                    if self.pt.operational():
+                        break
+                except ConnectionClosed:
+                    conn = self.primary_master_node = None
+                    logging.error('Connection to %s lost',
+                                  self.trying_master_node)
+                fail_count += 1
+        except:
+            if conn is not None:
+                conn.close()
+            raise
         logging.info("Connected and ready")
         return conn
 
@@ -497,6 +508,8 @@ class Application(ThreadedApplication):
 
     def tpc_begin(self, storage, transaction, tid=None, status=' '):
         """Begin a new transaction."""
+        if self.read_only:
+            raise ReadOnlyError
         # First get a transaction, only one is allowed at a time
         txn_context = self._txn_container.new(transaction)
         # use the given TID or request a new one to the master
@@ -523,6 +536,9 @@ class Application(ThreadedApplication):
             compressed_data = ''
             compression = 0
             checksum = ZERO_HASH
+            if data_serial is None:
+                assert oid not in txn_context.resolved_dict, oid
+                txn_context.delete_list.append(oid)
         else:
             size, compression, compressed_data = self.compress(data)
             checksum = makeChecksum(compressed_data)
@@ -573,6 +589,7 @@ class Application(ThreadedApplication):
                 'Conflict resolution succeeded for %s@%s with %s',
                 dump(oid), dump(old_serial), dump(serial))
             # Mark this conflict as resolved
+            assert oid not in txn_context.delete_list, oid
             resolved_dict[oid] = serial
             # Try to store again
             self._store(txn_context, oid, serial, data)
@@ -725,13 +742,22 @@ class Application(ThreadedApplication):
             self.tpc_vote(transaction)
         txn_context = txn_container.pop(transaction)
         cache_dict = txn_context.cache_dict
-        checked_list = [oid for oid, data  in cache_dict.iteritems()
-                            if data is CHECKED_SERIAL]
-        for oid in checked_list:
-            del cache_dict[oid]
+        getPartition = self.pt.getPartition
+        checked = set()
+        for oid, data in cache_dict.items():
+            if data is CHECKED_SERIAL:
+                del cache_dict[oid]
+                checked.add(getPartition(oid))
+        deleted = txn_context.delete_list
+        if deleted:
+            oids = set(cache_dict)
+            oids.difference_update(deleted)
+            deleted = map(getPartition, deleted)
+        else:
+            oids = list(cache_dict)
         ttid = txn_context.ttid
-        p = Packets.AskFinishTransaction(ttid, list(cache_dict),
-                                         checked_list, txn_context.pack)
+        p = Packets.AskFinishTransaction(ttid, oids, deleted, checked,
+                                         txn_context.pack)
         try:
             tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
             assert tid

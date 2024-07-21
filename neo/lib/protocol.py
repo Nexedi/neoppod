@@ -26,7 +26,7 @@ except ImportError:
 
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes.
-PROTOCOL_VERSION = 4
+PROTOCOL_VERSION = 5
 # By encoding the handshake packet with msgpack, the whole NEO stream can be
 # decoded with msgpack. The first byte is 0x92, which is different from TLS
 # Handshake (0x16).
@@ -497,7 +497,14 @@ class Packets(dict):
 
     InvalidateObjects = notify("""
         Notify about a new transaction modifying objects,
-        invalidating client caches.
+        invalidating client caches. Deleted objects are excluded.
+
+        :nodes: M -> C
+        """)
+
+    InvalidatePartitions = notify("""
+        Notify about a new transaction, listing partitions
+        with modified or deleted objects.
 
         :nodes: M -> C
         """)

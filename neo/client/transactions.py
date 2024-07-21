@@ -38,6 +38,7 @@ class Transaction(object):
         self.txn = txn
         # data being stored
         self.data_dict = {}                 # {oid: (value, serial, [node_id])}
+        self.delete_list = []               # [oid]
         # data stored: this will go to the cache on tpc_finish
         self.cache_dict = {}                # {oid: value}
         # conflicts to resolve

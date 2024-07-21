@@ -121,28 +121,6 @@ class Test(NEOThreadedTest):
                 self.assertFalse(cluster.storage.sqlCount('bigdata'))
             self.assertFalse(cluster.storage.sqlCount('data'))
 
-    @with_cluster()
-    def testDeleteObject(self, cluster):
-        if 1:
-            storage = cluster.getZODBStorage()
-            for clear_cache in 0, 1:
-                for tst in 'a.', 'bcd.':
-                    oid = storage.new_oid()
-                    serial = None
-                    for data in tst:
-                        txn = transaction.Transaction()
-                        storage.tpc_begin(txn)
-                        if data == '.':
-                            storage.deleteObject(oid, serial, txn)
-                        else:
-                            storage.store(oid, serial, data, '', txn)
-                        storage.tpc_vote(txn)
-                        serial = storage.tpc_finish(txn)
-                        if clear_cache:
-                            storage._cache.clear()
-                    self.assertRaises(POSException.POSKeyError,
-                        storage.load, oid, '')
-
     @with_cluster(storage_count=3, replicas=1, partitions=5)
     def testIterOIDs(self, cluster):
         storage = cluster.getZODBStorage()

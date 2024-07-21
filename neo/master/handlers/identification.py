@@ -17,7 +17,7 @@
 from neo.lib import logging
 from neo.lib.exception import NotReadyError, PrimaryElected, ProtocolError
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import CellStates, ClusterStates, NodeStates, \
+from neo.lib.protocol import CellStates, ClusterStates, Errors, NodeStates, \
     NodeTypes, Packets, uuid_str
 from ..app import monotonic_time
 
@@ -63,10 +63,17 @@ class IdentificationHandler(EventHandler):
         new_nid = extra.pop('new_nid', None)
         state = NodeStates.RUNNING
         if node_type == NodeTypes.CLIENT:
+            read_only = extra.pop('read_only', 'backup' in extra)
             if app.cluster_state == ClusterStates.RUNNING:
-                handler = app.client_service_handler
+                handler = (app.client_ro_service_handler if read_only else
+                           app.client_service_handler)
             elif app.cluster_state == ClusterStates.BACKINGUP:
-                handler = app.client_ro_service_handler
+                if not read_only:
+                    conn.answer(Errors.ReadOnlyAccess(
+                        "read-write access requested"
+                        " but cluster is backing up"))
+                    return
+                handler = app.client_backup_service_handler
             else:
                 raise NotReadyError
             human_readable_node_type = ' client '
