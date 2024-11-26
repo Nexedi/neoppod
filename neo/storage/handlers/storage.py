@@ -63,8 +63,10 @@ class StorageOperationHandler(EventHandler):
     # Client
 
     def connectionFailed(self, conn):
-        if self.app.operational:
-            self.app.replicator.abort()
+        app = self.app
+        if app.operational:
+            with app.dm.lock:
+                app.replicator.abort()
 
     def _acceptIdentification(self, node, *args):
         self.app.replicator.connected(node)
