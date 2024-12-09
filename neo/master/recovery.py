@@ -17,7 +17,7 @@
 from neo.lib import logging
 from neo.lib.connection import ClientConnection
 from neo.lib.exception import ProtocolError
-from neo.lib.protocol import Packets, ClusterStates, NodeStates
+from neo.lib.protocol import Packets, ClusterStates, NodeStates, ZERO_TID
 from .app import monotonic_time
 from .handlers import MasterHandler
 
@@ -141,6 +141,10 @@ class RecoveryManager(MasterHandler):
             pt.make(node_list)
             self._notifyAdmins(Packets.SendPartitionTable(
                 pt.getID(), pt.getReplicas(), pt.getRowList()))
+            if app.backup_initially:
+                pt.setBackupTidDict({}) # {} <=> all ZERO_TID
+                app.backup_tid = pt.getBackupTid()
+                assert app.backup_tid == ZERO_TID, app.backup_tid
         else:
             cell_list = pt.outdate()
             if cell_list:
