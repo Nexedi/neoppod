@@ -92,6 +92,10 @@ class Application(BaseApplication):
             help='the name of cluster to backup')
         _('M', 'upstream-masters', parse=util.parseMasterList,
             help='list of master nodes in the cluster to backup')
+        _.bool('B', 'backup',
+            help="transition automatically toward BACKINGUP instead of RUNNING"
+                 " - without passing through RUNNING - if the cluster is empty"
+                 " (this requires --upstream-cluster and --upstream-master)")
         _.int('i', 'nid',
             help="specify an NID to use for this process (testing purpose)")
 
@@ -144,6 +148,7 @@ class Application(BaseApplication):
                                  " different from cluster name")
             self.backup_app = BackupApplication(self, upstream_cluster,
                                                 config['upstream_masters'])
+        self.backup_initially = config.get('backup')
 
         self.administration_handler = administration.AdministrationHandler(
             self)
@@ -308,7 +313,11 @@ class Application(BaseApplication):
                 self.runManager(RecoveryManager)
                 try:
                     self.runManager(VerificationManager)
-                    if not self.backup_tid:
+                    if (self.backup_initially and
+                        self.getLastTransaction() == ZERO_TID):
+                        self.pt.setBackupTidDict({}) # {} <=> all ZERO_TID
+                        self.backup_tid = ZERO_TID
+                    elif not self.backup_tid:
                         self.provideService()
                         # self.provideService only returns without raising
                         # when switching to backup mode.
