@@ -93,11 +93,22 @@ class ReplicationTests(NEOThreadedTest):
                     tid, upstream_name, source_dict = packet._args
                     return not upstream_name and all(source_dict.itervalues())
             with NEOCluster(partitions=np, replicas=nr-1, storage_count=5,
-                            upstream=upstream) as backup:
-                backup.start()
-                # Initialize & catch up.
-                backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
-                self.tic()
+                            upstream=upstream, backup_initially=True) as backup:
+                state_list = []
+                def changeClusterState(orig, state):
+                    state_list.append(state)
+                    orig(state)
+                with Patch(backup.master, changeClusterState=changeClusterState):
+                    # Initialize & catch up.
+                    backup.start()
+                    self.tic()
+                # Check that backup cluster goes straight to BACKINGUP.
+                self.assertEqual(state_list, [
+                    ClusterStates.RECOVERING,
+                    ClusterStates.VERIFYING,
+                    ClusterStates.STARTING_BACKUP,
+                    ClusterStates.BACKINGUP])
+
                 self.assertEqual(np*nr, self.checkBackup(backup))
                 # Normal case, following upstream cluster closely.
                 importZODB(17)
