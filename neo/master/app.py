@@ -92,6 +92,10 @@ class Application(BaseApplication):
             help='the name of cluster to backup')
         _('M', 'upstream-masters', parse=util.parseMasterList,
             help='list of master nodes in the cluster to backup')
+        _.bool('B', 'backup',
+            help="transition automatically toward BACKINGUP instead of RUNNING"
+                 " on cluster creation, without passing through RUNNING state"
+                 " (this requires --upstream-cluster and --upstream-master)")
         _.int('i', 'nid',
             help="specify an NID to use for this process (testing purpose)")
 
@@ -144,6 +148,7 @@ class Application(BaseApplication):
                                  " different from cluster name")
             self.backup_app = BackupApplication(self, upstream_cluster,
                                                 config['upstream_masters'])
+        self.backup_initially = config['backup'] if upstream_cluster else False
 
         self.administration_handler = administration.AdministrationHandler(
             self)
