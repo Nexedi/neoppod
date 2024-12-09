@@ -148,7 +148,7 @@ class Application(BaseApplication):
                                  " different from cluster name")
             self.backup_app = BackupApplication(self, upstream_cluster,
                                                 config['upstream_masters'])
-        self.backup_initially = config['backup'] if upstream_cluster else False
+        self.backup_initially = config['backup']
 
         self.administration_handler = administration.AdministrationHandler(
             self)

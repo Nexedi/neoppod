@@ -32,7 +32,7 @@ from neo.lib.connector import SocketConnector
 from neo.lib.connection import ClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
-from neo.lib.util import add64, p64, u64
+from neo.lib.util import add64, p64, u64, parseMasterList
 from .. import Patch, TransactionalResource
 from . import ConnectionFilter, LockLock, NEOCluster, NEOThreadedTest, \
     predictable_random, with_cluster
@@ -240,11 +240,45 @@ class ReplicationTests(NEOThreadedTest):
             # Do not start with an empty DB so that 'primary_dict' below is not
             # empty on the first iteration.
             importZODB(1)
+
+            # --- ASIDE ---
+            # check that master crashes when started with --backup but without
+            # upstream (-C,--upstream-cluster and -M,--upstream-masters) info.
             with NEOCluster(partitions=np, replicas=2, storage_count=4,
-                            upstream=upstream) as backup:
-                backup.start()
-                backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
-                self.tic()
+                            backup_initially=True) as backup:
+                exitmsg = []
+                def exit(orig, msg):
+                    exitmsg.append(msg)
+                    orig(msg)
+                with Patch(sys, exit=exit):
+                    self.assertRaises(
+                        AssertionError,
+                        backup.start)
+                m = backup.master
+                backup.join((m,))
+                self.assertEqual(exitmsg, [m.no_upstream_msg])
+                # then check that when restarting the master with upstream info
+                # but without --backup still makes the cluster go to BACKINGUP.
+                m.resetNode(
+                    upstream_cluster=upstream.name,
+                    upstream_masters=parseMasterList(upstream.master_nodes),
+                    backup=False)
+                state_list = []
+                def changeClusterState(orig, state):
+                    state_list.append(state)
+                    orig(state)
+                with Patch(m, changeClusterState=changeClusterState):
+                    # Initialize & catch up.
+                    m.start()
+                    self.tic()
+                # Check that backup cluster goes straight to BACKINGUP.
+                self.assertEqual(state_list, [
+                    ClusterStates.RECOVERING,
+                    ClusterStates.VERIFYING,
+                    ClusterStates.STARTING_BACKUP,
+                    ClusterStates.BACKINGUP])
+                # --- END ASIDE ---
+
                 storage_list = [x.uuid for x in backup.storage_list]
                 slave = set(xrange(len(storage_list))).difference
                 for event in xrange(10):

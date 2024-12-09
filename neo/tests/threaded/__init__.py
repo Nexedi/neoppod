@@ -780,9 +780,9 @@ class NEOCluster(object):
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
             kw.update(upstream_cluster=upstream.name,
-                upstream_masters=parseMasterList(upstream.master_nodes),
-                backup=backup_initially)
+                upstream_masters=parseMasterList(upstream.master_nodes))
         self.master_list = [MasterApplication(autostart=autostart,
+                                              backup=backup_initially,
                                               address=x, **kw)
                             for x in master_list]
         if db_list is None:
