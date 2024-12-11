@@ -36,10 +36,11 @@ except OutOfData: # fallback implementation
     msgpack.Unpacker.read_bytes = read_bytes
     del read_bytes
 
-@apply
-class dummy_read_buffer(msgpack.Unpacker):
+class DummyReadBuffer(msgpack.Unpacker):
     def feed(self, _):
         pass
+
+dummy_read_buffer = DummyReadBuffer()
 
 class ConnectionClosed(Exception):
     pass
@@ -497,7 +498,7 @@ class Connection(BaseConnection):
                     self._queue.append(packet)
         except ConnectorException:
             self._closure()
-        except PacketMalformedError, e:
+        except PacketMalformedError as e:
             logging.error('malformed packet from %r: %s', self, e)
             self._closure()
         return empty_queue and not not self._queue
@@ -651,7 +652,7 @@ class ClientConnection(Connection):
     def _connect(self):
         try:
             connected = self.connector.makeClientConnection()
-        except ConnectorDelayedConnection, c:
+        except ConnectorDelayedConnection as c:
             connect_limit, = c.args
             self.getTimeout = lambda: connect_limit
             self.onTimeout = self._delayedConnect
@@ -749,7 +750,7 @@ class MTClientConnection(ClientConnection):
             super(MTClientConnection, self).__init__(*args, **kwargs)
 
     # Alias without lock (cheaper than super())
-    _ask = ClientConnection.ask.__func__
+    _ask = ClientConnection.ask
 
     def ask(self, packet, queue=None, **kw):
         with self.lock:

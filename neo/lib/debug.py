@@ -125,8 +125,8 @@ class PdbSocket(object):
         try:
             self._socket.recv(0)
             return True
-        except socket.error, (err, _):
-            if err != errno.EAGAIN:
+        except socket.error as e:
+            if e.errno != errno.EAGAIN:
                 raise
             self._socket.setblocking(1)
             return False
