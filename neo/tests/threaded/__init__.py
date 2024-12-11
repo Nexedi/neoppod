@@ -764,7 +764,7 @@ class NEOCluster(object):
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
-                       compress=True, backup_count=0,
+                       compress=True, backup_count=0, backup_initially=False,
                        importer=None, autostart=None, dedup=False, name=None):
         self.name = name or self._allocateName()
         self.backup_list = [self._allocateName() for x in xrange(backup_count)]
@@ -782,6 +782,7 @@ class NEOCluster(object):
             kw.update(upstream_cluster=upstream.name,
                 upstream_masters=parseMasterList(upstream.master_nodes))
         self.master_list = [MasterApplication(autostart=autostart,
+                                              backup=backup_initially,
                                               address=x, **kw)
                             for x in master_list]
         if db_list is None:
