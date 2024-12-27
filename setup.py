@@ -53,6 +53,7 @@ extras_require = {
     'client': zodb_require,
     'ctl': [],
     'master': [],
+    'reflink': zodb_require,
     'storage-sqlite': [],
     'storage-mysqldb': ['mysqlclient'],
     'storage-pymysql': ['PyMySQL'],
@@ -105,6 +106,7 @@ setup(
             'neostorage=neo.scripts.neostorage:main',
             'neotestrunner=neo.scripts.runner:main',
             'neosimple=neo.scripts.simple:main',
+            'reflink=neo.scripts.reflink:main',
             'stat_zodb=neo.tests.stat_zodb:main',
         ],
         'zodburi.resolvers': [

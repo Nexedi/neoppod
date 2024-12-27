@@ -27,12 +27,7 @@ A NEO cluster is composed of the following types of nodes:
 
   Well... Something needing to store/load data in a NEO cluster.
 
-ZODB API is fully implemented except:
-
-- pack: only old revisions of objects are removed (it should be possible
-  to use `zc.zodbdgc <https://pypi.python.org/pypi/zc.zodbdgc>`_
-  for garbage collection)
-- blobs: not implemented (not considered yet)
+ZODB API is fully implemented, except blobs.
 
 Any ZODB like FileStorage can be converted to NEO instantaneously,
 which means the database is operational before all data are imported.
@@ -174,6 +169,14 @@ that a node runs in an older environment (Python + OpenSSL) than others.
 Note also that you can't mix non-SSL nodes and SSL nodes, even between a
 upstream cluster and a backup one. In doing so, connections can get stuck,
 or fail with malformed packets or SSL handshake errors.
+
+Pack
+----
+
+The implementation of ZODB pack in NEO is a bit special. NEO itself only
+implements deletion of historical data, i.e. no Garbage Collection.
+A separate tool called `reflink` is provided in order to perform GC in a
+more efficient way than `zc.zodbdgc <https://pypi.python.org/pypi/zc.zodbdgc>`_.
 
 Only 1 log file per process
 ---------------------------

@@ -1738,8 +1738,7 @@ class Test(NEOThreadedTest):
         if 1:
             t, c = cluster.getTransaction()
             m2c, = cluster.master.getConnectionList(cluster.client)
-            cluster.client._cache.clear()
-            c.cacheMinimize()
+            cluster.emptyCache(c)
             if not hasattr(sys, 'getrefcount'): # PyPy
                 # See persistent commit ff64867cca3179b1a6379c93b6ef90db565da36c
                 import gc; gc.collect()

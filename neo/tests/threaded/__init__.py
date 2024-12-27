@@ -24,6 +24,8 @@ from cPickle import dumps
 from email import message_from_string
 from itertools import count
 from functools import partial, wraps
+from urllib import urlencode
+from urlparse import urlunsplit
 from zlib import decompress
 import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
@@ -856,6 +858,15 @@ class NEOCluster(object):
     def __exit__(self, t, v, tb):
         self.stop(None)
 
+    def zurl(self):
+        q = [] if self.compress else [('compress', 'false')]
+        if self.SSL:
+            q += zip(('ca', 'cert', 'key'), self.SSL)
+        return urlunsplit(('neo', '%s@%s' % (
+            self.name,
+            self.master_nodes.replace(' ', ','),
+            ), '', urlencode(q), ''))
+
     def resetNeoCTL(self):
         self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
 
@@ -880,13 +891,11 @@ class NEOCluster(object):
             ClusterStates.RUNNING, ClusterStates.BACKINGUP)
         def notifyClusterInformation(release, orig, handler, conn, state):
             orig(handler, conn, state)
-            if state in expected_state:
+            if state in expected_state and handler.app is self.admin_list[0]:
                 release()
         with Serialized.until(MasterEventHandler,
                 sendPartitionTable=sendPartitionTable) as tic1, \
-             Serialized.until(RecoveryManager, dispatch=dispatch) as tic2, \
-             Serialized.until(MasterEventHandler,
-                notifyClusterInformation=notifyClusterInformation) as tic3:
+             Serialized.until(RecoveryManager, dispatch=dispatch) as tic2:
             for node in master_list:
                 node.start()
             for node in self.admin_list:
@@ -896,8 +905,11 @@ class NEOCluster(object):
                 node.start()
             tic2()
             if not recovering:
-                self.startCluster()
-                tic3()
+                with Serialized.until(MasterEventHandler,
+                        notifyClusterInformation=notifyClusterInformation,
+                        ) as tic3:
+                    self.startCluster()
+                    tic3()
         self.checkStarted(expected_state, storage_list)
 
     def checkStarted(self, expected_state, storage_list=None):
@@ -1061,6 +1073,10 @@ class NEOCluster(object):
         txn = transaction.TransactionManager()
         return txn, (self.db if db is None else db).open(txn)
 
+    def emptyCache(self, conn):
+        self.client._cache.clear()
+        conn.cacheMinimize()
+
     def moduloTID(self, partition):
         """Force generation of TIDs that will be stored in given partition"""
         partition = p64(partition)
@@ -1158,6 +1174,8 @@ class NEOThreadedTest(NeoTestBase):
         def run(self):
             try:
                 self.__result = apply(*self.__target)
+            except SystemExit:
+                self.__result = None
             except:
                 self.__exc_info = sys.exc_info()
                 if self.__exc_info[0] is NEOThreadedTest.failureException:

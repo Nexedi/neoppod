@@ -14,21 +14,28 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import random, threading, unittest
+from __future__ import print_function
+import random, thread, threading, unittest
 from bisect import bisect
 from collections import defaultdict, deque
 from contextlib import contextmanager
+from itertools import count
+from logging import NullHandler
 from time import time
+from Queue import Queue
 import transaction
 from persistent import Persistent
-from ZODB.POSException import UndoError
+from ZODB.POSException import POSKeyError, ReadOnlyError, UndoError
+from ZODB.utils import newTid
 from neo.client.exception import NEOStorageError, NEOUndoPackError
+from neo.client.Storage import Storage
 from neo.lib import logging
-from neo.lib.protocol import ClusterStates, Packets
-from neo.lib.util import add64, p64
+from neo.lib.protocol import ClusterStates, Packets, ZERO_TID
+from neo.lib.util import add64, p64, u64
+from neo.scripts import reflink
 from neo.storage.database.manager import BackgroundWorker
-from .. import consume, Patch
-from . import ConnectionFilter, NEOThreadedTest, with_cluster
+from .. import consume, Patch, TransactionalResource
+from . import ConnectionFilter, NEOCluster, NEOThreadedTest, with_cluster
 
 class PCounter(Persistent):
     value = 0
@@ -289,6 +296,397 @@ class PackTests(NEOThreadedTest):
         client.pack(tid)
         t, c = cluster.getTransaction()
         self.assertPopulated(c)
+
+
+class GCTests(NEOThreadedTest):
+
+    @classmethod
+    def setUpClass(cls):
+        super(GCTests, cls).setUpClass()
+        reflink.logging_handler = NullHandler()
+        reflink.print = lambda *args, **kw: None
+
+    @with_cluster(serialized=False)
+    def test1(self, cluster):
+        def check(*objs):
+            cluster.emptyCache(conn)
+            t.begin()
+            for ob in all_:
+                if ob in objs:
+                    ob._p_activate()
+                else:
+                    self.assertRaises(POSKeyError, ob._p_activate)
+        def commit(orig, *args):
+            orig(*args)
+            committed.release()
+            track.acquire()
+            if stop:
+                thread.exit()
+        commit_patch = Patch(reflink.Changeset, commit=commit)
+        def reflink_run():
+            reflink.main(['-v', reflink_cluster.zurl(), 'run',
+                          '-p', '0', '-i', '1e-9',
+                          cluster.zurl()])
+        committed = threading.Lock()
+        track = threading.Lock()
+        with commit_patch, committed, track, NEOCluster() as reflink_cluster:
+            stop = False
+            reflink_cluster.start()
+            reflink_thread = self.newThread(reflink_run)
+            t, conn = cluster.getTransaction()
+            committed.acquire()
+            r = conn.root()[''] = PCounter()
+            t.commit()
+            track.release()
+            committed.acquire()
+
+            b = PCounter()
+            c = PCounter()
+            r.x = b, c
+            z = c.x = PCounter()
+            l = [PCounter(), PCounter()]
+            l[0].x = l[1], l[1]
+            l[1].x = l[0], l[0]
+            b.x = l[0]
+            t.commit()
+            track.release()
+            committed.acquire()
+
+            l.append(PCounter())
+            l[0].x = l[2], l[1]
+            l[1].x = l[0], l[2]
+            l[2].x = l[1], l[0]
+            l[1].y = y = PCounter()
+            d = PCounter()
+            r.x = b, d
+            d.x = z
+            t.commit()
+            track.release()
+            committed.acquire()
+
+            all_ = [b, c, d, y, z]
+            all_ += l
+
+            # GC commit
+            track.release()
+            committed.acquire()
+            check(b, d, y, z, *l)
+            tid0 = cluster.last_tid
+
+            r.x = d
+            t.commit()
+            track.release()
+            committed.acquire()
+
+            tid1 = cluster.last_tid
+            self.assertEqual(tid1, reflink_cluster.last_tid)
+            # GC commit
+            track.release()
+            committed.acquire()
+            final = d, z
+            check(*final)
+
+            stop = True
+            track.release()
+            reflink_thread.join()
+            tid2 = cluster.last_tid
+            self.assertLess(tid1, tid2)
+            self.assertEqual(tid2, reflink_cluster.last_tid)
+
+        cluster.neoctl.truncate(tid1)
+        self.tic()
+
+        with NEOCluster() as reflink_cluster:
+            reflink_cluster.start()
+            loid = cluster.master.tm.getLastOID()
+            reflink.main([reflink_cluster.zurl(), 'bootstrap', hex(u64(tid0))])
+            stop = False
+            with commit_patch, committed, track:
+                reflink_thread = self.newThread(reflink_run)
+                committed.acquire()
+
+                for i in xrange(-u64(loid), 2):
+                    track.release()
+                    committed.acquire()
+                    if not i:
+                        self.assertEqual(tid1, reflink_cluster.last_tid)
+                check(*final)
+
+                stop = True
+                track.release()
+                reflink_thread.join()
+            tid3 = cluster.last_tid
+            self.assertLess(tid2, tid3)
+            self.assertEqual(tid3, reflink_cluster.last_tid)
+
+    @with_cluster()
+    def test2(self, cluster, full=False):
+        """
+        Several cases, 1 line per transaction,
+        XY means thats X has reference to Y and X!Y deletes it,
+        a digit refers to an object that is equivalent to the oid 0:
+        0. 0a,0b
+           ab,ba,0!a
+           -> a marked as orphan but evaluated during GC as being part of
+              a cycle that is not orphan
+        1. 1a,1b
+           ab,ba,1!a
+           a!b
+        2. 2a,2b,ab,ba
+           2!a,2!b
+           -> a and/or b must be marked as orphan
+        3. (packed)
+           ab
+           ba
+           3b
+        4. (packed)
+           same as 3 but no more ref to b
+        5. (packed)
+           a
+           ba
+           5b
+        6. 6a,a6
+           6!a
+        7. 7a,7b,ab,ba,ac
+           7!a
+           b!a
+        8. 8a,ab,ba
+           8!a
+           partial GC of only a (--max-txn-size exceeded)
+        """
+        t, conn = cluster.getTransaction()
+        r = conn.root()
+        for i in xrange(9):
+            r[i] = PCounter()
+        t.commit()
+
+        a0 = r[0].a = PCounter()
+        b0 = r[0].b = PCounter()
+        a1 = r[1].a = PCounter()
+        b1 = r[1].b = PCounter()
+        a2 = r[2].a = PCounter()
+        b2 = r[2].b = PCounter()
+        a2.x = b2
+        b2.x = a2
+        b3 = r[3].b = PCounter()
+        a3 = b3.x = PCounter()
+        a3.x = b3
+        b4 = r[4].b = PCounter()
+        a4 = b4.x = PCounter()
+        a4.x = b4
+        b5 = r[5].b = PCounter()
+        a5 = b5.x = PCounter()
+        a6 = r[6].a = PCounter()
+        a6.x = r[6]
+        a7 = r[7].a = PCounter()
+        b7 = r[7].b = PCounter()
+        c7 = a7.y = PCounter()
+        a7.x = b7
+        b7.x = a7
+        a8 = r[8].a = PCounter()
+        b8 = a8.x = PCounter()
+        b8.x = a8
+        t.commit()
+
+        b3._p_changed = b4._p_changed = b5._p_changed = 1
+        t.commit()
+        r[3]._p_changed = 1
+        del r[4].b
+        t.commit()
+        tid = cluster.last_tid
+
+        a0.x = b0
+        b0.x = a0
+        a1.x = b1
+        b1.x = a1
+        del r[0].a, r[1].a, r[2].a, r[2].b, r[6].a, r[7].a, r[8].a
+        t.commit()
+
+        del a1.x, b7.x
+        def txn_meta(txn):
+            try:
+                return txn.data(conn)
+            except KeyError:
+                return txn
+        TransactionalResource(t, 1, tpc_begin=lambda txn:
+            conn.db().storage.deleteObject(a8._p_oid, a8._p_serial,
+                                           txn_meta(txn)))
+        t.commit()
+
+        client = cluster.client
+        client.wait_for_pack = True
+        client.pack(tid)
+
+        with NEOCluster() as reflink_cluster:
+            reflink_cluster.start()
+            args = ['-v', reflink_cluster.zurl(), 'run',
+                    '-p', '0', '-1', cluster.zurl()]
+            if full:
+                args.append('-f')
+            reflink.main(args)
+
+        cluster.emptyCache(conn)
+        t.begin()
+        for x in a0, b0, a1, b1, a3, b3, a5, b5, b7:
+            x._p_activate()
+        for x in a2, b2, a4, b4, a6, a7, c7, a8, b8:
+            self.assertRaises(POSKeyError, x._p_activate)
+
+    def test3(self):
+        self.test2(True)
+
+    @with_cluster()
+    def test4(self, cluster, jobs=None):
+        t, conn = cluster.getTransaction()
+        r = conn.root()
+        a = r.x = PCounter()
+        z = r.z = PCounter()
+        t.commit()
+        b = r.x = PCounter()
+        b.x = a
+        t.commit()
+        c = r.x = PCounter()
+        c.x = b
+        t.commit()
+        tid0 = cluster.last_tid
+        assert a._p_oid < b._p_oid < c._p_oid
+        del r.x
+        t.commit()
+
+        class tpc_finish(Exception):
+            def __new__(cls, orig, storage, *args):
+                tid = orig(storage, *args)
+                if maybeAbort(tid):
+                    raise Exception.__new__(cls)
+                return tid
+        with NEOCluster() as reflink_cluster:
+            reflink_cluster.start()
+            args = ['-v', reflink_cluster.zurl(), 'bootstrap', hex(u64(tid0))]
+            reflink.main(args)
+            args[2:] = 'run', '-m', '1', '-p', '0', cluster.zurl()
+            fgc_args = args[:2]
+            fgc_args += 'gc', '-f', args[-1] + '?read_only=true'
+            if jobs:
+                fgc_args[4:4] = args[5:5] = '-j', str(jobs)
+            with Patch(Storage, tpc_finish=tpc_finish):
+                for x in a, b:
+                    maybeAbort = cluster.last_tid.__lt__
+                    # Interrupt after 1 commit of the bootstrap GC.
+                    self.assertRaises(tpc_finish, reflink.main, args)
+                    cluster.emptyCache(conn)
+                    t.begin()
+                    self.assertRaises(POSKeyError, x._p_activate)
+                    c._p_activate()
+                tids = []
+                def maybeAbort(tid):
+                    tids.append(tid)
+                    return len(tids) == 3
+                del args[3:5]
+                # Interrupt when it is going to wait for new transactions
+                # (bootstrap completed).
+                self.assertRaises(tpc_finish, reflink.main, args)
+                cluster.emptyCache(conn)
+                t.begin()
+                self.assertRaises(POSKeyError, c._p_activate)
+                z._p_activate()
+                self.assertRaises(ReadOnlyError, reflink.main, fgc_args)
+                del r.z
+                t.commit()
+                args.insert(3, '-f')
+                # Interrupt when it is going to wait for new transactions.
+                del tids[:]
+                self.assertRaises(tpc_finish, reflink.main, args)
+            cluster.emptyCache(conn)
+            t.begin()
+            self.assertRaises(POSKeyError, z._p_activate)
+            # Now, there really should be nothing to GC anymore.
+            reflink.main(fgc_args)
+
+        cluster.emptyCache(conn)
+        t.begin()
+        r._p_activate()
+
+    def test5(self):
+        self.test4(2)
+
+    @with_cluster()
+    def test6(self, cluster):
+        t, conn = cluster.getTransaction()
+        r = conn.root()
+        a = r.x = PCounter()
+        t.commit()
+        b = r.x = PCounter()
+        b.x = a
+        t.commit()
+        tid0 = cluster.last_tid
+        assert a._p_oid < b._p_oid
+        del r.x
+        t.commit()
+
+        class _wait(Exception):
+            def __init__(self, *_):
+                raise self
+        with NEOCluster() as reflink_cluster:
+            reflink_cluster.start()
+            args = ['-v', reflink_cluster.zurl(), 'run',
+                    '-m', '1', '-p', '0', '-i', '1e-9', cluster.zurl()]
+            with Patch(reflink.InvalidationListener, _wait=_wait):
+                self.assertRaises(_wait, reflink.main, args)
+            cluster.emptyCache(conn)
+            t.begin()
+            for x in a, b:
+                self.assertRaises(POSKeyError, x._p_activate)
+            gc_args = args[:2]
+            gc_args += 'gc', args[-1] + '?read_only=true'
+            reflink.main(gc_args)
+
+    @with_cluster()
+    def test7(self, cluster):
+        """
+        Should an oid be wrongly marked as orphan, the GC should keep it.
+        """
+        changeset = reflink.Changeset(cluster.getZODBStorage())
+        for i in xrange(4):
+            for z in 0, 10:
+                a = p64(z+i)
+                A = changeset.get(a)
+                b = p64(z + (i + 1) % 4)
+                B = changeset.get(b)
+                self.assertFalse(A.referents or B.referrers)
+                A.referents.add(b)
+                B.referrers.append(a)
+        tid = newTid(None)
+        changeset.commit(tid)
+        self.assertFalse(changeset.orphans(None))
+        a = changeset.get(ZERO_TID).next_orphan = p64(2)
+        A = changeset.get(a)
+        A.prev_orphan = ZERO_TID
+        A.next_orphan = b = add64(a, z)
+        changeset.get(b).prev_orphan = a
+        tid = newTid(tid)
+        changeset.commit(tid)
+        self.assertFalse(changeset.orphans(None))
+        changeset.abort()
+        for i in xrange(4):
+            for z in 0, 10:
+                a = p64(z + i)
+                A = changeset.get(a)
+                b = p64(z + (i - 1) % 4)
+                B = changeset.get(b)
+                A.referents.add(b)
+                reflink.insort(B.referrers, a)
+        tid = newTid(tid)
+        changeset.commit(tid)
+        self.assertEqual(map(p64, xrange(z, z+4)),
+                         sorted(changeset.orphans(None)))
+        changeset.abort()
+        a = p64(2)
+        b = p64(z)
+        changeset.get(a).referents.add(b)
+        reflink.insort(changeset.get(b).referrers, a)
+        tid = newTid(tid)
+        changeset.commit(tid)
+        self.assertFalse(changeset.orphans(None))
 
 
 if __name__ == "__main__":
