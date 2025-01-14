@@ -515,7 +515,7 @@ class Test(NEOThreadedTest):
         self.assertIn(get_ident(), conflicts)
 
     @with_cluster()
-    def testDelayedLoad(self, cluster):
+    def testReadLockVsAskObject(self, cluster):
         """
         Check that a storage node delays reads from the database,
         when the requested data may still be in a temporary place.
@@ -548,6 +548,47 @@ class Test(NEOThreadedTest):
             load.join()
             self.assertEqual(idle, [1, 0])
             self.assertIn('', r)
+
+    @with_cluster(partitions=2, storage_count=2)
+    def testReadLockVsAskTIDsFrom(self, cluster):
+        """
+        Similar to testReadLockVsAskObject, here to check IStorage.iterator
+        """
+        l = threading.Lock()
+        l.acquire()
+        idle = []
+        def askTIDsFrom(orig, *args):
+            try:
+                orig(*args)
+            finally:
+                idle.append(s1.em.isIdle())
+                l.release()
+        s0, s1 = cluster.sortStorageList()
+        t, c = cluster.getTransaction()
+        t0 = cluster.last_tid
+        r = c.root()
+        r[''] = ''
+        with Patch(ClientOperationHandler(s1), askTIDsFrom=askTIDsFrom):
+            with cluster.master.filterConnection(s1) as m2s1:
+                m2s1.delayNotifyUnlockInformation()
+                with cluster.moduloTID(1):
+                    t.commit()
+                t1 = cluster.last_tid
+                r._p_changed = 1
+                with cluster.moduloTID(0):
+                    t.commit()
+                t2 = cluster.last_tid
+                tid_list = []
+                cluster.client._cache.clear()
+                @self.newThread
+                def iterTrans():
+                    for txn in c.db().storage.iterator():
+                        tid_list.append(txn.tid)
+                l.acquire()
+            l.acquire()
+        iterTrans.join()
+        self.assertEqual(idle, [1, 0])
+        self.assertEqual(tid_list, [t0, t1, t2])
 
     @with_cluster(replicas=1)
     def test_notifyNodeInformation(self, cluster):

@@ -157,6 +157,9 @@ class ClientOperationHandler(BaseHandler):
         conn.answer(Packets.AnswerRelockObject(conflict))
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
+        app = self.app
+        if app.tm.isLockedTid(max_tid):
+            raise DelayEvent
         conn.answer(Packets.AnswerTIDsFrom(self.app.dm.getReplicationTIDList(
             min_tid, max_tid, length, partition)))
 

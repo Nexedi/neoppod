@@ -71,4 +71,6 @@ def iterator(app, start=None, stop=None):
             break # nothing more
         for txn in chunk:
             yield Transaction(app, txn)
+        if stop == max_tid:
+            break
         start = add64(max_tid, 1)
