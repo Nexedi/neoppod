@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import errno
 import os
 import sys
@@ -112,7 +113,7 @@ class PortAllocator(object):
                     try:
                         s.bind((local_ip, port))
                         break
-                    except socket.error, e:
+                    except socket.error as e:
                         if e.errno != errno.EADDRINUSE:
                             raise
                 elif len(tried_port_set) >= n:
@@ -122,7 +123,7 @@ class PortAllocator(object):
                 s.listen(1)
                 self.socket_list.append(s)
                 return port
-            except socket.error, e:
+            except socket.error as e:
                 if e.errno != errno.EADDRINUSE:
                     raise
 
@@ -210,7 +211,7 @@ class Process(object):
                     on_fork()
                 self.run()
                 status = 0
-            except SystemExit, e:
+            except SystemExit as e:
                 status = e.code
                 if status is None:
                     status = 0
@@ -226,7 +227,7 @@ class Process(object):
                     save_coverage()
                     os._exit(status)
                 except:
-                    print >>sys.stderr, status
+                    print(status, file=sys.stderr)
                 finally:
                     os._exit(1)
         logging.info('pid %u: %s %s',
@@ -338,7 +339,7 @@ class NEOCluster(object):
         self.db_list = db_list
         if temp_dir is None:
             temp_dir = tempfile.mkdtemp(prefix='neo_')
-            print 'Using temp directory ' + temp_dir
+            print('Using temp directory', temp_dir)
         if adapter == 'MySQL':
             self.db_template = setupMySQL(db_list, clear_databases)
         elif adapter == 'SQLite':
@@ -352,7 +353,7 @@ class NEOCluster(object):
                     db = self.db_template(db)
                     try:
                         os.remove(db)
-                    except OSError, e:
+                    except OSError as e:
                         if e.errno != errno.ENOENT:
                             raise
                     else:
@@ -466,7 +467,7 @@ class NEOCluster(object):
         def start(last_try):
             try:
                 self.neoctl.startCluster()
-            except (NotReadyException, SystemExit), e:
+            except (NotReadyException, SystemExit) as e:
                 return False, e
             return True, None
         self.expectCondition(start)
@@ -491,7 +492,7 @@ class NEOCluster(object):
             try:
                 process.kill(signal.SIGKILL)
                 process.wait()
-            except NodeProcessError, e:
+            except NodeProcessError as e:
                 error_list += e.args
         if clients:
             for zodb_storage in self.zodb_storage_list:
@@ -626,8 +627,8 @@ class NEOCluster(object):
             except NotReadyException:
                 current_try = 0
             if last_try is not None and current_try < last_try:
-                raise AssertionError, 'Regression: %s became %s' % \
-                    (last_try, current_try)
+                raise AssertionError('Regression: %s became %s'
+                                     % (last_try, current_try))
             return (current_try == node_count, current_try)
         self.expectCondition(callback, *args, **kw)
 
@@ -663,8 +664,8 @@ class NEOCluster(object):
         def callback(last_try):
             current_try = self.getPrimary()
             if None not in (uuid, current_try) and uuid != current_try:
-                raise AssertionError, 'An unexpected primary arose: %r, ' \
-                    'expected %r' % (dump(current_try), dump(uuid))
+                raise AssertionError('Unexpected primary %r, expected %r'
+                                     % (dump(current_try), dump(uuid)))
             return uuid is None or uuid == current_try, current_try
         self.expectCondition(callback, *args, **kw)
 

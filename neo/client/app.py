@@ -364,7 +364,7 @@ class Application(ThreadedApplication):
                         return askStorage(conn, packet)
                     except ConnectionClosed:
                         pass
-                    except NEOStorageReadRetry, e:
+                    except NEOStorageReadRetry as e:
                         if e.args[0]:
                             continue
                 failed += 1

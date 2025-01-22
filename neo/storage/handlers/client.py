@@ -94,7 +94,7 @@ class ClientOperationHandler(BaseHandler):
         try:
             locked = self.app.tm.storeObject(ttid, serial, oid, compression,
                     checksum, data, data_serial)
-        except ConflictError, err:
+        except ConflictError as err:
             # resolvable or not
             locked = err.tid
         except NonReadableCell:
@@ -132,7 +132,7 @@ class ClientOperationHandler(BaseHandler):
         try:
             self._askStoreObject(conn, oid, serial, compression,
                 checksum, data, data_serial, ttid, None)
-        except DelayEvent, e:
+        except DelayEvent as e:
             # locked by a previous transaction, retry later
             self.app.tm.queueEvent(self._askStoreObject, conn, (oid, serial,
                 compression, checksum, data, data_serial, ttid, time.time()),
@@ -141,7 +141,7 @@ class ClientOperationHandler(BaseHandler):
     def askRelockObject(self, conn, ttid, oid):
         try:
             self.app.tm.relockObject(ttid, oid, True)
-        except DelayEvent, e:
+        except DelayEvent as e:
             # locked by a previous transaction, retry later
             self.app.tm.queueEvent(self._askRelockObject,
                 conn, (ttid, oid, time.time()), *e.args)
@@ -219,7 +219,7 @@ class ClientOperationHandler(BaseHandler):
         self.app.tm.register(conn, ttid)
         try:
             self._askCheckCurrentSerial(conn, ttid, oid, serial, None)
-        except DelayEvent, e:
+        except DelayEvent as e:
             # locked by a previous transaction, retry later
             self.app.tm.queueEvent(self._askCheckCurrentSerial,
                 conn, (ttid, oid, serial, time.time()), *e.args)
@@ -227,7 +227,7 @@ class ClientOperationHandler(BaseHandler):
     def _askCheckCurrentSerial(self, conn, ttid, oid, serial, request_time):
         try:
             locked = self.app.tm.checkCurrentSerial(ttid, oid, serial)
-        except ConflictError, err:
+        except ConflictError as err:
             # resolvable or not
             locked = err.tid
         except NonReadableCell:

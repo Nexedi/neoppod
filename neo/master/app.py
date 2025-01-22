@@ -179,7 +179,7 @@ class Application(BaseApplication):
         try:
             with self.em.wakeup_fd():
                 self._run()
-        except BaseException, e:
+        except BaseException as e:
             if not isinstance(e, SystemExit) or e.code:
                 logging.exception('Pre-mortem data:')
                 self.log()
@@ -269,7 +269,7 @@ class Application(BaseApplication):
         try:
             while True:
                 poll(1)
-        except StateChangedException, e:
+        except StateChangedException as e:
             if e.args[0] != ClusterStates.STARTING_BACKUP:
                 raise
             self.backup_tid = tid = self.getLastTransaction()
@@ -325,7 +325,7 @@ class Application(BaseApplication):
                         sys.exit(self.no_upstream_msg)
                     truncate = Packets.Truncate(
                         self.backup_app.provideService())
-                except StoppedOperation, e:
+                except StoppedOperation as e:
                     logging.critical('No longer operational')
                     truncate = Packets.Truncate(*e.args) if e.args else None
                     # Automatic restart except if we truncate or retry to.
@@ -349,10 +349,10 @@ class Application(BaseApplication):
                             node.setPending()
                             node_list.append(node)
                 self.broadcastNodesInformation(node_list)
-        except StateChangedException, e:
+        except StateChangedException as e:
             assert e.args[0] == ClusterStates.STOPPING
             self.shutdown()
-        except PrimaryElected, e:
+        except PrimaryElected as e:
             self.primary_master, = e.args
 
     def playSecondaryRole(self):
@@ -429,7 +429,7 @@ class Application(BaseApplication):
                         # All known master nodes are either down or secondary.
                         # Let's play the primary role again.
                         break
-            except PrimaryElected, e:
+            except PrimaryElected as e:
                 node = self.primary_master
                 self.primary_master, = e.args
                 assert node is not self.primary_master, node

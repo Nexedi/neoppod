@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division, print_function
 import argparse
 import traceback
 import unittest
@@ -162,7 +163,7 @@ class NeoTestRunner(unittest.TextTestResult):
                 if not only:
                     only = '*'
         else:
-            print '\n', name
+            print('\n', name)
         for test_module in modules:
             # load prefix if supplied
             if isinstance(test_module, tuple):
@@ -172,9 +173,9 @@ class NeoTestRunner(unittest.TextTestResult):
                 continue
             try:
                 test_module = __import__(test_module, fromlist=('*',), level=0)
-            except ImportError, err:
+            except ImportError as err:
                 self.failedImports[test_module] = err
-                print "Import of %s failed : %s" % (test_module, err)
+                print("Import of %s failed: %s" % (test_module, err))
                 traceback.print_exc()
                 continue
             suite.addTests(loader.loadTestsFromModule(test_module))
@@ -213,7 +214,7 @@ class NeoTestRunner(unittest.TextTestResult):
         success = self.testsRun - unexpected_count - expected_count
         add_status('Directory', self.temp_directory)
         if self.testsRun:
-            add_status('Status', '%.3f%%' % (success * 100.0 / self.testsRun))
+            add_status('Status', '%.3f%%' % (success * 100 / self.testsRun))
         for k, v in os.environ.iteritems():
             if k.startswith('NEO_TEST'):
                 if k == 'NEO_TESTS_ADAPTER' and v == 'MySQL':
@@ -409,7 +410,7 @@ Environment Variables:
                 coverage.combine(coverage.neotestrunner)
             coverage.save()
         if runner.dots:
-            print
+            print()
         # build report
         if (only or config.stop_on_success) and not config.mail_to:
             runner._buildSummary = lambda *args: (

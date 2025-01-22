@@ -56,7 +56,7 @@ class ElectionHandler(SecondaryHandler):
     def notPrimaryMaster(self, *args):
         try:
             super(ElectionHandler, self).notPrimaryMaster(*args)
-        except PrimaryElected, e:
+        except PrimaryElected as e:
             # We keep playing the primary role when the peer does not
             # know yet that we won election against the returned node.
             if not e.args[0].isIdentified():
@@ -80,7 +80,7 @@ class PrimaryHandler(ElectionHandler):
     def notPrimaryMaster(self, *args):
         try:
             super(ElectionHandler, self).notPrimaryMaster(*args)
-        except PrimaryElected, e:
+        except PrimaryElected as e:
             if e.args[0] is not self.app.primary_master:
                 raise
 

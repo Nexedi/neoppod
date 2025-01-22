@@ -497,7 +497,7 @@ class Connection(BaseConnection):
                     self._queue.append(packet)
         except ConnectorException:
             self._closure()
-        except PacketMalformedError, e:
+        except PacketMalformedError as e:
             logging.error('malformed packet from %r: %s', self, e)
             self._closure()
         return empty_queue and not not self._queue
@@ -651,7 +651,7 @@ class ClientConnection(Connection):
     def _connect(self):
         try:
             connected = self.connector.makeClientConnection()
-        except ConnectorDelayedConnection, c:
+        except ConnectorDelayedConnection as c:
             connect_limit, = c.args
             self.getTimeout = lambda: connect_limit
             self.onTimeout = self._delayedConnect

@@ -133,7 +133,7 @@ class AdministrationHandler(MasterHandler):
                     "a running node must be stopped before removal")
             try:
                 cell_list = app.pt.dropNodeList([node], keep)
-            except PartitionTableException, e:
+            except PartitionTableException as e:
                 raise AnswerDenied(str(e))
             node.setState(state)
             if node.isConnected():
@@ -227,7 +227,7 @@ class AdministrationHandler(MasterHandler):
             pt = app.pt
         try:
             changed_list = pt.tweak(drop_list)
-        except PartitionTableException, e:
+        except PartitionTableException as e:
             raise AnswerDenied(str(e))
         if not dry_run:
             app.broadcastPartitionChanges(changed_list)

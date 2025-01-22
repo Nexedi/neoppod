@@ -294,7 +294,7 @@ class Test(NEOThreadedTest):
                 m2s.remove(delayUnlockInformation)
             try:
                 return orig(tm, ttid, serial, oid, *args)
-            except Exception, e:
+            except Exception as e:
                 except_list.append(e.__class__)
                 raise
         if 1:
@@ -323,7 +323,7 @@ class Test(NEOThreadedTest):
                     delay[0].set()
             try:
                 return orig(tm, ttid, serial, oid, *args)
-            except Exception, e:
+            except Exception as e:
                 except_list.append(e.__class__)
                 raise
         def onAsk(orig, conn, packet, *args, **kw):

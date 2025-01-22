@@ -202,8 +202,7 @@ class Application(BaseApplication):
 
     def _run(self):
         """Make sure that the status is sane and start a loop."""
-        if len(self.name) == 0:
-            raise RuntimeError, 'cluster name must be non-empty'
+        assert self.name
 
         # Make a listening port
         handler = identification.IdentificationHandler(self)
@@ -226,10 +225,10 @@ class Application(BaseApplication):
             try:
                 self.initialize()
                 self.doOperation()
-                raise RuntimeError, 'should not reach here'
-            except StoppedOperation, msg:
+                assert False
+            except StoppedOperation as msg:
                 logging.error('operation stopped: %s', msg)
-            except PrimaryFailure, msg:
+            except PrimaryFailure as msg:
                 logging.error('primary master is down: %s', msg)
             finally:
                 self.operational = False

@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import argparse, bz2, gzip, errno, os, signal, sqlite3, sys, time
 from bisect import insort
 from itertools import chain
@@ -115,7 +116,7 @@ class Log(object):
                 self._reload(p[0])
             except StopIteration:
                 p = None
-            except sqlite3.DatabaseError, e:
+            except sqlite3.DatabaseError as e:
                 yield time.time(), None, 'PACKET', self._exc(e)
                 p = None
             try:
@@ -124,20 +125,20 @@ class Log(object):
                         yield self._packet(*p)
                         try:
                             p = next(np, None)
-                        except sqlite3.DatabaseError, e:
+                        except sqlite3.DatabaseError as e:
                             yield time.time(), None, 'PACKET', self._exc(e)
                             p = None
                     self._log_date = date
                     yield (date, self._node(name, cluster, nid),
                            getLevelName(level), msg.splitlines())
-            except sqlite3.DatabaseError, e:
+            except sqlite3.DatabaseError as e:
                 yield time.time(), None, 'LOG', self._exc(e)
             if p:
                 yield self._packet(*p)
                 try:
                     for p in np:
                         yield self._packet(*p)
-                except sqlite3.DatabaseError, e:
+                except sqlite3.DatabaseError as e:
                     yield time.time(), None, 'PACKET', self._exc(e)
         finally:
             self._db.rollback()
@@ -234,10 +235,10 @@ class Log(object):
         if color and levelname != 'PACKET':
             x = '\x1b[%sm%s%%s\x1b[39;49;0m' % (color_dict[levelname], prefix)
             for msg in msg_list:
-                print x % msg
+                print(x % msg)
         else:
             for msg in msg_list:
-                print prefix + msg
+                print(prefix + msg)
 
     def _packet(self, date, name, cluster, nid, msg_id, code, peer, body):
         self._packet_date = date
@@ -312,7 +313,7 @@ def emit_many(log_list, color=False):
                 while event[0] <= next_date:
                     emit(*event, color=color)
                     event = next()
-            except IOError, e:
+            except IOError as e:
                 if e.errno == errno.EPIPE:
                     sys.exit(1)
                 raise

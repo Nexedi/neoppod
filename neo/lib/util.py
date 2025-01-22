@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+from __future__ import division
 import os, socket
 from binascii import a2b_hex, b2a_hex
 from datetime import timedelta, datetime
@@ -39,7 +39,7 @@ nextafter()
 
 TID_LOW_OVERFLOW = 2**32
 TID_LOW_MAX = TID_LOW_OVERFLOW - 1
-SECOND_FROM_UINT32 = 60. / TID_LOW_OVERFLOW
+SECOND_FROM_UINT32 = 60 / TID_LOW_OVERFLOW
 MICRO_FROM_UINT32 = 1e6 / TID_LOW_OVERFLOW
 TID_CHUNK_RULES = (
     (-1900, 0),

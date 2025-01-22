@@ -210,7 +210,7 @@ class MasterDB(object):
         try:
             with open(path) as db:
                 self._set = set(map(tuple, json.load(db)))
-        except IOError, e:
+        except IOError as e:
             if e.errno != errno.ENOENT:
                 raise
             self._set = set()

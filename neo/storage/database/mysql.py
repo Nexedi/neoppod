@@ -210,7 +210,7 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
         while True:
             try:
                 return f()
-            except DatabaseFailure, e:
+            except DatabaseFailure as e:
                 e.checkTransientFailure(self)
 
     def _commit(self):

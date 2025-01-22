@@ -39,7 +39,7 @@ def unique_constraint_message(table, *columns):
     c.execute("CREATE UNIQUE INDEX i ON " + x)
     try:
         c.executemany(insert, (values, values))
-    except sqlite3.IntegrityError, e:
+    except sqlite3.IntegrityError as e:
         return e.args[0]
     assert False
 
@@ -554,7 +554,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         try:
             self.query("INSERT INTO data VALUES (?,?,?,?)",
                 (r, H, compression,  buffer(data)))
-        except sqlite3.IntegrityError, e:
+        except sqlite3.IntegrityError as e:
             if e.args[0] == _dup:
                 (r, d), = self.query("SELECT id, value FROM data"
                                      " WHERE hash=? AND compression=?",

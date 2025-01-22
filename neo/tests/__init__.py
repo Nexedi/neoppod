@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import __builtin__
 import errno
 import functools
@@ -60,7 +61,7 @@ def expectedFailure(exception=AssertionError):
         def wrapper(*args, **kw):
             try:
                 func(*args, **kw)
-            except exception, e:
+            except exception as e:
                 # XXX: passing sys.exc_info() causes deadlocks
                 raise _ExpectedFailure((type(e), None, None))
             raise _UnexpectedSuccess
@@ -135,18 +136,18 @@ def getTempDirectory():
             try:
                 os.makedirs(temp_dir)
                 break
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
         last = os.path.join(neo_dir, "last")
         try:
             os.remove(last)
-        except OSError, e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
         os.symlink(temp_name, last)
         os.environ['TEMP'] = temp_dir
-        print 'Using temp directory %r.' % temp_dir
+        print('Using temp directory', temp_dir)
     return temp_dir
 
 def setupMySQL(db_list, clear_databases=True):
@@ -165,8 +166,8 @@ def setupMySQL(db_list, clear_databases=True):
                 if not clear_databases:
                     continue
                 conn.query('DROP DATABASE `%s`' % database)
-            except OperationalError, (code, _):
-                if code != BAD_DB_ERROR:
+            except OperationalError as e:
+                if e.args[0] != BAD_DB_ERROR:
                     raise
                 conn.query('GRANT ALL ON `%s`.* TO "%s"@"localhost" IDENTIFIED'
                            ' BY "%s"' % (database, user, password))
@@ -207,7 +208,7 @@ class MySQLPool(object):
                     if os.path.exists(datadir):
                         try:
                             os.remove(sock)
-                        except OSError, e:
+                        except OSError as e:
                             if e.errno != errno.ENOENT:
                                 raise
                     else:
@@ -354,7 +355,7 @@ class NeoUnitTestBase(NeoTestBase):
             for i in xrange(number):
                 try:
                     os.remove(self.db_template(i))
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.ENOENT:
                         raise
         else:

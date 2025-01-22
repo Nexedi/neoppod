@@ -9,6 +9,7 @@ The prompt is accessible through network in case that the process is daemonized:
   <neo.master.app.Application object at 0x1fc9750>
 """
 
+from __future__ import print_function
 import sys
 
 def app_set():
@@ -69,7 +70,7 @@ if IF == 'pdb':
             s.settimeout(60)
             s.bind(('127.0.0.1', 0))
             s.listen(0)
-            print 'Listening to %u' % s.getsockname()[1]
+            print('Listening to', s.getsockname()[1])
             sys.stdout.flush() # BBB: On Python 3, print() takes a 'flush' arg.
             _socket = PdbSocket(s.accept()[0])
         finally:
@@ -101,14 +102,14 @@ if IF == 'pdb':
                 orig = getattr(orig, '__func__', orig)
                 self.append((o, name, orig))
                 setattr(o, name, self._wrap(orig))
-                print 'BP set on', orig
+                print('BP set on', orig)
             sys.stdout.flush()
             self._hold = weakref.ref(pdb, self._revert)
 
         def _revert(self, *_):
             for x in self:
                 setattr(*x)
-                print 'BP removed on', x[2]
+                print('BP removed on', x[2])
             sys.stdout.flush()
             del self[:]
 

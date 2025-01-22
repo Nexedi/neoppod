@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import os, errno, socket, sys, thread, threading, weakref
 from collections import defaultdict
 from contextlib import contextmanager
@@ -181,7 +182,7 @@ class BackgroundWorker(object):
                             dm2 = copy(dm)
                     try:
                         task(weak_app, dm, dm2)
-                    except DatabaseFailure, e:
+                    except DatabaseFailure as e:
                         e.checkTransientFailure(dm2)
                         with dm:
                             dm.commit()

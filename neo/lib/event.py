@@ -107,7 +107,7 @@ class EpollEventManager(object):
             try:
                 return [x for x in self.connection_dict.itervalues()
                           if not x.isAborted()]
-            except RuntimeError, e:
+            except RuntimeError as e:
                 if str(e) != dictionary_changed_size_during_iteration:
                     raise
                 logging.info("%r", e)
@@ -161,7 +161,7 @@ class EpollEventManager(object):
             self.epoll.unregister(fd)
         except KeyError:
             pass
-        except IOError, e:
+        except IOError as e:
             if e.errno != ENOENT:
                 raise
         else:
@@ -214,7 +214,7 @@ class EpollEventManager(object):
                             timeout = t
                             timeout_object = conn
                     break
-                except RuntimeError, e:
+                except RuntimeError as e:
                     if str(e) != dictionary_changed_size_during_iteration:
                         raise
                     logging.info("%r", e)
@@ -239,7 +239,7 @@ class EpollEventManager(object):
         self._closeAcquire()
         try:
             event_list = poll(blocking)
-        except IOError, exc:
+        except IOError as exc:
             if exc.errno in (0, EAGAIN):
                 logging.info('epoll.poll triggered undocumented error %r',
                     exc.errno)
@@ -306,7 +306,7 @@ class EpollEventManager(object):
             self._trigger_list += actions
         try:
             os.write(self._wakeup_wfd, '\0')
-        except OSError, e:
+        except OSError as e:
             # Ignore if wakeup fd is triggered many times in a row.
             if e.errno != EAGAIN:
                 raise

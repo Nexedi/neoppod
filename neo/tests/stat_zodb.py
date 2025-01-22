@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import division, print_function
 import math, random, sys
 from cStringIO import StringIO
 from ZODB.utils import p64, u64
@@ -139,7 +140,7 @@ def stat(*storages):
                     obj_size_list.append(size)
             obj_count_list.append(obj_count)
             tr_size_list.append(tr_size)
-    new_ratio = float(len(oid_set)) / len(obj_size_list)
+    new_ratio = len(oid_set) / len(obj_size_list)
     return (lognorm_stat(obj_size_list),
             lognorm_stat(obj_count_list),
             lognorm_stat(tr_size_list),
