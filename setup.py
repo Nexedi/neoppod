@@ -59,12 +59,19 @@ extras_require = {
     'storage-pymysql': ['PyMySQL'],
     'storage-importer': zodb_require + ['setproctitle'],
 }
+def self_require(*extra):
+    # PY3: The latest version of pip for Python 2 does not support recursive
+    #      optional dependencies so we need to expand manually.
+    req = set()
+    for extra in extra:
+        req.update(extras_require[extra])
+    return sorted(req)
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
     'mock', # ZODB test dependency
-    'neoppod[%s]' % ', '.join(extras_require)]
-extras_require['stress'] = ['NetfilterQueue', 'gevent', 'neoppod[tests]',
+] + self_require(*extras_require)
+extras_require['stress'] = ['NetfilterQueue', 'gevent',
     'cython-zstd', # recommended (log rotation)
-    ]
+] + self_require('tests')
 
 try:
     from docutils.core import publish_string
