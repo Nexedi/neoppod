@@ -17,6 +17,7 @@
 import random, weakref
 from bisect import bisect
 from collections import defaultdict
+from neo import *
 from neo.lib import logging
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.exception import PrimaryFailure
@@ -105,7 +106,7 @@ class BackupApplication(object):
             # {offset -> node}
             self.primary_partition_dict = {}
             # [[tid]]
-            self.tid_list = tuple([] for _ in xrange(pt.getPartitions()))
+            self.tid_list = tuple([] for _ in range(pt.getPartitions()))
             try:
                 while True:
                     for node in pt.getNodeSet(readable=True):
@@ -190,7 +191,7 @@ class BackupApplication(object):
     def nodeLost(self, node):
         getCellList = self.app.pt.getCellList
         trigger_set = set()
-        for offset, primary_node in self.primary_partition_dict.items():
+        for offset, primary_node in list(self.primary_partition_dict.items()):
             if primary_node is not node:
                 continue
             cell_list = getCellList(offset, readable=True)
@@ -216,7 +217,7 @@ class BackupApplication(object):
         pt = app.pt
         trigger_set = set()
         untouched_dict = defaultdict(dict)
-        for offset in xrange(pt.getPartitions()):
+        for offset in range(pt.getPartitions()):
             try:
                 last_max_tid = self.tid_list[offset][-1]
             except IndexError:
@@ -282,7 +283,7 @@ class BackupApplication(object):
                             " of %s for partition %u, up to %s",
                             uuid_str(cell.getUUID()), offset,  dump(tid))
                         cell.replicating = tid
-        for node, untouched_dict in untouched_dict.iteritems():
+        for node, untouched_dict in six.iteritems(untouched_dict):
             if app.isStorageReady(node.getUUID()):
                 node.send(Packets.Replicate(tid, '', untouched_dict))
         for node in trigger_set:

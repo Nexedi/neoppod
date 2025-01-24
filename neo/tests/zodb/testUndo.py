@@ -25,8 +25,7 @@ from . import ZODBTestCase
 class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage,
         ConflictResolvingTransUndoStorage):
 
-    checkTransactionalUndoAfterPack = expectedFailure()(
-        TransactionalUndoStorage.checkTransactionalUndoAfterPack)
+    testTransactionalUndoAfterPack = expectedFailure()
 
 class AltUndoTests(UndoTests):
     """

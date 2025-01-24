@@ -16,6 +16,7 @@
 
 import random, time
 from collections import Counter, defaultdict
+from neo import *
 from .. import NeoUnitTestBase
 from neo.lib import logging
 from neo.lib.protocol import NodeStates, CellStates
@@ -33,14 +34,14 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         self.assertEqual(pt.num_filled_rows, 0)
         partition_list = pt.partition_list
         self.assertEqual(len(partition_list), num_partitions)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             part = partition_list[x]
             self.assertTrue(isinstance(part, list))
             self.assertEqual(len(part), 0)
         self.assertEqual(len(pt.count_dict), 0)
         # no nodes or cells for now
         self.assertFalse(pt.getNodeSet())
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             self.assertEqual(len(pt.getCellList(x)), 0)
             self.assertEqual(len(pt.getCellList(x, True)), 0)
             self.assertEqual(len(pt.getRow(x)), 0)
@@ -107,7 +108,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
 
     def test_15_dropNodeList(self):
         sn = [self.createStorage(None, i + 1, NodeStates.RUNNING)
-              for i in xrange(3)]
+              for i in range(3)]
         pt = PartitionTable(3, 0)
         pt._setCell(0, sn[0], CellStates.OUT_OF_DATE)
         pt._setCell(1, sn[1], CellStates.FEEDING)
@@ -140,7 +141,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         node_list = [self.createStorage(
                 ("127.0.0.1", 19000 + i), self.getStorageUUID(),
                 NodeStates.RUNNING)
-            for i in xrange(4)]
+            for i in range(4)]
         for np, nr, expected in (
                 (3, 0, 'U..|.U.|..U'),
                 (5, 1, 'UU..|..UU|UU..|..UU|UU..'),
@@ -161,7 +162,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
             self.assertTrue(pt.operational())
 
     def update(self, pt, change_list=None):
-        offset_list = xrange(pt.np)
+        offset_list = range(pt.np)
         for node in pt.count_dict:
             pt.updatable(node.getUUID(), offset_list)
         if change_list is None:
@@ -184,7 +185,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
 
     def test_17_tweak(self):
         sn = [self.createStorage(None, i + 1, NodeStates.RUNNING)
-              for i in xrange(5)]
+              for i in range(5)]
         pt = PartitionTable(5, 2)
         pt.setID(1)
         # part 0
@@ -298,7 +299,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         logging.info("using seed %r", seed)
         sn_count = 11
         sn = [self.createStorage(None, i + 1, NodeStates.RUNNING)
-              for i in xrange(sn_count)]
+              for i in range(sn_count)]
         for topo in 0, 1:
             r = random.Random(seed)
             if topo:
@@ -306,7 +307,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
                     s.devpath = str(i % 5),
             pt = PartitionTable(1000, 2)
             pt.setID(1)
-            for offset in xrange(pt.np):
+            for offset in range(pt.np):
                 state = CellStates.UP_TO_DATE
                 k = r.randrange(1, sn_count)
                 for s in r.sample(sn, k):
@@ -320,7 +321,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
     def test_19_topology(self):
         sn_count = 16
         sn = [self.createStorage(None, i + 1, NodeStates.RUNNING)
-              for i in xrange(sn_count)]
+              for i in range(sn_count)]
         pt = PartitionTable(48, 2)
         pt.make(sn)
         pt.log()

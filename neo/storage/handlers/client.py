@@ -75,7 +75,7 @@ class ClientOperationHandler(BaseHandler):
         else:
             if checksum is None:
                 checksum = ZERO_HASH
-                data = ''
+                data = b''
             p = Packets.AnswerObject(oid, serial, next_serial,
                 compression, checksum, data, data_serial)
         conn.answer(p)
@@ -309,7 +309,7 @@ class ClientReadOnlyOperationHandler(ClientOperationHandler):
     def askTIDs(self, conn, first, last, partition):
         backup_tid = self.app.dm.getBackupTID()
         tid_list = self._askTIDs(first, last, partition)
-        tid_list = filter(lambda tid: tid <= backup_tid, tid_list)
+        tid_list = [tid for tid in tid_list if tid <= backup_tid]
         conn.answer(Packets.AnswerTIDs(tid_list))
 
     # FIXME askObjectUndoSerial to limit tid <= backup_tid

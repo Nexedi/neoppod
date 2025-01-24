@@ -15,16 +15,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import argparse, inspect, random, sys
+import argparse, random, sys
 from logging import getLogger, INFO
+from neo import *
 from neo.lib import logging
+from neo.lib.interfaces import getargspec
 from neo.tests import functional
 
 def main(args=None):
     if args is None:
         args = sys.argv[1:]
-    params, _, _, defaults = inspect.getargspec(functional.NEOCluster.__init__)
-    option_list = zip(params[-len(defaults):], defaults)
+    params, _, _, defaults = getargspec(functional.NEOCluster.__init__)
+    option_list = list(zip(params[-len(defaults):], defaults))
     parser = argparse.ArgumentParser(
         description="Quickly setup a simple NEO cluster for testing purpose.")
     parser.add_argument('--seed', help="settings like node ports/uuids and"

@@ -22,8 +22,9 @@
 
 from collections import defaultdict
 from functools import partial
-from operator import attrgetter
+from operator import attrgetter, call
 from weakref import proxy
+from neo import *
 from neo.lib.protocol import Packets, ZERO_TID
 from neo.lib.util import add64
 
@@ -63,7 +64,7 @@ class RequestOld(object):
         self.caller = caller
         self.pack_id = pack_id
         self.only_first_approved = only_first_approved
-        self.offsets = set(xrange(app.pt.getPartitions()))
+        self.offsets = set(range(app.pt.getPartitions()))
         self.packs = []
         # In case that the PT changes, we may ask a node again before it
         # replies to previous requests, so we can't simply use its id as key.
@@ -140,27 +141,27 @@ class PackManager(object):
         elif p.approved is None:
             p.approved = args[0]
 
-    @apply
+    @call
     def dump():
         by_tid = attrgetter('tid')
         def dump(self, pack_id, only_first_approved):
             if only_first_approved:
                 try:
-                    p = min((p for p in self.packs.itervalues()
+                    p = min((p for p in six.itervalues(self.packs)
                            if p.approved and p.tid >= pack_id),
                         key=by_tid),
                 except ValueError:
                     p = ()
             else:
                 p = sorted(
-                    (p for p in self.packs.itervalues() if p.tid >= pack_id),
+                    (p for p in six.itervalues(self.packs) if p.tid >= pack_id),
                     key=by_tid)
             return [(p.tid, p.approved, p.partial, p.oids, p.time) for p in p]
         return dump
 
     def new(self, tid, oids, time):
         autosign = self.autosign and None not in (
-            p.approved for p in self.packs.itervalues())
+            p.approved for p in six.itervalues(self.packs))
         self.packs[tid] = Pack(tid, autosign or None, bool(oids), oids, time)
         return autosign
 
@@ -169,7 +170,7 @@ class PackManager(object):
         tid = self.max_completed
         if tid and min_tid <= tid:
             r[0].append(tid)
-        for tid, p in self.packs.iteritems():
+        for tid, p in six.iteritems(self.packs):
             if min_tid <= tid:
                 approved = p.approved
                 if approved is not None:
@@ -184,7 +185,7 @@ class PackManager(object):
                     self.max_completed = tid
 
     def clientLost(self, conn):
-        for p in self.packs.itervalues():
+        for p in six.itervalues(self.packs):
             p.connectionLost(conn)
         self.connectionLost(conn)
 

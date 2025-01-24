@@ -135,9 +135,9 @@ elif IF == 'frames':
     # WARNING: Because of https://bugs.python.org/issue17094, the output is
     #          usually incorrect for subprocesses started by the functional
     #          test framework.
-    import traceback
+    import six, traceback
     write = sys.stderr.write
-    for thread_id, frame in sys._current_frames().iteritems():
+    for thread_id, frame in six.iteritems(sys._current_frames()):
         write("Thread %s:\n" % thread_id)
         traceback.print_stack(frame)
     write("End of dump\n")
@@ -155,7 +155,7 @@ elif IF == 'profile':
         prof.enable()
 
 elif IF == 'yappi':
-    import thread, time, yappi
+    import six.moves._thread as _thread, time, yappi
     def profile():
         path = profile_path(app)
         yappi.set_clock_type("wall")
@@ -166,7 +166,7 @@ elif IF == 'yappi':
         yappi.clear_stats()
     assert not yappi.is_running(), "yappi already running"
     for app in app_set():
-        thread.start_new_thread(profile, ())
+        _thread.start_new_thread(profile, ())
         break
 
 elif IF == 'trace-cache':
@@ -198,7 +198,7 @@ elif IF == 'trace-cache':
             return self._cache.max_size
 
         def clear(self):
-            self._trace_file.write('\0')
+            self._trace_file.write(b'\0')
             self._cache.clear()
 
         def clear_current(self):

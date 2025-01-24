@@ -16,7 +16,7 @@
 
 import time
 
-LOG_QUERIES = False
+LOG_QUERIES = 0
 
 def useMySQLdb():
     import platform

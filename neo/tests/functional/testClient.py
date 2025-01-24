@@ -268,7 +268,7 @@ class ClientTests(NEOFunctionalTest):
         db1, conn1 = self.neo.getZODBConnection()
         st1 = conn1._storage
         t1 = transaction.Transaction()
-        rev = '\0' * 8
+        rev = b'\0' * 8
         data = zodb_pickle(PObject())
         my_oid = pack('!Q', 100000)
         # store an object with this OID

@@ -15,15 +15,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import defaultdict
+from operator import call
+from neo import *
 from .locking import Lock, Empty
 EMPTY = {}
 NOBODY = []
 
-@apply
+@call
 class _ConnectionClosed(object):
 
     handler_method_name = 'connectionClosed'
-    _args = ()
+    getArgs = tuple
 
     class getId(object):
         def __eq__(self, other):
@@ -71,7 +73,7 @@ class Dispatcher:
         _decrefQueue = self._decrefQueue
         with self.lock:
             message_table = self.message_table.pop(id(conn), EMPTY)
-            for queue in message_table.itervalues():
+            for queue in six.itervalues(message_table):
                 if queue is NOBODY:
                     continue
                 queue_id = id(queue)
@@ -99,8 +101,8 @@ class Dispatcher:
         """
         found = 0
         with self.lock:
-            for message_table in self.message_table.itervalues():
-                for msg_id, t_queue in message_table.iteritems():
+            for message_table in six.itervalues(self.message_table):
+                for msg_id, t_queue in six.iteritems(message_table):
                     if queue is t_queue:
                         found += 1
                         message_table[msg_id] = NOBODY

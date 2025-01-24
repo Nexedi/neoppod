@@ -15,20 +15,46 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+from functools import wraps
+from neo import *
 
 from neo.client.app import Application as ClientApplication, TXN_PACK_DESC
 from .. import DB_PREFIX, Patch
+
+from ZODB.tests.BasicStorage import BasicStorage
+try:
+    BasicStorage.test_tid_ordering_w_commit
+    prefix = 'test'
+except AttributeError: # ZODB < 6
+    BasicStorage.check_tid_ordering_w_commit
+    prefix = 'check'
+del BasicStorage
+
 functional = int(os.getenv('NEO_TEST_ZODB_FUNCTIONAL', 0))
 if functional:
     from ..functional import NEOCluster, NEOFunctionalTest as TestCase
 else:
-    from ..threaded import NEOCluster, NEOThreadedTest
-    x = dict.fromkeys(x for x in dir(NEOThreadedTest) if x.startswith('check'))
-    assert x
-    TestCase = type('', (NEOThreadedTest,), x)
-    del x
+    from ..threaded import NEOCluster, NEOThreadedTest as TestCase
+    if prefix != 'test':
+        x = dict.fromkeys(x for x in dir(TestCase) if x.startswith(prefix))
+        assert x
+        TestCase = type('', (TestCase,), x)
+        del x
 
-class ZODBTestCase(TestCase):
+class ZODBTestCaseType(type):
+
+    def __init__(cls, name, bases, d):
+        for k, v in six.iteritems(d):
+            if k.startswith('test'):
+                delattr(cls, k)
+                if prefix != 'test':
+                    k = prefix + k[4:]
+                orig = getattr(cls, k)
+                if six.PY2:
+                    orig = orig.__func__
+                setattr(cls, k, wraps(orig)(v(orig)))
+
+class ZODBTestCase(six.with_metaclass(ZODBTestCaseType, TestCase)):
 
     def undoLog(orig, *args, **kw):
         return [txn for txn in orig(*args, **kw)
@@ -47,7 +73,7 @@ class ZODBTestCase(TestCase):
             'master_count': int(os.getenv('NEO_TEST_ZODB_MASTERS', 1)),
             'replicas': int(os.getenv('NEO_TEST_ZODB_REPLICAS', 0)),
             'partitions': int(os.getenv('NEO_TEST_ZODB_PARTITIONS', 1)),
-            'db_list': ['%s%u' % (DB_PREFIX, i) for i in xrange(storages)],
+            'db_list': ['%s%u' % (DB_PREFIX, i) for i in range(storages)],
         }
         if functional:
             kw['temp_dir'] = self.getTempDirectory()
@@ -109,7 +135,7 @@ class ZODBTestCase(TestCase):
 
     def _open(self, **kw):
         self.close()
-        (attr, value), = kw.iteritems()
+        (attr, value), = six.iteritems(kw)
         setattr(self, attr, value)
         def close():
             getattr(self, attr).close()

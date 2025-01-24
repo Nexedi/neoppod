@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import socket, ssl, threading
+from neo import *
 from . import logging, util
 from .config import OptionList
 from .event import EventManager
@@ -22,8 +23,9 @@ from .node import NodeManager
 
 def SSLContext_verify(context):
     c, s = socket.socketpair()
-    c = socket.socket(c.family, c.type, c.proto, c)
-    s = socket.socket(s.family, s.type, s.proto, s)
+    if six.PY2:
+        c = socket.socket(c.family, c.type, c.proto, c)
+        s = socket.socket(s.family, s.type, s.proto, s)
     def t():
         try:
             context.wrap_socket(s, server_side=True).close()

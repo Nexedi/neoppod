@@ -16,6 +16,7 @@
 
 from functools import partial
 import transaction
+from neo import *
 from neo.lib.protocol import NodeStates
 from neo.neoctl.app import TerminalNeoCTL
 from . import NEOCluster, NEOFunctionalTest
@@ -159,7 +160,7 @@ class ClusterTests(NEOFunctionalTest):
             Check that admin node receive notifications of storage
             connection and disconnection during recovery
         """
-        self.neo = NEOCluster(['test_neo%d' % i for i in xrange(2)],
+        self.neo = NEOCluster(['test_neo%d' % i for i in range(2)],
             master_count=1, partitions=10, replicas=1,
             temp_dir=self.getTempDirectory(), clear_databases=True,
         )
