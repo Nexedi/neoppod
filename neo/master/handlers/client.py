@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from neo.lib.handler import DelayEvent
 from neo.lib.exception import ProtocolError
 from neo.lib.protocol import Packets, MAX_TID, ZERO_TID, Errors
@@ -156,7 +157,9 @@ class ClientBackupServiceHandler(ClientReadOnlyServiceHandler):
 
     # XXX LastIDs is not used by client at all, and it requires work to determine
     # last_oid up to backup_tid, so just make it non-functional for client.
-    askLastIDs = ClientReadOnlyServiceHandler._readOnly.__func__ # Py3
+    askLastIDs = ClientReadOnlyServiceHandler._readOnly
+    if six.PY2:
+        askLastIDs = askLastIDs.__func__
 
     # like in MasterHandler but returns backup_tid instead of last_tid
     def askLastTransaction(self, conn):

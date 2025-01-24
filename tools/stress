@@ -5,11 +5,11 @@ import argparse, curses, errno, os, random, select
 import signal, socket, subprocess, sys, threading, time
 from contextlib import contextmanager
 from ctypes import c_ulonglong
-from datetime import datetime
 from functools import partial
 from multiprocessing import Array, Lock, RawArray
 from multiprocessing.queues import SimpleQueue
 from struct import Struct
+from neo import *
 from netfilterqueue import NetfilterQueue
 import gevent.socket # preload for subprocesses
 from neo.client.exception import NEOStorageError
@@ -28,6 +28,13 @@ from neo.tests.functional import AlreadyStopped, NEOCluster, Process
 from neo.tests.stress import StressApplication
 from transaction import begin as transaction_begin
 from ZODB import DB, POSException
+
+try:
+    from datetime import datetime, UTC
+except ImportError: # BBB: Python < 3.11
+    utcnow = datetime.utcnow
+else:
+    utcnow = partial(datetime.now, UTC)
 
 INET = {
     socket.AF_INET:  ('ip',  socket.IPPROTO_IP, socket.IP_TOS),
@@ -106,7 +113,7 @@ class Client(Process):
             else:
                 r, w = os.pipe()
                 try:
-                    for i in xrange(self.thread_count):
+                    for i in range(self.thread_count):
                         t = threading.Thread(target=self.worker,
                             args=(db, i, w), name='worker-%s' % i)
                         t.daemon = 1
@@ -115,7 +122,7 @@ class Client(Process):
                         try:
                             os.read(r, 1)
                             break
-                        except OSError, e:
+                        except OSError as e:
                             if e.errno != errno.EINTR:
                               raise
                 finally:
@@ -134,13 +141,13 @@ class Client(Process):
                 name += ':%s' % i
             j = 0
             k = None
-            logs = r.values()
+            logs = list(six.itervalues(r))
             pack = Struct(self._fmt).pack
             while 1:
                 txn = transaction_begin()
                 try:
                     self.ltid[i] = u64(db.lastTransaction())
-                    data = pack(j, name)
+                    data = pack(j, str2bytes(name))
                     for log in random.sample(logs, 2):
                         log.append(data)
                     txn.note(name)
@@ -152,7 +159,7 @@ class Client(Process):
                 except (
                     NEOStorageError,  # XXX: 'already connected' error
                     POSException.ConflictError, # XXX: same but during conflict resolution
-                    ), e:
+                    ) as e:
                     if 'unexpected packet:' in str(e):
                         raise
                     if j != k:
@@ -165,7 +172,7 @@ class Client(Process):
         finally:
             if stop is not None:
                 try:
-                    os.write(stop, '\0')
+                    os.write(stop, b'\0')
                 except OSError:
                     pass
 
@@ -193,7 +200,7 @@ class Client(Process):
         unpack = Struct(cls._fmt).unpack
         def decode(item):
             i, host = unpack(item)
-            return i, host.rstrip('\0')
+            return i, bytes2str(host.rstrip(b'\0'))
         for log in r.values():
             bucket = log._next
             if bucket is None:
@@ -390,7 +397,7 @@ class Application(StressApplication):
     def startCluster(self):
         with self.db() as r:
             txn = transaction_begin()
-            for i in xrange(2 * self.client_count * self.thread_count):
+            for i in range(2 * self.client_count * self.thread_count):
                 r[i] = ConflictFreeLog()
             txn.commit()
         cluster = self.cluster
@@ -401,7 +408,7 @@ class Application(StressApplication):
                                                key=lambda x: x[2]):
             queue.append(
                 "%s daddr %s tcp dport %s counter queue num %s bypass"
-                % (nft_family, ip, port, nid))
+                % (nft_family, bytes2str(ip), port, nid))
             p = NFQueue(nid)
             process_list.append(p)
             p.start()
@@ -409,14 +416,14 @@ class Application(StressApplication):
             nft_family, '\n            '.join(queue), nft_family)
         p = subprocess.Popen(('nft', '-f', '/dev/stdin'), stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        err = p.communicate(ruleset)[0].rstrip()
+        err = p.communicate(str2bytes(ruleset))[0].rstrip()
         if p.poll():
             sys.exit("Failed to apply the following ruleset:\n%s\n%s"
                 % (ruleset, err))
         process_list = cluster.process_dict[Client] = []
         config = cluster.getClientConfig()
         self.started = time.time()
-        for i in xrange(self.client_count):
+        for i in range(self.client_count):
             name = 'client_%i' % i
             p = Client(name, self.thread_count,
                 logfile=os.path.join(cluster.temp_dir, name + '.log'),
@@ -481,8 +488,8 @@ class Application(StressApplication):
             x = t - time.time()
             if x > 0:
                 time.sleep(x)
-            x = datetime.utcnow().strftime('-%Y%m%d%H%M%S.log')
-            for p, process_list in self.cluster.process_dict.iteritems():
+            x = utcnow().strftime('-%Y%m%d%H%M%S.log')
+            for p, process_list in six.iteritems(self.cluster.process_dict):
                 if p is not NFQueue:
                     for p in process_list:
                         log = p.logfile
@@ -688,7 +695,7 @@ def main():
     if args.backlog:
         logging.backlog(None if args.backlog < 0 else args.backlog<<20)
 
-    db_list = ['stress_neo%s' % x for x in xrange(args.storages)]
+    db_list = ['stress_neo%s' % x for x in range(args.storages)]
     if args.datadir or args.logdir:
         if args.adapter == 'SQLite':
             db_list = [os.path.join(args.datadir or getTempDirectory(),
@@ -755,7 +762,7 @@ def main():
                     conn = db.open(at=tid)
                     try:
                         Client.check(conn.root())
-                    except SystemExit, e:
+                    except SystemExit as e:
                         print(e)
                         bad = tid
                     else:

@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import __builtin__
+from six.moves import builtins
 import errno
 import mmap
 import os
@@ -22,9 +22,10 @@ import psutil
 import signal
 import sys
 import tempfile
-from cPickle import dumps, loads
 from functools import wraps
+from six.moves.cPickle import dumps, loads
 from time import time, sleep
+from neo import *
 from neo.lib import debug
 
 
@@ -36,8 +37,8 @@ class ClusterDict(dict):
     def __init__(self, *args, **kw):
         dict.__init__(self, *args, **kw)
         self._r, self._w = os.pipe()
-        # shm_open(3) would be better but Python doesn't provide it.
-        # See also http://nikitathespider.com/python/shm/
+        # PY3: shm_open(3) would be better but Python < 3.8 doesn't provide it.
+        #      See also http://nikitathespider.com/python/shm/
         with tempfile.TemporaryFile() as f:
             f.write(dumps(self.copy(), -1))
             f.flush()
@@ -45,11 +46,10 @@ class ClusterDict(dict):
         self.release()
 
     def __del__(self):
-        try:
-            os.close(self._r)
-            os.close(self._w)
-        except TypeError: # if os.close is None
-            pass
+        close = getattr(os, 'close', None) # os may be None
+        if close is not None:
+            close(self._r)
+            close(self._w)
 
     def acquire(self):
         self._acquired += 1
@@ -68,7 +68,7 @@ class ClusterDict(dict):
         if not self._acquired:
             if commit:
                 self.commit()
-            os.write(self._w, '\0')
+            os.write(self._w, b'\0')
         self._acquired -= 1
 
     def commit(self):
@@ -95,7 +95,7 @@ class ClusterPdb(object):
     def __setattr__(self, name, value):
         try:
             hook = getattr(self, name)
-            setattr(value.im_self, value.__name__, wraps(value)(
+            setattr(value.__self__, value.__name__, wraps(value)(
                 lambda *args, **kw: hook(value, *args, **kw)))
         except AttributeError:
             object.__setattr__(self, name, value)
@@ -198,7 +198,7 @@ class ClusterPdb(object):
         cluster_dict.acquire()
         try:
             if state is None:
-                state = hooked.im_self.get_state()
+                state = hooked.__self__.get_state()
             last_pdb = cluster_dict.setdefault('last_pdb', {})
             pid = os.getpid()
             if state == STATE_DETACHED:
@@ -211,7 +211,7 @@ class ClusterPdb(object):
 
     def _getLastPdb(self, *exclude):
         result = 0
-        for pid, last_pdb in cluster_dict.get('last_pdb', {}).iteritems():
+        for pid, last_pdb in six.iteritems(cluster_dict.get('last_pdb', {})):
             if pid not in exclude:
                 if last_pdb is None:
                     return
@@ -239,7 +239,7 @@ class ClusterPdb(object):
             sleep(next_sleep)
         return True
 
-__builtin__.pdb = ClusterPdb()
+builtins.pdb = ClusterPdb()
 
 signal.signal(signal.SIGUSR1, debug.safe_handler(
     lambda sig, frame: pdb(depth=2)))

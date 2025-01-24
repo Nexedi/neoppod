@@ -30,7 +30,7 @@ class NodesTests(NeoUnitTestBase):
 
     def testInit(self):
         """ Check the node initialization """
-        address = ('127.0.0.1', 10000)
+        address = b'127.0.0.1', 10000
         uuid = self.getNewUUID(None)
         node = Node(self.nm, address=address, uuid=uuid)
         self.assertEqual(node.getState(), NodeStates.DOWN)
@@ -53,18 +53,18 @@ class NodeManagerTests(NeoUnitTestBase):
 
     def _addStorage(self):
         self.storage = self.nm.createStorage(
-            address=('127.0.0.1', 1000), uuid=self.getStorageUUID())
+            address=(b'127.0.0.1', 1000), uuid=self.getStorageUUID())
 
     def _addMaster(self):
         self.master = self.nm.createMaster(
-            address=('127.0.0.1', 2000), uuid=self.getMasterUUID())
+            address=(b'127.0.0.1', 2000), uuid=self.getMasterUUID())
 
     def _addClient(self):
         self.client = self.nm.createClient(uuid=self.getClientUUID())
 
     def _addAdmin(self):
         self.admin = self.nm.createAdmin(
-            address=('127.0.0.1', 4000), uuid=self.getAdminUUID())
+            address=(b'127.0.0.1', 4000), uuid=self.getAdminUUID())
 
     def checkNodes(self, node_list):
         self.assertEqual(sorted(self.nm.getList()), sorted(node_list))
@@ -91,7 +91,7 @@ class NodeManagerTests(NeoUnitTestBase):
         self.checkMasters([])
         self.checkStorages([])
         self.checkClients([])
-        address = ('127.0.0.1', 10000)
+        address = b'127.0.0.1', 10000
         self.assertEqual(manager.getByAddress(address), None)
         self.assertEqual(manager.getByAddress(None), None)
         uuid = self.getNewUUID(None)
@@ -150,7 +150,7 @@ class NodeManagerTests(NeoUnitTestBase):
         self.checkClients([self.client])
         # build changes
         old_address = self.master.getAddress()
-        new_address = ('127.0.0.1', 2001)
+        new_address = b'127.0.0.1', 2001
         old_uuid = self.storage.getUUID()
         new_uuid = self.getStorageUUID()
         node_list = (
@@ -193,7 +193,7 @@ class MasterDBTests(NeoUnitTestBase):
         temp_dir = getTempDirectory()
         directory = join(temp_dir, 'read_only')
         db_file = join(directory, 'not_created')
-        mkdir(directory, 0500)
+        mkdir(directory, 0o500)
         try:
             self.assertRaises(IOError, MasterDB, db_file)
         finally:
@@ -210,7 +210,7 @@ class MasterDBTests(NeoUnitTestBase):
         try:
             db = MasterDB(db_file)
             self.assertTrue(exists(db_file), db_file)
-            chmod(directory, 0500)
+            chmod(directory, 0o500)
             address = ('example.com', 1024)
             # Must not raise
             db.addremove(None, address)
@@ -218,7 +218,7 @@ class MasterDBTests(NeoUnitTestBase):
             self.assertIn(address, db)
             # But not visible to a new db instance (write access restored so
             # it can be created)
-            chmod(directory, 0700)
+            chmod(directory, 0o700)
             db2 = MasterDB(db_file)
             self.assertNotIn(address, db2)
         finally:

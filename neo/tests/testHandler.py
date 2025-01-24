@@ -14,10 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from . import Mock, NeoUnitTestBase
+from . import MockObject, NeoUnitTestBase
 from neo.lib.exception import PacketMalformedError, UnexpectedPacketError, \
     NotReadyError, ProtocolError
 from neo.lib.handler import EventHandler
+
 
 class HandlerTests(NeoUnitTestBase):
 
@@ -29,7 +30,7 @@ class HandlerTests(NeoUnitTestBase):
         self.handler.fake_method = method
 
     def getFakePacket(self):
-        p = Mock(name='Fake Packet', _args=())
+        p = MockObject('Fake Packet', getArgs=())
         p.handler_method_name = 'fake_method'
         return p
 

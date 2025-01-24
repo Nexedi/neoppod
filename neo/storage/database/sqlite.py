@@ -21,7 +21,10 @@ from hashlib import sha1
 import string
 import subprocess
 import traceback
-from urlparse import urlsplit, parse_qsl
+from six.moves.urllib.parse import urlsplit, parse_qsl
+from neo import *
+if six.PY3:
+    buffer = bytes # noop
 
 from . import LOG_QUERIES, DatabaseFailure
 from .manager import DatabaseManager, splitOIDField
@@ -119,7 +122,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                 'vacuum')) # PY3: check_call(..., stdout=subprocess.DEVNULL)
             os.stat(self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
-        self.conn.text_factory = str
+        if six.PY2:
+            self.conn.text_factory = str
         self.lockFile(self.db)
         try:
             if self.cksumvfs:
@@ -128,7 +132,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                 if not int(x):
                     raise DatabaseFailure("Can't enable cksumvfs.")
             for pragma in map("PRAGMA %s = %s".__mod__,
-                              self.pragmas.iteritems()):
+                              six.iteritems(self.pragmas)):
                 logging.info(pragma)
                 self.query(pragma).fetchall()
         except Exception:
@@ -145,14 +149,19 @@ class SQLiteDatabaseManager(DatabaseManager):
     if LOG_QUERIES:
         def query(self, query, *args):
             printable_char_list = []
-            for c in query.split('\n', 1)[0][:70]:
+            q = query.split('\n', 1)[0][:LOG_QUERIES]
+            for c in q:
                 if c not in string.printable or c in '\t\x0b\x0c\r':
                     c = '\\x%02x' % ord(c)
                 printable_char_list.append(c)
-            logging.debug('querying %s...', ''.join(printable_char_list))
+            if q != query:
+                printable_char_list.append('...')
+            logging.debug('querying %s', ''.join(printable_char_list))
             return self.conn.execute(query, *args)
     else:
         query = property(lambda self: self.conn.execute)
+
+    query_str = query
 
     def erase(self):
         for t in ('config', 'pt', 'pack', 'trans',
@@ -310,9 +319,9 @@ class SQLiteDatabaseManager(DatabaseManager):
         else:
             self.migrate(schema_dict, index_dict)
 
-        for table, schema in schema_dict.iteritems():
+        for table, schema in six.iteritems(schema_dict):
             q(schema % ('IF NOT EXISTS ' + table))
-        for table, index in index_dict.iteritems():
+        for table, index in six.iteritems(index_dict):
             for i, index in enumerate(index, 1):
                 q(index % ('IF NOT EXISTS _%s_i%s' % (table, i), table))
 
@@ -340,7 +349,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             q("REPLACE INTO config VALUES (?,?)", (key, str(value)))
 
     def _getMaxPartition(self):
-        return self.query("SELECT MAX(`partition`) FROM pt").next()[0]
+        return self.query("SELECT MAX(`partition`) FROM pt").fetchone()[0]
 
     def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
@@ -353,16 +362,19 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _getLastTID(self, partition, max_tid=None):
         x = self.query
         if max_tid is None:
-            x = x("SELECT MAX(tid) FROM trans WHERE partition=?", (partition,))
+            x = x("SELECT COALESCE(MAX(tid), -1) FROM trans"
+                  " WHERE partition=?", (partition,))
         else:
-            x = x("SELECT MAX(tid) FROM trans WHERE partition=? AND tid<=?",
-                  (partition, max_tid))
-        return x.next()[0]
+            x = x("SELECT COALESCE(MAX(tid), -1) FROM trans"
+                  " WHERE partition=? AND tid<=?", (partition, max_tid))
+        return x.fetchone()[0]
 
     def _getLastIDs(self, *args):
         q = self.query
-        (oid,), = q("SELECT MAX(oid) FROM obj WHERE `partition`=?", args)
-        (tid,), = q("SELECT MAX(tid) FROM obj WHERE `partition`=?", args)
+        (oid,), = q("SELECT COALESCE(MAX(oid), -1)"
+                    " FROM obj WHERE `partition`=?", args)
+        (tid,), = q("SELECT COALESCE(MAX(tid), -1)"
+                    " FROM obj WHERE `partition`=?", args)
         return tid, oid
 
     def _getPackOrders(self, min_completed):
@@ -439,9 +451,9 @@ class SQLiteDatabaseManager(DatabaseManager):
             serial, compression, checksum, data, value_serial = r.fetchone()
         except TypeError:
             return None
-        if checksum:
-            checksum = str(checksum)
-            data = str(data)
+        if checksum and six.PY2:
+            checksum = bytes(checksum)
+            data = bytes(data)
         return (serial, self._getNextTID(partition, oid, serial),
                 compression, checksum, data, value_serial)
 
@@ -518,7 +530,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             assert packed in (0, 1)
             q("INSERT OR FAIL INTO %strans VALUES (?,?,?,?,?,?,?,?)" % T,
                 (partition, None if temporary else tid,
-                 packed, buffer(''.join(oid_list)),
+                 packed, buffer(b''.join(oid_list)),
                  buffer(user), buffer(desc), buffer(ext), u64(ttid)))
 
     def getOrphanList(self):
@@ -561,7 +573,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                 (r, d), = self.query("SELECT id, value FROM data"
                                      " WHERE hash=? AND compression=?",
                                      (H, compression))
-                if str(d) == data:
+                if bytes(d) == data: # PY3: unbuffer
                     return r
             raise
         self._data_last_ids[p] = r + 1
@@ -571,15 +583,15 @@ class SQLiteDatabaseManager(DatabaseManager):
         compression, checksum, data = self.query(
             "SELECT compression, hash, value  FROM data WHERE id=?",
             (data_id,)).fetchone()
-        if checksum:
-            return compression, str(checksum), str(data)
+        if checksum and six.PY2:
+            return compression, bytes(checksum), bytes(data)
         return compression, checksum, data
 
     def storePackOrder(self, tid, approved, partial, oid_list, pack_tid):
         u64 = util.u64
         self.query("INSERT INTO pack VALUES (?,?,?,?,?)", (
             u64(tid), approved, partial,
-            None if oid_list is None else buffer(''.join(oid_list)),
+            None if oid_list is None else buffer(b''.join(oid_list)),
             u64(pack_tid)))
 
     def _signPackOrders(self, approved, rejected):
@@ -686,7 +698,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             approved, pack_partial, pack_oids, pack_tid = r
         return (
             splitOIDField(tid, oids),
-            str(user), str(desc), str(ext),
+            bytes(user), bytes(desc), bytes(ext), # PY3: unbuffer
             bool(packed), util.p64(ttid),
             None if pack_partial is None else (
                 None if approved is None else bool(approved),
@@ -726,9 +738,9 @@ class SQLiteDatabaseManager(DatabaseManager):
                 ' FROM obj LEFT JOIN data ON obj.data_id = data.id'
                 ' WHERE partition=? AND oid=? AND tid=?',
                 (self._getReadablePartition(oid), oid, tid)):
-            if checksum:
-                checksum = str(checksum)
-                data = str(data)
+            if checksum and six.PY2:
+                checksum = bytes(checksum)
+                data = bytes(data)
             return serial, compression, checksum, data, value_serial
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
@@ -826,7 +838,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             (partition, util.u64(min_tid), util.u64(max_tid),
              -1 if length is None else length)).fetchone()
         if count:
-            return count, sha1(tids).digest(), util.p64(max_tid)
+            return count, sha1(str2bytes(tids)).digest(), util.p64(max_tid)
         return 0, ZERO_HASH, ZERO_TID
 
     def checkSerialRange(self, partition, length, min_tid, max_tid, min_oid):
@@ -846,9 +858,9 @@ class SQLiteDatabaseManager(DatabaseManager):
         if r:
             p64 = util.p64
             return (len(r),
-                    sha1(','.join(str(x[0]) for x in r)).digest(),
+                    sha1(str2bytes(','.join(str(x[0]) for x in r))).digest(),
                     p64(r[-1][0]),
-                    sha1(','.join(str(x[1]) for x in r)).digest(),
+                    sha1(str2bytes(','.join(str(x[1]) for x in r))).digest(),
                     p64(r[-1][1]))
         return 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID
 

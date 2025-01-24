@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from neo.lib import logging
 from neo.lib.exception import ProtocolError, StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, Packets, uuid_str

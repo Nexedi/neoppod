@@ -16,6 +16,7 @@
 
 import errno, imp, os, signal, socket, sys, traceback
 from functools import wraps
+from neo import *
 import neo
 
 # kill -RTMIN+2 <pid>
@@ -42,6 +43,8 @@ def debugHandler(sig, frame):
 
 def getPdb(**kw):
     try: # try ipython if available
+        if six.PY3:
+            raise ImportError
         import IPython
         shell = IPython.terminal.embed.InteractiveShellEmbed()
         return IPython.core.debugger.Pdb(shell.colors, **kw)
@@ -111,11 +114,16 @@ class PdbSocket(object):
             if i:
                 self._buf = data[i:]
                 return data[:i]
-            d = recv(4096)
-            data += d
-            if not d:
-                self._buf = ''
-                return data
+            try:
+                d = recv(4096)
+            except socket.error as e:
+                if e.errno != errno.EINTR:
+                    raise
+            else:
+                if not d:
+                    self._buf = ''
+                    return data
+                data += bytes2str(d)
 
     def flush(self):
         pass

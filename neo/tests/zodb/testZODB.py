@@ -73,5 +73,4 @@ class NEOZODBImporterTests(NEOZODBTests):
             self._importer_patch.revert()
             return super(NEOZODBImporterTests, self)._getDatabaseManager()
 
-    checkMultipleUndoInOneTransaction = expectedFailure(IndexError)(
-        NEOZODBTests.checkMultipleUndoInOneTransaction)
+    testMultipleUndoInOneTransaction = expectedFailure(IndexError)

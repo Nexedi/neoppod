@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import division, print_function
 import sys
 import os
 import math
 import traceback
 from time import time
 
+from neo import *
 from neo.tests import DB_PREFIX
 from neo.tests.benchmark import BenchmarkRunner
 from ZODB.FileStorage import FileStorage
@@ -51,10 +52,10 @@ class MatrixImportBenchmark(BenchmarkRunner):
             storages[0] = min_s
         if storages[-1] < max_s:
             storages.append(max_s)
-        replicas = range(min_r, max_r + 1)
+        replicas = list(range(min_r, max_r + 1))
         results = {}
         def merge_min(a, b):
-            for k, vb in b.iteritems():
+            for k, vb in six.iteritems(b):
                 try:
                     va = a[k]
                 except KeyError:
@@ -66,7 +67,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
                     if vb is None or None is not va <= vb:
                         continue
                 a[k] = vb
-        for x in xrange(self._config.repeat):
+        for x in range(self._config.repeat):
             merge_min(results, self.runMatrix(storages, replicas))
         return self.buildReport(storages, replicas, results)
 
@@ -101,7 +102,8 @@ class MatrixImportBenchmark(BenchmarkRunner):
                 from neo.tests.functional import NEOCluster
             stop_kw = {'clear_databases': True}
             cluster = NEOCluster(
-                db_list=['%s_matrix_%u' % (DB_PREFIX, i) for i in xrange(storages)],
+                db_list=['%s_matrix_%u' % (DB_PREFIX, i)
+                         for i in range(storages)],
                 master_count=masters,
                 partitions=partitions,
                 replicas=replicas,

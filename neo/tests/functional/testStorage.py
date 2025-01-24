@@ -16,6 +16,7 @@
 
 import transaction
 from persistent import Persistent
+from neo import *
 
 from . import NEOCluster, NEOFunctionalTest
 from neo.lib.protocol import ClusterStates, NodeStates
@@ -39,7 +40,7 @@ class StorageTests(NEOFunctionalTest):
     def __setup(self, storage_number=2, pending_number=0, replicas=1,
             partitions=10, master_count=2):
         # create a neo cluster
-        self.neo = NEOCluster(['test_neo%d' % i for i in xrange(storage_number)],
+        self.neo = NEOCluster(['test_neo%d' % i for i in range(storage_number)],
             master_count=master_count,
             partitions=partitions, replicas=replicas,
             temp_dir=self.getTempDirectory(),
@@ -58,7 +59,7 @@ class StorageTests(NEOFunctionalTest):
     def __populate(self):
         db, conn = self.neo.getZODBConnection()
         root = conn.root()
-        for i in xrange(OBJECT_NUMBER):
+        for i in range(OBJECT_NUMBER):
             root[i] = PObject(i)
         transaction.commit()
         conn.close()
@@ -70,20 +71,20 @@ class StorageTests(NEOFunctionalTest):
         def callback(last_try):
             db.commit() # to get a fresh view
             # One revision per object and two for the root, before and after
-            (object_number,), = db.query('SELECT count(*) FROM obj')
+            (object_number,), = db.query_str('SELECT count(*) FROM obj')
             return object_number == OBJECT_NUMBER + 2, object_number
         self.neo.expectCondition(callback)
         # no more temporarily objects
-        (t_objects,), = db.query('SELECT count(*) FROM tobj')
+        (t_objects,), = db.query_str('SELECT count(*) FROM tobj')
         self.assertEqual(t_objects, 0)
         # One object more for the root
         query = 'SELECT count(*) FROM (SELECT * FROM obj GROUP BY oid) AS t'
-        (objects,), = db.query(query)
+        (objects,), = db.query_str(query)
         self.assertEqual(objects, OBJECT_NUMBER + 1)
         # Check object content
         db, conn = self.neo.getZODBConnection()
         root = conn.root()
-        for i in xrange(OBJECT_NUMBER):
+        for i in range(OBJECT_NUMBER):
             obj = root[i]
             self.assertEqual(obj.value, i)
         transaction.abort()

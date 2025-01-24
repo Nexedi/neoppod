@@ -35,14 +35,15 @@ class TIC_LOOP(object):
 
 class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
 
-    def check_checkCurrentSerialInTransaction(self):
-        with Patch(threaded, TIC_LOOP=TIC_LOOP()):
-            super(BasicTests, self).check_checkCurrentSerialInTransaction()
+    def test_checkCurrentSerialInTransaction(orig):
+        def test(self):
+            with Patch(threaded, TIC_LOOP=TIC_LOOP()):
+                orig(self)
+        return test
 
     # The test expects that both load & lastTransaction would be blocked
     # as long as the tpc_finish callback has not finished, taking more
     # than .1 second. ZODB 5.6.0 clarified that lastTransaction() can
     # return immediately with the previous last TID rather than blocking
     # until it is allowed to return the new last TID.
-    check_tid_ordering_w_commit = unittest.skip("ZODB PR #316")(
-        BasicStorage.check_tid_ordering_w_commit)
+    test_tid_ordering_w_commit = unittest.skip("ZODB PR #316")

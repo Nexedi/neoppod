@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from neo.lib import logging
 from neo.lib.exception import PrimaryElected
 from neo.lib.handler import MTEventHandler
@@ -41,7 +42,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
 
     def answerLastTransaction(self, conn, ltid):
         app = self.app
-        app_last_tid = app.__dict__.get('last_tid', '')
+        app_last_tid = app.__dict__.get('last_tid', b'')
         if app_last_tid != ltid:
             # Either we're connecting or we already know the last tid
             # via invalidations.
@@ -72,7 +73,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
         invalidate = cache.invalidate
         loading_get = app._loading.get
         with app._cache_lock:
-            for oid, data in cache_dict.iteritems():
+            for oid, data in six.iteritems(cache_dict):
                 # Update ex-latest value in cache
                 invalidate(oid, tid)
                 loading = loading_get(oid)

@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import defaultdict
+from neo import *
 from neo.lib import logging
 from neo.lib.protocol import ClusterStates, Packets, NodeStates, ZERO_TID
 from neo.lib.util import add64
@@ -106,7 +107,7 @@ class VerificationManager(BaseServiceHandler):
 
         # Some nodes may have already unlocked these transactions and
         # _locked_dict is incomplete, but we can ask them the final tid.
-        for ttid, voted_set in self._voted_dict.iteritems():
+        for ttid, voted_set in six.iteritems(self._voted_dict):
             if ttid in self._locked_dict:
                 continue
             partition = app.pt.getPartition(ttid)
@@ -129,7 +130,7 @@ class VerificationManager(BaseServiceHandler):
         # Finish all transactions for which we know that tpc_finish was called
         # but not fully processed. This may include replicas with transactions
         # that were not even locked.
-        for ttid, tid in self._locked_dict.iteritems():
+        for ttid, tid in six.iteritems(self._locked_dict):
             uuid_set = self._voted_dict.get(ttid)
             if uuid_set:
                 packet = Packets.ValidateTransaction(ttid, tid)
@@ -155,7 +156,7 @@ class VerificationManager(BaseServiceHandler):
     def answerLockedTransactions(self, conn, tid_dict):
         uuid = conn.getUUID()
         self._uuid_set.remove(uuid)
-        for ttid, tid in tid_dict.iteritems():
+        for ttid, tid in six.iteritems(tid_dict):
             if tid:
                 self._locked_dict[ttid] = tid
             self._voted_dict[ttid].add(uuid)

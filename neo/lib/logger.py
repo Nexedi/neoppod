@@ -21,7 +21,9 @@ from logging import getLogger, Formatter, Logger, StreamHandler, \
 from time import time
 from traceback import format_exception
 import bz2, inspect, neo, os, signal, sqlite3, sys, threading
+from neo import *
 
+from .protocol import formatAddress
 from .util import nextafter
 INF = float('inf')
 
@@ -41,7 +43,7 @@ class _Formatter(Formatter):
 
     def format(self, record):
         lines = iter(Formatter.format(self, record).splitlines())
-        prefix = lines.next()
+        prefix = next(lines)
         return '\n'.join(prefix + line for line in lines)
 
 
@@ -206,8 +208,10 @@ class NEOLogger(Logger):
                     cluster TEXT,
                     nid INTEGER)
               """)
-            with open(inspect.getsourcefile(p)) as p:
-                p = buffer(bz2.compress(p.read()))
+            with open(inspect.getsourcefile(p), 'rb') as p:
+                p = bz2.compress(p.read())
+            if six.PY2:
+                p = buffer(p)
             x = q("SELECT text FROM protocol ORDER BY date DESC LIMIT 1"
                 ).fetchone()
             if (x and x[0]) != p:
@@ -242,7 +246,7 @@ class NEOLogger(Logger):
                 nid = None
             else:
                 try:
-                    nid = 1 + max(x for x in self._node.itervalues()
+                    nid = 1 + max(x for x in six.itervalues(self._node)
                                     if x is not None)
                 except ValueError:
                     nid = 0
@@ -250,12 +254,16 @@ class NEOLogger(Logger):
                     (nid,) + r._node)
             self._node[r._node] = nid
         if type(r) is PacketRecord:
-            ip, port = r.addr
-            peer = ('%s %s ([%s]:%s)' if ':' in ip else '%s %s (%s:%s)') % (
-                '>' if r.outgoing else '<', uuid_str(r.uuid), ip, port)
+            peer = '%s %s (%s)' % (
+                '>' if r.outgoing else '<',
+                uuid_str(r.uuid),
+                formatAddress(r.addr))
             msg = r.msg
             if msg is not None:
-                msg = buffer(msg if type(msg) is bytes else packb(msg))
+                if type(msg) is not bytes:
+                    msg = packb(msg)
+                if six.PY2:
+                    msg = buffer(msg)
             q = "INSERT INTO packet VALUES (?,?,?,?,?,?)"
             x = [r.created, nid, r.msg_id, r.code, peer, msg]
         else:

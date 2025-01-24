@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from . import logging
 from .exception import PrimaryElected
 from .handler import EventHandler
@@ -32,6 +33,7 @@ class BootstrapManager(EventHandler):
         primary master node, connect to it then returns when the master node
         is ready.
         """
+        decodeAddress(server)
         self.server = server
         self.extra = extra
         self.node_type = node_type

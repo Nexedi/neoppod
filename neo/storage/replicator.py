@@ -88,6 +88,7 @@ TODO: Packing and replication currently fail when they happen at the same time.
 """
 
 import random
+from neo import *
 
 from neo.lib import logging
 from neo.lib.protocol import CellStates, NodeTypes, NodeStates, \
@@ -156,7 +157,7 @@ class Replicator(object):
             assert max_tid is None, max_tid
             return
         min_ttid = min(self.ttid_set) if self.ttid_set else INVALID_TID
-        for offset, p in self.partition_dict.iteritems():
+        for offset, p in six.iteritems(self.partition_dict):
             if p.max_ttid:
                 if max_tid:
                     # Filling replicate_dict while there are still unfinished
@@ -186,7 +187,7 @@ class Replicator(object):
     def getBackupTID(self):
         outdated_set = set(self.app.pt.getOutdatedOffsetListFor(self.app.uuid))
         tid = INVALID_TID
-        for offset, p in self.partition_dict.iteritems():
+        for offset, p in six.iteritems(self.partition_dict):
             if offset not in outdated_set:
                 tid = min(tid, p.next_trans, p.next_obj)
         if ZERO_TID != tid != INVALID_TID:
@@ -283,7 +284,7 @@ class Replicator(object):
 
     def backup(self, tid, source_dict):
         next_tid = None
-        for offset, source in source_dict.iteritems():
+        for offset, source in six.iteritems(source_dict):
             if source:
                 self.source_dict[offset] = source
                 self.replicate_dict[offset] = tid
@@ -479,7 +480,7 @@ class Replicator(object):
                     del self._conn_msg_id, self.replicate_tid
                 self.getCurrentConnection().close()
         # Cancel all replication orders from upstream cluster.
-        for offset in self.replicate_dict.keys():
+        for offset in list(self.replicate_dict):
             addr, name = self.source_dict.get(offset, (None, None))
             if name:
                 tid = self.replicate_dict.pop(offset)

@@ -18,6 +18,7 @@ import string
 from binascii import a2b_hex
 from contextlib import closing, contextmanager
 from copy import copy
+from neo import *
 from neo.lib.util import add64, p64, u64, makeChecksum
 from neo.lib.protocol import CellStates, ZERO_HASH, ZERO_OID, ZERO_TID, MAX_TID
 from neo.storage.database.manager import MVCCDatabaseManager
@@ -27,6 +28,14 @@ from .. import Mock, NeoUnitTestBase
 class StorageDBTests(NeoUnitTestBase):
 
     _last_ttid = ZERO_TID
+
+    @classmethod
+    def setUpClass(cls):
+        super(StorageDBTests, cls).setUpClass()
+        d = bytes(bytearray(range(256))) # PY3
+        d += d
+        cls.data = d
+        cls.checksum = makeChecksum(d)
 
     def setUp(self):
         NeoUnitTestBase.setUp(self)
@@ -53,7 +62,7 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(uuid, db.getUUID())
         app = Mock(last_pack_id=ZERO_TID)
         db.changePartitionTable(app, 1, 0,
-            [(i, uuid, CellStates.UP_TO_DATE) for i in xrange(num_partitions)],
+            [(i, uuid, CellStates.UP_TO_DATE) for i in range(num_partitions)],
             reset=True)
         self.assertEqual(num_partitions, 1 + db._getMaxPartition())
         db.commit()
@@ -87,7 +96,7 @@ class StorageDBTests(NeoUnitTestBase):
         self.checkConfigEntry(self.db.getName, self.db.setName, 'TEST_NAME')
 
     def getOIDs(self, count):
-        return map(p64, xrange(count))
+        return list(map(p64, range(count)))
 
     def getTIDs(self, count):
         tid_list = [self.getNextTID()]
@@ -97,11 +106,10 @@ class StorageDBTests(NeoUnitTestBase):
 
     def getTransaction(self, oid_list):
         self._last_ttid = ttid = add64(self._last_ttid, 1)
-        transaction = oid_list, 'user', 'desc', 'ext', False, ttid
-        H = "0" * 20
-        object_list = [(oid, self.db.holdData(H, oid, '', 1, None), None)
-                       for oid in oid_list]
-        return (transaction, object_list)
+        return (oid_list, b'user', b'desc', b'ext', False, ttid), [
+            (oid, self.db.holdData(self.checksum, oid,
+                                   self.data, 1, None), None)
+            for oid in oid_list]
 
     def checkSet(self, list1, list2):
         self.assertEqual(set(list1), set(list2))
@@ -137,9 +145,9 @@ class StorageDBTests(NeoUnitTestBase):
         oid1, = self.getOIDs(1)
         tid1, tid2 = self.getTIDs(2)
         FOUND_BUT_NOT_VISIBLE = False
-        OBJECT_T1_NO_NEXT = (tid1, None, 1, "0"*20, '', None)
-        OBJECT_T1_NEXT = (tid1, tid2, 1, "0"*20, '', None)
-        OBJECT_T2 = (tid2, None, 1, "0"*20, '', None)
+        OBJECT_T1_NO_NEXT = tid1, None, 1, self.checksum, self.data, None
+        OBJECT_T1_NEXT = tid1, tid2, 1, self.checksum, self.data, None
+        OBJECT_T2 = tid2, None, 1, self.checksum, self.data, None
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid1])
         # non-present
@@ -193,20 +201,20 @@ class StorageDBTests(NeoUnitTestBase):
         with self.commitTransaction(tid1, objs1, txn1), \
              self.commitTransaction(tid2, objs2, txn2):
             self.assertEqual(self.db.getTransaction(tid1, True),
-                ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
+                ([oid1], b'user', b'desc', b'ext', False, p64(1), None))
             self.assertEqual(self.db.getTransaction(tid2, True),
-                ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
+                ([oid2], b'user', b'desc', b'ext', False, p64(2), None))
             self.assertEqual(self.db.getTransaction(tid1, False), None)
             self.assertEqual(self.db.getTransaction(tid2, False), None)
         self.assertEqual(self.db.getFirstTID(), tid1)
         self.assertEqual(self.db.getTransaction(tid1, True),
-            ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
+            ([oid1], b'user', b'desc', b'ext', False, p64(1), None))
         self.assertEqual(self.db.getTransaction(tid2, True),
-            ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
+            ([oid2], b'user', b'desc', b'ext', False, p64(2), None))
         self.assertEqual(self.db.getTransaction(tid1, False),
-            ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
+            ([oid1], b'user', b'desc', b'ext', False, p64(1), None))
         self.assertEqual(self.db.getTransaction(tid2, False),
-            ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
+            ([oid2], b'user', b'desc', b'ext', False, p64(2), None))
 
     def test_deleteTransaction(self):
         txn, objs = self.getTransaction([])
@@ -226,14 +234,14 @@ class StorageDBTests(NeoUnitTestBase):
         self.db.storeTransaction(tid1, objs1, txn1, False)
         self.db.storeTransaction(tid2, objs2, txn2, False)
         self.assertEqual(self.db.getObject(oid1, tid=tid1),
-            (tid1, tid2, 1, "0" * 20, '', None))
+            (tid1, tid2, 1, self.checksum, self.data, None))
         self.db.deleteObject(oid1)
         self.assertIs(self.db.getObject(oid1, tid=tid1), None)
         self.assertIs(self.db.getObject(oid1, tid=tid2), None)
         self.db.deleteObject(oid2, serial=tid1)
         self.assertIs(self.db.getObject(oid2, tid=tid1), False)
         self.assertEqual(self.db.getObject(oid2, tid=tid2),
-            (tid2, None, 1, "0" * 20, '', None))
+            (tid2, None, 1, self.checksum, self.data, None))
 
     def test_deleteRange(self):
         np = 4
@@ -271,12 +279,12 @@ class StorageDBTests(NeoUnitTestBase):
              self.commitTransaction(tid2, objs2, txn2, None):
             pass
         self.assertEqual(self.db.getTransaction(tid1, True),
-            ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
+            ([oid1], b'user', b'desc', b'ext', False, p64(1), None))
         self.assertEqual(self.db.getTransaction(tid2, True),
-            ([oid2], 'user', 'desc', 'ext', False, p64(2), None))
+            ([oid2], b'user', b'desc', b'ext', False, p64(2), None))
         # get from non-temporary only
         self.assertEqual(self.db.getTransaction(tid1, False),
-            ([oid1], 'user', 'desc', 'ext', False, p64(1), None))
+            ([oid1], b'user', b'desc', b'ext', False, p64(1), None))
         self.assertEqual(self.db.getTransaction(tid2, False), None)
 
     def test_getObjectHistory(self):
@@ -286,17 +294,18 @@ class StorageDBTests(NeoUnitTestBase):
         txn2, objs2 = self.getTransaction([oid])
         txn3, objs3 = self.getTransaction([oid])
         # one revision
+        length = len(self.data)
         self.db.storeTransaction(tid1, objs1, txn1, False)
         result = self.db.getObjectHistoryWithLength(oid, 0, 3)
-        self.assertEqual(result, [(tid1, 0)])
+        self.assertEqual(result, [(tid1, length)])
         result = self.db.getObjectHistoryWithLength(oid, 1, 1)
         self.assertEqual(result, None)
         # two revisions
         self.db.storeTransaction(tid2, objs2, txn2, False)
         result = self.db.getObjectHistoryWithLength(oid, 0, 3)
-        self.assertEqual(result, [(tid2, 0), (tid1, 0)])
+        self.assertEqual(result, [(tid2, length), (tid1, length)])
         result = self.db.getObjectHistoryWithLength(oid, 1, 3)
-        self.assertEqual(result, [(tid1, 0)])
+        self.assertEqual(result, [(tid1, length)])
         result = self.db.getObjectHistoryWithLength(oid, 2, 3)
         self.assertEqual(result, None)
 
@@ -388,8 +397,8 @@ class StorageDBTests(NeoUnitTestBase):
         tid4 = self.getNextTID()
         tid5 = self.getNextTID()
         oid1 = p64(1)
-        foo = db.holdData("3" * 20, oid1, 'foo', 0, None)
-        bar = db.holdData("4" * 20, oid1, 'bar', 0, None)
+        foo = db.holdData(b'3' * 20, oid1, b'foo', 0, None)
+        bar = db.holdData(b'4' * 20, oid1, b'bar', 0, None)
         db.releaseData((foo, bar))
         db.storeTransaction(
             tid1, (
@@ -450,9 +459,9 @@ class StorageDBTests(NeoUnitTestBase):
         if isinstance(db, MVCCDatabaseManager):
             self.assertFalse(db.nonempty('todel'))
             self.assertEqual([
-                db.storeData(makeChecksum(x), ZERO_OID, x, 0, None)
+                db.storeData(makeChecksum(str2bytes(x)), ZERO_OID, x, 0, None)
                 for x in string.digits
-            ], range(0, 10))
+            ], list(range(10)))
             db2 = copy(db)
             for x in (3, 9, 4), (4, 7, 6):
                 self.assertIsNone(db2._pruneData(x))
@@ -465,7 +474,7 @@ class StorageDBTests(NeoUnitTestBase):
                 self.assertEqual(db._pruneData(x), len(expected))
             self.assertFalse(db._dataIdsToPrune(3))
             self.assertFalse(db2.nonempty('todel'))
-            self.assertEqual(db._pruneData(range(10)), 5)
+            self.assertEqual(db._pruneData(list(range(10))), 5)
             self.assertFalse(db.nonempty('todel'))
         else:
             self.assertIsNone(db.nonempty('todel'))

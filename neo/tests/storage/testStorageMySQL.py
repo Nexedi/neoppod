@@ -16,6 +16,7 @@
 
 import unittest
 from contextlib import closing, contextmanager
+from neo import *
 from neo.lib.protocol import ZERO_OID
 from neo.lib.util import p64
 from .. import DB_PREFIX, DB_USER, Patch
@@ -23,7 +24,7 @@ from .testStorageDBTests import StorageDBTests
 from neo.storage.database import DatabaseFailure
 from neo.storage.database.mysql import (MySQLDatabaseManager,
     NotSupportedError, OperationalError, ProgrammingError,
-    SERVER_GONE_ERROR, UNKNOWN_STORAGE_ENGINE)
+    SERVER_GONE_ERROR, UNKNOWN_STORAGE_ENGINE, string_literal)
 
 
 class ServerGone(object):
@@ -78,7 +79,7 @@ class StorageMySQLdbTests(StorageDBTests):
 
     def test_ServerGone(self):
         with ServerGone(self.db, True) as p:
-            self.assertRaises(ProgrammingError, self.db.query, 'QUERY')
+            self.assertRaises(ProgrammingError, self.db.query, b'QUERY')
             self.assertFalse(p.applied)
 
     def test_OperationalError(self):
@@ -90,18 +91,14 @@ class StorageMySQLdbTests(StorageDBTests):
                 raise OperationalError(-1, 'this is a test')
         with closing(self.db.conn):
             self.db.conn = FakeConn()
-            self.assertRaises(DatabaseFailure, self.db.query, 'QUERY')
-
-    def test_escape(self):
-        self.assertEqual(self.db.escape('a"b'), 'a\\"b')
-        self.assertEqual(self.db.escape("a'b"), "a\\'b")
+            self.assertRaises(DatabaseFailure, self.db.query, b'QUERY')
 
     def test_max_allowed_packet(self):
         EXTRA = 2
         # Check EXTRA
-        x = "SELECT '%s'" % ('x' * (self.db._max_allowed_packet - 11))
+        x = b"SELECT '%s'" % (b'x' * (self.db._max_allowed_packet - 11))
         assert len(x) + EXTRA == self.db._max_allowed_packet
-        self.assertRaises(DatabaseFailure, self.db.query, x + ' ')
+        self.assertRaises(DatabaseFailure, self.db.query, x + b' ')
         self.db.query(x)
         # Reconnection cleared the cache of the config table,
         # so fill it again with required values before we patch query().
@@ -109,10 +106,10 @@ class StorageMySQLdbTests(StorageDBTests):
         # Check MySQLDatabaseManager._max_allowed_packet
         query_list = []
         self.db.query = lambda query: query_list.append(EXTRA + len(query))
-        self.assertEqual(2, max(len(self.db.escape(chr(x)))
-                                for x in xrange(256)))
-        self.assertEqual(2, len(self.db.escape('\0')))
-        self.db.storeData('\0' * 20, ZERO_OID, '\0' * (2**24-1), 0, None)
+        self.assertEqual(4, max(len(string_literal(bytes(bytearray((x,))))) # PY3
+                                for x in range(256)))
+        self.assertEqual(4, len(string_literal(b'\0')))
+        self.db.storeData(b'\0' * 20, ZERO_OID, b'\0' * (2**24-1), 0, None)
         size, = query_list
         max_allowed = self.db.__class__._max_allowed_packet
         self.assertTrue(max_allowed - 1024 < size <= max_allowed, size)
@@ -121,7 +118,7 @@ class StorageMySQLdbTests(StorageDBTests):
             self.db._max_allowed_packet = max_allowed_packet
             del query_list[:]
             self.db.storeTransaction(p64(0),
-                ((p64(1<<i),1234,None) for i in xrange(10)), None)
+                ((p64(1<<i),1234,None) for i in range(10)), None)
             self.assertEqual(max(query_list), max_allowed_packet)
             self.assertEqual(len(query_list), count)
 

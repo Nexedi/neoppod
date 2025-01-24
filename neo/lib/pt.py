@@ -17,6 +17,7 @@
 import math
 from collections import defaultdict
 from functools import partial
+from neo import *
 from . import logging, protocol
 from .locking import Lock
 from .protocol import uuid_str, CellStates
@@ -108,7 +109,7 @@ class PartitionTable(object):
         # Note: don't use [[]] * self.np construct, as it duplicates
         # instance *references*, so the outer list contains really just one
         # inner list instance.
-        self.partition_list = [[] for _ in xrange(self.np)]
+        self.partition_list = [[] for _ in range(self.np)]
         self.count_dict = {}
 
     def addNodeList(self, node_list):
@@ -143,7 +144,7 @@ class PartitionTable(object):
 
     def getCellList(self, offset, readable=False):
         if readable:
-            return filter(Cell.isReadable, self.partition_list[offset])
+            return list(filter(Cell.isReadable, self.partition_list[offset]))
         return list(self.partition_list[offset])
 
     def getPartition(self, oid_or_tid):
@@ -151,7 +152,7 @@ class PartitionTable(object):
 
     def getOutdatedOffsetListFor(self, uuid):
         return [
-            offset for offset in xrange(self.np)
+            offset for offset in range(self.np)
             for c in self.partition_list[offset]
             if c.getUUID() == uuid and c.getState() == CellStates.OUT_OF_DATE
         ]
@@ -272,18 +273,22 @@ class PartitionTable(object):
         if not node_list:
             return ()
         cell_state_dict = protocol.cell_state_prefix_dict
-        node_dict = defaultdict(partial(bytearray, '.' * self.np))
+        node_dict = defaultdict(partial(bytearray, b'.' * self.np))
+        if six.PY3:
+            o = ord; c = bytearray.decode
+        else:
+            o = c = lambda x: x
         for offset, row in enumerate(self.partition_list):
             for cell in row:
-                node_dict[cell.getNode()][offset] = \
-                    cell_state_dict[cell.getState()]
+                node_dict[cell.getNode()][offset] = o(
+                    cell_state_dict[cell.getState()])
         n = len(uuid_str(node_list[-1].getUUID()))
         result = [''.join('%9sv' % x if x else 'pt:' + ' ' * (5 + n)
-                          for x in xrange(0, self.np, 10))
+                          for x in range(0, self.np, 10))
             ] if self.np > 10 else []
         result.extend('pt: %-*s %s %s' % (n, uuid_str(node.getUUID()),
                 protocol.node_state_prefix_dict[node.getState()],
-                node_dict[node])
+                c(node_dict[node]))
             for node in node_list)
         return result
 
@@ -315,7 +320,7 @@ class PartitionTable(object):
                 for cell in self.partition_list[offset]]
 
     def getRowList(self):
-        return map(self.getRow, xrange(self.np))
+        return list(map(self.getRow, range(self.np)))
 
 class MTPartitionTable(PartitionTable):
     """ Thread-safe aware version of the partition table, override only methods

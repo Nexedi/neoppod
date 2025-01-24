@@ -22,6 +22,7 @@ from ZODB.POSException import (
 from collections import defaultdict
 from functools import wraps
 from itertools import product
+from neo import *
 from neo.lib import logging
 from neo.master.handlers.backup import BackupHandler
 from neo.storage.checker import CHECK_COUNT
@@ -82,7 +83,7 @@ class ReplicationTests(NEOThreadedTest):
     def testBackupNormalCase(self):
         np = 7
         nr = 2
-        check_dict = dict.fromkeys(xrange(np))
+        check_dict = dict.fromkeys(range(np))
         with NEOCluster(partitions=np, replicas=nr-1, storage_count=3
                         ) as upstream:
             upstream.start()
@@ -91,7 +92,7 @@ class ReplicationTests(NEOThreadedTest):
             def delaySecondary(conn, packet):
                 if isinstance(packet, Packets.Replicate):
                     tid, upstream_name, source_dict = packet._args
-                    return not upstream_name and all(source_dict.itervalues())
+                    return not upstream_name and all(six.itervalues(source_dict))
             with NEOCluster(partitions=np, replicas=nr-1, storage_count=5,
                             upstream=upstream, backup_initially=True) as backup:
                 state_list = []
@@ -176,7 +177,7 @@ class ReplicationTests(NEOThreadedTest):
                 self.tic()
                 x = backup.master.backup_app.primary_partition_dict
                 new_oid_storage = x[0]
-                with upstream.moduloTID(next(p for p, n in x.iteritems()
+                with upstream.moduloTID(next(p for p, n in six.iteritems(x)
                                                if n is not new_oid_storage)), \
                      ConnectionFilter() as f:
                     f.delayAddObject()
@@ -185,7 +186,7 @@ class ReplicationTests(NEOThreadedTest):
                     txn = transaction.Transaction()
                     tid = storage.load(ZERO_OID)[1]
                     storage.tpc_begin(txn)
-                    storage.store(ZERO_OID, tid, '', '', txn)
+                    storage.store(ZERO_OID, tid, b'', '', txn)
                     storage.tpc_vote(txn)
                     storage.tpc_finish(txn)
                     self.tic()
@@ -219,18 +220,18 @@ class ReplicationTests(NEOThreadedTest):
         - non-primary storage disconnected from backup master
         """
         np = 4
-        check_dict = dict.fromkeys(xrange(np))
+        check_dict = dict.fromkeys(range(np))
         from neo.master.backup_app import random
         def fetchObjects(orig, min_tid=None, min_oid=ZERO_OID):
             if min_tid is None:
                 counts[0] += 1
                 if counts[0] > 1:
-                    orig.im_self.app.master_conn.close()
+                    orig.__self__.app.master_conn.close()
             return orig(min_tid, min_oid)
         def onTransactionCommitted(orig, txn):
             counts[0] += 1
             if counts[0] > 1:
-                node_list = orig.im_self.nm.getClientList(only_identified=True)
+                node_list = orig.__self__.nm.getClientList(only_identified=True)
                 node_list.remove(txn.node)
                 node_list[0].getConnection().close()
             return orig(txn)
@@ -283,8 +284,8 @@ class ReplicationTests(NEOThreadedTest):
                 # --- END ASIDE ---
 
                 storage_list = [x.uuid for x in backup.storage_list]
-                slave = set(xrange(len(storage_list))).difference
-                for event in xrange(10):
+                slave = set(range(len(storage_list))).difference
+                for event in range(10):
                     logging.info("event=%s", event)
                     counts = [0]
                     if event == 5:
@@ -292,8 +293,8 @@ class ReplicationTests(NEOThreadedTest):
                             _on_commit=onTransactionCommitted)
                     else:
                         primary_dict = defaultdict(list)
-                        for k, v in sorted(backup.master.backup_app
-                                           .primary_partition_dict.iteritems()):
+                        for k, v in sorted(six.iteritems(backup.master.backup_app
+                                           .primary_partition_dict)):
                             primary_dict[storage_list.index(v._uuid)].append(k)
                         if event % 2:
                             storage = slave(primary_dict).pop()
@@ -415,7 +416,7 @@ class ReplicationTests(NEOThreadedTest):
         oid = storage.new_oid()
         txn = transaction.Transaction()
         storage.tpc_begin(txn)
-        storage.store(oid, None, 'foo', '', txn)
+        storage.store(oid, None, b'foo', '', txn)
         storage.tpc_vote(txn)
         tid1 = storage.tpc_finish(txn)
         storage.tpc_begin(txn)
@@ -514,7 +515,7 @@ class ReplicationTests(NEOThreadedTest):
                 cluster.stop(1)
             if 1:
                 cluster.start([s0])
-                cluster.populate([range(np*2)] * np)
+                cluster.populate([list(range(np*2))] * np)
                 s1.start()
                 s2.start()
                 self.tic()
@@ -543,7 +544,7 @@ class ReplicationTests(NEOThreadedTest):
             oid = p64(1)
             txn = transaction.Transaction()
             storage.tpc_begin(txn)
-            storage.store(oid, None, 'foo', '', txn)
+            storage.store(oid, None, b'foo', '', txn)
             storage.tpc_finish(txn)
             storage._cache.clear()
             s1.start()
@@ -554,7 +555,7 @@ class ReplicationTests(NEOThreadedTest):
                 delay = m2c.delayNotifyPartitionChanges()
                 self.tic()
                 with Patch(cluster.client, sync=sync):
-                    self.assertEqual('foo', storage.load(oid)[0])
+                    self.assertEqual(b'foo', storage.load(oid)[0])
                 self.assertNotIn(delay, m2c)
 
     @with_cluster(start_cluster=False, storage_count=3, partitions=3)
@@ -984,14 +985,14 @@ class ReplicationTests(NEOThreadedTest):
                 delay_replication = f.delayAnswerFetchObjects()
             tid = None
             expected = 'U|U'
-            for n in xrange(3):
+            for n in range(3):
                 # On second iteration, the transaction will block replication
                 # until tpc_finish.
                 # We do a last iteration as a quick check that the cluster
                 # remains functional after such a scenario.
                 txn = transaction.Transaction()
                 storage.tpc_begin(txn)
-                tid = storage.store(oid, tid, str(n), '', txn)
+                tid = storage.store(oid, tid, b'%u' % n, '', txn)
                 if n == 1:
                     # Start the outdated storage.
                     s1.start()
@@ -1131,9 +1132,9 @@ class ReplicationTests(NEOThreadedTest):
         np = cluster.num_partitions
         tid_count = np * 3
         corrupt_tid = tid_count // 2
-        check_dict = dict.fromkeys(xrange(np))
+        check_dict = dict.fromkeys(range(np))
         with Patch(checker, CHECK_COUNT=2):
-            cluster.populate([range(np*2)] * tid_count)
+            cluster.populate([list(range(np*2))] * tid_count)
             storage_dict = {x.uuid: x for x in cluster.storage_list}
             cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
             self.tic()
@@ -1179,7 +1180,7 @@ class ReplicationTests(NEOThreadedTest):
             return isinstance(packet, Packets.AnswerFetchTransactions)
 
         with ConnectionFilter() as f:
-            for i in xrange(loop):
+            for i in range(loop):
                 if i == cutoff:
                     f.add(delayReplication)
                 if i == recover:
@@ -1193,7 +1194,7 @@ class ReplicationTests(NEOThreadedTest):
                 txn.note(u'test transaction %s' % i)
                 Z.tpc_begin(txn)
                 oid = Z.new_oid()
-                Z.store(oid, None, '%s-%i' % (oid, i), '', txn)
+                Z.store(oid, None, b'%s-%u' % (oid, i), '', txn)
                 Z.tpc_vote(txn)
                 tid = Z.tpc_finish(txn)
                 oid_list.append(oid)
@@ -1217,7 +1218,7 @@ class ReplicationTests(NEOThreadedTest):
                         self.assertRaises(POSKeyError, Zb.load, oid, '')
                     else:
                         data, serial = Zb.load(oid, '')
-                        self.assertEqual(data, '%s-%s' % (oid, j))
+                        self.assertEqual(data, b'%s-%u' % (oid, j))
                         self.assertEqual(serial, tid_list[j])
 
                 # verify how transaction log & friends behave under potentially
@@ -1229,10 +1230,11 @@ class ReplicationTests(NEOThreadedTest):
                                                  else i+1)
                 for j, txn in enumerate(Btxn_list):
                     self.assertEqual(txn.tid, tid_list[j])
-                    self.assertEqual(txn.description, 'test transaction %i' % j)
+                    self.assertEqual(txn.description,
+                                     b'test transaction %u' % j)
                     obj, = txn
                     self.assertEqual(obj.oid, oid_list[j])
-                    self.assertEqual(obj.data, '%s-%s' % (obj.oid, j))
+                    self.assertEqual(obj.data, b'%s-%u' % (obj.oid, j))
 
                 # TODO test askObjectHistory once it is fixed
 
@@ -1319,7 +1321,7 @@ class ReplicationTests(NEOThreadedTest):
                     if data == '.':
                         storage.deleteObject(oid, serial, txn)
                     else:
-                        storage.store(oid, serial, data, '', txn)
+                        storage.store(oid, serial, str2bytes(data), '', txn)
                     storage.tpc_vote(txn)
                     serial = storage.tpc_finish(txn)
                     self.tic()

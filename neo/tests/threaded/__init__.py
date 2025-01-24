@@ -17,17 +17,21 @@
 # XXX: Consider using ClusterStates.STOPPING to stop clusters
 
 import hashlib, os, random, select, socket, sys, tempfile
-import thread, threading, time, traceback, weakref
+import six.moves._thread as _thread, threading, time, traceback, weakref
 from collections import deque
 from contextlib import contextmanager
-from cPickle import dumps
-from email import message_from_string
+try:
+    from email import message_from_bytes
+except ImportError:
+    from email import message_from_string as message_from_bytes
 from itertools import count
 from functools import partial, wraps
-from urllib import urlencode
-from urlparse import urlunsplit
+from operator import call
+from six.moves.cPickle import dumps
+from six.moves.urllib.parse import urlencode, urlunsplit
 from zlib import decompress
 import transaction, ZODB
+from neo import *
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.admin.handler import MasterEventHandler
@@ -37,9 +41,9 @@ from neo.lib.connection import BaseConnection, \
     ClientConnection, Connection, ConnectionClosed, ListeningConnection
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
-from neo.lib.locking import SimpleQueue
+from neo.lib.locking import SimpleQueue, Empty, BUGGY_LOCK
 from neo.lib.protocol import ZERO_OID, ZERO_TID, MAX_TID, uuid_str, \
-    ClusterStates, Enum, NodeStates, NodeTypes, Packets
+    ClusterStates, Enum, NodeStates, NodeTypes, Packets, formatAddress
 from neo.lib.util import cached_property, parseMasterList, p64
 from neo.master.recovery import  RecoveryManager
 from neo.storage.database.importer import ImporterDatabaseManager
@@ -49,7 +53,7 @@ from .. import (getTempDirectory, setupMySQL,
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
-TIC_LOOP = xrange(1000)
+TIC_LOOP = range(1000)
 
 
 class LockLock(object):
@@ -64,14 +68,14 @@ class LockLock(object):
 
     def __call__(self):
         """Define synchronisation point for both threads"""
-        if self._owner == thread.get_ident():
+        if self._owner == _thread.get_ident():
             self._l[0].acquire()
         else:
             self._l[0].release()
             self._l[1].acquire()
 
     def __enter__(self):
-        self._owner = thread.get_ident()
+        self._owner = _thread.get_ident()
         for l in self._l:
             l.acquire(0)
         return self
@@ -79,7 +83,7 @@ class LockLock(object):
     def __exit__(self, t, v, tb):
         try:
             self._l[1].release()
-        except thread.error:
+        except _thread.error:
             pass
 
 
@@ -169,7 +173,7 @@ class Serialized(object):
             else:
                 l = threading.Lock()
                 l.acquire()
-                (name, patch), = patch.iteritems()
+                (name, patch), = six.iteritems(patch)
                 def release():
                     p.revert()
                     l.release()
@@ -183,7 +187,7 @@ class Serialized(object):
     @contextmanager
     def pdb(cls):
         try:
-            cls._pdb = sys._getframe(2).f_trace.im_self
+            cls._pdb = sys._getframe(2).f_trace.__self__
             cls._pdb.set_continue()
         except AttributeError:
             cls._pdb = None # for pure-Python implementation of coverage
@@ -325,10 +329,10 @@ class Node(object):
                 b = c.getAddress()
                 return (b, a) if c.is_server else (ServerNode.resolv(a), b)
         addr_set = {addr(c.connector) for peer in peers
-            for c in peer.em.connection_dict.itervalues()
+            for c in six.itervalues(peer.em.connection_dict)
             if isinstance(c, Connection)}
         addr_set.discard(None)
-        return (c for c in self.em.connection_dict.itervalues()
+        return (c for c in six.itervalues(self.em.connection_dict)
             if isinstance(c, Connection) and addr(c.connector) in addr_set)
 
     def filterConnection(self, *peers):
@@ -343,23 +347,25 @@ class Node(object):
             yield p
         self.em.wakeup(*deferred)
 
-class ServerNode(Node):
+class ServerNodeType(type):
+
+    def __init__(cls, name, bases, d):
+        if Node not in bases and threading.Thread not in cls.__mro__:
+            cls.__bases__ = bases + (threading.Thread,)
+            cls.node_type = getattr(NodeTypes, name[:-11].upper())
+            cls._node_list = []
+            host = socket.inet_ntop(ADDRESS_TYPE,
+                LOCAL_IP[:-1] + six.int2byte(2 + len(cls._server_class_dict)))
+            cls._virtual_ip = str2bytes(host)
+            cls._server_class_dict[host] = cls
+
+class ServerNode(six.with_metaclass(ServerNodeType, Node)):
 
     _server_class_dict = {}
 
-    class __metaclass__(type):
-        def __init__(cls, name, bases, d):
-            if Node not in bases and threading.Thread not in cls.__mro__:
-                cls.__bases__ = bases + (threading.Thread,)
-                cls.node_type = getattr(NodeTypes, name[:-11].upper())
-                cls._node_list = []
-                cls._virtual_ip = socket.inet_ntop(ADDRESS_TYPE,
-                    LOCAL_IP[:-1] + chr(2 + len(cls._server_class_dict)))
-                cls._server_class_dict[cls._virtual_ip] = cls
-
     @staticmethod
     def resetPorts():
-        for cls in ServerNode._server_class_dict.itervalues():
+        for cls in six.itervalues(ServerNode._server_class_dict):
             del cls._node_list[:]
 
     @classmethod
@@ -374,7 +380,7 @@ class ServerNode(Node):
             cls = cls._server_class_dict[address[0]]
         except KeyError:
             return address
-        return cls._node_list[address[1]].getListeningAddress()
+        return decodeAddress(cls._node_list[address[1]].getListeningAddress())
 
     def __init__(self, cluster=None, address=None, **kw):
         if not address:
@@ -386,7 +392,9 @@ class ServerNode(Node):
             master_nodes = cluster.master_nodes
             name = kw.get('name', cluster.name)
         port = address[1]
-        if address is not BIND:
+        if address is BIND:
+            address = encodeAddress(BIND)
+        else:
             self._node_list[port] = weakref.proxy(self)
         self._init_args = init_args = kw.copy()
         init_args['cluster'] = cluster
@@ -412,6 +420,13 @@ class ServerNode(Node):
         init_args.update(kw)
         self.close()
         self.__init__(**init_args)
+
+    if six.PY3:
+        def close(self):
+            assert not self.is_alive(), self
+            super().close()
+            from threading import _dangling
+            _dangling.remove(self) # otherwise, threading._after_fork complains
 
     def start(self):
         Serialized(self)
@@ -440,7 +455,7 @@ class ServerNode(Node):
             raise ConnectorException
 
     def stop(self):
-        self.em.wakeup(thread.exit)
+        self.em.wakeup(_thread.exit)
 
 class AdminApplication(ServerNode, neo.admin.app.Application):
 
@@ -463,7 +478,9 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         try:
             self.dm.close()
             del self.dm
-        except StandardError: # AttributeError & ProgrammingError
+        except (AssertionError, # XXX: deferred commit without lock
+                                #      (e.g. test2Clusters)
+                AttributeError):
             pass
         if self.master_conn:
             self.master_conn.close()
@@ -498,14 +515,16 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
     def getDataLockInfo(self):
         dm = self.dm
         with dm.lock:
-            index = tuple(dm.query("SELECT id, hash, compression FROM data"))
+            index = tuple(dm.query_str(
+                "SELECT id, hash, compression FROM data"))
             assert set(dm._uncommitted_data).issubset(x[0] for x in index)
             get = dm._uncommitted_data.get
-            return {(str(h), c & 0x7f): get(i, 0) for i, h, c in index}
+            return {(bytes(h), # PY3: unbuffer
+                     c & 0x7f): get(i, 0) for i, h, c in index}
 
     def sqlCount(self, table):
         with self.dm.lock:
-            (r,), = self.dm.query("SELECT COUNT(*) FROM " + table)
+            (r,), = self.dm.query_str("SELECT COUNT(*) FROM " + table)
         return r
 
     def checksumPartition(self, partition, max_tid=MAX_TID):
@@ -584,7 +603,7 @@ class LoggerThreadName(str):
     def __str__(self):
         t = threading.currentThread()
         if t.name == 'BackgroundWorker':
-            t, = t._Thread__args
+            t, = t._args if six.PY3 else t._Thread__args
             return t().node_name
         try:
             return t.node_name
@@ -631,7 +650,8 @@ class ConnectionFilter(object):
         finally:
             del cls.filter_list[-1:]
             if not cls.filter_list:
-                Connection._addPacket = cls._addPacket.im_func
+                Connection._addPacket = cls._addPacket if six.PY3 else \
+                                        cls._addPacket.__func__
             # Retry even in case of exception, at least to avoid leaks in
             # filter_queue. Sometimes, WeakKeyDictionary only does the job
             # only an explicit call to gc.collect.
@@ -652,7 +672,7 @@ class ConnectionFilter(object):
 
     @classmethod
     def _retry(cls):
-        for conn, queue in cls.filter_queue.items():
+        for conn, queue in list(cls.filter_queue.items()):
             while queue:
                 packet = queue.popleft()
                 for self in cls.filter_list:
@@ -677,7 +697,7 @@ class ConnectionFilter(object):
         try:
             if cls.filter_queue:
                 logging.info('%s:', cls.__name__)
-                for conn, queue in cls.filter_queue.iteritems():
+                for conn, queue in six.iteritems(cls.filter_queue):
                     app = NEOThreadedTest.getConnectionApp(conn)
                     logging.info('  %s %s:', uuid_str(app.uuid), conn)
                     for p in queue:
@@ -744,6 +764,27 @@ class NEOCluster(object):
                 raise Exception("tic is looping forever")
             return lock(False)
         self._lock = _lock
+    if BUGGY_LOCK:
+        def __init__(orig, self):
+            orig(self)
+            if Serialized._disabled:
+                return
+            _get = self.get
+            def get(blocking=True):
+                try:
+                    return _get(False)
+                except Empty:
+                    if not blocking:
+                        raise
+                logging.info('<SimpleQueue>.get()')
+                for i in TIC_LOOP:
+                    try:
+                        return _get(False)
+                    except Empty:
+                        Serialized.tic(step=1, quiet=True, timeout=.001)
+                ConnectionFilter.log()
+                raise Exception("tic is looping forever")
+            self.get = get
     _patches = (
         Patch(BaseConnection, getTimeout=lambda orig, self: None),
         Patch(SimpleQueue, __init__=__init__),
@@ -794,12 +835,12 @@ class NEOCluster(object):
                        compress=True, backup_count=0, backup_initially=False,
                        importer=None, autostart=None, dedup=False, name=None):
         self.name = name or self._allocateName()
-        self.backup_list = [self._allocateName() for x in xrange(backup_count)]
+        self.backup_list = [self._allocateName() for x in range(backup_count)]
         self.compress = compress
         self.num_partitions = partitions
         master_list = [MasterApplication.newAddress()
-                       for _ in xrange(master_count)]
-        self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
+                       for _ in range(master_count)]
+        self.master_nodes = ' '.join(map(formatAddress, master_list))
         kw = dict(replicas=replicas, adapter=adapter,
             partitions=partitions, reset=clear_databases, dedup=dedup)
         kw['cluster'] = weak_self = weakref.proxy(self)
@@ -815,9 +856,9 @@ class NEOCluster(object):
         if db_list is None:
             if storage_count is None:
                 storage_count = replicas + 1
-            index = count().next
+            index = count().__next__ if six.PY3 else count().next
             db_list = ['%s%u' % (DB_PREFIX, self._allocate('db', index))
-                       for _ in xrange(storage_count)]
+                       for _ in range(storage_count)]
         if adapter == 'MySQL':
             db = setupMySQL(db_list, clear_databases)
         elif adapter == 'SQLite':
@@ -946,11 +987,11 @@ class NEOCluster(object):
         expected_state = (NodeStates.PENDING
             if state == ClusterStates.RECOVERING
             else NodeStates.RUNNING)
-        for node, expected_state in (
+        for node, expected_state in six.iteritems(
                 storage_list if isinstance(storage_list, dict) else
                 dict.fromkeys(self.storage_list if storage_list is None else
                               storage_list, expected_state)
-                ).iteritems():
+                ):
             state = self.getNodeState(node)
             assert state == expected_state, (repr(node), state, expected_state)
 
@@ -1048,7 +1089,7 @@ class NEOCluster(object):
         timeout += time.time()
         while thread_list:
             # Map with repr before that threads become unprintable.
-            assert time.time() < timeout, map(repr, thread_list)
+            assert time.time() < timeout, list(map(repr, thread_list))
             Serialized.tic(timeout=.001)
             thread_list = [t for t in thread_list if t.is_alive()]
 
@@ -1090,7 +1131,8 @@ class NEOCluster(object):
             txn = transaction.Transaction()
             storage.tpc_begin(txn, tid(i))
             for o in oid_list:
-                storage.store(oid(o), tid_dict.get(o), repr((i, o)), '', txn)
+                storage.store(oid(o), tid_dict.get(o),
+                              str2bytes(repr((i, o))), '', txn)
             storage.tpc_vote(txn)
             i = storage.tpc_finish(txn)
             for o in oid_list:
@@ -1165,6 +1207,7 @@ class NEOThreadedTest(NeoTestBase):
         if success and logging._max_size is not None:
             with logging as db:
                 db.execute("UPDATE packet SET body=NULL")
+                db.commit()
                 db.execute("VACUUM")
 
     tic = Serialized.tic
@@ -1195,18 +1238,20 @@ class NEOThreadedTest(NeoTestBase):
 
         def __init__(self, func, *args, **kw):
             threading.Thread.__init__(self)
-            self.__target = func, args, kw
+            self.__target = partial(func, *args, **kw)
             self.daemon = True
 
         def run(self):
             try:
-                self.__result = apply(*self.__target)
+                self.__result = self.__target()
             except SystemExit:
                 self.__result = None
             except:
                 self.__exc_info = sys.exc_info()
                 if self.__exc_info[0] is NEOThreadedTest.failureException:
                     traceback.print_exception(*self.__exc_info)
+            finally:
+                del self.__target
 
         def join(self, timeout=None):
             threading.Thread.join(self, timeout)
@@ -1214,9 +1259,9 @@ class NEOThreadedTest(NeoTestBase):
                 try:
                     return self.__result
                 except AttributeError:
-                    etype, value, tb = self.__exc_info
+                    exc_info = self.__exc_info
                     del self.__exc_info
-                    raise etype, value, tb
+                    six.reraise(*exc_info)
 
     class newThread(newPausedThread):
 
@@ -1257,7 +1302,7 @@ class NEOThreadedTest(NeoTestBase):
         self.assertFalse(cluster.admin.smtp)
 
     def assertMonitor(self, cluster, severity, summary, *backups):
-        msg = message_from_string(cluster.admin.smtp.pop(0)[2])
+        msg = message_from_bytes(cluster.admin.smtp.pop(0)[2])
         self.assertIn(('OK', 'WARNING', 'PROBLEM')[severity], msg['subject'])
         msg = msg.get_payload().splitlines()
         def assertStartsWith(a, b):
@@ -1277,7 +1322,7 @@ class NEOThreadedTest(NeoTestBase):
     def checkReplicas(self, cluster):
         pt = cluster.primary_master.pt
         storage_dict = {x.uuid: x for x in cluster.storage_list}
-        for offset in xrange(pt.getPartitions()):
+        for offset in range(pt.getPartitions()):
             checksum_list = [
                 storage_dict[x.getUUID()].checksumPartition(offset)
                 for x in pt.getCellList(offset)]
@@ -1290,14 +1335,14 @@ class ThreadId(list):
 
     def __call__(self):
         try:
-            return self.index(thread.get_ident())
+            return self.index(_thread.get_ident())
         except ValueError:
             i = len(self)
-            self.append(thread.get_ident())
+            self.append(_thread.get_ident())
             return i
 
 
-@apply
+@call
 class RandomConflictDict(dict):
     # One must not depend on how Python iterates over dict keys, because this
     # is implementation-defined behaviour. This patch makes sure of that when

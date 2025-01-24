@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+from neo import *
 
 def speedupFileStorageTxnLookup():
     """Speed up lookup of start position when instantiating an iterator
@@ -51,10 +52,10 @@ def speedupFileStorageTxnLookup():
                 # To reduce memory usage, the list is splitted in arrays of
                 # low order 32-bit words.
                 tindex = defaultdict(lambda: array(typecode))
-                for x in self._index.itervalues():
+                for x in six.itervalues(self._index):
                     tindex[x >> 32].append(x & 0xffffffff)
                 index = self._tidindex = []
-                for h, l in sorted(tindex.iteritems()):
+                for h, l in sorted(six.iteritems(tindex)):
                     l = array(typecode, sorted(l))
                     x = self._read_data_header(h << 32 | l[0])
                     index.append((x.tid, h, l))

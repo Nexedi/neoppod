@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import division, print_function
 import math, random, sys
-from cStringIO import StringIO
+from io import BytesIO
+from neo import *
 from ZODB.utils import p64, u64
 from ZODB.BaseStorage import TransactionRecord
 from ZODB.FileStorage import FileStorage
+
+_round = round if six.PY3 else lambda x: int(round(x))
 
 # Stats of a 43.5 GB production Data.fs
 #                          µ               σ
@@ -22,11 +25,12 @@ PROD1 = lambda random=random: DummyZODB(6.04237779991, 1.55811487853,
 
 def _DummyData(random, size):
     # returns data that gzip at about 28.5 %
-    return bytearray(int(random.gauss(0, .8)) % 256 for x in xrange(size))
+    d = (int(random.gauss(0, .8)) % 256 for x in range(size))
+    return bytes(d if six.PY3 else bytearray(d))
 
 def DummyData(random=random):
     # make sure sample is bigger than dictionary of compressor
-    return StringIO(_DummyData(random, 100000))
+    return BytesIO(_DummyData(random, 100000))
 
 
 class DummyZODB(object):
@@ -46,13 +50,13 @@ class DummyZODB(object):
         self.new_ratio = new_ratio
         self.next_oid = 0
         self.err_count = 0
-        self.tid = u64('TID\0\0\0\0\0')
+        self.tid = u64(b'TID\0\0\0\0\0')
 
     def __call__(self):
         variate = self.random.lognormvariate
         oid_set = set()
-        for i in xrange(int(round(variate(self.obj_count_mu,
-                                          self.obj_count_sigma))) or 1):
+        for i in range(_round(variate(self.obj_count_mu,
+                                      self.obj_count_sigma)) or 1):
             if len(oid_set) >= self.next_oid or \
                self.random.random() < self.new_ratio:
                 oid = self.next_oid
@@ -63,8 +67,8 @@ class DummyZODB(object):
                     if oid not in oid_set:
                         break
             oid_set.add(oid)
-            yield p64(oid), int(round(variate(self.obj_size_mu,
-                                              self.obj_size_sigma))) or 1
+            yield p64(oid), _round(variate(self.obj_size_mu,
+                                           self.obj_size_sigma)) or 1
 
     def as_storage(self, stop, dummy_data_file=None):
         if dummy_data_file is None:
@@ -77,7 +81,7 @@ class DummyZODB(object):
             def __init__(self, tid, oid, size):
                 self.tid = tid
                 self.oid = oid
-                data = ''
+                data = b''
                 while size:
                     d = dummy_data_file.read(size)
                     size -= len(d)
@@ -101,7 +105,7 @@ class DummyZODB(object):
         class dummy_storage(object):
             size = 0
             def iterator(storage, *args):
-                args = ' ', '', '', {}
+                args = ' ', b'', b'', {}
                 i = 0
                 variate = self.random.lognormvariate
                 while not stop(i):
@@ -115,7 +119,7 @@ class DummyZODB(object):
         return dummy_storage()
 
 def lognorm_stat(X):
-    Y = map(math.log, X)
+    Y = list(map(math.log, X))
     n = len(Y)
     mu = sum(Y) / n
     s2 = sum(d*d for d in (y - mu for y in Y)) / n

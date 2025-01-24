@@ -23,6 +23,7 @@ from email.utils import formataddr, formatdate
 from socket import getfqdn
 from time import time
 from traceback import format_exc
+from neo import *
 from neo.lib import logging
 from neo.lib.app import BaseApplication, buildOptionParser
 from neo.lib.connection import ClientConnection, ListeningConnection, \
@@ -70,7 +71,7 @@ class Monitor(object):
     def formatSummary(self, upstream=None):
         summary = self.pt_summary
         summary = '%s; %s' % (self.cluster_state,
-            ', '.join('%s=%s' % pt for pt in sorted(summary.iteritems()))
+            ', '.join('%s=%s' % pt for pt in sorted(six.iteritems(summary)))
             ) if summary else str(self.cluster_state)
         if self.down:
             summary += '; DOWN=%s' % self.down
@@ -177,7 +178,8 @@ class Application(BaseApplication, Monitor):
         self.smtp_exc = None
         self.notifying = set()
 
-        logging.debug('IP address is %s, port is %d', *self.server)
+        logging.debug('IP address is %s, port is %d',
+                      *decodeAddress(self.server))
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -266,7 +268,7 @@ class Application(BaseApplication, Monitor):
         if pt:
             down_set = set()
             pt_summary = Counter()
-            for offset in xrange(pt.np):
+            for offset in range(pt.np):
                 for cell in pt.getCellList(offset):
                     node = cell.getNode()
                     if not node.isRunning():
@@ -283,7 +285,7 @@ class Application(BaseApplication, Monitor):
 
     def updateMonitorInformation(self, name, **kw):
         monitor = self if name is None else self.backup_dict[name]
-        kw = {k: v for k, v in kw.iteritems() if v != getattr(monitor, k)}
+        kw = {k: v for k, v in six.iteritems(kw) if v != getattr(monitor, k)}
         if not kw:
             return
         monitor.monitor_changed = True
@@ -298,7 +300,7 @@ class Application(BaseApplication, Monitor):
         if ask_ids:
             self.askLastIds(self.master_conn)
             self.notifying = notifying = {None}
-            for name, monitor in self.backup_dict.iteritems():
+            for name, monitor in six.iteritems(self.backup_dict):
                 if monitor.operational:
                     monitor.askLastIds(monitor.conn)
                     notifying.add(name)
@@ -316,7 +318,7 @@ class Application(BaseApplication, Monitor):
         else:
             upstream, body = self.formatSummary()
             body = [body]
-            for name, backup in self.backup_dict.iteritems():
+            for name, backup in six.iteritems(self.backup_dict):
                 body += '', name, '    ' + backup.formatSummary(upstream)[1]
                 severity[backup.severity or backup.lagging].append(name)
                 if backup.monitor_changed:
@@ -353,7 +355,8 @@ class Application(BaseApplication, Monitor):
                         s.starttls()
                     if self.smtp_login:
                         s.login(*self.smtp_login)
-                    s.sendmail(None, email_list, msg.as_string())
+                    s.sendmail(None, email_list,
+                               msg.as_bytes() if six.PY3 else msg.as_string())
                 except Exception:
                     x = format_exc()
                     logging.error(x)
@@ -367,7 +370,7 @@ class Application(BaseApplication, Monitor):
                     # lagging and for that, the main cluster and at least one
                     # backup cluster must be operational. Else, remain passive.
                     if not (self.operational and any(monitor.operational
-                            for monitor in self.backup_dict.itervalues())):
+                            for monitor in six.itervalues(self.backup_dict))):
                         break
                 finally:
                     s.close()
@@ -402,7 +405,7 @@ class Application(BaseApplication, Monitor):
         if max_offset == 0:
             max_offset = pt.getPartitions()
         try:
-            row_list = map(pt.getRow, xrange(min_offset, max_offset))
+            row_list = list(map(pt.getRow, range(min_offset, max_offset)))
         except IndexError:
             conn.send(Errors.ProtocolError('invalid partition table offset'))
         else:

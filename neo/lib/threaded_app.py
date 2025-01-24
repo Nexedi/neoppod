@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import thread, threading, weakref
+import six.moves._thread as _thread, threading, weakref
 from . import debug, logging
 from .app import BaseApplication
 from .dispatcher import Dispatcher
@@ -67,7 +67,7 @@ class ThreadedApplication(BaseApplication):
                 conn.close()
             # Stop polling thread
             logging.debug('Stopping %s', self.poll_thread)
-            self.em.wakeup(thread.exit)
+            self.em.wakeup(_thread.exit)
         else:
             super(ThreadedApplication, self).close()
 

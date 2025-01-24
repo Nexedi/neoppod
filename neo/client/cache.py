@@ -17,6 +17,7 @@
 from __future__ import division
 import math
 from bisect import insort
+from neo import *
 
 class CacheItem(object):
 
@@ -93,7 +94,7 @@ class ClientCache(object):
             len(self._oid_dict), self._size, self._time,
             [self._history_size] + [
                 sum(1 for _ in self._iterQueue(level))
-                for level in xrange(1, len(self._queue_list))],
+                for level in range(1, len(self._queue_list))],
             self._life_time, self._max_history_size, self.max_size)
 
     def _iterQueue(self, level):
@@ -283,7 +284,8 @@ class ClientCache(object):
                 assert item.next_tid <= tid, (item, oid, tid)
 
     def clear_current(self):
-        for oid, item_list in self._oid_dict.items():
+        item_list = self._oid_dict.items()
+        for oid, item_list in list(item_list) if six.PY3 else item_list:
             item = item_list[-1]
             if item.next_tid is None:
                 if item.level:
@@ -327,7 +329,8 @@ def test(self):
     self.assertEqual([5, 10, 15, 20], [x.tid for x in cache._oid_dict[1]])
     self.assertRaises(AssertionError, cache.store, 1, '20', 20, None)
     repr(cache)
-    map(repr, cache._queue_list)
+    for item in cache._queue_list:
+        repr(item)
     # Test late invalidations.
     cache.clear()
     cache.store(1, '10*', 10, None)

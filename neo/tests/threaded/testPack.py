@@ -15,14 +15,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-import random, thread, threading
+import random, six.moves._thread as _thread, threading
 from bisect import bisect
 from collections import defaultdict, deque
 from contextlib import contextmanager
 from itertools import count
 from logging import NullHandler
+from six.moves.queue import Queue
 from time import time
-from Queue import Queue
 import transaction
 from persistent import Persistent
 from ZODB.POSException import POSKeyError, ReadOnlyError, UndoError
@@ -34,8 +34,9 @@ from neo.lib.protocol import ClusterStates, Packets, ZERO_TID
 from neo.lib.util import add64, p64, u64
 from neo.scripts import reflink
 from neo.storage.database.manager import BackgroundWorker
-from .. import consume, Patch, TransactionalResource
+from .. import consume, Patch, Random, TransactionalResource
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, with_cluster
+from neo import *
 
 class PCounter(Persistent):
     value = 0
@@ -62,7 +63,7 @@ class PackTests(NEOThreadedTest):
             yield
             cluster.ticAndJoinStorageTasks()
         self.assertSequenceEqual(counts,
-            tuple(sum(len(set(x)) for x in packs.pop(s.uuid, {}).itervalues())
+            tuple(sum(len(set(x)) for x in six.itervalues(packs.pop(s.uuid, {})))
                   for s in storage_list))
         self.assertFalse(packs)
 
@@ -173,7 +174,7 @@ class PackTests(NEOThreadedTest):
         ob = r[''] = PCounter()
         t.commit()
         tids = []
-        for x in xrange(2):
+        for x in range(2):
             ob.value += 1
             t.commit()
             tids.append(ob._p_serial)
@@ -217,12 +218,12 @@ class PackTests(NEOThreadedTest):
     def testPartial(self, cluster):
         N = 256
         T = 40
-        rnd = random.Random(0)
+        rnd = Random(0)
         t, c = cluster.getTransaction()
         r = c.root()
-        for i in xrange(T):
-            for x in xrange(40):
-                x = rnd.randrange(0, N)
+        for i in range(T):
+            for x in range(40):
+                x = rnd.randrange(N)
                 try:
                     r[x].value += 1
                 except KeyError:
@@ -242,7 +243,7 @@ class PackTests(NEOThreadedTest):
                 return tids[bisect(tids, tid)-1:]
             return tids
         expected = [tids(r._p_oid, True)]
-        for x in xrange(N):
+        for x in range(N):
             expected.append(tids(r[x]._p_oid, x % 2))
         self.assertNotEqual(sorted(oids), oids)
         client = c.db().storage.app
@@ -250,7 +251,7 @@ class PackTests(NEOThreadedTest):
         with self.assertPackOperationCount(cluster, 3):
             client.pack(tid, oids)
         result = [tids(r._p_oid)]
-        for x in xrange(N):
+        for x in range(N):
             result.append(tids(r[x]._p_oid))
         self.assertEqual(expected, result)
 
@@ -281,7 +282,7 @@ class PackTests(NEOThreadedTest):
             client._cache.clear()
             self.assertPopulated(c)
             self.assertSequenceEqual(counts,
-                [len(history(p64(i), 10)) for i in xrange(5)])
+                [len(history(p64(i), 10)) for i in range(5)])
         check(4, 2, 4, 2, 2)
         reset0(disable_pack=False)
         check(1, 2, 2, 2, 2)
@@ -306,7 +307,7 @@ class GCTests(NEOThreadedTest):
         reflink.logging_handler = NullHandler()
         reflink.print = lambda *args, **kw: None
 
-    @with_cluster(serialized=False)
+    @with_cluster(serialized=False, name='main')
     def test1(self, cluster):
         def check(*objs):
             cluster.emptyCache(conn)
@@ -321,15 +322,16 @@ class GCTests(NEOThreadedTest):
             committed.release()
             track.acquire()
             if stop:
-                thread.exit()
+                _thread.exit()
         commit_patch = Patch(reflink.Changeset, commit=commit)
         def reflink_run():
-            reflink.main(['-v', reflink_cluster.zurl(), 'run',
+          from traceback import print_exc
+          reflink.main(['-v', reflink_cluster.zurl(), 'run',
                           '-p', '0', '-i', '1e-9',
                           cluster.zurl()])
         committed = threading.Lock()
         track = threading.Lock()
-        with commit_patch, committed, track, NEOCluster() as reflink_cluster:
+        with commit_patch, committed, track, NEOCluster(name='reflink') as reflink_cluster:
             stop = False
             start = time()
             reflink_cluster.start()
@@ -413,7 +415,7 @@ class GCTests(NEOThreadedTest):
                 reflink_thread = self.newThread(reflink_run)
                 committed.acquire()
 
-                for i in xrange(-u64(loid), 2):
+                for i in range(-u64(loid), 2):
                     track.release()
                     committed.acquire()
                     if not i:
@@ -464,7 +466,7 @@ class GCTests(NEOThreadedTest):
         """
         t, conn = cluster.getTransaction()
         r = conn.root()
-        for i in xrange(9):
+        for i in range(9):
             r[i] = PCounter()
         t.commit()
 
@@ -654,7 +656,7 @@ class GCTests(NEOThreadedTest):
         Should an oid be wrongly marked as orphan, the GC should keep it.
         """
         changeset = reflink.Changeset(cluster.getZODBStorage())
-        for i in xrange(4):
+        for i in range(4):
             for z in 0, 10:
                 a = p64(z+i)
                 A = changeset.get(a)
@@ -675,7 +677,7 @@ class GCTests(NEOThreadedTest):
         changeset.commit(tid)
         self.assertFalse(changeset.orphans(None))
         changeset.abort()
-        for i in xrange(4):
+        for i in range(4):
             for z in 0, 10:
                 a = p64(z + i)
                 A = changeset.get(a)
@@ -685,7 +687,7 @@ class GCTests(NEOThreadedTest):
                 reflink.insort(B.referrers, a)
         tid = newTid(tid)
         changeset.commit(tid)
-        self.assertEqual(map(p64, xrange(z, z+4)),
+        self.assertEqual(list(map(p64, range(z, z+4))),
                          sorted(changeset.orphans(None)))
         changeset.abort()
         a = p64(2)

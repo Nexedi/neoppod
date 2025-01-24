@@ -15,12 +15,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import errno, json, os
+from operator import call
 from time import time
-
+from neo import *
+from neo import *
 from . import attributeTracker, logging
 from .exception import NotReadyError, ProtocolError
 from .handler import DelayEvent, EventQueue
-from .protocol import formatNodeList, uuid_str, NodeTypes, NodeStates
+from .protocol import \
+    formatAddress, formatNodeList, uuid_str, NodeTypes, NodeStates
 
 
 class Node(object):
@@ -172,8 +175,7 @@ class Node(object):
         return '<%s(uuid=%s%s, state=%s, connection=%r%s) at %x>' % (
             self.__class__.__name__,
             uuid_str(self._uuid),
-            ', address=' + ('[%s]:%s' if ':' in addr[0] else '%s:%s') % addr
-            if addr else '',
+            ', address=' + formatAddress(addr) if addr else '',
             self._state,
             self._connection,
             '' if self._identified else ', not identified',
@@ -343,7 +345,7 @@ class NodeManager(EventQueue):
     def getList(self, node_filter=None):
         if node_filter is None:
             return list(self._node_set)
-        return filter(node_filter, self._node_set)
+        return list(filter(node_filter, self._node_set))
 
     def getIdentifiedList(self, pool_set=None):
         """
@@ -447,7 +449,8 @@ class NodeManager(EventQueue):
             node_by_addr = self.getByAddress(addr)
             node = node_by_addr or node_by_uuid
 
-            log_args = node_type, uuid_str(uuid), addr, state, id_timestamp
+            log_args = (node_type, uuid_str(uuid), decodeAddress(addr),
+                        state, id_timestamp)
             if node is None:
                 assert state != NodeStates.UNKNOWN, (self._node_set,) + log_args
                 node = self._createNode(klass, address=addr, uuid=uuid,
@@ -501,10 +504,10 @@ class NodeManager(EventQueue):
         logging.info('Node manager : %u nodes', len(self._node_set))
         if self._node_set:
             logging.info('\n'.join(formatNodeList(
-                map(Node.asTuple, self._node_set), ' * ')))
+                list(map(Node.asTuple, self._node_set)), ' * ')))
         self.logQueuedEvents()
 
-@apply
+@call
 def NODE_TYPE_MAPPING():
     def setmethod(cls, attr, value):
         assert not hasattr(cls, attr), (cls, attr)
@@ -518,7 +521,8 @@ def NODE_TYPE_MAPPING():
         name = camel_case(state)
         setfullmethod(Node, 'set' + name, lambda self: self.setState(state))
         setfullmethod(Node, 'is' + name, lambda self: self._state == state)
-    map(setStateAccessors, NodeStates)
+    for state in NodeStates:
+        setStateAccessors(state)
 
     node_type_dict = {}
     getType = lambda node_type: staticmethod(lambda: node_type)

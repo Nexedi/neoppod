@@ -16,6 +16,7 @@
 
 import sys
 from collections import deque
+from neo import *
 
 from neo.lib import logging
 from neo.lib.app import BaseApplication, buildOptionParser
@@ -106,7 +107,8 @@ class Application(BaseApplication):
 
         # set the bind address
         self.server = config['bind']
-        logging.debug('IP address is %s, port is %d', *self.server)
+        logging.debug('IP address is %s, port is %d',
+                      *decodeAddress(self.server))
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -338,7 +340,7 @@ class Application(BaseApplication):
             packed = self.dm.getPackedIDs()
             if not packed:
                 return
-            pack_id = min(packed.itervalues())
+            pack_id = min(six.itervalues(packed))
         if self.completed_pack_id != pack_id:
             self.completed_pack_id = pack_id
             self.master_conn.send(Packets.NotifyPackCompleted(pack_id))
@@ -348,7 +350,7 @@ class Application(BaseApplication):
         if ready:
             packed_dict = self.dm.getPackedIDs(True)
             if packed_dict:
-                packed = min(packed_dict.itervalues())
+                packed = min(six.itervalues(packed_dict))
                 if packed < self.last_pack_id:
                     if packed == ready[1]:
                         # Last completed pack for this storage node hasn't
@@ -370,7 +372,7 @@ class Application(BaseApplication):
                         return
                     self.dm.pack(self, info, packed,
                         self.replicator.filterPackable(pack_id,
-                            (k for k, v in packed_dict.iteritems()
+                            (k for k, v in six.iteritems(packed_dict)
                                 if v == packed)))
                 else:
                     # All approved pack orders are processed.
