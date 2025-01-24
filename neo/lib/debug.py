@@ -14,8 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import errno, imp, os, signal, socket, sys, traceback
+import errno, os, signal, socket, sys, traceback
 from functools import wraps
+from neo import *
 import neo
 
 # kill -RTMIN+2 <pid>
@@ -34,14 +35,23 @@ def safe_handler(func):
             traceback.print_exc()
     return wraps(func)(wrapper)
 
-@safe_handler
-def debugHandler(sig, frame):
-    file, filename, (suffix, mode, type) = imp.find_module('debug',
-        neo.__path__)
-    imp.load_module('neo.debug', file, filename, (suffix, mode, type))
+if six.PY3:
+    from importlib.util import find_spec, module_from_spec
+    debug_spec = find_spec('neo.debug')
+    @safe_handler
+    def debugHandler(sig, frame):
+        debug_spec.loader.exec_module(module_from_spec(debug_spec))
+else:
+    import imp
+    debug_spec = imp.find_module('debug', neo.__path__)
+    @safe_handler
+    def debugHandler(sig, frame):
+        imp.load_module('neo.debug', *debug_spec)
 
 def getPdb(**kw):
     try: # try ipython if available
+        if six.PY3:
+            raise ImportError
         import IPython
         shell = IPython.terminal.embed.InteractiveShellEmbed()
         return IPython.core.debugger.Pdb(shell.colors, **kw)
@@ -111,11 +121,16 @@ class PdbSocket(object):
             if i:
                 self._buf = data[i:]
                 return data[:i]
-            d = recv(4096)
-            data += d
-            if not d:
-                self._buf = ''
-                return data
+            try:
+                d = recv(4096)
+            except socket.error as e:
+                if e.errno != errno.EINTR:
+                    raise
+            else:
+                if not d:
+                    self._buf = ''
+                    return data
+                data += bytes2str(d)
 
     def flush(self):
         pass

@@ -16,6 +16,7 @@
 
 import weakref
 from functools import wraps
+from neo import *
 from neo.lib.connection import ConnectionClosed
 from neo.lib.exception import ProtocolError
 from neo.lib.handler import DelayEvent
@@ -100,7 +101,7 @@ class StorageOperationHandler(EventHandler):
     def answerFetchObjects(self, conn, next_tid, next_oid, object_dict):
         if object_dict:
             deleteObject = self.app.dm.deleteObject
-            for serial, oid_list in object_dict.iteritems():
+            for serial, oid_list in six.iteritems(object_dict):
                 for oid in oid_list:
                     deleteObject(oid, serial)
         if next_tid:
@@ -228,7 +229,7 @@ class StorageOperationHandler(EventHandler):
                 conn.send(Packets.AnswerFetchTransactions(
                     next_tid, peer_tid_set, completed_pack), msg_id)
                 yield
-            except (weakref.ReferenceError, ConnectionClosed):
+            except (ReferenceError, ConnectionClosed):
                 pass
         app.newTask(push())
 
@@ -266,13 +267,13 @@ class StorageOperationHandler(EventHandler):
                             % partition), msg_id)
                         return
                     if not object[2]: # creation undone
-                        object = object[0], 0, ZERO_HASH, '', object[4]
+                        object = object[0], 0, ZERO_HASH, b'', object[4]
                     # Same as in askFetchTransactions.
                     conn.send(Packets.AddObject(oid, *object), msg_id)
                     yield conn.buffering
                 conn.send(Packets.AnswerFetchObjects(
                     next_tid, next_oid, object_dict), msg_id)
                 yield
-            except (weakref.ReferenceError, ConnectionClosed):
+            except (ReferenceError, ConnectionClosed):
                 pass
         app.newTask(push())

@@ -14,12 +14,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import inspect
+from __future__ import print_function
+try: # PY2
+    from inspect import getargspec
+except ImportError: # PY3
+    from inspect import getfullargspec
+    def getargspec(func):
+        x = getfullargspec(func)
+        return x.args, x.varargs, x.varkw, x.defaults
+from neo import *
 
 def check_signature(reference, function):
     # args, varargs, varkw, defaults
-    A, B, C, D = inspect.getargspec(reference)
-    a, b, c, d = inspect.getargspec(function)
+    A, B, C, D = getargspec(reference)
+    a, b, c, d = getargspec(function)
     x = len(A) - len(a)
     if x < 0: # ignore extra default parameters
         if B or x + len(d) < 0:
@@ -49,25 +57,33 @@ def implements(obj, ignore=()):
             except AttributeError:
                 pass
         if hasattr(x, "__abstract__") or hasattr(x, "__requires__"):
-            base.append((name, x.__func__))
+            base.append((name, x if six.PY3 else x.__func__))
     try:
         while 1:
             name, func = base.pop()
             x = getattr(obj, name)
-            if getattr(x, 'im_class', None) is tobj:
+            if not isinstance(obj, type):
+                try:
+                    self = x.__self__
+                except AttributeError:
+                    continue
+                if self.__class__ is not tobj:
+                    continue
                 x = x.__func__
-                if x is func:
+            elif six.PY2:
+                x = x.__func__
+            if x is func:
+                try:
+                    x = func.__requires__
+                except AttributeError:
                     try:
-                        x = func.__requires__
-                    except AttributeError:
-                        try:
-                            ignore.remove(name)
-                        except KeyError:
-                            not_implemented.append(name)
-                    else:
-                        base.extend((x.__name__, x) for x in x)
-                elif not check_signature(func, x):
-                    wrong_signature.append(name)
+                        ignore.remove(name)
+                    except KeyError:
+                        not_implemented.append(name)
+                else:
+                    base.extend((x.__name__, x) for x in x)
+            elif not check_signature(func, x):
+                wrong_signature.append(name)
     except IndexError: # base empty
         assert not ignore, ignore
         assert not not_implemented, not_implemented
@@ -75,14 +91,15 @@ def implements(obj, ignore=()):
     return obj
 
 def _stub(func):
-    args, varargs, varkw, _ = inspect.getargspec(func)
+    args, varargs, varkw, _ = getargspec(func)
     if varargs:
         args.append("*" + varargs)
     if varkw:
         args.append("**" + varkw)
-    exec "def %s(%s): raise NotImplementedError\nf = %s" % (
-        func.__name__, ",".join(args), func.__name__)
-    return f
+    g = {}
+    exec("def %s(%s): raise NotImplementedError\nf = %s" % (
+        func.__name__, ",".join(args), func.__name__), g)
+    return g['f']
 
 def abstract(func):
     f = _stub(func)

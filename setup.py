@@ -10,6 +10,12 @@ Intended Audience :: Developers
 License :: OSI Approved :: GNU General Public License (GPL)
 Operating System :: POSIX :: Linux
 Programming Language :: Python :: 2.7
+Programming Language :: Python :: 3
+Programming Language :: Python :: 3.9
+Programming Language :: Python :: 3.10
+Programming Language :: Python :: 3.11
+Programming Language :: Python :: 3.12
+Programming Language :: Python :: 3.13
 Programming Language :: Python :: Implementation :: CPython
 Programming Language :: Python :: Implementation :: PyPy
 Topic :: Database
@@ -20,11 +26,15 @@ def get3rdParty(name, tag, url, h):
     path = 'neo/tests/' + name
     if os.path.exists(path):
         return
-    import hashlib, subprocess, urllib
+    import hashlib, subprocess
+    try: # PY3
+        from urllib.request import urlopen
+    except ImportError:
+        from urllib import urlopen
     try:
         x = subprocess.check_output(('git', 'cat-file', 'blob', tag))
     except (OSError, subprocess.CalledProcessError):
-        x = urllib.urlopen(url).read()
+        x = urlopen(url).read()
     if hashlib.sha256(x).hexdigest() != h:
         raise EnvironmentError("SHA checksum mismatch downloading '%s'" % name)
     with open(path, 'wb') as f:
@@ -68,7 +78,9 @@ except ImportError:
     pass
 else:
     from distutils.dist import DistributionMetadata
-    _get_long_description = DistributionMetadata.get_long_description.im_func
+    _get_long_description = DistributionMetadata.get_long_description
+    if str is bytes: # PY2
+        _get_long_description = _get_long_description.__func__
     def get_long_description(self):
         r = _get_long_description(self)
         DistributionMetadata.get_long_description = _get_long_description
@@ -111,7 +123,7 @@ setup(
         ],
     },
     install_requires = [
-        'msgpack>=0.5.6,<1',
+        'msgpack>=0.5.6',
         'python-dateutil', # neolog --from
         ],
     extras_require = extras_require,

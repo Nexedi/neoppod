@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from msgpack import Packer, Unpacker
+from neo import *
 
 class Queue(object):
     """Unidirectional pipe for asynchronous and fast exchange of big amounts
@@ -149,16 +150,16 @@ class Queue(object):
 def test(self):
     import multiprocessing, random, sys, threading
     from traceback import print_tb
-    r = range(50)
+    r = list(range(50))
     random.shuffle(r)
     for P in threading.Thread, multiprocessing.Process:
         q = Queue(23)
         def t():
-            for n in xrange(len(r)):
-                yield '.' * n
+            for n in range(len(r)):
+                yield b'.' * n
             yield
             for n in r:
-                yield '.' * n
+                yield b'.' * n
         i = j = 0
         p = P(target=q, args=(t(),))
         p.daemon = 1
@@ -168,10 +169,10 @@ def test(self):
             for i, x in enumerate(q):
                 if x is None:
                     break
-                self.assertEqual(x, '.' * i)
+                self.assertEqual(x, b'.' * i)
             self.assertEqual(i, len(r))
             for j in r:
-                self.assertEqual(next(q), '.' * j)
+                self.assertEqual(next(q), b'.' * j)
         except KeyboardInterrupt:
             print_tb(sys.exc_info()[2])
             self.fail((i, j))

@@ -25,14 +25,15 @@ from . import ZODBTestCase
 class PackableTests(ZODBTestCase, StorageTestBase,
         PackableStorageWithOptionalGC, PackableUndoStorage):
 
-    checkPackAllRevisions = expectedFailure()(
-        PackableStorageWithOptionalGC.checkPackAllRevisions)
-    checkPackUndoLog = expectedFailure()(PackableUndoStorage.checkPackUndoLog)
+    testPackAllRevisions = expectedFailure()
+    testPackUndoLog = expectedFailure()
 
-    def checkPackAllRevisionsNoGC(self):
+    def testPackAllRevisionsNoGC(orig):
         def pack(orig, t, referencesf, gc):
             assert referencesf is not None
             assert gc is False
             return orig(t)
-        with Patch(self._storage, pack=pack):
-            super(PackableTests, self).checkPackAllRevisionsNoGC()
+        def test(self):
+            with Patch(self._storage, pack=pack):
+                orig(self)
+        return test

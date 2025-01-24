@@ -49,6 +49,7 @@ BUG: A backup cell may be wrongly marked as corrupted while checking replicas.
 """
 
 from collections import deque
+from neo import *
 from neo.lib import logging
 from neo.lib.connection import ClientConnection, ConnectionClosed
 from neo.lib.protocol import NodeTypes, Packets, ZERO_OID
@@ -147,7 +148,7 @@ class Checker(object):
                 return
             args = partition, CHECK_COUNT, min_tid, max_tid
             p = Packets.AskCheckTIDRange(*args)
-            for conn, identified in self.conn_dict.items():
+            for conn, identified in list(self.conn_dict.items()):
                 self.conn_dict[conn] = conn.ask(p) if identified else None
             self.conn_dict[None] = app.dm.checkTIDRange(*args)
         start()
@@ -182,7 +183,7 @@ class Checker(object):
             args = self.partition, CHECK_COUNT, self.next_tid, self.max_tid
             p = Packets.AskCheckTIDRange(*args)
             check = self.app.dm.checkTIDRange
-        for conn in self.conn_dict.keys():
+        for conn in list(self.conn_dict):
             self.conn_dict[conn] = check(*args) if conn is None else conn.ask(p)
 
     def checkRange(self, conn, *args):
@@ -192,7 +193,7 @@ class Checker(object):
             logging.info("ignored AnswerCheck*Range%r", args)
             return
         self.conn_dict[conn] = args
-        answer_set = set(self.conn_dict.itervalues())
+        answer_set = set(six.itervalues(self.conn_dict))
         if len(answer_set) > 1:
             for answer in answer_set:
                 if type(answer) is not tuple:
@@ -206,7 +207,7 @@ class Checker(object):
                 None if self.source.getUUID() == uuid
                      else self.source.getConnection()]
             uuid_list = []
-            for conn, answer in self.conn_dict.items():
+            for conn, answer in list(self.conn_dict.items()):
                 if answer != args:
                     del self.conn_dict[conn]
                     if conn is None:

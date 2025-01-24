@@ -17,6 +17,7 @@
 from collections import deque
 from time import time
 from struct import pack, unpack
+from neo import *
 from neo.lib import logging
 from neo.lib.exception import ProtocolError
 from neo.lib.handler import DelayEvent, EventQueue
@@ -48,8 +49,8 @@ class Transaction(object):
                 self.__class__.__name__,
                 self.node,
                 dump(self.tid),
-                map(dump, self.oid_list),
-                map(uuid_str, self.involved),
+                list(map(dump, self.oid_list)),
+                list(map(uuid_str, self.involved)),
                 time() - self._birth,
                 id(self),
         )
@@ -159,7 +160,7 @@ class TransactionManager(EventQueue):
     def getNextOIDList(self, num_oids):
         """ Generate a new OID list """
         oid = unpack('!Q', self._last_oid)[0] + 1
-        oid_list = [pack('!Q', oid + i) for i in xrange(num_oids)]
+        oid_list = [pack('!Q', oid + i) for i in range(num_oids)]
         self._last_oid = oid_list[-1]
         return oid_list
 
@@ -171,7 +172,7 @@ class TransactionManager(EventQueue):
         return self._first_tid
 
     def setLastOID(self, oid):
-        if self._last_oid < oid:
+        if None is not oid > self._last_oid:
             self._last_oid = oid
 
     def getLastOID(self):
@@ -214,7 +215,7 @@ class TransactionManager(EventQueue):
         """
             Set the last TID, keep the previous if lower
         """
-        if self._last_tid < tid:
+        if None is not tid > self._last_tid:
             self._last_tid = tid
 
     def hasPending(self):
@@ -229,9 +230,10 @@ class TransactionManager(EventQueue):
         """
         # remember that this node must be notified when pending transactions
         # will be finished
-        for txn in self._ttid_dict.itervalues():
+        ttid_dict = self._ttid_dict
+        for txn in six.itervalues(ttid_dict):
             txn.registerForNotification(uuid)
-        return self._ttid_dict.keys()
+        return list(ttid_dict)
 
     def begin(self, node, storage_readiness, tid=None):
         """
@@ -269,7 +271,7 @@ class TransactionManager(EventQueue):
                 # non-replicated storage nodes with failed stores.
                 return False
             all_failed = failed.copy()
-            for t in self._ttid_dict.itervalues():
+            for t in six.itervalues(self._ttid_dict):
                 all_failed |= t.failed
             if not operational(all_failed):
                 # Other transactions were voted and unless they're aborted,
@@ -364,7 +366,7 @@ class TransactionManager(EventQueue):
             current transactions
         """
         unlock = False
-        for ttid, txn in self._ttid_dict.iteritems():
+        for ttid, txn in six.iteritems(self._ttid_dict):
             if txn.storageLost(uuid) and self._queue[0] == ttid:
                 unlock = True
                 # do not break: we must call storageLost() on all transactions
@@ -400,7 +402,7 @@ class TransactionManager(EventQueue):
         self.executeQueuedEvents()
 
     def clientLost(self, node):
-        for txn in self._ttid_dict.values():
+        for txn in list(self._ttid_dict.values()):
             if txn.clientLost(node):
                 tid = txn.ttid
                 del self[tid]
@@ -408,6 +410,6 @@ class TransactionManager(EventQueue):
 
     def log(self):
         logging.info('Transactions:')
-        for txn in self._ttid_dict.itervalues():
+        for txn in six.itervalues(self._ttid_dict):
             logging.info('  %r', txn)
         self.logQueuedEvents()

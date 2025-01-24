@@ -15,6 +15,7 @@
 
 import curses, os, random, re, select, threading, time
 from collections import deque
+from neo import *
 from neo.lib import logging, protocol
 from neo.lib.app import BaseApplication
 from neo.lib.debug import register as registerLiveDebugger
@@ -172,7 +173,7 @@ class StressApplication(AdminApplication):
                         self.stress()
             wait = time.time()
         finally:
-            os.write(w, '\0')
+            os.write(w, b'\0')
             os.close(w)
             t.join()
             self.stopCluster(wait)

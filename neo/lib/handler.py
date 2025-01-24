@@ -17,6 +17,7 @@
 import sys
 from collections import deque
 from operator import itemgetter
+from neo import *
 from . import logging
 from .connection import ConnectionClosed
 from .exception import (BackendNotImplemented, NonReadableCell, NotReadyError,
@@ -70,7 +71,7 @@ class EventHandler(object):
                 method = getattr(self, packet.handler_method_name)
             except AttributeError:
                 raise UnexpectedPacketError('no handler found')
-            args = packet._args
+            args = packet.getArgs()
             method(conn, *args, **kw)
         except DelayEvent as e:
             assert not kw, kw
@@ -92,9 +93,10 @@ class EventHandler(object):
                 conn.abort()
         except BackendNotImplemented as message:
             m = message.args[0]
+            cls = m.__self__.__class__
             conn.answer(Errors.BackendNotImplemented(
                 "%s.%s does not implement %s"
-                % (m.im_class.__module__, m.im_class.__name__, m.__name__)))
+                % (cls.__module__, cls.__name__, m.__name__)))
         except NonReadableCell as e:
             conn.answer(Errors.NonReadableCell())
         except AnswerDenied as e:
@@ -106,7 +108,7 @@ class EventHandler(object):
                     conn.close()
                 except Exception:
                     logging.exception("")
-                raise e[0], e[1], e[2]
+                six.reraise(e[0], e[1], e[2])
             finally:
                 del e
 
@@ -283,7 +285,10 @@ class _DelayedConnectionEvent(EventHandler):
     # WARNING: This assumes that the connection handler does not change.
 
     handler_method_name = '_func'
-    __new__ = object.__new__
+
+    # __new__ = object.__new__ # Python 3 does not like this
+    def __new__(cls, *args, **kw):
+        return object.__new__(cls)
 
     def __init__(self, func, conn, args):
         self._args = args
@@ -303,7 +308,7 @@ class _DelayedConnectionEvent(EventHandler):
     def __repr__(self):
         return '<%s: 0x%x %s>' % (self._func.__name__, self._msg_id, self._conn)
 
-    def decode(self):
+    def getArgs(self):
         return self._args
 
     def getEventQueue(self):

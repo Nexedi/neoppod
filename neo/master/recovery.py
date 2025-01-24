@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from neo.lib import logging
 from neo.lib.connection import ClientConnection
 from neo.lib.exception import ProtocolError
@@ -106,7 +107,7 @@ class RecoveryManager(MasterHandler):
                 if pt.filled():
                     if app.truncate_tid:
                         node_list = app.nm.getIdentifiedList(pool_set={uuid
-                            for uuid, tid in self.truncate_dict.iteritems()
+                            for uuid, tid in six.iteritems(self.truncate_dict)
                             if not tid or app.truncate_tid < tid})
                         if node_list:
                             truncate = Packets.Truncate(app.truncate_tid)
@@ -191,7 +192,7 @@ class RecoveryManager(MasterHandler):
             if self.target_ptid == ptid and self.ask_pt:
                 # Another node is already asked.
                 self.ask_pt.append(uuid)
-            elif self.target_ptid < ptid or self.ask_pt is not ():
+            elif self.target_ptid < ptid or self.ask_pt != ():
                 # No node asked yet for the newest partition table.
                 self.target_ptid = ptid
                 self.ask_pt = [uuid]

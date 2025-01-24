@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from contextlib import contextmanager
+from neo import *
 from ZConfig import ConfigurationError
 from ZODB.config import databaseFromString
 from .. import Patch
@@ -24,7 +25,7 @@ from neo.client import Storage
 def databaseFromDict(**kw):
     return databaseFromString("%%import neo.client\n"
         "<zodb>\n <NEOStorage>\n%s </NEOStorage>\n</zodb>\n"
-        % ''.join('  %s %s\n' % x for x in kw.iteritems()))
+        % ''.join('  %s %s\n' % x for x in six.iteritems(kw)))
 
 class ConfigTests(NEOThreadedTest):
 
@@ -56,4 +57,4 @@ class ConfigTests(NEOThreadedTest):
             self.assertRaises(ConfigurationError, databaseFromDict, **kw)
         for compress in valid:
             with self._db(cluster, compress=compress) as db:
-                self.assertEqual((0,0,''), db.storage.app.compress(''))
+                self.assertEqual((0,0,b''), db.storage.app.compress(b''))

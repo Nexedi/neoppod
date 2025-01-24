@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import Counter, defaultdict
+from neo import *
 import neo.lib.pt
 from neo.lib import logging
 from neo.lib.protocol import CellStates, ZERO_TID
@@ -47,7 +48,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
     """This class manages a partition table for the primary master node"""
 
     def setID(self, id):
-        assert isinstance(id, (int, long)) or id is None, id
+        assert isinstance(id, six.integer_types) or id is None, id
         self._id = id
 
     def setNextID(self):
@@ -65,7 +66,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             assert node.isRunning() and node.getUUID() is not None, node
         self.addNodeList(node_list)
         self.tweak()
-        for node, count in self.count_dict.items():
+        for node, count in list(self.count_dict.items()):
             if not count:
                 del self.count_dict[node]
 
@@ -107,7 +108,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 self.count_dict[cell.getNode()] += 1
             for node in node_list:
                 self.count_dict.pop(node, None)
-            self.num_filled_rows = len(filter(None, self.partition_list))
+            self.num_filled_rows = len([x for x in partition_list if x])
         return change_list
 
     def load(self, ptid, num_replicas, row_list, nm):
@@ -143,7 +144,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
 
         # Do no keep too many feeding cells.
-        readable_list = filter(Cell.isReadable, row)
+        readable_list = list(filter(Cell.isReadable, row))
         iter_feeding = (cell.getNode() for cell in readable_list
                                        if cell.isFeeding())
         # If all cells are readable, we can now drop all feeding cells.
@@ -231,15 +232,15 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     cell_dict[offset] = cell
         # The sort by node id is cosmetic, to prefer result like the first one
         # in __doc__.
-        node_list = sorted(node_list.iteritems(), key=lambda x: x[0].getUUID())
+        node_list = sorted(six.iteritems(node_list), key=lambda x: x[0].getUUID())
 
         # Generate an optimal PT.
         node_count = len(node_list)
         repeats = min(self.nr + 1, node_count)
-        x = [[] for _ in xrange(node_count)]
+        x = [[] for _ in range(node_count)]
         i = 0
-        for offset in xrange(self.np):
-            for _ in xrange(repeats):
+        for offset in range(self.np):
+            for _ in range(repeats):
                 x[i % node_count].append(offset)
                 i += 1
         option_dict = Counter(map(tuple, x))
@@ -256,7 +257,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     depth += 1
                     x = Counter(x[:depth] for x in _devpaths)
                     n = len(x)
-                    x = set(x.itervalues())
+                    x = set(six.itervalues(x))
                     # TODO: Prove it works. If the code turns out to be:
                     #       - too pessimistic, the topology is ignored when
                     #         resiliency could be maximized;
@@ -274,7 +275,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     " %s storage device failure(s) may be enough to lose all"
                     " the database." % (repeats - 1))
                 break
-        topology = [{} for _ in xrange(self.np)]
+        topology = [{} for _ in range(self.np)]
         def update_topology():
             for offset in option:
                 n = topology[offset]
@@ -284,7 +285,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     except KeyError:
                         n[i] = i, x = [0, {}]
                     if i == j or i + 1 == j and k == sum(
-                          1 for i in n.itervalues() if i[0] == j):
+                          1 for i in six.itervalues(n) if i[0] == j):
                         # Too many cells would be assigned at this topology
                         # node.
                         return False
@@ -314,9 +315,9 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             #    called a second time whereas the list of nodes hasn't changed.
             result = []
             for i, (_, cell_dict) in enumerate(node_list):
-                option = {offset for offset, cell in cell_dict.iteritems()
+                option = {offset for offset, cell in six.iteritems(cell_dict)
                                  if not cell.isFeeding()}
-                x = filter(option.issubset, option_list)
+                x = list(filter(option.issubset, option_list))
                 if not x:
                     break
                 result.append((i, x))
@@ -330,7 +331,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             #    iterate over nodes with the biggest difference. This minimizes
             #    the impact of bad allocation patterns for the last nodes.
             result = []
-            np_complement = frozenset(xrange(self.np)).difference
+            np_complement = frozenset(range(self.np)).difference
             for i, (_, cell_dict) in enumerate(node_list):
                 cost_list = []
                 for x, option in enumerate(option_list):
@@ -407,7 +408,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                         changed_list.append((offset, node.getUUID(),
                                              CellStates.UP_TO_DATE))
                     outdated_list[offset] -= 1
-            for offset, cell in cell_dict.iteritems():
+            for offset, cell in six.iteritems(cell_dict):
                 discard_list[offset].append(cell)
         # NOTE: The following line disables the next 2 lines, which actually
         #       causes cells in drop_list to be discarded, now or later;
@@ -425,7 +426,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         #       to keep the initial importing node up until the database is
         #       split and replicated to the final nodes.
         drop_list = {}
-        for offset, drop_list in drop_list.iteritems():
+        for offset, drop_list in six.iteritems(drop_list):
             discard_list[offset] += drop_list
         # We have sorted cells to discard in order to first deallocate nodes
         # in drop_list, and have feeding cells in other nodes.
