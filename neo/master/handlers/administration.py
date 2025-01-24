@@ -16,6 +16,7 @@
 
 import random
 from functools import wraps
+from neo import *
 
 from . import MasterHandler
 from ..app import monotonic_time, StateChangedException
@@ -221,7 +222,7 @@ class AdministrationHandler(MasterHandler):
                                 app.pt.getRowList(), app.nm)
             assert not new_nodes
             pt.addNodeList(node
-                for node, count in app.pt.count_dict.iteritems()
+                for node, count in six.iteritems(app.pt.count_dict)
                 if not count)
         else:
             pt = app.pt
@@ -264,7 +265,7 @@ class AdministrationHandler(MasterHandler):
         else:
             getByUUID = app.nm.getByUUID
             node_set = set()
-            for offset, source in partition_dict.iteritems():
+            for offset, source in six.iteritems(partition_dict):
                 # XXX: For the moment, code checking replicas is unable to fix
                 #      corrupted partitions (when a good cell is known)
                 #      so only check readable ones.

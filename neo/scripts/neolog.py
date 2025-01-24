@@ -23,16 +23,17 @@ from bisect import insort
 from itertools import chain
 from logging import getLevelName
 from zlib import decompress
+import six
 
 try:
     import zstd
 except ImportError:
     zstdcat = 'zstdcat'
 else:
-    from cStringIO import StringIO
+    from io import BytesIO
     def zstdcat(path):
         with open(path, 'rb') as f:
-            return StringIO(zstd.decompress(f.read()))
+            return BytesIO(zstd.decompress(f.read()))
 
 comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat', zst=zstdcat)
 
@@ -112,7 +113,7 @@ class Log(object):
                 except sqlite3.OperationalError:
                     pass
             try:
-                p = np.next()
+                p = next(np)
                 self._reload(p[0])
             except StopIteration:
                 p = None
@@ -124,7 +125,7 @@ class Log(object):
                     while p and p[0] < date:
                         yield self._packet(*p)
                         try:
-                            p = next(np, None)
+                            p = np.fetchone()
                         except sqlite3.DatabaseError as e:
                             yield time.time(), None, 'PACKET', self._exc(e)
                             p = None
@@ -156,13 +157,13 @@ class Log(object):
 
     def _reload(self, date):
         q = self._db.execute
-        date, text = q("SELECT * FROM protocol WHERE date<=?"
-                       " ORDER BY date DESC", (date,)).next()
+        date, text = next(q("SELECT * FROM protocol WHERE date<=?"
+                            " ORDER BY date DESC", (date,)))
         if self._protocol_date == date:
             return
         self._protocol_date = date
         g = {}
-        exec bz2.decompress(text) in g
+        exec(bz2.decompress(text), g)
         for x in 'uuid_str', 'Packets':
             setattr(self, x, g[x])
         x = {}
@@ -174,7 +175,7 @@ class Log(object):
         else:
             from msgpack import ExtraData, UnpackException
             def unpackb(data):
-                u = Unpacker()
+                u = Unpacker(strict_map_key=False, use_list=False)
                 u.feed(data)
                 data = u.unpack()
                 if u.read_bytes(1):
@@ -186,7 +187,7 @@ class Log(object):
             try:
                 PStruct = g['PStruct']
             except KeyError:
-                for p in self.Packets.itervalues():
+                for p in six.itervalues(self.Packets):
                     data_path = getattr(p, 'data_path', (None,))
                     if p._code >> 15 == data_path[0]:
                         x[p._code] = data_path[1:]
@@ -204,7 +205,7 @@ class Log(object):
                               and i + 2 < len(items)
                               and items[i+2]._name == 'data'):
                             return i,
-                for p in self.Packets.itervalues():
+                for p in six.itervalues(self.Packets):
                     if p._fmt is not None:
                         path = hasData(p._fmt)
                         if path:
@@ -212,9 +213,9 @@ class Log(object):
                             x[p._code] = path
         self._getDataPath = x.get
 
+        x = q("SELECT date FROM protocol WHERE date>?", (date,))
         try:
-            self._next_protocol, = q("SELECT date FROM protocol WHERE date>?",
-                                     (date,)).next()
+            self._next_protocol, = next(x)
         except StopIteration:
             self._next_protocol = float('inf')
 
@@ -291,7 +292,8 @@ class Log(object):
 
 
 def emit_many(log_list, color=False):
-    log_list = [(log, iter(log).next) for log in log_list]
+    log_list = [(log, getattr(iter(log), '__next__' if six.PY3 else
+                                         'next')) for log in log_list]
     for x in log_list: # try to start all transactions at the same time
         x[1]()
     event_list = []

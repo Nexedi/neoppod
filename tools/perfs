@@ -1,16 +1,18 @@
 #! /usr/bin/env python
-
+from __future__ import division
 import os
 import sys
 import platform
 import datetime
 import traceback
 from time import time
+from neo import *
 from ZODB.FileStorage import FileStorage
 
 from neo.tests import DB_PREFIX
 from neo.tests.benchmark import BenchmarkRunner
 from neo.tests.functional import NEOCluster
+from neo.tests.stat_zodb import PROD1, _round
 
 class ImportBenchmark(BenchmarkRunner):
     """ Test import of a datafs """
@@ -40,7 +42,7 @@ class ImportBenchmark(BenchmarkRunner):
         kw = {'clear_databases': True}
         neo = NEOCluster(
             db_list=['%s_perfs_%u' % (DB_PREFIX, i)
-                     for i in xrange(config.storages)],
+                     for i in range(config.storages)],
             partitions=config.partitions,
             replicas=config.replicas,
             master_count=config.masters,
@@ -77,7 +79,6 @@ class ImportBenchmark(BenchmarkRunner):
         if datafs:
             dfs_storage = FileStorage(file_name=datafs)
         else:
-            from neo.tests.stat_zodb import PROD1
             from random import Random
             dfs_storage = PROD1(Random(0)).as_storage(10000)
 
@@ -121,10 +122,10 @@ class ImportBenchmark(BenchmarkRunner):
         sep = '%19s+%8s+%5s+%5s+%5s\n'
         sep %= ('-' * 20, '-' * 10) + ('-' * 7, ) * 3
         report = pat % ('', ' num ', 'min/s', 'avg/s', 'max/s')
-        for k, v in stats.items():
+        for k, v in sorted(six.iteritems(stats)):
             report += sep
             s = sum(v)
-            report += pat % (k, s,  min(v), s / len(v), max(v))
+            report += pat % (k, s,  min(v), _round(s / len(v)), max(v))
         report += sep
 
         # build summary

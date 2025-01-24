@@ -15,11 +15,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division
-import os, errno, socket, sys, thread, threading, weakref
+import os, errno, socket, sys, six.moves._thread as _thread, threading, weakref
 from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
 from time import time
+from neo import *
 from neo.lib import logging, util
 from neo.lib.connection import ConnectionClosed
 from neo.lib.exception import NonReadableCell
@@ -57,7 +58,7 @@ def splitOIDField(tid, oids):
     if len(oids) % 8:
         raise DatabaseFailure('invalid oids length for tid %s: %s'
             % (tid, len(oids)))
-    return [oids[i:i+8] for i in xrange(0, len(oids), 8)]
+    return [oids[i:i+8] for i in range(0, len(oids), 8)]
 
 class CreationUndone(Exception):
     pass
@@ -93,8 +94,7 @@ class BackgroundWorker(object):
         exc_info = self._exc_info
         if exc_info:
             del self._exc_info
-            etype, value, tb = exc_info
-            raise etype, value, tb
+            six.reraise(*exc_info)
 
     @contextmanager
     def _maybeResume(self, app):
@@ -231,7 +231,7 @@ class BackgroundWorker(object):
             dm is dm2 or dm2.commit()
             with dm.lock:
                 dm.commit()
-            thread.exit()
+            _thread.exit()
 
     def _dm21(self, dm, dm2):
         if dm is dm2:
@@ -443,7 +443,7 @@ class BackgroundWorker(object):
                 if info:
                     pack_id, approved, partial, oids, tid = info
                     self._pack_info = (pack_id, approved, partial,
-                        oids and map(util.u64, oids), tid)
+                        oids and list(map(util.u64, oids)), tid)
                     self._packed = packed
                 else:
                     assert self._packed == packed
@@ -796,7 +796,7 @@ class DatabaseManager(object):
     def _getLastTID(self, partition, max_tid=None):
         """Return tid of last transaction <= 'max_tid' in given 'partition'
 
-        tids are in unpacked format.
+        tids are in unpacked format. Returns -1 if no matching transaction.
         """
 
     @requires(_getLastTID)
@@ -807,12 +807,14 @@ class DatabaseManager(object):
         """
         x = self._readable_set
         if x:
-            return max(self._getLastTID(x, max_tid) for x in x)
+            x = max(self._getLastTID(x, max_tid) for x in x)
+            if x >= 0:
+                return x
 
     def _getLastIDs(self, partition):
         """Return max(tid) & max(oid) for objects of given partition
 
-        Results are in unpacked format
+        Each is in unpacked format, -1 when no record found.
         """
 
     @requires(_getLastIDs)
@@ -827,10 +829,13 @@ class DatabaseManager(object):
         x = self._readable_set
         if x:
             tid, oid = zip(*map(self._getLastIDs, x))
-            tid = max(self.getLastTID(), max(tid))
+            tid = max(tid)
+            ltid = self.getLastTID()
+            if None is not ltid > tid:
+                tid = ltid
             oid = max(oid)
-            return (None if tid is None else util.p64(tid),
-                    None if oid is None else util.p64(oid))
+            return (None if tid < 0 else util.p64(tid),
+                    None if oid < 0 else util.p64(oid))
         return None, None
 
     def _getPackOrders(self, min_completed):
@@ -910,7 +915,7 @@ class DatabaseManager(object):
         obj.update(trans)
         p64 = util.p64
         return {p64(ttid): None if tid is None else p64(tid)
-                for ttid, tid in obj.iteritems()}
+                for ttid, tid in six.iteritems(obj)}
 
     @fallback
     def getLastObjectTID(self, oid):
@@ -1056,7 +1061,7 @@ class DatabaseManager(object):
             self._getPartition = _getPartition
             self._getReadablePartition = _getReadablePartition
             d = self._data_last_ids = []
-            for p in xrange(np):
+            for p in range(np):
                 i = self._getDataLastId(p)
                 d.append(p << 48 if i is None else i + 1)
         else:
@@ -1105,16 +1110,16 @@ class DatabaseManager(object):
                     else:
                         tid = pt.get(offset, 0)
                         if tid < 0:
-                            tid = -tid in READABLE and (backup_tid or
-                                max(self._getLastIDs(offset)[0],
-                                    self._getLastTID(offset))) or 0
+                            tid = 0 if -tid not in READABLE else (backup_tid or
+                                max(0, self._getLastIDs(offset)[0],
+                                       self._getLastTID(offset)))
                 cells.append((offset, nid, tid, pack))
             if reset:
-                drop_set.update(xrange(max_offset + 1))
+                drop_set.update(range(max_offset + 1))
             drop_set.difference_update(assigned)
             self._changePartitionTable(cells, reset)
             self._updateReadable(reset)
-            assert isinstance(ptid, (int, long)), ptid
+            assert isinstance(ptid, six.integer_types), ptid
             self._setConfiguration('ptid', str(ptid))
             self._setConfiguration('replicas', str(num_replicas))
 
@@ -1149,12 +1154,11 @@ class DatabaseManager(object):
                 if backup_tid:
                     # An UP_TO_DATE cell does not have holes so it's fine to
                     # resume from the last found records.
-                    tid = self._getLastTID(offset)
                     yield offset, (
                         # For trans, a transaction can't be partially
                         # replicated, so replication can resume from the next
                         # possible tid.
-                        p64(max(next_tid, tid + 1) if tid else next_tid),
+                        p64(max(next_tid, self._getLastTID(offset) + 1)),
                         # For obj, the last transaction may be partially
                         # replicated so it must be checked again (i.e. no +1).
                         p64(max(next_tid, self._getLastIDs(offset)[0])))
@@ -1386,8 +1390,8 @@ class DatabaseManager(object):
     @requires(_signPackOrders)
     def signPackOrders(self, approved, rejected, auto_commit=True):
         u64 = util.u64
-        changed = map(util.p64, self._signPackOrders(
-            map(u64, approved), map(u64, rejected)))
+        changed = list(map(util.p64, self._signPackOrders(
+            list(map(u64, approved)), list(map(u64, rejected)))))
         if changed:
             if auto_commit:
                 self.commit()
@@ -1475,8 +1479,8 @@ class DatabaseManager(object):
     def getTIDList(self, offset, length, partition_list):
         if partition_list:
             if self._readable_set.issuperset(partition_list):
-                return map(util.p64, self._getTIDList(
-                    offset, length, partition_list))
+                return list(map(util.p64, self._getTIDList(
+                    offset, length, partition_list)))
             raise NonReadableCell
         return ()
 

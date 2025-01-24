@@ -15,15 +15,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from functools import wraps
+from operator import call
 from time import time
 import msgpack
 from msgpack.exceptions import OutOfData, UnpackValueError
+from neo import *
 
 from . import attributeTracker, logging
 from .connector import ConnectorException, ConnectorDelayedConnection
 from .exception import PacketMalformedError
 from .locking import RLock
-from .protocol import uuid_str, Errors, Packets, Unpacker
+from .protocol import uuid_str, Errors, Packets, Unpacker, formatAddress
 
 try:
     msgpack.Unpacker().read_bytes(1)
@@ -36,7 +38,7 @@ except OutOfData: # fallback implementation
     msgpack.Unpacker.read_bytes = read_bytes
     del read_bytes
 
-@apply
+@call
 class dummy_read_buffer(msgpack.Unpacker):
     def feed(self, _):
         pass
@@ -192,6 +194,7 @@ class BaseConnection(object):
         assert connector is not None, "Need a low-level connector"
         self.em = event_manager
         self.connector = connector
+        decodeAddress(addr)
         self.addr = addr
         self._handlers = HandlerSwitcher(handler)
 
@@ -231,8 +234,7 @@ class BaseConnection(object):
     def _getReprInfo(self):
         r = [
             ('nid', uuid_str(self.getUUID())),
-            ('address', ('[%s]:%s' if ':' in self.addr[0] else '%s:%s')
-                        % self.addr if self.addr else '?'),
+            ('address', formatAddress(self.addr, '?')),
             ('handler', self.getHandler()),
         ]
         connector = self.connector
@@ -243,7 +245,7 @@ class BaseConnection(object):
 
     def __repr__(self):
         r, flags = self._getReprInfo()
-        r = map('%s=%s'.__mod__, r)
+        r = ['%s=%s' % r for r in r]
         r += flags
         return '<%s(%s) at %x>' % (
             self.__class__.__name__,
@@ -295,8 +297,8 @@ class ListeningConnection(BaseConnection):
 
     def __init__(self, app, handler, addr):
         self._ssl = app.ssl
-        logging.debug('listening to %s:%d', *addr)
-        connector = self.ConnectorClass(addr)
+        logging.debug('listening to %s', formatAddress(addr))
+        connector = self.ConnectorClass(decodeAddress(addr))
         BaseConnection.__init__(self, app.em, handler, connector, addr)
         connector.makeListeningConnection()
         self.em.register(self)
@@ -304,7 +306,8 @@ class ListeningConnection(BaseConnection):
     def readable(self):
         connector, addr = self.connector.accept()
         logging.debug('accepted a connection from %s:%d', *addr)
-        conn = ServerConnection(self.em, self.getHandler(), connector, addr)
+        conn = ServerConnection(self.em, self.getHandler(), connector,
+                                encodeAddress(addr))
         if self._ssl:
             conn.connecting = True
             connector.ssl(self._ssl, conn._connected)
@@ -315,7 +318,7 @@ class ListeningConnection(BaseConnection):
             self.em.addWriter(conn) # for HANDSHAKE_PACKET
 
     def getAddress(self):
-        return self.connector.getAddress()
+        return encodeAddress(self.connector.getAddress())
 
     def isListening(self):
         return True
@@ -460,7 +463,7 @@ class Connection(BaseConnection):
             else:
                 logging.debug('Rejecting non-NEO %r', self)
             raise ConnectorException
-        read_next = read_buf.next
+        read_next = read_buf.__next__
         read_pos = read_buf.tell
         def parse():
             try:
@@ -474,7 +477,7 @@ class Connection(BaseConnection):
             except KeyError:
                 raise PacketMalformedError('Unknown packet type')
             pos = read_pos()
-            packet = packet_klass(*args)
+            packet = object.__new__(packet_klass); packet._args = args # PY3: bypass *_arg
             packet.setId(msg_id)
             packet.size = pos - self._total_unpacked
             self._total_unpacked = pos
@@ -651,7 +654,7 @@ class ClientConnection(Connection):
     def __init__(self, app, handler, node):
         self._ssl = app.ssl
         addr = node.getAddress()
-        connector = self.ConnectorClass(addr)
+        connector = self.ConnectorClass(decodeAddress(addr))
         Connection.__init__(self, app.em, handler, connector, addr)
         node.setConnection(self)
         handler.connectionStarted(self)
@@ -722,7 +725,8 @@ class MTConnectionType(type):
             #      to test whether we own the lock or not.
             assert self.lock._is_owned(), (self, args, kw)
             return getattr(super(cls, self), name)(*args, **kw)
-        return wraps(getattr(cls, name).im_func)(wrapper)
+        wrapped = getattr(cls, name)
+        return wraps(wrapped if six.PY3 else wrapped.__func__)(wrapper)
 
     def lockWrapper(cls, name, maybe_closed=False):
         if maybe_closed:
@@ -736,13 +740,12 @@ class MTConnectionType(type):
             def wrapper(self, *args, **kw):
                 with self.lock:
                     return getattr(super(cls, self), name)(*args, **kw)
-        return wraps(getattr(cls, name).im_func)(wrapper)
+        wrapped = getattr(cls, name)
+        return wraps(wrapped if six.PY3 else wrapped.__func__)(wrapper)
 
 
-class MTClientConnection(ClientConnection):
+class MTClientConnection(six.with_metaclass(MTConnectionType, ClientConnection)):
     """A Multithread-safe version of ClientConnection."""
-
-    __metaclass__ = MTConnectionType
 
     def lockWrapper(self, func):
         lock = self.lock
@@ -758,7 +761,9 @@ class MTClientConnection(ClientConnection):
             super(MTClientConnection, self).__init__(*args, **kwargs)
 
     # Alias without lock (cheaper than super())
-    _ask = ClientConnection.ask.__func__
+    _ask = ClientConnection.ask
+    if six.PY2:
+        _ask = _ask.__func__
 
     def ask(self, packet, queue=None, **kw):
         with self.lock:

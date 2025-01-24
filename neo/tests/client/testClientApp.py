@@ -16,6 +16,7 @@
 
 from ZODB.POSException import StorageTransactionError
 from .. import Mock, MockObject, NeoUnitTestBase, buildUrlFromString
+from neo.client import TransactionMetaData
 from neo.client.app import Application
 from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError
@@ -53,24 +54,13 @@ class ClientApplicationTests(NeoUnitTestBase):
         return p64(randint(1, 255) if value is None else value)
     makeTID = makeOID
 
-    def makeTransactionObject(self, user='u', description='d', _extension='e'):
-        class Transaction(object):
-            pass
-        txn = Transaction()
-        txn.user = user
-        txn.description = description
-        txn._extension = _extension
-        return txn
-
-    # common checks
-
     testCache = testCache
 
     def test_store1(self):
         app = self.getApp()
         oid = self.makeOID(11)
         tid = self.makeTID()
-        txn = self.makeTransactionObject()
+        txn = TransactionMetaData()
         # invalid transaction > StorageTransactionError
         self.assertRaises(StorageTransactionError, app.store, oid, tid, '',
             None, txn)
@@ -78,14 +68,14 @@ class ClientApplicationTests(NeoUnitTestBase):
         self._begin(app, txn, self.makeTID())
         app.pt = MockObject(getCellList=())
         app.num_partitions = 2
-        self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None, txn)
+        self.assertRaises(NEOStorageError, app.store, oid, tid, b'',  '', txn)
         app.pt.getCellList.assert_called_once()
 
     def test_undo1(self):
         # invalid transaction
         app = self.getApp()
         tid = self.makeTID()
-        txn = self.makeTransactionObject()
+        txn = TransactionMetaData()
         app.master_conn = Mock()
         self.assertRaises(StorageTransactionError, app.undo, tid, txn)
         # no packet sent

@@ -19,12 +19,9 @@ import random
 import time
 from collections import defaultdict
 from functools import partial
+from neo import *
 
-try:
-    from ZODB._compat import dumps, loads, _protocol
-except ImportError:
-    from cPickle import dumps, loads
-    _protocol = 1
+from ZODB._compat import dumps, loads, _protocol
 from ZODB.POSException import (
     ConflictError, ReadConflictError, ReadOnlyError, UndoError)
 
@@ -52,7 +49,7 @@ CHECKED_SERIAL = object()
 # failed in the past.
 MAX_FAILURE_AGE = 600
 
-TXN_PACK_DESC = 'IStorage.pack'
+TXN_PACK_DESC = b'IStorage.pack'
 
 try:
     from Signals.Signals import SignalHandler
@@ -86,7 +83,7 @@ class Application(ThreadedApplication):
                       ClientCache(max_size=cache_size)
         self._loading = defaultdict(lambda: (Lock(), []))
         self.new_oids = ()
-        self.last_oid = '\0' * 8
+        self.last_oid = ZERO_OID
         self.storage_event_handler = storage.StorageEventHandler(self)
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
         self.storage_handler = storage.StorageAnswersHandler(self)
@@ -124,13 +121,17 @@ class Application(ThreadedApplication):
     def log(self):
         super(Application, self).log()
         logging.info("%r", self._cache)
-        for txn_context in self._txn_container.itervalues():
+        for txn_context in self.txn_contexts():
             logging.info("%r", txn_context)
 
-    @property
-    def txn_contexts(self):
-        # do not iter lazily to avoid race condition
-        return self._txn_container.values
+    # do not iter lazily to avoid RuntimeError vs tpc_begin
+    if six.PY2:
+        @property
+        def txn_contexts(self):
+            return self._txn_container.values
+    else:
+        def txn_contexts(self):
+            return list(self._txn_container.values())
 
     def _waitAnyMessage(self, queue, block=True):
         """
@@ -417,7 +418,7 @@ class Application(ThreadedApplication):
             while 1:
                 with lock:
                     if tid:
-                        result = self._cache.load(oid, tid + '*')
+                        result = self._cache.load(oid, tid + b'*')
                         assert not result or result[1] == tid
                     else:
                         result = self._cache.load(oid, before_tid)
@@ -502,7 +503,7 @@ class Application(ThreadedApplication):
             try:
                 data = decompress_list[compression](data)
             except Exception:
-                data = ''
+                data = b''
             return data, tid, next_tid, data_tid
         raise NEOStorageWrongChecksum(oid, tid)
 
@@ -533,7 +534,7 @@ class Application(ThreadedApplication):
             # This is some undo: either a no-data object (undoing object
             # creation) or a back-pointer to an earlier revision (going back to
             # an older object revision).
-            compressed_data = ''
+            compressed_data = b''
             compression = 0
             checksum = ZERO_HASH
             if data_serial is None:
@@ -627,12 +628,22 @@ class Application(ThreadedApplication):
         self.waitStoreResponses(txn_context)
         txn_context.stored = True
         ttid = txn_context.ttid
-        ext = transaction._extension
-        ext = dumps(ext, _protocol) if ext else ''
-        # user and description are cast to str in case they're unicode.
-        # BBB: This is not required anymore with recent ZODB.
-        packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
-            str(transaction.description), ext, list(txn_context.cache_dict),
+        try: # TransactionMetaData (ZODB >= 5.6.0)
+            ext = transaction.extension_bytes
+        except AttributeError:
+            ext = transaction._extension
+            ext = dumps(ext, _protocol) if ext else b''
+        # The type of user/description depends on the type of transaction:
+        # - bytes if TransactionMetaData
+        # - unicode if Transaction (transaction >= 2.0.3)
+        user = transaction.user
+        desc = transaction.description
+        if not isinstance(user, bytes):
+            user = user.encode('utf-8')
+        if not isinstance(desc, bytes):
+            desc = desc.encode('utf-8')
+        packet = Packets.AskStoreTransaction(ttid, user,
+            desc, ext, list(txn_context.cache_dict),
             txn_context.pack)
         queue = txn_context.queue
         conn_dict = txn_context.conn_dict
@@ -644,7 +655,7 @@ class Application(ThreadedApplication):
             if uuid not in trans_nodes:
                 self._askStorageForWrite(txn_context, uuid, packet)
         self.waitStoreResponses(txn_context)
-        if None in conn_dict.itervalues(): # unlikely
+        if None in six.itervalues(conn_dict): # unlikely
             # If some writes failed, we must first check whether
             # all oids have been locked by at least one node.
             failed = {node.getUUID(): node.isRunning()
@@ -652,7 +663,7 @@ class Application(ThreadedApplication):
                 if conn_dict.get(node.getUUID(), 0) is None}
             if txn_context.lockless_dict:
                 getCellList = self.pt.getCellList
-                for offset, uuid_set in txn_context.lockless_dict.iteritems():
+                for offset, uuid_set in six.iteritems(txn_context.lockless_dict):
                     for cell in getCellList(offset):
                         uuid = cell.getUUID()
                         if not (uuid in failed or uuid in uuid_set):
@@ -662,7 +673,7 @@ class Application(ThreadedApplication):
                         # is not worth the complexity.
                         raise NEOStorageError(
                             'partition %s not fully write-locked' % offset)
-            failed = [uuid for uuid, running in failed.iteritems() if running]
+            failed = [uuid for uuid, running in six.iteritems(failed) if running]
             # If there are running nodes for which some writes failed, ask the
             # master whether they can be disconnected while keeping the cluster
             # operational. If possible, this will happen during tpc_finish.
@@ -694,7 +705,7 @@ class Application(ThreadedApplication):
         # condition. The consequence would be that storage nodes lock oids
         # forever.
         p = Packets.AbortTransaction(txn_context.ttid, ())
-        for conn in txn_context.conn_dict.itervalues():
+        for conn in six.itervalues(txn_context.conn_dict):
             if conn is not None:
                 try:
                     conn.send(p)
@@ -744,7 +755,7 @@ class Application(ThreadedApplication):
         cache_dict = txn_context.cache_dict
         getPartition = self.pt.getPartition
         checked = set()
-        for oid, data in cache_dict.items():
+        for oid, data in list(cache_dict.items()) if six.PY3 else cache_dict.items():
             if data is CHECKED_SERIAL:
                 del cache_dict[oid]
                 checked.add(getPartition(oid))
@@ -752,7 +763,7 @@ class Application(ThreadedApplication):
         if deleted:
             oids = set(cache_dict)
             oids.difference_update(deleted)
-            deleted = map(getPartition, deleted)
+            deleted = list(map(getPartition, deleted))
         else:
             oids = list(cache_dict)
         ttid = txn_context.ttid
@@ -812,7 +823,7 @@ class Application(ThreadedApplication):
             'undo_object_tid_dict': undo_object_tid_dict,
         }
         while 1:
-            for partition, oid_list in partition_oid_dict.iteritems():
+            for partition, oid_list in six.iteritems(partition_oid_dict):
                 cell_list = [cell
                     for cell in getCellList(partition, readable=True)
                     # Exclude nodes that may have missed previous resolved
@@ -850,7 +861,7 @@ class Application(ThreadedApplication):
 
         # Send undo data to all storage nodes.
         for oid, (current_serial, undo_serial, is_current) in \
-                undo_object_tid_dict.iteritems():
+                six.iteritems(undo_object_tid_dict):
             if is_current:
                 if undo_serial:
                     # The data are used:
@@ -937,7 +948,7 @@ class Application(ThreadedApplication):
 
         # Reorder tids
         ordered_tids = sorted(tid_set, reverse=True)
-        logging.debug("UndoLog tids %s", map(dump, ordered_tids))
+        logging.debug("UndoLog tids %s", list(map(dump, ordered_tids)))
         # For each transaction, get info
         undo_info = []
         append = undo_info.append
@@ -961,7 +972,7 @@ class Application(ThreadedApplication):
     def transactionLog(self, start, stop, limit):
         tid_list = []
         # request a tid list for each partition
-        for offset in xrange(self.pt.getPartitions()):
+        for offset in range(self.pt.getPartitions()):
             r = self._askStorageForRead(offset,
                 Packets.AskTIDsFrom(start, stop, limit, offset))
             if r:
@@ -993,7 +1004,7 @@ class Application(ThreadedApplication):
                 except StopIteration:
                     if oid is None or None is not max_oid < oid:
                         return
-        h = [x for x in map(oids, xrange(self.pt.getPartitions())) if x]
+        h = [x for x in map(oids, range(self.pt.getPartitions())) if x]
         heapq.heapify(h)
         heappop = partial(heapq.heappop, h)
         heappushpop = partial(heapq.heappushpop, h)

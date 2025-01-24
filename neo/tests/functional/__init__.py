@@ -19,7 +19,6 @@ import errno
 import os
 import sys
 import time
-import ZODB
 import socket
 import signal
 import random
@@ -29,7 +28,9 @@ import tempfile
 import traceback
 import threading
 from collections import OrderedDict
+from neo import *
 import psutil
+import ZODB
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
@@ -152,7 +153,7 @@ class Process(object):
 
     def _args(self):
         args = []
-        for arg, param in self.arg_dict.iteritems():
+        for arg, param in six.iteritems(self.arg_dict):
             args.append('--' + arg)
             if param is not None:
                 args.append(str(param))
@@ -206,7 +207,7 @@ class Process(object):
                         *args)
                 signal.signal(signal.SIGUSR2, save_coverage)
                 os.close(self._coverage_fd)
-                os.write(w, '\0')
+                os.write(w, b'\0')
                 sys.argv = [command] + args
                 setproctitle(command)
                 for on_fork in self.on_fork:
@@ -397,7 +398,7 @@ class NEOCluster(object):
         self.admin_port = self.port_allocator.allocate(address_type, local_ip)
         self.cluster_name = name or 'neo_%s' % random.randint(0, 100)
         master_node_list = [self.port_allocator.allocate(address_type, local_ip)
-                            for i in xrange(master_count)]
+                            for i in range(master_count)]
         self.master_nodes = ' '.join('%s:%s' % (
                 buildUrlFromString(self.local_ip), x, )
                 for x in master_node_list)
@@ -434,11 +435,11 @@ class NEOCluster(object):
         """ Start cluster processes except some storage nodes """
         assert len(self.process_dict)
         self.port_allocator.release()
-        for process_list in self.process_dict.itervalues():
+        for process_list in six.itervalues(self.process_dict):
             for process in process_list:
                 if process not in except_storages:
                     process.start()
-        self.neoctl = NeoCTL((self.local_ip, self.admin_port),
+        self.neoctl = NeoCTL((str2bytes(self.local_ip), self.admin_port),
                              ssl_credentials=self.SSL)
         # wait for the admin node availability
         def test():
@@ -492,7 +493,7 @@ class NEOCluster(object):
         # otherwise, storage nodes would often flush MB of logs just because we
         # killed the master first, and waste much file system space.
         stopped_list = []
-        for process_list in self.process_dict.itervalues():
+        for process_list in six.itervalues(self.process_dict):
             for process in process_list:
                 try:
                     process.kill(signal.SIGUSR2)
@@ -523,7 +524,7 @@ class NEOCluster(object):
             raise NodeProcessError('\n'.join(error_list))
 
     def waitAll(self):
-        for process_list in self.process_dict.itervalues():
+        for process_list in six.itervalues(self.process_dict):
             for process in process_list:
                 try:
                     process.wait()
@@ -797,6 +798,4 @@ class NEOFunctionalTest(NeoTestBase):
         self.assertFalse(thread.is_alive(), 'Run timeout')
         if exc_list:
             assert len(exc_list) == 1, exc_list
-            exc = exc_list[0]
-            raise exc[0], exc[1], exc[2]
-
+            six.reraise(*exc_list[0])

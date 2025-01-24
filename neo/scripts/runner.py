@@ -24,11 +24,15 @@ import sys
 import os
 import re
 from collections import Counter, defaultdict
-from cStringIO import StringIO
 from fnmatch import fnmatchcase
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 from unittest.runner import _WritelnDecorator
+from neo import *
 
-if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
+if list(filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:])):
     # Start coverage as soon as possible.
     import coverage
     coverage = coverage.Coverage()
@@ -78,20 +82,20 @@ FUNC_TEST_MODULES = [
 ]
 
 ZODB_TEST_MODULES = [
-    ('neo.tests.zodb.testBasic', 'check'),
-    ('neo.tests.zodb.testConflict', 'check'),
-    ('neo.tests.zodb.testHistory', 'check'),
-    ('neo.tests.zodb.testIterator', 'check'),
-    ('neo.tests.zodb.testMT', 'check'),
-    ('neo.tests.zodb.testPack', 'check'),
-    ('neo.tests.zodb.testPersistent', 'check'),
-    ('neo.tests.zodb.testReadOnly', 'check'),
-    ('neo.tests.zodb.testRevision', 'check'),
-    #('neo.tests.zodb.testRecovery', 'check'),
-    ('neo.tests.zodb.testSynchronization', 'check'),
-    # ('neo.tests.zodb.testVersion', 'check'),
-    ('neo.tests.zodb.testUndo', 'check'),
-    ('neo.tests.zodb.testZODB', 'check'),
+    'neo.tests.zodb.testBasic',
+    'neo.tests.zodb.testConflict',
+    'neo.tests.zodb.testHistory',
+    'neo.tests.zodb.testIterator',
+    'neo.tests.zodb.testMT',
+    'neo.tests.zodb.testPack',
+    'neo.tests.zodb.testPersistent',
+    'neo.tests.zodb.testReadOnly',
+    'neo.tests.zodb.testRevision',
+    # 'neo.tests.zodb.testRecovery',
+    'neo.tests.zodb.testSynchronization',
+    # 'neo.tests.zodb.testVersion',
+    'neo.tests.zodb.testUndo',
+    'neo.tests.zodb.testZODB',
 ]
 
 
@@ -145,7 +149,7 @@ class NeoTestRunner(unittest.TextTestResult):
     def wasSuccessful(self):
         return not (self.failures or self.errors or self.unexpectedSuccesses)
 
-    def run(self, name, modules, only):
+    def run(self, name, modules, only, prefix='test'):
         suite = unittest.TestSuite()
         loader = unittest.TestLoader()
         if only:
@@ -165,10 +169,9 @@ class NeoTestRunner(unittest.TextTestResult):
                     only = '*'
         else:
             print('\n', name)
+        if prefix != 'test':
+            loader.testMethodPrefix = prefix
         for test_module in modules:
-            # load prefix if supplied
-            if isinstance(test_module, tuple):
-                test_module, loader.testMethodPrefix = test_module
             if only and not (exclude and test_only or
                              exclude != fnmatchcase(test_module, only)):
                 continue
@@ -216,7 +219,7 @@ class NeoTestRunner(unittest.TextTestResult):
         add_status('Directory', self.temp_directory)
         if self.testsRun:
             add_status('Status', '%.3f%%' % (success * 100 / self.testsRun))
-        for k, v in os.environ.iteritems():
+        for k, v in six.iteritems(os.environ):
             if k.startswith('NEO_TEST'):
                 if k == 'NEO_TESTS_ADAPTER' and v == 'MySQL':
                     from neo.storage.database.mysql import binding_name as v
@@ -240,7 +243,7 @@ class NeoTestRunner(unittest.TextTestResult):
                           for x in self.skipped)
         total_time = 0
         # for each test case
-        for k, v in sorted(self.run_dict.iteritems()):
+        for k, v in sorted(six.iteritems(self.run_dict)):
             # display group below its content
             _group, name = k.rsplit('.', 1)
             if _group != group:
@@ -393,13 +396,15 @@ Environment Variables:
             protocol_checker = protocolChecker(config.protocol)
         with protocol_checker:
             try:
-                for _ in xrange(config.loop):
+                for _ in range(config.loop):
                     if config.unit:
                         runner.run('Unit tests', UNIT_TEST_MODULES, only)
                     if config.functional:
                         runner.run('Functional tests', FUNC_TEST_MODULES, only)
                     if config.zodb:
-                        runner.run('ZODB tests', ZODB_TEST_MODULES, only)
+                        from neo.tests.zodb import prefix
+                        runner.run('ZODB tests', ZODB_TEST_MODULES, only,
+                                   prefix)
             except KeyboardInterrupt:
                 config['mail_to'] = None
                 traceback.print_exc()

@@ -14,11 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from contextlib import contextmanager
-from cPickle import Pickler, Unpickler
-from cStringIO import StringIO
-from itertools import izip_longest
 import os, random, shutil, threading, time, unittest
+from contextlib import contextmanager
+from io import BytesIO
+from neo import *
+from six.moves import zip_longest
+from six.moves.cPickle import Pickler, Unpickler
 import transaction, ZODB
 from persistent import Persistent
 from neo.client.exception import NEOPrimaryMasterLost
@@ -30,7 +31,7 @@ from neo.storage.database import getAdapterKlass, importer, manager
 from neo.storage.database.importer import \
     Repickler, TransactionRecord, WriteBack
 from .. import expectedFailure, getTempDirectory, random_tree, \
-    Patch, TransactionalResource, getTransactionMetaData
+    Patch, Random, TransactionalResource, getTransactionMetaData
 from . import NEOCluster, NEOThreadedTest
 from ZODB import serialize
 from ZODB.DB import TransactionalUndo
@@ -49,7 +50,7 @@ class Equal:
 
     def __repr__(self):
         return "<%s(%s)>" % (self.__class__.__name__,
-            ", ".join("%s=%r" % k for k in self.__dict__.iteritems()))
+            ", ".join("%s=%r" % k for k in six.iteritems(self.__dict__)))
 
 class Reduce(Equal, object):
 
@@ -114,7 +115,8 @@ class DummyRepickler(Repickler):
 
 class ImporterTests(NEOThreadedTest):
 
-    def testRepickler(self):
+    @unittest.skipUnless(six.PY2, '')
+    def testRepickler(self, protocol=1):
         r2 = Obj("foo")
         r2.__setstate__("bar")
         r2 = Reduce(r2)
@@ -128,15 +130,22 @@ class ImporterTests(NEOThreadedTest):
         r5.append("!!!")
         r5["foo"] = "bar"
         state = {r2: r3, r4: r5}
-        p = StringIO()
-        pickler = Pickler(p, 1)
+        p = BytesIO()
+        pickler = Pickler(p, protocol)
         pickler.dump(Obj)
         pickler.dump(state)
         p = p.getvalue()
         r = DummyRepickler()(p)
-        load = Unpickler(StringIO(r)).load
+        load = Unpickler(BytesIO(r)).load
         self.assertIs(Obj, load())
         self.assertDictEqual(state, load())
+
+    if six.PY3:
+        del testRepickler
+    elif getattr(serialize, '_protocol', 1) > 1:
+        @expectedFailure(KeyError)
+        def testRepickler2(self):
+            self.testRepickler(2)
 
     @cached_property
     def getFS(self):
@@ -150,7 +159,7 @@ class ImporterTests(NEOThreadedTest):
             }
         return getFS
 
-    def getData(self, tree=random_tree.generateTree(random.Random(0))):
+    def getData(self, tree=random_tree.generateTree(Random(0))):
         txn_size = 10
         i = len(tree) // 3
         assert i > txn_size
@@ -158,11 +167,13 @@ class ImporterTests(NEOThreadedTest):
         after_tree = tree[i:]
         def beforeCheck(h, count=52):
             self.assertEqual(count, h())
-            self.assertEqual('1d4ff03730fe6bcbf235e3739fbe5f5b', h.hexdigest())
+            self.assertEqual('b72ce6b9b26e09224067a02cdfac7c69' if six.PY2 else
+                             '11cc333eafa59ae47e1bac2af4752dd7', h.hexdigest())
         def finalCheck(r):
             h = random_tree.hashTree(r)
             self.assertEqual(93, h())
-            self.assertEqual('6bf0f0cb2d6c1aae9e52c412ef0e25b6', h.hexdigest())
+            self.assertEqual('fc75ac25e7a0bfde97634d2da8326c10' if six.PY2 else
+                             'beb61348d127fd20a89d3a6e1c29ece5', h.hexdigest())
         return (
             beforeCheck,
             lambda r, *f: random_tree.importTree(r, before_tree, txn_size, *f),
@@ -184,7 +195,7 @@ class ImporterTests(NEOThreadedTest):
             iter_list.append(before(r, sub_filter(db) if i else root_filter))
             db_list.append((db, r, cfg))
         # Populate FileStorage databases.
-        for i, iter_list in enumerate(izip_longest(*iter_list)):
+        for i, iter_list in enumerate(zip_longest(*iter_list)):
             for r in iter_list:
                 if r:
                     transaction.commit()
@@ -219,7 +230,7 @@ class ImporterTests(NEOThreadedTest):
                 try:
                     while True:
                         if app.task_queue:
-                            app.task_queue[-1].next()
+                            next(app.task_queue[-1])
                         app._poll()
                 except StopIteration:
                     app.task_queue.pop()
@@ -237,9 +248,9 @@ class ImporterTests(NEOThreadedTest):
             storage._cache.clear()
             storage.loadBefore(r._p_oid, r._p_serial)
             ##
-            self.assertRaisesRegexp(NotImplementedError,
-                                    " getObjectHistoryWithLength$",
-                                    c.db().history, r._p_oid)
+            self.assertRaisesRegex(NotImplementedError,
+                                   ' getObjectHistoryWithLength$',
+                                   c.db().history, r._p_oid)
             h = random_tree.hashTree(r)
             h(30)
             logging.info("start migration")
@@ -337,8 +348,8 @@ class ImporterTests(NEOThreadedTest):
             (lambda path: path[0] not in multi or len(path) == 1),
             (lambda db: lambda path: path[0] in (db, 4)))
 
-    if getattr(serialize, '_protocol', 1) > 1:
-        testMerge = expectedFailure(NEOPrimaryMasterLost)(testMerge)
+    if six.PY3:
+        del testMerge
 
     def testIncremental(self):
         """

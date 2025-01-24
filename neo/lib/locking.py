@@ -3,8 +3,10 @@ import sys
 import threading
 import traceback
 from collections import deque
+from six.moves.queue import Empty
 from time import time
-from Queue import Empty
+from neo import *
+from .logger import logging
 
 """
   Verbose locking classes.
@@ -26,9 +28,9 @@ from Queue import Empty
 
 class LockUser(object):
 
-    def __init__(self, message=None, level=0):
+    def __init__(self, message, level=0):
         t = threading.currentThread()
-        ident = getattr(t, 'node_name', t.name)
+        self.ident = getattr(t, 'node_name', t.name)
         # This class is instantiated from a place desiring to known what
         # called it.
         # limit=1 would return execution position in this method
@@ -42,11 +44,7 @@ class LockUser(object):
         # current Neo directory structure.
         path = os.path.join('...', *path.split(os.path.sep)[-3:])
         self.time = time()
-        if message is not None:
-            self.ident = "%s@%r %s:%s %s" % (
-                ident, self.time, path, line_number, line)
-            self.note(message)
-        self.ident = ident
+        self.note("[%s:%s %s] %s" % (path, line_number, line, message))
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.ident == other.ident
@@ -57,20 +55,21 @@ class LockUser(object):
     def formatStack(self):
         return ''.join(traceback.format_list(self.stack))
 
-    def note():
-        write = sys.stderr.write
-        flush = sys.stderr.flush
+    if 0:
+        def note():
+            write = sys.stderr.write
+            flush = sys.stderr.flush
+            def note(self, message):
+                write("[%s@%r] %s\n" % (self.ident, self.time, message))
+                flush()
+            return note
+        note = note()
+    else:
         def note(self, message):
-            write("[%s] %s\n" % (self.ident, message))
-            flush()
-        return note
-    note = note()
+            logging.debug("[%s@%r] %s", self.ident, self.time, message)
 
 
 class VerboseLockBase(object):
-
-    _error_class = threading.ThreadError
-    _release_error = 'release unlocked lock'
 
     def __init__(self, check_owner, name=None, verbose=None):
         self._check_owner = check_owner
@@ -108,7 +107,8 @@ class VerboseLockBase(object):
         except self._error_class:
             t, v, tb = sys.exc_info()
             if str(v) == self._release_error:
-                raise t, "%s %s (%s)" % (v, self, me), tb
+                v.args = "%s %s (%s)" % (v, self, me),
+                six.reraise(t, v, tb)
             raise
 
     def __exit__(self, t, v, tb):
@@ -123,8 +123,11 @@ class VerboseLockBase(object):
 
 class VerboseRLock(VerboseLockBase):
 
-    _error_class = RuntimeError
-    _release_error = 'cannot release un-acquired lock'
+    try:
+        threading.RLock().release()
+    except Exception as e:
+        _error_class = type(e)
+        _release_error = str(e)
 
     def __init__(self, **kw):
         super(VerboseRLock, self).__init__(check_owner=False, **kw)
@@ -138,6 +141,12 @@ class VerboseRLock(VerboseLockBase):
 
 class VerboseLock(VerboseLockBase):
 
+    try:
+        threading.Lock().release()
+    except Exception as e:
+        _error_class = type(e)
+        _release_error = str(e)
+
     def __init__(self, check_owner=True, **kw):
         super(VerboseLock, self).__init__(check_owner, **kw)
         self.lock = threading.Lock()
@@ -147,6 +156,9 @@ class VerboseLock(VerboseLockBase):
     _locked = locked
 
 class VerboseSemaphore(VerboseLockBase):
+
+    threading.Semaphore(1).release()
+    class _error_class(Exception): pass
 
     def __init__(self, value=1, check_owner=True, **kw):
         super(VerboseSemaphore, self).__init__(check_owner, **kw)
@@ -182,6 +194,9 @@ class SimpleQueue(object):
     producer (lib.dispatcher, which can be called from several threads but
     serialises calls internally) for each queue, Queue.Queue's locking scheme
     can be relaxed to reduce latency.
+
+    TODO: A compatible SimpleQueue class was added to Python 3:
+          check which one is the fastest.
     """
     __slots__ = ('_lock', '_unlock', '_popleft', '_append', '_queue')
     def __init__(self):
@@ -210,3 +225,32 @@ class SimpleQueue(object):
 
     def empty(self):
         return not self._queue
+
+    def qsize(self):
+        return len(self._queue)
+
+try:
+    from sys import implementation
+except ImportError:
+    pass
+else:
+    if implementation.name == 'cpython' and implementation.version < (3, 13):
+        # WKRD: Releasing a lock may raise (thinking it's not locked) when it
+        #       has just been taken by a concurrent thread. This is a
+        #       regression in bpo-15124 that can be easily reproduced
+        #       with GCTests.test1 or tools/stress.
+        def put(self, item):
+            self._append(item)
+            try:
+                self._unlock()
+            except RuntimeError:
+                pass
+        SimpleQueue.put = put
+        del put
+
+    if 0:
+        from queue import SimpleQueue
+
+        if 'neo.tests' in sys.modules:
+            class SimpleQueue(SimpleQueue):
+                pass

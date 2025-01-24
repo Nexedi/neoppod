@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from time import time
+from neo import *
 from neo.lib import logging
 from neo.lib.exception import NonReadableCell, ProtocolError
 from neo.lib.handler import DelayEvent, EventQueue
@@ -116,11 +117,11 @@ class TransactionManager(EventQueue):
             self._replicated.pop(offset, None)
         getPartition = self.getPartition
         for oid_dict in self._load_lock_dict, self._store_lock_dict:
-            for oid in oid_dict.keys():
+            for oid in list(oid_dict):
                 if getPartition(oid) in offset_list:
                     del oid_dict[oid]
         data_id_list = []
-        for transaction in self._transaction_dict.itervalues():
+        for transaction in six.itervalues(self._transaction_dict):
             serial_dict = transaction.serial_dict
             oid_list = [oid for oid in serial_dict
                 if getPartition(oid) in offset_list]
@@ -162,11 +163,11 @@ class TransactionManager(EventQueue):
         getPartition = self.getPartition
         store_lock_dict = self._store_lock_dict
         replicated = self._replicated
-        notify = {x[0] for x in replicated.iteritems() if x[1]}
+        notify = {x[0] for x in six.iteritems(replicated) if x[1]}
         # We sort transactions so that in case of multiple stores/checks
         # for the same oid, the lock is taken by the highest locking ttid,
         # which will delay new transactions.
-        for ttid, txn in sorted(self._transaction_dict.iteritems()):
+        for ttid, txn in sorted(six.iteritems(self._transaction_dict)):
             assert txn.lockless.issubset(txn.serial_dict), (
                 ttid, txn.lockless, txn.serial_dict)
             for oid in txn.lockless:
@@ -230,7 +231,6 @@ class TransactionManager(EventQueue):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise ProtocolError("unknown ttid %s" % dump(ttid))
-        object_list = transaction.store_dict.itervalues()
         if txn_info:
             user, desc, ext, oid_list, pack = txn_info
             # Check MySQL limitation (MEDIUMBLOB). It is enforced to all
@@ -246,7 +246,7 @@ class TransactionManager(EventQueue):
             transaction.voted = 1
         # store metadata to temporary table
         dm = self._app.dm
-        dm.storeTransaction(ttid, object_list, txn_info)
+        dm.storeTransaction(ttid, six.itervalues(transaction.store_dict), txn_info)
         if pack:
             transaction.pack = True
             oid_list, pack_tid = pack
@@ -509,7 +509,7 @@ class TransactionManager(EventQueue):
             logging.debug('Abort TXN %s', dump(ttid))
             dm = self._app.dm
             dm.abortTransaction(ttid)
-            dm.releaseData([x[1] for x in transaction.store_dict.itervalues()],
+            dm.releaseData([x[1] for x in six.itervalues(transaction.store_dict)],
                            True)
             dm.commit()
         # unlock any object
@@ -553,27 +553,27 @@ class TransactionManager(EventQueue):
             Abort any non-locked transaction of a node
         """
         # abort any non-locked transaction of this node
-        for ttid, transaction in self._transaction_dict.items():
+        for ttid, transaction in list(self._transaction_dict.items()):
             if transaction.uuid == uuid and (
                even_if_voted or not transaction.voted):
                 self.abort(ttid)
 
     def isLockedTid(self, tid):
         return any(None is not t.tid <= tid
-            for t in self._transaction_dict.itervalues())
+            for t in six.itervalues(self._transaction_dict))
 
     def loadLocked(self, oid):
         return oid in self._load_lock_dict
 
     def log(self):
         logging.info("Transactions:")
-        for ttid, txn in self._transaction_dict.iteritems():
+        for ttid, txn in six.iteritems(self._transaction_dict):
             logging.info('    %s %r', dump(ttid), txn)
         logging.info('  Read locks:')
-        for oid, ttid in self._load_lock_dict.iteritems():
+        for oid, ttid in six.iteritems(self._load_lock_dict):
             logging.info('    %s by %s', dump(oid), dump(ttid))
         logging.info('  Write locks:')
-        for oid, ttid in self._store_lock_dict.iteritems():
+        for oid, ttid in six.iteritems(self._store_lock_dict):
             logging.info('    %s by %s', dump(oid), dump(ttid))
         self.logQueuedEvents()
         self.read_queue.logQueuedEvents()

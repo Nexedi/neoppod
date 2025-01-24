@@ -17,14 +17,16 @@
 import fcntl, os
 from collections import deque
 from contextlib import contextmanager
+from operator import call
 from signal import set_wakeup_fd
 from time import time
 from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
 from errno import EAGAIN, EEXIST, EINTR, ENOENT
+from neo import *
 from . import logging
 from .locking import Lock
 
-@apply
+@call
 def dictionary_changed_size_during_iteration():
     d = {}; i = iter(d); d[0] = 0
     try:
@@ -75,7 +77,7 @@ class EpollEventManager(object):
     def close(self):
         os.close(self._wakeup_wfd)
         os.close(self._wakeup_rfd)
-        for c in self.connection_dict.values():
+        for c in list(self.connection_dict.values()):
             c.close()
         self.epoll.close()
         del self.__dict__
@@ -105,7 +107,7 @@ class EpollEventManager(object):
         while 1:
             # See _poll() about the use of self.connection_dict.itervalues()
             try:
-                return [x for x in self.connection_dict.itervalues()
+                return [x for x in six.itervalues(self.connection_dict)
                           if not x.isAborted()]
             except RuntimeError as e:
                 if str(e) != dictionary_changed_size_during_iteration:
@@ -208,7 +210,7 @@ class EpollEventManager(object):
                 try:
                     timeout = self._timeout
                     timeout_object = self
-                    for conn in self.connection_dict.itervalues():
+                    for conn in six.itervalues(self.connection_dict):
                         t = conn.getTimeout()
                         if t and (timeout is None or t < timeout):
                             timeout = t
@@ -305,7 +307,7 @@ class EpollEventManager(object):
         with self._trigger_lock:
             self._trigger_list += actions
         try:
-            os.write(self._wakeup_wfd, '\0')
+            os.write(self._wakeup_wfd, b'\0')
         except OSError as e:
             # Ignore if wakeup fd is triggered many times in a row.
             if e.errno != EAGAIN:
@@ -351,7 +353,7 @@ class EpollEventManager(object):
         logging.info('  Writers: %r', list(self.writer_set))
         logging.info('  Connections:')
         pending_set = set(self._pending_processing)
-        for fd, conn in self.connection_dict.items():
+        for fd, conn in list(self.connection_dict.items()):
             logging.info('    %r: %r (pending=%r)', fd, conn,
                 conn in pending_set)
             for request_dict, handler in conn._handlers._pending:

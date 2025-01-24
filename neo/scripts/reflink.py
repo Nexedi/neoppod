@@ -111,12 +111,13 @@ from contextlib import closing, contextmanager
 from datetime import timedelta
 from functools import partial
 from io import BytesIO
-from operator import attrgetter
+from operator import attrgetter, call
+from six.moves.queue import Empty, Queue
 from select import error as select_error, select
 from time import gmtime, sleep, time
-from Queue import Empty, Queue
+from neo import *
 
-from msgpack import Packer, loads
+from msgpack import Packer, loads, version as msgpack_version
 from pkg_resources import iter_entry_points
 import ZODB
 from persistent.TimeStamp import TimeStamp
@@ -126,7 +127,7 @@ from ZODB.POSException import ConflictError, POSKeyError
 from ZODB.serialize import referencesf
 from ZODB.utils import p64, u64, z64
 
-TXN_GC_DESC = 'neoppod.git/reflink/gc@%x'
+TXN_GC_DESC = b'neoppod.git/reflink/gc@%x'
 MAX_TXN_SIZE = 0x1fffff # MySQL limitation (MEDIUMBLOB)
 VERSION = 2
 
@@ -136,12 +137,18 @@ array32u = partial(array, 'I')
 assert array32u().itemsize == 4
 
 dumps = Packer(use_bin_type=False).pack
+if six.PY3:
+    unicode = str
+    if msgpack_version < (1,):
+        loads = partial(loads, raw=False)
+    else:
+        loads = partial(loads, strict_map_key=False)
 
 try:
     from ZODB.Connection import TransactionMetaData
 except ImportError: # BBB: ZODB < 5
     from ZODB.BaseStorage import TransactionRecord
-    TransactionMetaData = lambda user='', description='', extension=None: \
+    TransactionMetaData = lambda user=b'', description=b'', extension=None: \
         TransactionRecord(None, None, user, description, extension)
 
 def checkAPI(storage):
@@ -201,7 +208,7 @@ class InvalidationListener(object):
             self.last_tid = transaction_id
             if not self._new_flag:
                 self._new_flag = True
-                os.write(self._new_pipe[1], '\0')
+                os.write(self._new_pipe[1], b'\0')
 
     def tpc_finish(self, tid):
         self.last_tid = self.last_gc = tid
@@ -213,7 +220,7 @@ class InvalidationListener(object):
                 return 0
             if self._new_flag:
                 self._new_flag = False
-                if os.read(self._new_pipe[0], 2) != '\0':
+                if os.read(self._new_pipe[0], 2) != b'\0':
                     raise RuntimeError
         return self._wait(timeout)
 
@@ -258,10 +265,10 @@ class OidArray(object):
         return self
 
     def __nonzero__(self):
-        return any(self.arrays.itervalues())
+        return any(six.itervalues(self.arrays))
 
     def __len__(self):
-        return sum(map(len, self.arrays.itervalues()))
+        return sum(map(len, six.itervalues(self.arrays)))
 
     def __iter__(self):
         arrays = self.arrays
@@ -379,13 +386,19 @@ class Changeset(object):
                 bucket = {}
                 self.buckets[oid] = None, z64, bucket
             else:
-                bucket = loads(orig)
+                try:
+                    bucket = loads(orig)
+                except:
+                    print(repr(orig))
+                    raise
                 self.buckets[oid] = orig, serial, bucket
         return bucket
 
     def get(self, oid):
         bucket = self._get(b'\0' + oid[:-1])
-        key = ord(oid[-1]) # Py3
+        key = oid[-1]
+        if six.PY2:
+            key = ord(key)
         obj = bucket.get(key, ())
         if not isinstance(obj, Object):
             obj = bucket[key] = Object(u64(oid), *obj)
@@ -393,7 +406,9 @@ class Changeset(object):
 
     def deleted(self, oid):
         bucket = self._get(b'\0' + oid[:-1])
-        key = ord(oid[-1]) # Py3
+        key = oid[-1]
+        if six.PY2:
+            key = ord(key)
         if not bucket.get(key, True):
             del bucket[key]
 
@@ -422,10 +437,10 @@ class Changeset(object):
                 self._last_pack = pack
                 self._get(z64)['__reflink_last_pack__'] = u64(pack)
                 storage.app.setPackOrder(txn, pack)
-        for bucket_oid, (orig, serial, bucket) in buckets.iteritems():
+        for bucket_oid, (orig, serial, bucket) in six.iteritems(buckets):
             base_oid = u64(bucket_oid) << 8
             data = {}
-            for k, v in bucket.iteritems():
+            for k, v in six.iteritems(bucket):
                 if isinstance(v, Object):
                     oid = base_oid + k
                     v = [shortenSeq(v.referrers),
@@ -471,8 +486,8 @@ class Changeset(object):
                             x += oid
                             obj = self.get(p64(x))
                             print(x,
-                                map(u64, obj.referrers),
-                                map(u64, obj.referents),
+                                list(map(u64, obj.referrers)),
+                                list(map(u64, obj.referents)),
                                 obj.prev_orphan and u64(obj.prev_orphan),
                                 obj.next_orphan and u64(obj.next_orphan))
                     finally:
@@ -507,7 +522,7 @@ class Changeset(object):
                 count = 0
                 for oid in self.storage.app.oids(tid):
                     x = u64(oid) << 8
-                    for k, v in loads(self._load(oid)[0]).iteritems():
+                    for k, v in six.iteritems(loads(self._load(oid)[0])):
                         if isinstance(k, int):
                             q('INSERT INTO t VALUES(?,?)', (x+k,
                                 dumps(v[1]) if len(v) > 1 and v[1] else None))
@@ -515,7 +530,7 @@ class Changeset(object):
                     db.commit()
                 logger.info("  #oids: %s", count)
                 stack = [0]
-                x = xrange(256)
+                x = range(256)
                 while True:
                     for v in x:
                         try:
@@ -528,7 +543,7 @@ class Changeset(object):
                                     'SELECT oid & 0xFFFFFFFF FROM t'
                                     ' WHERE oid>=? AND oid<? ORDER BY oid',
                                     (k << 32, k+1 << 32))))
-                                for k in xrange(k, x + 1)))
+                                for k in range(k, x + 1)))
                         k = oid,
                         try:
                             (v,), = q('SELECT referents FROM t WHERE oid=?', k)
@@ -609,7 +624,7 @@ class Changeset(object):
                     "It looks like the following oids can be"
                     " garbage-collected: %s. Please report.",
                     ','.join(map('%x'.__mod__, x)))
-            for obj in keep.itervalues():
+            for obj in six.itervalues(keep):
                 self.keep(obj)
         return orphans
 
@@ -874,11 +889,10 @@ def main(args=None):
         exc_info = [] # Py3
         def checkExc():
             if exc_info:
-                etype, value, tb = exc_info
-                raise etype, value, tb
+                six.reraise(*exc_info)
 
         if bootstrap and bootstrap[1] is not None:
-            @apply
+            @call
             def next_oid():
                 tid, oid = map(p64, bootstrap)
                 load = partial(main_storage.loadBefore, tid=inc64(tid))
@@ -915,7 +929,7 @@ def main(args=None):
                     except:
                         exc_info[:] = sys.exc_info()
                     put(None)
-                for t in xrange(job_count):
+                for t in range(job_count):
                     t = threading.Thread(target=loadThread)
                     t.daemon = True
                     t.start()
@@ -990,7 +1004,7 @@ def main(args=None):
                     put(None)
                 threads = []
                 try:
-                    for t in xrange(job_count):
+                    for t in range(job_count):
                         t = threading.Thread(target=loadThread)
                         t.daemon = True
                         t.start()
@@ -1107,7 +1121,7 @@ def main(args=None):
                     for obj in check_keep:
                         if not obj.maybeOrphan():
                             changeset.keep(obj)
-                    for oid, obj in check_orphan.iteritems():
+                    for oid, obj in six.iteritems(check_orphan):
                         if obj.maybeOrphan():
                             assert not (obj.prev_orphan or obj.next_orphan), oid
                             if not obj.referents:

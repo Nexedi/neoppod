@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from neo.lib import logging
 from neo.lib.exception import NotReadyError, PrimaryFailure, ProtocolError
 from neo.lib.handler import EventHandler
@@ -31,7 +32,6 @@ def AdminEventHandlerType(name, bases, d):
         return lambda self, conn, *args: self.app.master_conn.ask(
             klass(*args), conn=conn, msg_id=conn.getPeerId())
 
-    del d['__metaclass__']
     for x in (
             Packets.AddPendingNodes,
             Packets.AskLastIDs,
@@ -47,12 +47,11 @@ def AdminEventHandlerType(name, bases, d):
         ):
         d[x.handler_method_name] = forward_ask(x)
     return type(name, bases, {k: v if k[0] == '_' else check_connection(v)
-                              for k, v in d.iteritems()})
+                              for k, v in six.iteritems(d)})
+AdminEventHandlerType.__prepare__ = lambda *_: {} # PY3: only for six
 
-class AdminEventHandler(EventHandler):
+class AdminEventHandler(six.with_metaclass(AdminEventHandlerType, EventHandler)):
     """This class deals with events for administrating cluster."""
-
-    __metaclass__ = AdminEventHandlerType
 
     def _checkConnection(self, conn):
         if self.app.master_conn is None:
@@ -168,7 +167,7 @@ class MasterEventHandler(EventHandler):
 
 def monitor(func):
     def wrapper(self, conn, *args, **kw):
-        for name, backup in self.app.backup_dict.iteritems():
+        for name, backup in six.iteritems(self.app.backup_dict):
             if backup.conn is conn:
                 return func(self, name, *args, **kw)
         raise AssertionError
