@@ -15,8 +15,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse, os, sys
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser as ConfigParser
 from functools import wraps
-from ConfigParser import SafeConfigParser
+from neo import *
 
 class _DefaultList(list):
     """
@@ -126,7 +130,7 @@ class OptionGroup(object):
 
     def set_defaults(self, **kw):
         option_dict = self.getOptionDict()
-        for k, v in kw.iteritems():
+        for k, v in six.iteritems(kw):
             option_dict[k].default = v
 
     def getOptionDict(self):
@@ -197,7 +201,7 @@ class OptionList(OptionGroup):
         except AttributeError:
             d = ()
         else:
-            cfg = SafeConfigParser()
+            cfg = ConfigParser()
             cfg.read(config_file)
             section = args.section
             d = {}
@@ -214,5 +218,5 @@ class OptionList(OptionGroup):
         finally:
             del self._with_required
         return {name: option.parse(getattr(args, name))
-            for name, option in option_dict.iteritems()
+            for name, option in six.iteritems(option_dict)
             if hasattr(args, name)}

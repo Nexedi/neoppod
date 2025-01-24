@@ -18,6 +18,7 @@ import sys
 from collections import defaultdict
 from functools import partial
 from time import time
+from neo import *
 
 from neo.lib import logging, util
 from neo.lib.app import BaseApplication, buildOptionParser
@@ -121,7 +122,8 @@ class Application(BaseApplication):
                                           uuid=config.get('nid'))
         logging.node(self.name, self.uuid)
 
-        logging.debug('IP address is %s, port is %d', *self.server)
+        logging.debug('IP address is %s, port is %d',
+                      *decodeAddress(self.server))
 
         # Partition table
         replicas = config['replicas']
@@ -500,7 +502,7 @@ class Application(BaseApplication):
             if node is None or node.getAddress() == address:
                 return uuid
         hob = UUID_NAMESPACES[node_type]
-        for uuid in xrange((hob << 24) + 1, hob + 0x10 << 24):
+        for uuid in range((hob << 24) + 1, hob + 0x10 << 24):
             node = getByUUID(uuid)
             if node is None or None is not address == node.getAddress():
                 assert uuid != self.uuid
@@ -657,7 +659,7 @@ class Application(BaseApplication):
         return uuid in self.storage_ready_dict
 
     def getStorageReadySet(self, readiness=float('inf')):
-        return {k for k, v in self.storage_ready_dict.iteritems()
+        return {k for k, v in six.iteritems(self.storage_ready_dict)
                   if v <= readiness}
 
     def notifyTransactionAborted(self, ttid, uuids):

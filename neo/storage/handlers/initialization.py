@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from . import BaseMasterHandler
 from neo.lib.exception import ProtocolError
 from neo.lib.protocol import Packets
@@ -27,7 +28,7 @@ class InitializationHandler(BaseMasterHandler):
         if not pt.filled():
             raise ProtocolError('Partial partition table received')
         cell_list = [(offset, cell.getUUID(), cell.getState())
-            for offset in xrange(pt.getPartitions())
+            for offset in range(pt.getPartitions())
             for cell in pt.getCellList(offset)]
         dm = app.dm
         dm.changePartitionTable(app, ptid, num_replicas, cell_list, reset=True)
@@ -53,7 +54,7 @@ class InitializationHandler(BaseMasterHandler):
         if not app.disable_pack:
             packed = dm.getPackedIDs()
             if packed:
-                self.app.completed_pack_id = pack_id = min(packed.itervalues())
+                self.app.completed_pack_id = pack_id = min(six.itervalues(packed))
                 conn.send(Packets.NotifyPackCompleted(pack_id))
         last_tid, last_oid = dm.getLastIDs() # PY3
         conn.answer(Packets.AnswerLastIDs(last_tid, last_oid, dm.getFirstTID()))

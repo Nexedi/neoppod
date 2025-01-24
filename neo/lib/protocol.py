@@ -14,9 +14,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# !!!: Minimal dependencies. In particular, do never import anything from neo.
 import threading
 from functools import partial
+try:
+    from operator import call
+except ImportError:
+    call = apply
 from msgpack import packb
+import six
+from six.moves import map, range, zip
 
 # For msgpack & Py2/ZODB5.
 try:
@@ -43,7 +50,7 @@ RESPONSE_MASK = 0x8000
 # that we could compare the stream position (Unpacker.tell); it's not worth it.
 UNPACK_BUFFER_SIZE = 0x4000000
 
-@apply
+@call
 def Unpacker():
     global registerExtType, packb
     from msgpack import ExtType, unpackb, Packer, Unpacker
@@ -67,18 +74,24 @@ def Unpacker():
             return list(obj)
         return pack()
     lock = threading.Lock()
-    pack = Packer(default, strict_types=True, **kw).pack
+    pack = Packer(default=default, strict_types=True, **kw).pack
     def packb(obj):
         with lock: # in case that 'default' is called
             return pack(obj)
 
-    return partial(Unpacker, use_list=False, max_buffer_size=UNPACK_BUFFER_SIZE,
+    return partial(Unpacker,
+        strict_map_key=False, use_list=False,
+        max_buffer_size=UNPACK_BUFFER_SIZE,
         ext_hook=lambda code, data: ext_type_dict[code](data))
 
 class Enum(tuple):
 
     class Item(int):
-        __slots__ = '_name', '_enum', '_pack'
+        if six.PY3:
+            def __hash__(self):
+                return self
+        else: # XXX: find a way to keep enums as efficient as possible on Py3
+            __slots__ = '_name', '_enum', '_pack'
         def __str__(self):
             return self._name
         def __repr__(self):
@@ -90,8 +103,8 @@ class Enum(tuple):
             return other == int(self)
 
     def __new__(cls, func):
-        names = func.func_code.co_names
-        self = tuple.__new__(cls, map(cls.Item, xrange(len(names))))
+        names = func.__code__.co_names
+        self = tuple.__new__(cls, map(cls.Item, range(len(names))))
         self._name = func.__name__
         pack = registerExtType(int, self.__getitem__)
         for item, name in zip(self, names):
@@ -208,12 +221,12 @@ cell_state_prefix_dict = {
 
 # Other constants.
 INVALID_TID = \
-INVALID_OID = '\xff' * 8
+INVALID_OID = b'\xff' * 8
 INVALID_PARTITION = 0xffffffff
-ZERO_HASH = '\0' * 20
+ZERO_HASH = b'\0' * 20
 ZERO_TID = \
-ZERO_OID = '\0' * 8
-MAX_TID = '\x7f' + '\xff' * 7 # SQLite does not accept numbers above 2^63-1
+ZERO_OID = b'\0' * 8
+MAX_TID = b'\x7f' + b'\xff' * 7 # SQLite does not accept numbers above 2^63-1
 
 # High-order byte:
 # 7 6 5 4 3 2 1 0
@@ -232,7 +245,7 @@ UUID_NAMESPACES = {
 }
 uuid_str = (lambda ns: lambda uuid:
     ns[uuid >> 24] + str(uuid & 0xffffff) if uuid else str(uuid)
-    )({v: str(k)[0] for k, v in UUID_NAMESPACES.iteritems()})
+    )({v: str(k)[0] for k, v in six.iteritems(UUID_NAMESPACES)})
 
 
 class Packet(object):
@@ -257,6 +270,9 @@ class Packet(object):
     def getId(self):
         assert self._id is not None, "No identifier applied on the packet"
         return self._id
+
+    def getArgs(self):
+        return self._args
 
     def encode(self, packb=packb):
         """ Encode a packet as a string to send it over the network """
@@ -294,9 +310,13 @@ class Packet(object):
         return cls._ignore_when_closed
 
 
+@call
 class PacketRegistryFactory(dict):
 
     _next_code = 0
+
+    def __prepare__(self, name, bases): # PY3: only for six (see GH issue 252)
+        return {}
 
     def __call__(self, name, base, d):
         for k, v in d.items():
@@ -341,12 +361,40 @@ class PacketRegistryFactory(dict):
         return packet
 
 
-class Packets(dict):
+if six.PY2:
+    first_arg = keys_arg = none_list_arg = str_arg = lambda *_: None
+
+else:
+    exec("""if 1:
+    from functools import wraps
+    def _transform(encode, decode, packet, i):
+        _init = packet.__init__
+        def __init__(self, *args):
+            _init(self, *args[:i], encode(args[i]), *args[i+1:])
+        packet.__init__ = wraps(_init)(__init__)
+        _getArgs = packet.getArgs
+        def getArgs(self):
+            args = _getArgs(self)
+            return args[:i] + (decode(args[i]),) + args[i+1:]
+        packet.getArgs = wraps(_getArgs)(getArgs)
+    """)
+    str_arg = partial(_transform, str.encode, bytes.decode)
+    first_arg = partial(_transform,
+        lambda x: type(x)((x[0].encode(),)) + x[1:],
+        lambda x: (x[0].decode(),) + x[1:])
+    keys_arg = partial(_transform,
+        lambda x: {k.encode(): v for k, v in x.items()},
+        lambda x: {k.decode(): v for k, v in x.items()})
+    none_list_arg = partial(_transform,
+        lambda x: type(x)(x if x is None else x.encode() for x in x),
+        lambda x: tuple(x if x is None else x.decode() for x in x))
+
+
+class Packets(six.with_metaclass(PacketRegistryFactory, dict)):
     """
     Packet registry that checks packet code uniqueness and provides an index
     """
-    __metaclass__ = PacketRegistryFactory()
-    notify = __metaclass__.register
+    notify = PacketRegistryFactory.register
     request = partial(notify, request=True)
 
     Error = notify("""
@@ -356,6 +404,7 @@ class Packets(dict):
 
         :nodes: * -> *
         """, error=True)
+    str_arg(Error, 1)
 
     RequestIdentification, AcceptIdentification = request("""
         Request a node identification. This must be the first packet for any
@@ -363,6 +412,8 @@ class Packets(dict):
 
         :nodes: * -> *
         """, poll_thread=True)
+    str_arg(RequestIdentification, 3) # cluster
+    keys_arg(RequestIdentification, 5) # extra
 
     Ping, Pong = request("""
         Empty request used as network barrier.
@@ -734,6 +785,7 @@ class Packets(dict):
 
         :nodes: M -> S
         """)
+    first_arg(CheckPartition, 1)
 
     AskCheckTIDRange, AnswerCheckTIDRange = request("""
         Ask some stats about a range of transactions.
@@ -794,6 +846,7 @@ class Packets(dict):
 
         :nodes: M -> S
         """)
+    str_arg(Replicate, 1)
 
     NotifyReplicationDone = notify("""
         Notify the master node that a partition has been successfully
@@ -843,10 +896,14 @@ class Packets(dict):
     AskMonitorInformation, AnswerMonitorInformation = request("""
         :nodes: ctl -> A
         """)
+    none_list_arg(AnswerMonitorInformation, 0)
+    none_list_arg(AnswerMonitorInformation, 1)
+    str_arg(AnswerMonitorInformation, 2)
 
     NotifyMonitorInformation = notify("""
         :nodes: A -> A
         """)
+    keys_arg(NotifyMonitorInformation, 0)
 
     NotifyUpstreamAdmin = notify("""
         :nodes: M -> A
@@ -875,18 +932,26 @@ Errors = Errors()
 from datetime import datetime
 from operator import itemgetter
 
-def formatNodeList(node_list, prefix='', _sort_key=itemgetter(2)):
+def formatAddress(addr, if_none=''):
+    if addr:
+        host, port = addr
+        if six.PY3:
+            host = host.decode()
+        return ('[%s]:%s' if ':' in host else '%s:%s') % (host, port)
+    return if_none
+
+def formatNodeList(node_list, prefix='',
+        _sort_key=lambda x: (1, x[1]) if x[2] is None else (0, x[2])):
     if node_list:
         node_list = [(
                 uuid_str(uuid), str(node_type),
-                ('[%s]:%s' if ':' in addr[0] else '%s:%s')
-                % addr if addr else '', str(state),
+                formatAddress(addr), str(state),
                 str(id_timestamp and datetime.utcfromtimestamp(id_timestamp)))
             for node_type, addr, uuid, state, id_timestamp
                 in sorted(node_list, key=_sort_key)]
         t = ''.join('%%-%us | ' % max(len(x[i]) for x in node_list)
-                    for i in xrange(len(node_list[0]) - 1))
-        return map((prefix + t + '%s').__mod__, node_list)
+                    for i in range(len(node_list[0]) - 1))
+        return list(map((prefix + t + '%s').__mod__, node_list))
     return ()
 
 Packets.NotifyNodeInformation._neolog = staticmethod(

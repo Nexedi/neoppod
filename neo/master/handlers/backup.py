@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from ..app import StateChangedException
 from neo.lib import logging
 from neo.lib.exception import PrimaryFailure
@@ -60,7 +61,7 @@ class BackupHandler(EventHandler):
             # must restore the state of the backup app so that any interrupted
             # replication (internal or not) is resumed, otherwise the global
             # backup_tid could remain stuck to an old tid if upstream is idle.
-            app.invalidatePartitions(tid, tid, xrange(app.pt.getPartitions()))
+            app.invalidatePartitions(tid, tid, range(app.pt.getPartitions()))
         else:
             logging.critical("Upstream DB truncated. Leaving backup mode"
                 " in case this backup DB needs to be truncated.")

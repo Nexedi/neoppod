@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from neo.lib import logging
 from neo.lib.util import dump
 from neo.lib.protocol import Packets, ZERO_TID
@@ -44,7 +45,7 @@ class MasterOperationHandler(BaseMasterHandler):
 
     def replicate(self, conn, tid, upstream_name, source_dict):
         self.app.replicator.backup(tid, {p: a and (a, upstream_name)
-                                         for p, a in source_dict.iteritems()})
+                                         for p, a in six.iteritems(source_dict)})
 
     def checkPartition(self, conn, *args):
         self.app.checker(*args)

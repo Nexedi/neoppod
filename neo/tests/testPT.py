@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from neo.lib.protocol import NodeStates, CellStates
 from neo.lib.pt import Cell, PartitionTable, PartitionTableException
 from . import NeoUnitTestBase
@@ -48,14 +49,14 @@ class PartitionTableTests(NeoUnitTestBase):
         uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = self.createStorage(server1, uuid1)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         # add a cell to an empty row
-        self.assertFalse(pt.count_dict.has_key(sn1))
+        self.assertNotIn(sn1, pt.count_dict)
         pt._setCell(0, sn1, CellStates.UP_TO_DATE)
-        self.assertTrue(pt.count_dict.has_key(sn1))
+        self.assertIn(sn1, pt.count_dict)
         self.assertEqual(pt.count_dict[sn1], 1)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             if x == 0:
                 self.assertEqual(len(pt.partition_list[x]), 1)
                 cell = pt.partition_list[x][0]
@@ -66,14 +67,14 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertRaises(IndexError, pt._setCell, 10, sn1, CellStates.UP_TO_DATE)
         # if we add in discards state, must be removed
         pt._setCell(0, sn1, CellStates.DISCARDED)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         self.assertEqual(pt.count_dict[sn1], 0)
         # add a feeding node into empty row
         pt._setCell(0, sn1, CellStates.FEEDING)
-        self.assertTrue(pt.count_dict.has_key(sn1))
+        self.assertIn(sn1, pt.count_dict)
         self.assertEqual(pt.count_dict[sn1], 0)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             if x == 0:
                 self.assertEqual(len(pt.partition_list[x]), 1)
                 cell = pt.partition_list[x][0]
@@ -82,9 +83,9 @@ class PartitionTableTests(NeoUnitTestBase):
                 self.assertEqual(len(pt.partition_list[x]), 0)
         # re-add it as feeding, nothing change
         pt._setCell(0, sn1, CellStates.FEEDING)
-        self.assertTrue(pt.count_dict.has_key(sn1))
+        self.assertIn(sn1, pt.count_dict)
         self.assertEqual(pt.count_dict[sn1], 0)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             if x == 0:
                 self.assertEqual(len(pt.partition_list[x]), 1)
                 cell = pt.partition_list[x][0]
@@ -93,9 +94,9 @@ class PartitionTableTests(NeoUnitTestBase):
                 self.assertEqual(len(pt.partition_list[x]), 0)
         # now add it as up to date
         pt._setCell(0, sn1, CellStates.UP_TO_DATE)
-        self.assertTrue(pt.count_dict.has_key(sn1))
+        self.assertIn(sn1, pt.count_dict)
         self.assertEqual(pt.count_dict[sn1], 1)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             if x == 0:
                 self.assertEqual(len(pt.partition_list[x]), 1)
                 cell = pt.partition_list[x][0]
@@ -105,13 +106,13 @@ class PartitionTableTests(NeoUnitTestBase):
 
         # now add down state, must not be taken into account
         pt._setCell(0, sn1, CellStates.DISCARDED)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         self.assertEqual(pt.count_dict[sn1], 0)
         sn1.setState(NodeStates.UNKNOWN)
         self.assertRaises(PartitionTableException, pt._setCell,
             0, sn1, CellStates.UP_TO_DATE)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         self.assertEqual(pt.count_dict[sn1], 0)
 
@@ -123,14 +124,14 @@ class PartitionTableTests(NeoUnitTestBase):
         uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = self.createStorage(server1, uuid1)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         # add a cell to an empty row
-        self.assertFalse(pt.count_dict.has_key(sn1))
+        self.assertNotIn(sn1, pt.count_dict)
         pt._setCell(0, sn1, CellStates.UP_TO_DATE)
-        self.assertTrue(pt.count_dict.has_key(sn1))
+        self.assertIn(sn1, pt.count_dict)
         self.assertEqual(pt.count_dict[sn1], 1)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             if x == 0:
                 self.assertEqual(len(pt.partition_list[x]), 1)
             else:
@@ -138,13 +139,13 @@ class PartitionTableTests(NeoUnitTestBase):
         # remove it
         pt.removeCell(0, sn1)
         self.assertEqual(pt.count_dict[sn1], 0)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         # add a feeding cell
         pt._setCell(0, sn1, CellStates.FEEDING)
-        self.assertTrue(pt.count_dict.has_key(sn1))
+        self.assertIn(sn1, pt.count_dict)
         self.assertEqual(pt.count_dict[sn1], 0)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             if x == 0:
                 self.assertEqual(len(pt.partition_list[x]), 1)
             else:
@@ -152,7 +153,7 @@ class PartitionTableTests(NeoUnitTestBase):
         # remove it
         pt.removeCell(0, sn1)
         self.assertEqual(pt.count_dict[sn1], 0)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
 
     def test_05_getCellList(self):
@@ -178,7 +179,7 @@ class PartitionTableTests(NeoUnitTestBase):
         pt._setCell(0, sn4, CellStates.DISCARDED) # won't be added
         # now checks result
         self.assertEqual(len(pt.partition_list[0]), 3)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             if x == 0:
                 # all nodes
                 all_cell = pt.getCellList(0)
@@ -225,7 +226,7 @@ class PartitionTableTests(NeoUnitTestBase):
         pt.clear()
         partition_list = pt.partition_list
         self.assertEqual(len(partition_list), num_partitions)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             part = partition_list[x]
             self.assertTrue(isinstance(part, list))
             self.assertEqual(len(part), 0)
@@ -268,7 +269,7 @@ class PartitionTableTests(NeoUnitTestBase):
         uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = self.createStorage(server1, uuid1)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             pt._setCell(x, sn1, CellStates.UP_TO_DATE)
         self.assertEqual(pt.num_filled_rows, num_partitions)
         self.assertTrue(pt.filled())
@@ -299,7 +300,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.operational())
         # adding a node in all partition
         sn1 = createStorage()
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             pt._setCell(x, sn1, CellStates.UP_TO_DATE)
         self.assertTrue(pt.filled())
         # it's up to date and running, so operational
@@ -311,7 +312,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.operational())
         # adding a node in all partition
         sn1 = createStorage()
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             pt._setCell(x, sn1, CellStates.FEEDING)
         self.assertTrue(pt.filled())
         # it's feeding and running, so operational
@@ -325,7 +326,7 @@ class PartitionTableTests(NeoUnitTestBase):
         # adding a node in all partition
         sn1 = createStorage()
         sn1.setState(NodeStates.DOWN)
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             pt._setCell(x, sn1, CellStates.FEEDING)
         self.assertTrue(pt.filled())
         # it's up to date and not running, so not operational
@@ -337,7 +338,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.operational())
         # adding a node in all partition
         sn1 = createStorage()
-        for x in xrange(num_partitions):
+        for x in range(num_partitions):
             pt._setCell(x, sn1, CellStates.OUT_OF_DATE)
         self.assertTrue(pt.filled())
         # it's not up to date and running, so not operational

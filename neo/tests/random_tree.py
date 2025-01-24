@@ -19,6 +19,8 @@ from collections import deque
 from itertools import islice
 from persistent import Persistent
 from BTrees.IOBTree import IOBTree
+from neo import *
+from neo import *
 from .stat_zodb import _DummyData
 
 def generateTree(random=random):
@@ -29,9 +31,9 @@ def generateTree(random=random):
     size = lambda: max(int(random.gauss(40,30)), 0)
     while 1:
         tree.extend(path + (i, size())
-            for i in xrange(-random.randrange(N), 0))
+            for i in range(-random.randrange(N), 0))
         n = N * (1 - len(path)) + random.randrange(N)
-        for i in xrange(n):
+        for i in range(n):
             fifo.append(path + (i,))
         try:
             path = fifo.popleft()
@@ -61,7 +63,7 @@ def importTree(root, tree, yield_interval=None, filter=None):
                     node = node[x]
                 except KeyError:
                     node[x] = node = Leaf()
-                node.data = bytes(_DummyData(random.Random(path), path[-1]))
+                node.data = _DummyData(random.Random(hash(path)), path[-1])
             else:
                 try:
                     node = node[x]
@@ -88,11 +90,11 @@ class hashTree(object):
             while s:
                 top, node = s.pop()
                 try:
-                    update('%s %s %s\n' % (top, len(node.data),
-                        self._new(node.data).hexdigest()))
+                    update(b'%r %u %s\n' % (top, len(node.data),
+                        str2bytes(self._new(node.data).hexdigest())))
                     yield
                 except AttributeError:
-                    update('%s %s\n' % (top, tuple(node.keys())))
+                    update(b'%r %r\n' % (top, tuple(node)))
                     yield
                     for k, v in reversed(node.items()):
                         s.append((top + (k,), v))

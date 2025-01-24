@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json, sys
+from neo import *
 from .neoctl import NeoCTL, NotReadyException
 from neo.lib.node import NodeManager
 from neo.lib.pt import PartitionTable
@@ -49,7 +50,7 @@ action_dict = {
 
 uuid_int = (lambda ns: lambda uuid:
     (ns[uuid[0]] << 24) + int(uuid[1:])
-    )({str(k)[0]: v for k, v in UUID_NAMESPACES.iteritems()})
+    )({str(k)[0]: v for k, v in six.iteritems(UUID_NAMESPACES)})
 
 
 class dummy_app:
@@ -201,7 +202,7 @@ class TerminalNeoCTL(object):
         if len(params) == 1 and params[0] == 'all':
             node_list = self.neoctl.getNodeList(NodeTypes.STORAGE)
             return [node[2] for node in node_list]
-        return map(self.asNode, params)
+        return list(map(self.asNode, params))
 
     def enableStorageList(self, params):
         """
@@ -223,7 +224,7 @@ class TerminalNeoCTL(object):
         """
         dry_run = params[0] == '-n' if params else False
         changed, row_list = self.neoctl.tweakPartitionTable(
-            map(self.asNode, params[dry_run:]), dry_run)
+            list(map(self.asNode, params[dry_run:])), dry_run)
         if changed:
             return self.formatPartitionTable(row_list)
         return 'No change done.'
@@ -303,7 +304,7 @@ class TerminalNeoCTL(object):
             except ValueError:
                 min_tid = self.asTID(p)
                 try:
-                    max_tid = self.asTID(params.next())
+                    max_tid = self.asTID(next(params))
                 except StopIteration:
                     pass
                 break
@@ -313,7 +314,7 @@ class TerminalNeoCTL(object):
             else:
                 assert not partition_dict
                 np = len(self.neoctl.getPartitionRowList()[1])
-                partition_dict = dict.fromkeys(xrange(np), source)
+                partition_dict = dict.fromkeys(range(np), source)
         self.neoctl.checkReplicas(partition_dict, min_tid, max_tid)
 
     def flushLog(self, params):
@@ -360,7 +361,7 @@ class Application(object):
         result = []
         append = result.append
         sub_level = level + 1
-        for name, action in action_dict.iteritems():
+        for name, action in six.iteritems(action_dict):
             append('%s%s' % ('  ' * level, name))
             if isinstance(action, dict):
                 append(self._usage(action, level=sub_level))

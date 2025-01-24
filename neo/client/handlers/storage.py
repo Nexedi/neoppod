@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from operator import call
 from ZODB.TimeStamp import TimeStamp
 
 from neo.lib import logging
@@ -30,11 +31,11 @@ from ..exception import (
     NEOStorageReadRetry, NEOStorageDoesNotExistError,
 )
 
-@apply
+@call
 class _DeadlockPacket(object):
 
     handler_method_name = 'notifyDeadlock'
-    _args = ()
+    getArgs = tuple
     getId = int
 
 class StorageEventHandler(MTEventHandler):
@@ -80,7 +81,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                          dump(txn_context.ttid), dump(conflict))
             # If this conflict is not already resolved, mark it for
             # resolution.
-            if  txn_context.resolved_dict.get(oid, '') < conflict:
+            if  txn_context.resolved_dict.get(oid, b'') < conflict:
                 txn_context.conflict_dict[oid] = conflict
         else:
             txn_context.written(self.app, conn.getUUID(), oid)
@@ -113,7 +114,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
             txn_context = self.app.getHandlerData()
             serial, conflict, data = conflict
             assert serial and serial < conflict, (serial, conflict)
-            resolved = conflict <= txn_context.resolved_dict.get(oid, '')
+            resolved = conflict <= txn_context.resolved_dict.get(oid, b'')
             try:
                 cached = txn_context.cache_dict.pop(oid)
             except KeyError:
@@ -124,7 +125,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                            txn_context.conn_dict[conn.uuid] is None
                     return
                 assert oid in txn_context.data_dict
-                if serial <= txn_context.conflict_dict.get(oid, ''):
+                if serial <= txn_context.conflict_dict.get(oid, b''):
                     # Another node already reported this conflict or a newer,
                     # by answering to this relock or to the previous store.
                     return

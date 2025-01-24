@@ -41,7 +41,13 @@ Requirements
 
 - Linux 2.6 or later
 
-- Python 2.7.x (2.7.9 or later for SSL support)
+- Any of the following Python implementations:
+
+  - CPython 2.7.x (2.7.9 or later for SSL support)
+  - CPython 3 >= 3.9
+  - PyPy 2 & 3, up to 7.3.11 because of https://github.com/pypy/pypy/issues/5131
+
+  Only SSL may prevent from mixing different implementations (see below).
 
 - For storage nodes using MySQL, one of the following backends:
 

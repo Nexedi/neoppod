@@ -17,11 +17,12 @@
 from __future__ import division
 import os, socket
 from binascii import a2b_hex, b2a_hex
+from collections import deque
 from datetime import timedelta, datetime
 from hashlib import sha1
-from Queue import deque
 from struct import pack, unpack, Struct
 from time import gmtime
+from neo import *
 
 # https://stackoverflow.com/a/6163157
 def nextafter():
@@ -63,7 +64,7 @@ def packTID(higher, lower):
     assert len(higher) == len(TID_CHUNK_RULES), higher
     packed_higher = 0
     for value, (offset, multiplicator) in zip(higher, TID_CHUNK_RULES):
-        assert isinstance(value, (int, long)), value
+        assert isinstance(value, six.integer_types), value
         value += offset
         assert 0 <= value, (value, offset, multiplicator)
         assert multiplicator == 0 or value < multiplicator, (value,
@@ -128,7 +129,7 @@ def dump(s):
     """Dump a binary string in hex."""
     if s is not None:
         if isinstance(s, bytes):
-            return b2a_hex(s)
+            return bytes2str(b2a_hex(s))
         return repr(s)
 
 def bin(s):
@@ -158,10 +159,11 @@ def parseNodeAddress(address, port_opt=None):
     # XXX: Always pick the first result. This might not be what is desired, and
     # if so this function should either take a hint on the desired address type
     # or return either raw host & port or getaddrinfo return value.
-    return socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0][4][:2]
+    return encodeAddress(socket.getaddrinfo(
+        host, port, 0, socket.SOCK_STREAM)[0][4][:2])
 
 def parseMasterList(masters):
-    return map(parseNodeAddress, masters.split())
+    return list(map(parseNodeAddress, masters.split()))
 
 
 class cached_property(object):

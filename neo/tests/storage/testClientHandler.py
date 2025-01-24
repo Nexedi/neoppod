@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import *
 from .. import MockObject, NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.client import ClientOperationHandler
@@ -61,7 +62,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         ltid = self.getNextTID()
         undone_tid = self.getNextTID()
         # Keep 2 entries here, so we check findUndoTID is called only once.
-        oid_list = map(p64, (1, 2))
+        oid_list = list(map(p64, (1, 2)))
         self.app.tm = MockObject(getObjectFromTransaction=None)
         dm = self.fakeDM()
         dm.findUndoTID.side_effect = (None, None, False),

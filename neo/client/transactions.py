@@ -54,7 +54,7 @@ class Transaction(object):
                 " #queue=%s #writing=%s #written=%s%s>") % (
             self.__class__.__name__,
             dump(self.ttid), self.voted,
-            len(self.queue._queue), len(self.data_dict), len(self.cache_dict),
+            self.queue.qsize(), len(self.data_dict), len(self.cache_dict),
             ' error=%r' % error if error else '')
 
     def write(self, app, packet, object_id, **kw):

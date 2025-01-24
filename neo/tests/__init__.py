@@ -15,10 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-import __builtin__
+from six.moves import builtins
 import atexit
 import errno
-import functools
 import gc
 import os
 import random
@@ -33,25 +32,41 @@ import unittest
 import weakref
 import transaction
 
-from contextlib import closing, contextmanager
-from ConfigParser import SafeConfigParser
-from cStringIO import StringIO
 try:
-    from ZODB._compat import Unpickler
+    from configparser import ConfigParser
 except ImportError:
-    from cPickle import Unpickler
-from functools import wraps
+    from ConfigParser import SafeConfigParser as ConfigParser
+from contextlib import closing, contextmanager
+from functools import total_ordering, wraps
 from inspect import isclass
 from itertools import islice
 from os import pathsep
-from mock import MagicMock, Mock, NonCallableMock
+from random import Random
+from neo import *
+try:
+    from unittest.mock import MagicMock, Mock, NonCallableMock
+except ImportError:
+    from mock import MagicMock, Mock, NonCallableMock
+from ZODB._compat import Unpickler
+try:
+    from ZODB._compat import BytesIO
+except ImportError:
+    from io import BytesIO
 from neo.lib import debug, event, logging
 from neo.lib.protocol import NodeTypes, Packet, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property
 from neo.storage.database.manager import DatabaseManager
 from time import time, sleep
 from struct import pack, unpack
-from unittest.case import _ExpectedFailure, _UnexpectedSuccess
+try:
+    from unittest.case import _ExpectedFailure, _UnexpectedSuccess
+except ImportError:
+    from unittest.case import _ShouldStop, _Outcome
+    _testPartExecutor = _Outcome.testPartExecutor
+    def testPartExecutor(self, *args, **kw):
+        self.old_success = self.success
+        return _testPartExecutor(self, *args, **kw)
+    _Outcome.testPartExecutor = testPartExecutor
 try:
     from transaction.interfaces import IDataManager
     from ZODB.utils import newTid
@@ -61,19 +76,34 @@ except ImportError:
 
 def expectedFailure(exception=AssertionError):
     def decorator(func):
-        def wrapper(*args, **kw):
-            try:
-                func(*args, **kw)
-            except exception as e:
-                # XXX: passing sys.exc_info() causes deadlocks
-                raise _ExpectedFailure((type(e), None, None))
-            raise _UnexpectedSuccess
+        if six.PY3:
+            def wrapper(test_case):
+                try:
+                    func(test_case)
+                except exception:
+                    test_case._outcome.expecting_failure = True
+                    raise
+                test_case._outcome.expecting_failure = True
+                raise _ShouldStop
+        else:
+            def wrapper(test_case):
+                try:
+                    func(test_case)
+                except exception as e:
+                    # XXX: passing sys.exc_info() causes deadlocks
+                    raise _ExpectedFailure((type(e), None, None))
+                raise _UnexpectedSuccess
         return wraps(func)(wrapper)
     if callable(exception) and not isinstance(exception, type):
         func = exception
         exception = Exception
         return decorator(func)
     return decorator
+
+if six.PY3:
+    class Random(Random): # make it behave like Python 2 for our use cases
+        def _randbelow(self, n):
+            return int(self.random() * n)
 
 DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo')
 DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
@@ -107,7 +137,7 @@ debug.register()
 def MockObject(name=None, **methods):
     return NonCallableMock(name=name, **{
         k + '.return_value': v
-        for k, v in methods.iteritems()
+        for k, v in six.iteritems(methods)
     })
 
 def buildUrlFromString(address):
@@ -165,7 +195,8 @@ def private_tmpfs(path, opt):
     data = 'mode=%o' % stat.S_IMODE(os.stat(path).st_mode)
     if opt:
         data += ',' + opt
-    mount('tmpfs', path, 'tmpfs', 0, data)
+    mount(b'tmpfs', path.encode(), b'tmpfs', 0, data.encode())
+    # Drop capabilities for tests like testInitialAccessRights.
     capset3(os.getpid(), 0, 0, 0)
 
 def getTempDirectory():
@@ -181,7 +212,8 @@ def getTempDirectory():
         else:
             opt = None
         private_tmpfs(src, opt)
-        atexit.register(save, dst)
+        if dst:
+            atexit.register(save, dst)
     try:
         temp_dir = os.environ['TEMP']
     except KeyError:
@@ -342,18 +374,27 @@ mysql_pool = MySQLPool() if DB_MYCNF else None
 
 
 def ImporterConfigParser(adapter, zodb, **kw):
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     cfg.add_section("neo")
     cfg.set("neo", "adapter", adapter)
-    for x in kw.iteritems():
+    for x in six.iteritems(kw):
         cfg.set("neo", *x)
     for name, zodb in zodb:
         cfg.add_section(name)
-        for x in zodb.iteritems():
+        for x in six.iteritems(zodb):
             cfg.set(name, *x)
     return cfg
 
 class NeoTestBase(unittest.TestCase):
+
+    if six.PY3:
+        @cached_property
+        class __unittest_expecting_failure__:
+            def __init__(self, test_case):
+                self.test_case = test_case
+            def __bool__(self):
+                outcome = self.test_case._outcome
+                return outcome is None or outcome.expectedFailure is not None
 
     maxDiff = None
 
@@ -366,8 +407,10 @@ class NeoTestBase(unittest.TestCase):
         logging.setup(os.path.join(getTempDirectory(), test_case + '.log'))
 
     def tearDown(self):
-        assert self.tearDown.im_func is NeoTestBase.tearDown.im_func
-        self._tearDown(sys._getframe(1).f_locals['success'])
+        assert self.tearDown.__func__ is (NeoTestBase.tearDown if six.PY3 else
+            NeoTestBase.tearDown.__func__)
+        self._tearDown(self._outcome.old_success if six.PY3 else
+                       sys._getframe(1).f_locals['success'])
         assert not gc.garbage, gc.garbage
         # XXX: I tried the following line to avoid random freezes on PyPy...
         gc.collect()
@@ -406,13 +449,28 @@ class NeoTestBase(unittest.TestCase):
             expected if isinstance(expected, str) else '|'.join(expected),
             '|'.join(pt._formatRows(sorted(pt.count_dict, key=key))))
 
+    assertRaisesRegexp = None
+
+    if six.PY2:
+        @property
+        def assertRaisesRegex(self):
+            return super(NeoTestBase, self).assertRaisesRegexp
+
     @contextmanager
     def expectedFailure(self, exception=AssertionError, regex=None):
-        with self.assertRaisesRegexp(exception, regex) as cm:
-            yield
-            raise _UnexpectedSuccess
-        # XXX: passing sys.exc_info() causes deadlocks
-        raise _ExpectedFailure((type(cm.exception), None, None))
+        if six.PY3:
+            with self.assertRaisesRegex(exception, regex) as cm:
+                yield
+                self._outcome.expecting_failure = True
+                raise _ShouldStop
+            self._outcome.expecting_failure = True
+            raise cm.exception
+        else:
+            with self.assertRaisesRegex(exception, regex) as cm:
+                yield
+                raise _UnexpectedSuccess
+            # XXX: passing sys.exc_info() causes deadlocks
+            raise _ExpectedFailure((type(cm.exception), None, None))
 
 class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """
@@ -437,12 +495,12 @@ class NeoUnitTestBase(NeoTestBase):
         adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
         if adapter == 'MySQL':
             db_template = setupMySQL(
-                [prefix + str(i) for i in xrange(number)])
+                [prefix + str(i) for i in range(number)])
             self.db_template = lambda i: db_template(prefix + str(i))
         elif adapter == 'SQLite':
             self.db_template = os.path.join(getTempDirectory(),
                                        prefix + '%s.sqlite').__mod__
-            for i in xrange(number):
+            for i in range(number):
                 try:
                     os.remove(self.db_template(i))
                 except OSError as e:
@@ -453,7 +511,8 @@ class NeoUnitTestBase(NeoTestBase):
 
     def getMasterConfiguration(self, cluster='main', master_number=2,
             replicas=2, partitions=1009, uuid=None):
-        masters = [(self.local_ip, 10010 + i) for i in xrange(master_number)]
+        host = str2bytes(self.local_ip)
+        masters = [(host, 10010 + i) for i in range(master_number)]
         return {
                 'cluster': cluster,
                 'bind': masters[0],
@@ -466,11 +525,12 @@ class NeoUnitTestBase(NeoTestBase):
     def getStorageConfiguration(self, cluster='main', master_number=2,
             index=0, prefix=DB_PREFIX, uuid=None):
         assert 0 < master_number < 10
-        masters = [(self.local_ip, 10010 + i) for i in xrange(master_number)]
+        host = str2bytes(self.local_ip)
+        masters = [(host, 10010 + i) for i in range(master_number)]
         adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
         return {
                 'cluster': cluster,
-                'bind': (self.local_ip, 10020 + index),
+                'bind': (host, 10020 + index),
                 'masters': masters,
                 'database': self.db_template(index),
                 'uuid': uuid,
@@ -517,7 +577,7 @@ class NeoUnitTestBase(NeoTestBase):
             connector = self.getFakeConnector()
         conn = MockObject('FakeConnection',
             getUUID=uuid,
-            getAddress=address,
+            getAddress=encodeAddress(address),
             isServer=is_server,
             getConnector=connector,
             getPeerId=peer_id,
@@ -581,14 +641,15 @@ class NeoUnitTestBase(NeoTestBase):
 
 class TransactionalResource(object):
 
+    @total_ordering
     class _sortKey(object):
 
         def __init__(self, last):
             self._last = last
 
-        def __cmp__(self, other):
+        def __lt__(self, other):
             assert type(self) is not type(other), other
-            return 1 if self._last else -1
+            return not self._last
 
     def __init__(self, txn, last, **kw):
         self.sortKey = lambda: self._sortKey(last)
@@ -669,7 +730,7 @@ class Patch(object):
 
     def __init__(self, patched, *args, **patch):
         new, = args or (0,)
-        (name, patch), = patch.iteritems()
+        (name, patch), = six.iteritems(patch)
         self._patched = patched
         self._name = name
         try:
@@ -718,10 +779,10 @@ def consume(iterator, n):
     return next(islice(iterator, n-1, n))
 
 def unpickle_state(data):
-    unpickler = Unpickler(StringIO(data))
+    unpickler = Unpickler(BytesIO(data))
     unpickler.persistent_load = PersistentReferenceFactory().persistent_load
     unpickler.load() # skip the class tuple
     return unpickler.load()
 
-__builtin__.pdb = lambda depth=0: \
+builtins.pdb = breakpoint if six.PY3 else lambda depth=0: \
     debug.getPdb().set_trace(sys._getframe(depth+1))

@@ -25,10 +25,12 @@ import ZODB.config
 import ZConfig
 
 import os
-from cStringIO import StringIO
 from collections import OrderedDict
-from urllib import unquote
-from urlparse import urlsplit, parse_qsl
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
+from six.moves.urllib.parse import parse_qsl, unquote, urlsplit
 
 # neo_zconf_options returns set of zconfig options supported by NEO storage
 def neo_zconf_options():

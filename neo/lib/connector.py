@@ -18,6 +18,7 @@ import socket
 import ssl
 import errno
 from time import time
+from neo import *
 from . import logging
 from .protocol import HANDSHAKE_PACKET
 
@@ -39,8 +40,8 @@ class SocketConnector(object):
 
     def __new__(cls, addr, s=None):
         if s is None:
-            host, port = addr
-            for af_type, cls in connector_registry.iteritems():
+            host = addr[0]
+            for af_type, cls in six.iteritems(connector_registry):
                 try :
                     socket.inet_pton(af_type, host)
                     break
@@ -104,7 +105,7 @@ class SocketConnector(object):
             if time() < connect_limit:
                 # Next call to queue() must return False
                 # in order not to enable polling for writing.
-                self.queued or self.queued.append('')
+                self.queued or self.queued.append(b'')
                 raise ConnectorDelayedConnection(connect_limit)
             if self.queued and not self.queued[0]:
                 del self.queued[0]
@@ -138,7 +139,7 @@ class SocketConnector(object):
             do_handshake_on_connect=False)
         self.__class__ = self.SSLHandshakeConnectorClass
         self.on_handshake_done = on_handshake_done
-        self.queued or self.queued.append('')
+        self.queued or self.queued.append(b'')
 
     def getError(self):
         return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
@@ -180,16 +181,18 @@ class SocketConnector(object):
         #      Before commit 1a064725b81a702a124d672dba2bcae498980c76,
         #      this happened when many big AddObject packets were sent
         #      for a single replication chunk.
-        msg = ''.join(self.queued)
+        msg = b''.join(self.queued)
         if msg:
             try:
                 n = self.socket.send(msg)
+            except ssl.SSLWantWriteError:
+                return False
             except socket.error as e:
                 self._error('send', e)
             # Do nothing special if n == 0:
             # - it never happens for simple sockets;
-            # - for SSL sockets, this is always the case unless everything
-            #   could be sent.
+            # - for SSL sockets (Py2 only?), this is always the case unless
+            #   everything could be sent.
             if n != len(msg):
                 self.queued[:] = msg[n:],
                 self.queue_size -= n
@@ -257,9 +260,12 @@ registerConnectorHandler(SocketConnectorIPv6)
 def overlay_connector_class(cls):
     name = cls.__name__[1:]
     alias = name + 'ConnectorClass'
-    for base in connector_registry.itervalues():
+    for base in six.itervalues(connector_registry):
+        bases = cls.__bases__
+        if bases == (object,):
+            bases = ()
         setattr(base, alias, type(name + base.__name__,
-            cls.__bases__ + (base,), cls.__dict__))
+            bases + (base,), cls.__dict__.copy()))
     return cls
 
 @overlay_connector_class
@@ -344,11 +350,15 @@ class _SSLHandshake(_SSL):
         return handshake(read_buf)
 
     def receive(self, read_buf):
+        sock = self.socket
         try:
-            content_type = self.socket._sock.recv(1, socket.MSG_PEEK)
+            if six.PY2:
+                content_type = sock._sock.recv(1, socket.MSG_PEEK)
+            else:
+                content_type = socket.socket.recv(sock, 1, socket.MSG_PEEK)
         except socket.error as e:
             self._error('recv', e)
-        if content_type == '\26': # handshake
+        if content_type == b'\26': # handshake
             return self.send(read_buf)
         if content_type:
             logging.debug('Rejecting non-SSL %r', self)

@@ -15,12 +15,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import pickle, sys, time
+import sys, time
 from bisect import bisect, insort
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser as ConfigParser
 from collections import deque
 from contextlib import contextmanager
-from cStringIO import StringIO
-from ConfigParser import SafeConfigParser
+try:
+    from cStringIO import StringIO
+    BytesIO = StringIO
+except ImportError:
+    from io import BytesIO, StringIO
+from operator import call
+from neo import *
+from zodbpickle import slowpickle as pickle
 from ZConfig import loadConfigFile
 from ZODB import BaseStorage
 from ZODB._compat import dumps, loads, _protocol, PersistentPickler
@@ -41,18 +51,24 @@ patch.speedupFileStorageTxnLookup()
 FORK = sys.platform != 'win32'
 
 def transactionAsTuple(txn):
-    ext = txn.extension
-    return (txn.user, txn.description,
-        dumps(ext, _protocol) if ext else '',
-        txn.status == 'p', txn.tid)
+    try: # TransactionMetaData (ZODB >= 5.6.0)
+        ext = txn.extension_bytes
+    except AttributeError:
+        ext = txn.extension
+        ext = dumps(ext, _protocol) if ext else b''
+    return txn.user, txn.description, ext, txn.status == 'p', txn.tid
 
-@apply
+@call
 def patch_save_reduce(): # for _noload.__reduce__
-    Pickler = PersistentPickler(None, StringIO()).__class__
+    def persistent_id(_):
+        assert False
+    Pickler = PersistentPickler(persistent_id, BytesIO()).__class__
     try:
-        orig_save_reduce = Pickler.save_reduce.__func__
+        orig_save_reduce = Pickler.save_reduce
     except AttributeError: # both cPickle and C zodbpickle accept
         return             # that first reduce argument is None
+    if six.PY2:
+        orig_save_reduce = orig_save_reduce.__func__
     BUILD = pickle.BUILD
     REDUCE = pickle.REDUCE
     def save_reduce(self, func, args, state=None,
@@ -60,7 +76,7 @@ def patch_save_reduce(): # for _noload.__reduce__
         if func is not None:
             return orig_save_reduce(self,
                 func, args, state, listitems, dictitems, obj)
-        assert args is ()
+        assert args == ()
         save = self.save
         write = self.write
         save(func)
@@ -86,7 +102,7 @@ class Reference(object):
 class Repickler(pickle.Unpickler):
 
     def __init__(self, persistent_map):
-        self._f = StringIO()
+        self._f = BytesIO()
         # Use python implementation for unpickling because loading can not
         # be customized enough with cPickle.
         pickle.Unpickler.__init__(self, self._f)
@@ -114,9 +130,10 @@ class Repickler(pickle.Unpickler):
 
     def __call__(self, data):
         f = self._f
+        f.seek(0)
         f.truncate(0)
         f.write(data)
-        f.reset()
+        f.seek(0)
         self._changed = False
         try:
             classmeta = self.load()
@@ -124,6 +141,7 @@ class Repickler(pickle.Unpickler):
         finally:
             self.memo.clear()
         if self._changed:
+            f.seek(0)
             f.truncate(0)
             dump = self._p.dump
             try:
@@ -170,6 +188,7 @@ class Repickler(pickle.Unpickler):
             f = pt._f
             f.seek(pos + 3) # NONE + EMPTY_TUPLE + REDUCE
             put = f.read()  # preserve memo if any
+            f.seek(pos)
             f.truncate(pos)
             f.write(self.dump(pt, self.args) + put)
             while self._list:
@@ -190,7 +209,7 @@ class Repickler(pickle.Unpickler):
         args = self.stack[k+1:]
         self.stack[k:] = self._obj(klass, *args),
 
-    del dispatch[pickle.NEWOBJ] # ZODB < 5 has never used protocol 2
+    del dispatch[pickle.NEWOBJ[0]] # ZODB < 5 has never used protocol 2
 
     @_noload
     def find_class(self, args):
@@ -207,7 +226,7 @@ class Repickler(pickle.Unpickler):
         stack = self.stack
         args = stack.pop()
         stack[-1] = self._reduce(stack[-1], args)
-    dispatch[pickle.REDUCE] = load_reduce
+    dispatch[pickle.REDUCE[0]] = load_reduce
 
     def load_build(self):
         stack = self.stack
@@ -215,14 +234,14 @@ class Repickler(pickle.Unpickler):
         inst = stack[-1]
         assert inst.state is None
         inst.state = state
-    dispatch[pickle.BUILD] = load_build
+    dispatch[pickle.BUILD[0]] = load_build
 
 
 class ZODB(object):
 
     def __init__(self, storage, oid=0, **kw):
         self.oid = int(oid)
-        self.mountpoints = {k: int(v) for k, v in kw.iteritems()}
+        self.mountpoints = {k: int(v) for k, v in six.iteritems(kw)}
         self.connect(storage)
         self.ltid = util.u64(self.lastTransaction())
         if not self.ltid:
@@ -267,7 +286,7 @@ class ZODB(object):
         self.shift_oid = shift_oid
         self.next_oid = util.u64(self.new_oid())
         shift_oid += self.next_oid
-        for mp, oid in self.mountpoints.iteritems():
+        for mp, oid in six.iteritems(self.mountpoints):
             mp = zodb_dict[mp]
             new_oid = mp.oid
             try:
@@ -386,7 +405,7 @@ class ImporterDatabaseManager(DatabaseManager):
     _uncommitted_data = property(lambda self: self.db._uncommitted_data)
 
     def _parse(self, database):
-        config = SafeConfigParser()
+        config = ConfigParser()
         config.read(os.path.expanduser(database))
         sections = config.sections()
         main = self._conf = option_defaults.copy()
@@ -465,11 +484,11 @@ class ImporterDatabaseManager(DatabaseManager):
                 zodb[k].connect(v["storage"])
         else:
             zodb = {k: ZODB(**v) for k, v in self.zodb}
-            x, = (x for x in zodb.itervalues() if not x.oid)
+            x, = (x for x in six.itervalues(zodb) if not x.oid)
             x.setup(zodb)
             self.setConfiguration("zodb", dumps(zodb))
         self.zodb_index, self.zodb = zip(*sorted(
-            (x.shift_oid, x) for x in zodb.itervalues()))
+            (x.shift_oid, x) for x in six.itervalues(zodb)))
         self.zodb_ltid = max(x.ltid for x in self.zodb)
         zodb = self.zodb[-1]
         self.zodb_loid = zodb.shift_oid + zodb.next_oid - 1
@@ -606,8 +625,10 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def getLastIDs(self):
         tid, oid = self.db.getLastIDs()
-        return (max(tid, util.p64(self.zodb_ltid)),
-                max(oid, util.p64(self.zodb_loid)))
+        ltid = util.p64(self.zodb_ltid)
+        loid = util.p64(self.zodb_loid)
+        return (ltid if tid is None else max(tid, ltid),
+                loid if oid is None else max(oid, loid))
 
     def _getObject(self, oid, tid=None, before_tid=None):
         p64 = util.p64
@@ -737,7 +758,9 @@ class ImporterDatabaseManager(DatabaseManager):
     def _fetchObject(*_):
         raise AssertionError
 
-    getLastObjectTID = Fallback.getLastObjectTID.__func__
+    getLastObjectTID = Fallback.getLastObjectTID
+    if six.PY2:
+        getLastObjectTID = getLastObjectTID.__func__
 
     def _getObjectHistoryForUndo(self, *args, **kw):
         raise BackendNotImplemented(self._getObjectHistoryForUndo)
@@ -813,7 +836,7 @@ class WriteBack(object):
     def iterator(self):
         db = self._db
         np = self._np
-        offset_list = xrange(np)
+        offset_list = range(np)
         while 1:
             with db:
                 # Check the partition table at the beginning of every
