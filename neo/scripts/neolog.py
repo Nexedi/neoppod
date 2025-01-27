@@ -323,7 +323,9 @@ def emit_many(log_list, color=False):
             else:
                 insort(event_list, (-event[0], next, emit, event))
 
-def main():
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
     parser = argparse.ArgumentParser(description='NEO Log Reader')
     _ = parser.add_argument
     _('-a', '--all', action="store_true",
@@ -356,7 +358,7 @@ def main():
         help='show cluster name in node column')
     _('-N', '--no-nid', action="store_true",
         help='always show node name (instead of NID) in node column')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     if args.sleep_interval <= 0:
         parser.error("sleep_interval must be positive")
     filter_from = args.filter_from

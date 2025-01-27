@@ -46,6 +46,7 @@ UNIT_TEST_MODULES = [
     # generic parts
     'neo.tests.testHandler',
     'neo.tests.testNodes',
+    'neo.tests.testScripts',
     'neo.tests.testUtil',
     'neo.tests.testPT',
     # master application
