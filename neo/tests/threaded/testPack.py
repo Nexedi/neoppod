@@ -331,6 +331,7 @@ class GCTests(NEOThreadedTest):
         track = threading.Lock()
         with commit_patch, committed, track, NEOCluster() as reflink_cluster:
             stop = False
+            start = time()
             reflink_cluster.start()
             reflink_thread = self.newThread(reflink_run)
             t, conn = cluster.getTransaction()
@@ -392,6 +393,13 @@ class GCTests(NEOThreadedTest):
             tid2 = cluster.last_tid
             self.assertLess(tid1, tid2)
             self.assertEqual(tid2, reflink_cluster.last_tid)
+
+            end = time()
+            for x in reflink_cluster.client.iterator():
+                x = x.extension['time']
+                self.assertLess(start, x)
+                start = x
+            self.assertLess(x, end)
 
         cluster.neoctl.truncate(tid1)
         self.tic()

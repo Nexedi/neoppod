@@ -385,10 +385,11 @@ class Changeset(object):
 
     def commit(self, tid, info=''):
         storage = self.storage
+        now = time()
         logger.info('commit @ %x (%s)', u64(tid), info or
-            'Δ %s' % timedelta(0, time() - TimeStamp(tid).timeTime()))
+            'Δ %s' % timedelta(0, now - TimeStamp(tid).timeTime()))
         buckets = self.buckets
-        txn = TransactionMetaData()
+        txn = TransactionMetaData(extension={'time': now})
         storage.tpc_begin(txn, tid)
         def shortenVal(i):
             if i:
