@@ -17,7 +17,8 @@
 
 import getpass, os
 from collections import Counter
-from email.mime.text import MIMEText
+from email.charset import Charset
+from email.message import Message
 from email.utils import formataddr, formatdate
 from socket import getfqdn
 from time import time
@@ -34,6 +35,10 @@ from neo.lib.protocol import \
     CellStates, ClusterStates, Errors, NodeTypes, Packets
 from neo.lib.debug import register as registerLiveDebugger
 from neo.lib.util import datetimeFromTID, dump
+
+utf8raw = Charset('utf-8')
+utf8raw.body_encoding = utf8raw.header_encoding = None
+
 
 class Monitor(object):
 
@@ -321,7 +326,8 @@ class Application(BaseApplication, Monitor):
         email_list = self.email_list
         while email_list: # not a loop
             if changed or self.smtp_exc:
-                msg = MIMEText(body + (self.smtp_exc or ''))
+                msg = Message()
+                msg.set_payload(body + (self.smtp_exc or ''), utf8raw)
                 msg['Date'] = formatdate()
                 clusters, x = severity[1:]
                 while 1:
