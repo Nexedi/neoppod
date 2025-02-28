@@ -116,7 +116,7 @@ from select import error as select_error, select
 from time import gmtime, sleep, time
 from Queue import Empty, Queue
 
-from msgpack import dumps, loads
+from msgpack import Packer, loads
 from pkg_resources import iter_entry_points
 import ZODB
 from persistent.TimeStamp import TimeStamp
@@ -128,12 +128,14 @@ from ZODB.utils import p64, u64, z64
 
 TXN_GC_DESC = 'neoppod.git/reflink/gc@%x'
 MAX_TXN_SIZE = 0x1fffff # MySQL limitation (MEDIUMBLOB)
-VERSION = 1
+VERSION = 2
 
 logger = logging.getLogger('reflink')
 
 array32u = partial(array, 'I')
 assert array32u().itemsize == 4
+
+dumps = Packer(use_bin_type=False).pack
 
 try:
     from ZODB.Connection import TransactionMetaData
@@ -319,6 +321,11 @@ class Changeset(object):
             self._bootstrap = None
         else:
             version = bucket.get('__reflink_version__')
+            if version == 1:
+                for k in '__reflink_last_gc__', '__reflink_last_pack__':
+                    if k in bucket:
+                        bucket[k] = u64(bucket[k])
+                version = bucket['__reflink_version__'] = 2
             if version != VERSION:
                 raise Exception("unsupported reflink DB version %r"
                                 " (expected %r)" % (version, VERSION))
@@ -330,13 +337,14 @@ class Changeset(object):
         if bootstrap is not None:
             checkAPI(storage)
             self.bootstrap = bootstrap, 0
-        self._last_gc = bucket.get('__reflink_last_gc__', z64)
-        self._last_pack = bucket.get('__reflink_last_pack__', z64)
+        self._last_gc = p64(bucket.get('__reflink_last_gc__', 0))
+        self._last_pack = p64(bucket.get('__reflink_last_pack__', 0))
         self._pack = None
 
     @partial(property, attrgetter('_last_gc'))
     def last_gc(self, value):
-        self._last_gc = self._get(z64)['__reflink_last_gc__'] = value
+        self._last_gc = value
+        self._get(z64)['__reflink_last_gc__'] = u64(value)
 
     def pack(self, tid):
         self.storage.app.setPackOrder.__call__ # check non-standard API
@@ -405,7 +413,8 @@ class Changeset(object):
             pack = self._pack
             if pack:
                 self._pack = None
-                self._last_pack = self._get(z64)['__reflink_last_pack__'] = pack
+                self._last_pack = pack
+                self._get(z64)['__reflink_last_pack__'] = u64(pack)
                 storage.app.setPackOrder(txn, pack)
         for bucket_oid, (orig, serial, bucket) in buckets.iteritems():
             base_oid = u64(bucket_oid) << 8
@@ -422,6 +431,8 @@ class Changeset(object):
                         if not bootstrap:
                             continue
                     v = tuple(v)
+                else:
+                    assert bytes is not type(v) is not unicode, v
                 data[k] = v
             if data:
                 data = dumps(data)
