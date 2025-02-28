@@ -101,6 +101,7 @@ class BaseApplication(object):
             context.verify_mode = ssl.CERT_REQUIRED
             context.load_verify_locations(ca)
             context.load_cert_chain(cert, key)
+            # PY3: VERIFY_X509_STRICT is set by default
             context.verify_flags |= ssl.VERIFY_X509_STRICT | (
                 context.cert_store_stats()['crl'] and ssl.VERIFY_CRL_CHECK_LEAF)
             SSLContext_verify(context)
