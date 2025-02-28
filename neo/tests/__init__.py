@@ -363,9 +363,7 @@ class NeoUnitTestBase(NeoTestBase):
 
     def getMasterConfiguration(self, cluster='main', master_number=2,
             replicas=2, partitions=1009, uuid=None):
-        assert master_number >= 1 and master_number <= 10
-        masters = ([(self.local_ip, 10010 + i)
-                    for i in xrange(master_number)])
+        masters = [(self.local_ip, 10010 + i) for i in xrange(master_number)]
         return {
                 'cluster': cluster,
                 'bind': masters[0],
@@ -377,13 +375,12 @@ class NeoUnitTestBase(NeoTestBase):
 
     def getStorageConfiguration(self, cluster='main', master_number=2,
             index=0, prefix=DB_PREFIX, uuid=None):
-        assert master_number >= 1 and master_number <= 10
-        masters = [(buildUrlFromString(self.local_ip),
-                     10010 + i) for i in xrange(master_number)]
+        assert 0 < master_number < 10
+        masters = [(self.local_ip, 10010 + i) for i in xrange(master_number)]
         adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
         return {
                 'cluster': cluster,
-                'bind': (masters[0], 10020 + index),
+                'bind': (self.local_ip, 10020 + index),
                 'masters': masters,
                 'database': self.db_template(index),
                 'uuid': uuid,
