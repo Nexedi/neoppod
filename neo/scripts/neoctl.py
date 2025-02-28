@@ -34,7 +34,8 @@ def main(args=None):
         logging.setup(logfile)
 
     from neo.neoctl.app import Application
-    app = Application(config['address'], ssl=config.get('ssl'))
+    app = Application(config['address'],
+        ssl_credentials=config.get('ssl_credentials'))
     r = app.execute(config['cmd'])
     if r is not None:
         print(r)

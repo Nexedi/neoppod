@@ -54,7 +54,7 @@ class Storage(BaseStorage.BaseStorage,
         if _app is None:
             ssl = [kw.pop(x, None) for x in ('ca', 'cert', 'key')]
             _app = Application(master_nodes, name, compress=compress,
-                               ssl=ssl if any(ssl) else None, **kw)
+                               ssl_credentials=ssl if any(ssl) else None, **kw)
         self.app = _app
         if __debug__ and self._is_read_only:
             # For ZODB checkWriteMethods:

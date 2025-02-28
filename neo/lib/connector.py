@@ -132,8 +132,8 @@ class SocketConnector(object):
             self.socket.close()
             self._error('listen', e)
 
-    def ssl(self, ssl, on_handshake_done=None):
-        self.socket = ssl.wrap_socket(self.socket,
+    def ssl(self, context, on_handshake_done=None):
+        self.socket = context.wrap_socket(self.socket,
             server_side=self.is_server,
             do_handshake_on_connect=False)
         self.__class__ = self.SSLHandshakeConnectorClass

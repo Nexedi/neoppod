@@ -105,7 +105,7 @@ class Application(BaseApplication):
 
     def __init__(self, config):
         super(Application, self).__init__(
-            config.get('ssl'), config.get('dynamic_master_list'))
+            config.get('ssl_credentials'), config.get('dynamic_master_list'))
         self.tm = TransactionManager(self.onTransactionCommitted)
         self.pm = PackManager()
 

@@ -64,8 +64,8 @@ class StressApplication(AdminApplication):
     restart_ratio = float('inf') # no firewall support
     _stress = False
 
-    def __init__(self, ssl, master_nodes):
-        BaseApplication.__init__(self, ssl)
+    def __init__(self, ssl_credentials, master_nodes):
+        BaseApplication.__init__(self, ssl_credentials)
         self.nm.createMasters(master_nodes)
         self.pt = None
         self.master_event_handler = Handler(self)

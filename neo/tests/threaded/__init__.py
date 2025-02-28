@@ -778,7 +778,7 @@ class NEOCluster(object):
         kw = dict(replicas=replicas, adapter=adapter,
             partitions=partitions, reset=clear_databases, dedup=dedup)
         kw['cluster'] = weak_self = weakref.proxy(self)
-        kw['ssl'] = self.SSL
+        kw['ssl_credentials'] = self.SSL
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
             kw.update(upstream_cluster=upstream.name,
@@ -868,7 +868,8 @@ class NEOCluster(object):
             ), '', urlencode(q), ''))
 
     def resetNeoCTL(self):
-        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
+        self.neoctl = NeoCTL(self.admin.getVirtualAddress(),
+                             ssl_credentials=self.SSL)
 
     def start(self, storage_list=None, master_list=None, recovering=False):
         self.started = True
@@ -965,7 +966,7 @@ class NEOCluster(object):
     def _newClient(self, **kw):
         kw.setdefault('compress', self.compress)
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
-                                 ssl=self.SSL, **kw)
+                                 ssl_credentials=self.SSL, **kw)
 
     @contextmanager
     def newClient(self, with_db=False, **kw):
@@ -1145,7 +1146,7 @@ class NEOThreadedTest(NeoTestBase):
     @contextmanager
     def getLoopbackConnection(self):
         app = MasterApplication(address=BIND,
-            ssl=NEOCluster.SSL, replicas=0, partitions=1)
+            ssl_credentials=NEOCluster.SSL, replicas=0, partitions=1)
         try:
             handler = EventHandler(app)
             app.listening_conn = ListeningConnection(app, handler, app.server)

@@ -14,11 +14,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import socket, ssl, threading
 from . import logging, util
 from .config import OptionList
 from .event import EventManager
 from .node import NodeManager
 
+def SSLContext_verify(context):
+    c, s = socket.socketpair()
+    c = socket.socket(c.family, c.type, c.proto, c)
+    s = socket.socket(s.family, s.type, s.proto, s)
+    def t():
+        try:
+            context.wrap_socket(s, server_side=True).close()
+        except ssl.SSLError:
+            pass
+    t = threading.Thread(target=t)
+    t.daemon = True
+    t.start()
+    context.wrap_socket(c).close()
+    t.join()
 
 def buildOptionParser(cls):
     parser = cls.option_parser = cls.OptionList()
@@ -44,7 +59,7 @@ class BaseApplication(object):
                 config.pop('key', None),
             )
             if any(ssl):
-                config['ssl'] = ssl
+                config['ssl_credentials'] = ssl
             return config
 
     server = None
@@ -66,17 +81,15 @@ class BaseApplication(object):
         _.path('D', 'dynamic-master-list',
             help='path of the file containing dynamic master node list')
 
-    def __init__(self, ssl=None, dynamic_master_list=None):
-        if ssl:
-            if not all(ssl):
+    def __init__(self, ssl_credentials=None, dynamic_master_list=None):
+        if ssl_credentials:
+            if not all(ssl_credentials):
                 raise ValueError("To enable encryption, 3 files must be"
                     " provided: the CA certificate, and the certificate"
                     " of this node with its private key.")
-            ca, cert, key = ssl
             # remember ca/cert/key, so that zstor_2zurl in wendelin.core could
             # retrieve them and fully reconstruct neos:// url of the storage
-            self.ssl_credentials = ssl
-            import ssl
+            ca, cert, key = self.ssl_credentials = ssl_credentials
             version, version_name = max((getattr(ssl, k), k)
                 for k in dir(ssl) if k.startswith("PROTOCOL_TLSv"))
             self.ssl = context = ssl.SSLContext(version)
@@ -90,6 +103,7 @@ class BaseApplication(object):
             context.load_cert_chain(cert, key)
             context.verify_flags |= ssl.VERIFY_X509_STRICT | (
                 context.cert_store_stats()['crl'] and ssl.VERIFY_CRL_CHECK_LEAF)
+            SSLContext_verify(context)
             logging.info("TLS %s enabled for %s",
                 float(version_name[13:].replace("_", ".")), self)
         self._handlers = {}

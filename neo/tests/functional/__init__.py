@@ -397,7 +397,8 @@ class NEOCluster(object):
                              0, adapter=adapter, database=self.db_template(db),
                              **storage_kw)
         # create neoctl
-        self.neoctl = NeoCTL((self.local_ip, admin_port), ssl=self.SSL)
+        self.neoctl = NeoCTL((self.local_ip, admin_port),
+                             ssl_credentials=self.SSL)
 
     def _newProcess(self, node_type, logfile=None, port=None, **kw):
         self.uuid_dict[node_type] = uuid = 1 + self.uuid_dict.get(node_type, 0)

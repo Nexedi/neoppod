@@ -142,7 +142,7 @@ class Application(BaseApplication, Monitor):
 
     def __init__(self, config):
         BaseApplication.__init__(self,
-            config.get('ssl'), config.get('dynamic_master_list'))
+            config.get('ssl_credentials'), config.get('dynamic_master_list'))
         self.nm.createMasters(config['masters'])
 
         self.name = config['cluster']
