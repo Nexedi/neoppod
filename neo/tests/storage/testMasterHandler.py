@@ -15,8 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from ..mock import Mock
-from .. import NeoUnitTestBase
+from .. import Mock, MockObject, NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.lib.exception import ProtocolError
@@ -49,24 +48,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         address = ("127.0.0.1", self.master_port)
         return self.getFakeConnection(uuid=self.master_uuid, address=address)
 
-    def test_14_notifyPartitionChanges1(self):
-        # old partition change -> do nothing
-        app = self.app
-        conn = self.getMasterConnection()
-        app.replicator = Mock({})
-        self.app.pt = Mock({'getID': 1})
-        count = len(self.app.nm.getList())
-        self.assertRaises(ProtocolError, self.operation.notifyPartitionChanges,
-                          conn, 0, 0, ())
-        self.assertEqual(self.app.pt.getID(), 1)
-        self.assertEqual(len(self.app.nm.getList()), count)
-        calls = self.app.replicator.mockGetNamedCalls('removePartition')
-        self.assertEqual(len(calls), 0)
-        calls = self.app.replicator.mockGetNamedCalls('addPartition')
-        self.assertEqual(len(calls), 0)
-
-    def test_14_notifyPartitionChanges2(self):
-        # cases :
+    def test_notifyPartitionChanges(self):
         uuid1, uuid2, uuid3 = [self.getStorageUUID() for i in range(3)]
         cells = (
             (0, uuid1, CellStates.UP_TO_DATE),
@@ -86,13 +68,16 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         app.dm.close()
         app.dm = Mock()
         app.replicator = Mock()
-        self.operation.notifyPartitionChanges(conn, ptid, 1, cells)
-        # ptid set
+        args = ptid, 1, cells
+        self.operation.notifyPartitionChanges(conn, *args)
         self.assertEqual(app.pt.getID(), ptid)
-        # dm call
-        calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(app, ptid, 1, cells)
+        m = app.dm.changePartitionTable
+        m.assert_called_once_with(app, *args)
+        m.reset_mock()
+        self.assertRaises(ProtocolError, self.operation.notifyPartitionChanges,
+                          conn, *args)
+        self.assertEqual(app.pt.getID(), ptid)
+        m.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

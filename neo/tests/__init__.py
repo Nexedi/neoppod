@@ -41,7 +41,7 @@ except ImportError:
 from functools import wraps
 from inspect import isclass
 from itertools import islice
-from .mock import Mock
+from mock import MagicMock, Mock, NonCallableMock
 from neo.lib import debug, event, logging
 from neo.lib.protocol import NodeTypes, Packet, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property
@@ -103,18 +103,11 @@ logging.default_root_handler.handle = lambda record: None
 
 debug.register()
 
-def mockDefaultValue(name, function):
-    def method(self, *args, **kw):
-        if name in self.mockReturnValues:
-            return self.__getattr__(name)(*args, **kw)
-        return function(self, *args, **kw)
-    method.__name__ = name
-    setattr(Mock, name, method)
-
-mockDefaultValue('__nonzero__', lambda self: self.__len__() != 0)
-mockDefaultValue('__repr__', lambda self:
-    '<%s object at 0x%x>' % (self.__class__.__name__, id(self)))
-mockDefaultValue('__str__', repr)
+def MockObject(name=None, **methods):
+    return NonCallableMock(name=name, **{
+        k + '.return_value': v
+        for k, v in methods.iteritems()
+    })
 
 def buildUrlFromString(address):
     try:
@@ -301,13 +294,17 @@ class NeoTestBase(unittest.TestCase):
 
     failIfEqual = failUnlessEqual = assertEquals = assertNotEquals = None
 
+    assert issubclass(Mock, NonCallableMock)
+
     def assertNotEqual(self, first, second, msg=None):
-        assert not (isinstance(first, Mock) or isinstance(second, Mock)), \
+        assert not (isinstance(first, NonCallableMock) or
+                    isinstance(second, NonCallableMock)), \
           "Mock objects can't be compared with '==' or '!='"
         return super(NeoTestBase, self).assertNotEqual(first, second, msg=msg)
 
     def assertEqual(self, first, second, msg=None):
-        assert not (isinstance(first, Mock) or isinstance(second, Mock)), \
+        assert not (isinstance(first, NonCallableMock) or
+                    isinstance(second, NonCallableMock)), \
           "Mock objects can't be compared with '==' or '!='"
         return super(NeoTestBase, self).assertEqual(first, second, msg=msg)
 
@@ -412,83 +409,80 @@ class NeoUnitTestBase(NeoTestBase):
     def getNextTID(self, ltid=None):
         return newTid(ltid)
 
+    def getFakeApplication(self, **kw):
+        return NonCallableMock(name='FakeApplication', _handlers={}, **kw)
+
     def getFakeConnector(self, descriptor=None):
-        return Mock({
-            '__repr__': 'FakeConnector',
-            'getDescriptor': descriptor,
-            'getAddress': ('', 0),
-        })
+        return MockObject('FakeConnector',
+            getDescriptor=descriptor,
+            getAddress=('', 0),
+        )
 
     def getFakeConnection(self, uuid=None, address=('127.0.0.1', 10000),
             is_server=False, connector=None, peer_id=None):
         if connector is None:
             connector = self.getFakeConnector()
-        conn = Mock({
-            'getUUID': uuid,
-            'getAddress': address,
-            'isServer': is_server,
-            '__repr__': 'FakeConnection',
-            '__nonzero__': 0,
-            'getConnector': connector,
-            'getPeerId': peer_id,
-        })
-        conn.mockAddReturnValues(__hash__ = id(conn))
+        conn = MockObject('FakeConnection',
+            getUUID=uuid,
+            getAddress=address,
+            isServer=is_server,
+            getConnector=connector,
+            getPeerId=peer_id,
+            isClosed=False,
+        )
         conn.connecting = False
         return conn
 
     def checkAborted(self, conn):
         """ Ensure the connection was aborted """
-        self.assertEqual(len(conn.mockGetNamedCalls('abort')), 1)
+        m = conn.abort
+        m.assert_called_once()
+        m.reset_mock()
 
     def checkClosed(self, conn):
         """ Ensure the connection was closed """
-        self.assertEqual(len(conn.mockGetNamedCalls('close')), 1)
-
-    def _checkNoPacketSend(self, conn, method_id):
-        self.assertEqual([], conn.mockGetNamedCalls(method_id))
+        m = conn.close
+        m.close.assert_called_once()
+        m.reset_mock()
 
     def checkNoPacketSent(self, conn):
         """ check if no packet were sent """
-        self._checkNoPacketSend(conn, 'send')
-        self._checkNoPacketSend(conn, 'answer')
-        self._checkNoPacketSend(conn, 'ask')
+        conn.send.assert_not_called()
+        conn.answer.assert_not_called()
+        conn.ask.assert_not_called()
 
     # in check(Ask|Answer|Notify)Packet we return the packet so it can be used
     # in tests if more accurate checks are required
 
     def checkErrorPacket(self, conn):
         """ Check if an error packet was answered """
-        calls = conn.mockGetNamedCalls("answer")
-        self.assertEqual(len(calls), 1)
-        packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEqual(type(packet), Packets.Error)
-        return packet
+        return self.checkAnswerPacket(conn, Packets.Error)
 
     def checkAskPacket(self, conn, packet_type):
         """ Check if an ask-packet with the right type is sent """
-        calls = conn.mockGetNamedCalls('ask')
-        self.assertEqual(len(calls), 1)
-        packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEqual(type(packet), packet_type)
+        m = conn.ask
+        m.assert_called_once()
+        packet = m.call_args.args[0]
+        self.assertIsInstance(packet, packet_type)
+        m.reset_mock()
         return packet
 
     def checkAnswerPacket(self, conn, packet_type):
         """ Check if an answer-packet with the right type is sent """
-        calls = conn.mockGetNamedCalls('answer')
-        self.assertEqual(len(calls), 1)
-        packet = calls.pop().getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEqual(type(packet), packet_type)
+        m = conn.answer
+        m.assert_called_once()
+        packet = m.call_args.args[0]
+        self.assertIsInstance(packet, packet_type)
+        m.reset_mock()
         return packet
 
-    def checkNotifyPacket(self, conn, packet_type, packet_number=0):
+    def checkNotifyPacket(self, conn, packet_type):
         """ Check if a notify-packet with the right type is sent """
-        calls = conn.mockGetNamedCalls('send')
-        packet = calls.pop(packet_number).getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEqual(type(packet), packet_type)
+        m = conn.send
+        m.assert_called_once()
+        packet = m.call_args.args[0]
+        self.assertIsInstance(packet, packet_type)
+        m.reset_mock()
         return packet
 
 

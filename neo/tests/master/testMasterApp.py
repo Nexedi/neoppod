@@ -42,7 +42,6 @@ class MasterAppTests(NeoUnitTestBase):
         storage = self.app.nm.createStorage(uuid=storage_uuid)
         client_uuid = self.getClientUUID()
         client = self.app.nm.createClient(uuid=client_uuid)
-        # create conn and patch em
         master_conn = self.getFakeConnection()
         storage_conn = self.getFakeConnection(is_server=True)
         client_conn = self.getFakeConnection(is_server=True)

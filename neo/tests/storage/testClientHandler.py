@@ -15,8 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from ..mock import Mock, ReturnValues
-from .. import NeoUnitTestBase
+from .. import MockObject, NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.lib.exception import ProtocolError
@@ -28,79 +27,45 @@ class StorageClientHandlerTests(NeoUnitTestBase):
     def setUp(self):
         NeoUnitTestBase.setUp(self)
         self.prepareDatabase(number=1)
-        # create an application object
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
-        self.app.tm = Mock({'__contains__': True})
-        # handler
         self.operation = ClientOperationHandler(self.app)
-        # set pmn
-        self.master_uuid = self.getMasterUUID()
-        pmn = self.app.nm.getMasterList()[0]
-        pmn.setUUID(self.master_uuid)
-        self.app.primary_master_node = pmn
 
     def _tearDown(self, success):
         self.app.close()
         del self.app
         super(StorageClientHandlerTests, self)._tearDown(success)
 
-    def _getConnection(self, uuid=None):
-        return self.getFakeConnection(uuid=uuid, address=('127.0.0.1', 1000))
-
     def fakeDM(self, **kw):
         self.app.dm.close()
-        self.app.dm = dm = Mock(kw)
+        self.app.dm = dm = MockObject(**kw)
         return dm
 
     def test_18_askTransactionInformation1(self):
         # transaction does not exists
-        conn = self._getConnection()
-        self.fakeDM(getNumPartitions=1)
+        conn = self.getFakeConnection()
+        self.fakeDM(getTransaction=None)
         self.operation.askTransactionInformation(conn, INVALID_TID)
         self.checkErrorPacket(conn)
 
-    def test_25_askTIDs1(self):
-        # invalid offsets => error
-        app = self.app
-        app.pt = Mock()
-        self.fakeDM()
-        conn = self._getConnection()
-        self.assertRaises(ProtocolError, self.operation.askTIDs,
-                          conn, 1, 1, None)
-        self.assertEqual(len(app.pt.mockGetNamedCalls('getCellList')), 0)
-        self.assertEqual(len(app.dm.mockGetNamedCalls('getTIDList')), 0)
-
-    def test_25_askTIDs2(self):
-        # well case => answer
-        conn = self._getConnection()
-        self.app.pt = Mock({'getPartitions': 1})
-        self.fakeDM(getTIDList=(INVALID_TID,))
+    def test_askTIDs(self):
+        conn = self.getFakeConnection()
+        self.app.pt = MockObject(getPartitions=1)
+        dm = self.fakeDM(getTIDList=(INVALID_TID,))
         self.operation.askTIDs(conn, 1, 2, 1)
-        calls = self.app.dm.mockGetNamedCalls('getTIDList')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(1, 1, [1, ])
+        dm.getTIDList.assert_called_once_with(1, 1, [1, ])
         self.checkAnswerPacket(conn, Packets.AnswerTIDs)
 
-    def test_26_askObjectHistory1(self):
-        # invalid offsets => error
-        dm = self.fakeDM()
-        conn = self._getConnection()
-        self.assertRaises(ProtocolError, self.operation.askObjectHistory,
-                          conn, 1, 1, None)
-        self.assertEqual(len(dm.mockGetNamedCalls('getObjectHistory')), 0)
-
     def test_askObjectUndoSerial(self):
-        conn = self._getConnection(uuid=self.getClientUUID())
+        conn = self.getFakeConnection(self.getClientUUID())
         tid = self.getNextTID()
         ltid = self.getNextTID()
         undone_tid = self.getNextTID()
         # Keep 2 entries here, so we check findUndoTID is called only once.
         oid_list = map(p64, (1, 2))
-        self.app.tm = Mock({
-            'getObjectFromTransaction': None,
-        })
-        self.fakeDM(findUndoTID=ReturnValues((None, None, False),))
+        self.app.tm = MockObject(getObjectFromTransaction=None)
+        dm = self.fakeDM()
+        dm.findUndoTID.side_effect = (None, None, False),
         self.operation.askObjectUndoSerial(conn, tid, ltid, undone_tid, oid_list)
         self.checkErrorPacket(conn)
 

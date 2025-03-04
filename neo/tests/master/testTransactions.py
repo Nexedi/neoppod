@@ -15,9 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from ..mock import Mock
 from struct import pack
-from .. import NeoUnitTestBase
+from .. import MockObject, NeoUnitTestBase
 from neo.lib.protocol import NodeTypes
 from neo.lib.util import packTID, unpackTID, addTID
 from neo.master.transactions import TransactionManager
@@ -26,7 +25,7 @@ class testTransactionManager(NeoUnitTestBase):
 
     def makeNode(self, node_type):
         uuid = self.getNewUUID(node_type)
-        node = Mock({'getUUID': uuid, '__hash__': uuid, '__repr__': 'FakeNode'})
+        node = MockObject('FakeNode', getUUID=uuid)
         return uuid, node
 
     def testTIDUtils(self):

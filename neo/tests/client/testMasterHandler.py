@@ -15,8 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from ..mock import Mock
-from .. import NeoUnitTestBase
+from .. import Mock, NeoUnitTestBase
 from neo.client.handlers.master import PrimaryAnswersHandler
 from neo.client.exception import NEOStorageError
 
@@ -24,8 +23,7 @@ class MasterHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         super(MasterHandlerTests, self).setUp()
-        self.app = Mock()
-        self.handler = PrimaryAnswersHandler(self.app)
+        self.handler = PrimaryAnswersHandler(self.getFakeApplication())
 
     def test_answerPack(self):
         self.assertRaises(NEOStorageError, self.handler.answerPack, None, False)

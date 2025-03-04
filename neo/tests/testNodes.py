@@ -16,10 +16,9 @@
 
 import shutil
 import unittest
-from .mock import Mock
 from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterDB
-from . import NeoUnitTestBase, getTempDirectory
+from . import Mock, MockObject, NeoUnitTestBase, getTempDirectory
 from time import time
 from os import chmod, mkdir, rmdir
 from os.path import join, exists
@@ -163,8 +162,8 @@ class NodeManagerTests(NeoUnitTestBase):
             (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(),
                 NodeStates.DOWN, None),
         )
-        app = Mock()
-        app.pt = Mock({'dropNode': True})
+        app = self.getFakeApplication()
+        app.pt = MockObject(dropNode=True)
         # update manager content
         manager.update(app, time(), node_list)
         # - the client gets down

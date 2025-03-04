@@ -16,7 +16,6 @@
 
 import unittest
 from contextlib import closing, contextmanager
-from ..mock import Mock
 from neo.lib.protocol import ZERO_OID
 from neo.lib.util import p64
 from .. import DB_PREFIX, DB_USER, Patch

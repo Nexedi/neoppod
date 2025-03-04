@@ -15,8 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from .mock import Mock
-from . import NeoUnitTestBase
+from . import Mock, NeoUnitTestBase
 from neo.lib.exception import PacketMalformedError, UnexpectedPacketError, \
     NotReadyError, ProtocolError
 from neo.lib.handler import EventHandler
@@ -25,17 +24,13 @@ class HandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         NeoUnitTestBase.setUp(self)
-        app = Mock()
-        self.handler = EventHandler(app)
+        self.handler = EventHandler(self.getFakeApplication())
 
     def setFakeMethod(self, method):
         self.handler.fake_method = method
 
     def getFakePacket(self):
-        p = Mock({
-            '__repr__': 'Fake Packet',
-        })
-        p._args = ()
+        p = Mock(name='Fake Packet', _args=())
         p.handler_method_name = 'fake_method'
         return p
 
@@ -46,7 +41,6 @@ class HandlerTests(NeoUnitTestBase):
         self.setFakeMethod(lambda c: None)
         self.handler.dispatch(conn, packet)
         # raise UnexpectedPacketError
-        conn.mockCalledMethods = {}
         def fake(c):
             raise UnexpectedPacketError('fake packet')
         self.setFakeMethod(fake)
@@ -54,7 +48,6 @@ class HandlerTests(NeoUnitTestBase):
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise NotReadyError
-        conn.mockCalledMethods = {}
         def fake(c):
             raise NotReadyError
         self.setFakeMethod(fake)
@@ -62,7 +55,6 @@ class HandlerTests(NeoUnitTestBase):
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise ProtocolError
-        conn.mockCalledMethods = {}
         def fake(c):
             raise ProtocolError
         self.setFakeMethod(fake)

@@ -21,8 +21,7 @@ from copy import copy
 from neo.lib.util import add64, p64, u64, makeChecksum
 from neo.lib.protocol import CellStates, ZERO_HASH, ZERO_OID, ZERO_TID, MAX_TID
 from neo.storage.database.manager import MVCCDatabaseManager
-from .. import NeoUnitTestBase
-from ..mock import Mock
+from .. import Mock, NeoUnitTestBase
 
 
 class StorageDBTests(NeoUnitTestBase):
@@ -52,8 +51,7 @@ class StorageDBTests(NeoUnitTestBase):
         uuid = self.getStorageUUID()
         db.setUUID(uuid)
         self.assertEqual(uuid, db.getUUID())
-        app = Mock()
-        app.last_pack_id = ZERO_TID
+        app = Mock(last_pack_id=ZERO_TID)
         db.changePartitionTable(app, 1, 0,
             [(i, uuid, CellStates.UP_TO_DATE) for i in xrange(num_partitions)],
             reset=True)

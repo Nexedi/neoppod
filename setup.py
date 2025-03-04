@@ -16,7 +16,7 @@ Topic :: Database
 Topic :: Software Development :: Libraries :: Python Modules
 """
 
-def get3rdParty(name, tag, url, h, extract=lambda content, name: content):
+def get3rdParty(name, tag, url, h):
     path = 'neo/tests/' + name
     if os.path.exists(path):
         return
@@ -25,21 +25,10 @@ def get3rdParty(name, tag, url, h, extract=lambda content, name: content):
         x = subprocess.check_output(('git', 'cat-file', 'blob', tag))
     except (OSError, subprocess.CalledProcessError):
         x = urllib.urlopen(url).read()
-    x = extract(x, name)
     if hashlib.sha256(x).hexdigest() != h:
         raise EnvironmentError("SHA checksum mismatch downloading '%s'" % name)
     with open(path, 'wb') as f:
         f.write(x)
-
-def unzip(content, name):
-    import io, zipfile
-    return zipfile.ZipFile(io.BytesIO(content)).read(name)
-
-x = 'pythonmock-0.1.0.zip'
-get3rdParty('mock.py', x,
-    'http://downloads.sf.net/sourceforge/python-mock/' + x,
-    'c6ed26e4312ed82160016637a9b6f8baa71cf31a67c555d44045a1ef1d60d1bc',
-    unzip)
 
 x = 'ConflictFree.py'
 get3rdParty(x, '3rdparty/' + x, 'https://lab.nexedi.com/nexedi/erp5'
@@ -67,7 +56,7 @@ def self_require(*extra):
         req.update(extras_require[extra])
     return sorted(req)
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
-    'mock', # ZODB test dependency
+    'mock; python_version == "2.7"',
 ] + self_require(*extras_require)
 extras_require['stress'] = ['NetfilterQueue', 'gevent',
     'cython-zstd', # recommended (log rotation)

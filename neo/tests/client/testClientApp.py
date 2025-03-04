@@ -15,9 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from ..mock import Mock
 from ZODB.POSException import StorageTransactionError
-from .. import NeoUnitTestBase, buildUrlFromString
+from .. import Mock, MockObject, NeoUnitTestBase, buildUrlFromString
 from neo.client.app import Application
 from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError
@@ -47,7 +46,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             master_nodes = '%s:10010' % buildUrlFromString(self.local_ip)
         app = Application(master_nodes, name, **kw)
         self._to_stop_list.append(app)
-        app.dispatcher = Mock({ })
+        app.dispatcher = Mock()
         return app
 
     def makeOID(self, value=None):
@@ -78,12 +77,10 @@ class ClientApplicationTests(NeoUnitTestBase):
             None, txn)
         # check partition_id and an empty cell list -> NEOStorageError
         self._begin(app, txn, self.makeTID())
-        app.pt = Mock({'getCellList': ()})
+        app.pt = MockObject(getCellList=())
         app.num_partitions = 2
-        self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None,
-            txn)
-        calls = app.pt.mockGetNamedCalls('getCellList')
-        self.assertEqual(len(calls), 1)
+        self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None, txn)
+        app.pt.getCellList.assert_called_once()
 
     def test_undo1(self):
         # invalid transaction
