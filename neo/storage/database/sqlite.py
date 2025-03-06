@@ -160,14 +160,16 @@ class SQLiteDatabaseManager(DatabaseManager):
             self.query('DROP TABLE IF EXISTS ' + t)
 
     def nonempty(self, table):
-        try:
-            return bool(self.query(
-                "SELECT 1 FROM %s LIMIT 1" % table).fetchone())
-        except sqlite3.DatabaseError as e:
-            # XXX: Not idea why we sometimes get DatabaseError instead of
-            #      the usual OperationalError for 'no such table' error.
-            if not e.args[0].startswith("no such table:"):
-                raise
+        # WKRD: At least up to Python 3.11, there's a sqlite3 bug that
+        #       may cause weird exceptions (sometimes even SystemError!)
+        #       when querying directly a non-existing table,
+        #       instead of something equivalent to MySQL's NO_SUCH_TABLE.
+        #       Not sure those exceptions always mean the table does not exit
+        #       so better first check sqlite_master.
+        q = self.query
+        if q("SELECT * FROM sqlite_master WHERE type='table' AND name=?",
+             (table,)).fetchone():
+            return bool(q("SELECT 1 FROM %s LIMIT 1" % table).fetchone())
 
     def _alterTable(self, schema_dict, table, select="*"):
         # BBB: As explained in _setup, no transactional DDL
