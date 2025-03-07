@@ -337,8 +337,6 @@ class ImporterTests(NEOThreadedTest):
             (lambda db: lambda path: path[0] in (db, 4)))
 
     if getattr(serialize, '_protocol', 1) > 1:
-        # XXX: With ZODB5, we should at least keep a working test that does not
-        #      merge several DB.
         testMerge = expectedFailure(NEOPrimaryMasterLost)(testMerge)
 
     def testIncremental(self):
