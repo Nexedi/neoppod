@@ -575,21 +575,6 @@ class SQLiteDatabaseManager(DatabaseManager):
             return compression, str(checksum), str(data)
         return compression, checksum, data
 
-    def _getDataTID(self, oid, tid=None, before_tid=None):
-        partition = self._getReadablePartition(oid)
-        sql = 'SELECT tid, value_tid FROM obj' \
-              ' WHERE partition=? AND oid=?'
-        if tid is not None:
-            r = self.query(sql + ' AND tid=?', (partition, oid, tid))
-        elif before_tid is not None:
-            r = self.query(sql + ' AND tid<? ORDER BY tid DESC LIMIT 1',
-                           (partition, oid, before_tid))
-        else:
-            r = self.query(sql + ' ORDER BY tid DESC LIMIT 1',
-                           (partition, oid))
-        r = r.fetchone()
-        return r or (None, None)
-
     def storePackOrder(self, tid, approved, partial, oid_list, pack_tid):
         u64 = util.u64
         self.query("INSERT INTO pack VALUES (?,?,?,?,?)", (

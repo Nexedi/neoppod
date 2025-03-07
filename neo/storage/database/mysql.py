@@ -790,21 +790,6 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
 
     del _structLL
 
-    def _getDataTID(self, oid, tid=None, before_tid=None):
-        sql = ('SELECT tid, value_tid FROM obj FORCE INDEX(PRIMARY)'
-               ' WHERE `partition` = %d AND oid = %d'
-              ) % (self._getReadablePartition(oid), oid)
-        if tid is not None:
-            sql += ' AND tid = %d' % tid
-        elif before_tid is not None:
-            sql += ' AND tid < %d ORDER BY tid DESC LIMIT 1' % before_tid
-        else:
-            # XXX I want to express "HAVING tid = MAX(tid)", but
-            # MySQL does not use an index for a HAVING clause!
-            sql += ' ORDER BY tid DESC LIMIT 1'
-        r = self.query(sql)
-        return r[0] if r else (None, None)
-
     def storePackOrder(self, tid, approved, partial, oid_list, pack_tid):
         u64 = util.u64
         self.query("INSERT INTO pack VALUES (%s,%s,%s,%s,%s)" % (
