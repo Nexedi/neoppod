@@ -186,7 +186,7 @@ class Serialized(object):
             cls._pdb = sys._getframe(2).f_trace.im_self
             cls._pdb.set_continue()
         except AttributeError:
-            pass
+            cls._pdb = None # for pure-Python implementation of coverage
         yield
         p = cls._pdb
         if p is not None:
