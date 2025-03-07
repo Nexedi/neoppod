@@ -1977,7 +1977,7 @@ class Test(NEOThreadedTest):
 
     @with_cluster(replicas=1, partitions=3, storage_count=3)
     def testMasterArbitratingVote(self, cluster):
-        """
+        r"""
         p\S 1  2  3
         0   U  U  .
         1   .  U  U
