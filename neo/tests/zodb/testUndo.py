@@ -37,17 +37,17 @@ class AltUndoTests(UndoTests):
     in AskStoreObject when cells are readable.
     """
 
-    _patch = Patch(ClientApplication, _store=
+    __patch = Patch(ClientApplication, _store=
         lambda orig, self, txn_context, oid, serial, data, data_serial=None:
             orig(self, txn_context, oid, serial,
                  None if data_serial else data, data_serial))
 
     def setUp(self):
         super(AltUndoTests, self).setUp()
-        self._patch.apply()
+        self.__patch.apply()
 
     def _tearDown(self, success):
-        self._patch.revert()
+        self.__patch.revert()
         super(AltUndoTests, self)._tearDown(success)
 
 if __name__ == "__main__":

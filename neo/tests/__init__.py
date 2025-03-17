@@ -26,7 +26,6 @@ import socket
 import subprocess
 import sys
 import tempfile
-import thread
 import unittest
 import weakref
 import transaction

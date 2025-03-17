@@ -28,11 +28,13 @@ import unittest
 import tempfile
 import traceback
 import threading
+from collections import OrderedDict
 import psutil
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib import logging
+from neo.lib.connector import SocketConnector
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump, setproctitle
@@ -372,7 +374,10 @@ class NEOCluster(object):
             adapter = "Importer"
             self.db_template = str
             db_list = importer_conf,
-        self.process_dict = {}
+        # To speed up start-up, start master first and admin last, which
+        # reduces the probability of ECONNREFUSED. For the remaining
+        # connection retries, we also patch CONNECT_LIMIT in NEOFunctionalTest.
+        self.process_dict = OrderedDict()
         self.temp_dir = temp_dir
         self.port_allocator = PortAllocator()
         admin_port = self.port_allocator.allocate(address_type, local_ip)
@@ -382,8 +387,6 @@ class NEOCluster(object):
         self.master_nodes = ' '.join('%s:%s' % (
                 buildUrlFromString(self.local_ip), x, )
                 for x in master_node_list)
-        # create admin node
-        self._newProcess(NodeTypes.ADMIN, logger and 'admin', admin_port)
         # create master nodes
         kw = dict(partitions=partitions, replicas=replicas)
         if autostart:
@@ -396,6 +399,8 @@ class NEOCluster(object):
             self._newProcess(NodeTypes.STORAGE, logger and 'storage_%u' % i,
                              0, adapter=adapter, database=self.db_template(db),
                              **storage_kw)
+        # create admin node
+        self._newProcess(NodeTypes.ADMIN, logger and 'admin', admin_port)
         # create neoctl
         self.neoctl = NeoCTL((self.local_ip, admin_port),
                              ssl_credentials=self.SSL)
@@ -739,12 +744,16 @@ class NEOCluster(object):
 
 class NEOFunctionalTest(NeoTestBase):
 
+    __patch = Patch(SocketConnector, CONNECT_LIMIT=0.01) # same as in ClusterPdb
+
     def setUp(self):
         if random.randint(0, 1):
             NEOCluster.SSL = SSL
         super(NEOFunctionalTest, self).setUp()
+        self.__patch.apply()
 
     def _tearDown(self, success):
+        self.__patch.revert()
         super(NEOFunctionalTest, self)._tearDown(success)
         NEOCluster.SSL = None
 
