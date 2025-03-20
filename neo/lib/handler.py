@@ -42,7 +42,7 @@ class EventHandler(object):
             self = object.__new__(cls)
         except KeyError:
             self = object.__new__(cls)
-            if cls.__init__ is object.__init__:
+            if cls.__init__ == object.__init__:
                 app._handlers[cls] = self
         self.app = app
         return self
