@@ -99,25 +99,26 @@ class MatrixImportBenchmark(BenchmarkRunner):
                 from neo.tests.threaded import NEOCluster
             else:
                 from neo.tests.functional import NEOCluster
-            zodb = NEOCluster(
+            stop_kw = {'clear_databases': True}
+            cluster = NEOCluster(
                 db_list=['%s_matrix_%u' % (DB_PREFIX, i) for i in xrange(storages)],
-                clear_databases=True,
                 master_count=masters,
                 partitions=partitions,
                 replicas=replicas,
-            )
+                **stop_kw)
         else:
             from neo.tests.zeo_cluster import ZEOCluster
             info += " with ZEO"
-            zodb = ZEOCluster()
+            cluster = ZEOCluster()
+            stop_kw = {}
         print(info)
         try:
-            zodb.start()
+            cluster.start()
             try:
-                storage = zodb.getZODBStorage()
+                storage = cluster.getZODBStorage()
                 if neo_args and not self._config.threaded:
-                    assert len(zodb.getStorageList()) == storages
-                    zodb.expectOudatedCells(number=0)
+                    assert len(cluster.getStorageList()) == storages
+                    cluster.expectOudatedCells(number=0)
                 start = time()
                 storage.copyTransactionsFrom(dfs_storage)
                 end = time()
@@ -126,10 +127,12 @@ class MatrixImportBenchmark(BenchmarkRunner):
                     self._size = size
                 else:
                     assert self._size == size
+            except:
+                # Do not clear DB if an error happened.
+                stop_kw.clear()
+                raise
             finally:
-                zodb.stop()
-            # Clear DB if no error happened.
-            zodb.resetDB()
+                cluster.stop(**stop_kw)
             return end - start
         except:
             traceback.print_exc()

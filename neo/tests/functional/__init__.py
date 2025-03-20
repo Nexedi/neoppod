@@ -419,11 +419,6 @@ class NEOCluster(object):
         self.process_dict.setdefault(node_type, []).append(
             NEOProcess(command_dict[node_type], uuid=uuid, **kw))
 
-    def resetDB(self):
-        for db in self.db_list:
-            dm = buildDatabaseManager(self.adapter, (self.db_template(db),))
-            dm.setup(True)
-
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
         assert len(self.process_dict)
@@ -478,7 +473,7 @@ class NEOCluster(object):
             return True, None
         self.expectCondition(start)
 
-    def stop(self, clients=True, ignore_errors=False):
+    def stop(self, clients=True, ignore_errors=False, clear_databases=False):
         # Suspend all processes to kill before actually killing them, so that
         # nodes don't log errors because they get disconnected from other nodes:
         # otherwise, storage nodes would often flush MB of logs just because we
@@ -504,6 +499,10 @@ class NEOCluster(object):
             for zodb_storage in self.zodb_storage_list:
                 zodb_storage.close()
             self.zodb_storage_list = []
+        if clear_databases:
+            for db in self.db_list:
+                dm = buildDatabaseManager(self.adapter, (self.db_template(db),))
+                dm.setup(True)
         time.sleep(0.5)
         if error_list and not ignore_errors:
             raise NodeProcessError('\n'.join(error_list))

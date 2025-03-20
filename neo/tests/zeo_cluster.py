@@ -10,7 +10,7 @@ from .functional import AlreadyStopped, PortAllocator, Process
 class ZEOProcess(Process):
 
     def __init__(self, **kw):
-        super(ZEOProcess, self).__init__('runzeo', kw)
+        super(ZEOProcess, self).__init__('runzeo', **kw)
 
     def run(self):
         from ZEO.runzeo import ZEOServer
@@ -57,6 +57,3 @@ class ZEOCluster(object):
         storage = ClientStorage(self.address)
         self.zodb_storage_list.append(storage)
         return storage
-
-    def setupDB(self):
-        pass

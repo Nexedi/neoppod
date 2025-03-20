@@ -37,24 +37,25 @@ class ImportBenchmark(BenchmarkRunner):
     def start(self):
         config = self._config
         # start neo
+        kw = {'clear_databases': True}
         neo = NEOCluster(
             db_list=['%s_perfs_%u' % (DB_PREFIX, i)
                      for i in xrange(config.storages)],
-            clear_databases=True,
             partitions=config.partitions,
             replicas=config.replicas,
             master_count=config.masters,
-        )
+            **kw)
         # import datafs
         try:
             neo.start()
             try:
-                result = self.buildReport(*self.runImport(neo))
+                return self.buildReport(*self.runImport(neo))
+            except:
+                # Do not clear DB if an error happened.
+                kw.clear()
+                raise
             finally:
-                neo.stop()
-            # Clear DB if no error happened.
-            neo.resetDB()
-            return result
+                neo.stop(**kw)
         except:
             return 'Perf: import failed', ''.join(traceback.format_exc())
 

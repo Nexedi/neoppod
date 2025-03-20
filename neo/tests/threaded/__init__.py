@@ -954,7 +954,8 @@ class NEOCluster(object):
             state = self.getNodeState(node)
             assert state == expected_state, (repr(node), state, expected_state)
 
-    def stop(self, clear_database=False, __print_exc=traceback.print_exc, **kw):
+    def stop(self, clear_databases=False,
+             __print_exc=traceback.print_exc, **kw):
         if self.started:
             del self.started
             logging.debug("stopping %s", self)
@@ -972,7 +973,7 @@ class NEOCluster(object):
             del self.neoctl
             logging.debug("stopped %s", self)
             self._unpatch()
-        if clear_database is None:
+        if clear_databases is None:
             try:
                 for node_type in 'admin', 'storage', 'master':
                     for node in getattr(self, node_type + '_list'):
@@ -984,7 +985,7 @@ class NEOCluster(object):
             for node_type in 'master', 'storage', 'admin':
                 reset_kw = kw.copy()
                 if node_type == 'storage':
-                    reset_kw['reset'] = clear_database
+                    reset_kw['reset'] = clear_databases
                 for node in getattr(self, node_type + '_list'):
                     node.resetNode(**reset_kw)
 
