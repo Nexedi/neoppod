@@ -67,6 +67,7 @@ class ZODBTestCase(TestCase):
                 if functional:
                     dm = self._getDatabaseManager()
                     try:
+                        dm.lock.acquire()
                         @self.neo.expectCondition
                         def _(last_try):
                             dm.commit()
@@ -78,7 +79,8 @@ class ZODBTestCase(TestCase):
                         dm.close()
                 else:
                     self.neo.ticAndJoinStorageTasks()
-                    orphan = self.neo.storage.dm.getOrphanList()
+                    with self.neo.storage.ignoreDmLock(True) as dm:
+                        orphan = dm.getOrphanList()
                 failed = False
             finally:
                 self.close()

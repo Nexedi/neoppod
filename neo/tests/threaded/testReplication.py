@@ -68,9 +68,10 @@ class ReplicationTests(NEOThreadedTest):
         checked = 0
         source_dict = {x.uuid: x for x in cluster.upstream.storage_list}
         for storage in cluster.storage_list:
-            self.assertFalse(storage.dm._uncommitted_data)
-            if storage.pt is None:
-                storage.loadPartitionTable()
+            with storage.dm.lock:
+                self.assertFalse(storage.dm._uncommitted_data)
+                if storage.pt is None:
+                    storage.loadPartitionTable()
             self.assertEqual(np, storage.pt.getPartitions())
             for partition in pt.getReadableOffsetList(storage.uuid):
                 cell_list = upstream_pt.getCellList(partition, readable=True)
@@ -712,9 +713,10 @@ class ReplicationTests(NEOThreadedTest):
         t.begin()
         self.assertEqual(ob.value, 5)
         # get the second to last tid (for which ob=2)
-        tid2 = s1.dm.getObject(ob._p_oid, None, ob._p_serial)[0]
+        with s1.dm.lock:
+            tid2 = s1.dm.getObject(ob._p_oid, None, ob._p_serial)[0]
         # s0 must not have committed anything for partition 1
-        with s0.dm.replicated(1):
+        with s0.dm.lock, s0.dm.replicated(1):
             self.assertFalse(s0.dm.getObject(ob._p_oid, tid2))
 
     @with_cluster(start_cluster=0, storage_count=2, partitions=2)
@@ -816,7 +818,8 @@ class ReplicationTests(NEOThreadedTest):
             self.tic()
             tids.append(r._p_serial)
         def getTIDList(storage):
-            return storage.dm.getReplicationTIDList(tids[0], MAX_TID, 9, 0)
+            with storage.dm.lock:
+                return storage.dm.getReplicationTIDList(tids[0], MAX_TID, 9, 0)
         newTransaction()
         self.assertEqual(u64(ob._p_oid), 2)
         getBackupTid = backup.master.pt.getBackupTid
@@ -1049,7 +1052,8 @@ class ReplicationTests(NEOThreadedTest):
             s.stop()
             cluster.join((s,))
             s.resetNode()
-            d.dm.restore(s.dm.dump())
+            with d.dm.lock:
+                d.dm.restore(s.dm.dump())
             d.resetNode(new_nid=True)
             s.start()
             d.start()
@@ -1115,7 +1119,8 @@ class ReplicationTests(NEOThreadedTest):
                 for cell in cluster.master.pt.getCellList(offset, True))
             logging.info('corrupt partition %u of %s',
                          offset, uuid_str(s1.uuid))
-            s1.dm.deleteObject(p64(np+offset), p64(corrupt_tid))
+            with s1.dm.lock:
+                s1.dm.deleteObject(p64(np+offset), p64(corrupt_tid))
             return s0.uuid
         def check(expected_state, expected_count):
             self.assertEqual(expected_count if corrupted_state else 0, sum(

@@ -448,7 +448,6 @@ class DatabaseManager(object):
     """
 
     ENGINES = ()
-    TEST_IDENT = None
     UNSAFE = False
 
     __lockFile = None
@@ -637,7 +636,7 @@ class DatabaseManager(object):
 
     @requires(_commit)
     def commit(self):
-        assert self.lock._is_owned() or self.TEST_IDENT == thread.get_ident()
+        assert self.lock._is_owned()
         logging.debug('committing...')
         self._commit()
         self._last_commit = time()

@@ -112,7 +112,9 @@ class Test(NEOThreadedTest):
             self.assertTrue(cluster.storage.sqlCount('data'))
             for i, (oid, data, serial) in enumerate(oid_list, 1):
                 storage._cache.clear()
-                cluster.storage.dm.deleteObject(oid)
+                dm = cluster.storage.dm
+                with dm.lock:
+                    cluster.storage.dm.deleteObject(oid)
                 self.assertRaises(POSException.POSKeyError,
                     storage.load, oid, '')
                 for oid, data, serial in oid_list[i:]:
@@ -181,7 +183,9 @@ class Test(NEOThreadedTest):
         undo.tpc_finish(txn)
         t.begin()
         self.assertEqual(ob.value, 5)
-        self.assertFalse(cluster.storage.dm.getOrphanList())
+        dm = cluster.storage.dm
+        with dm.lock:
+            self.assertFalse(dm.getOrphanList())
         return ob
 
     @with_cluster()
@@ -859,7 +863,8 @@ class Test(NEOThreadedTest):
         with Patch(storage.dm.__class__, _migrate3=noop), \
              Patch(storage.dm.__class__, _migrate4=noop):
             t, c = cluster.getTransaction()
-            storage.dm.setConfiguration("version", None)
+            with storage.dm.lock:
+                storage.dm.setConfiguration("version", None)
             c.root()._p_changed = 1
             t.commit()
             storage.stop()
@@ -868,7 +873,8 @@ class Test(NEOThreadedTest):
             storage.resetNode()
             storage.start()
             t.begin()
-            storage.dm.setConfiguration("version", None)
+            with storage.dm.lock:
+                storage.dm.setConfiguration("version", None)
             c.root()._p_changed = 1
             with Patch(storage.tm, lock=lambda *_: sys.exit()):
                 self.commitWithStorageFailure(cluster.client, t)
@@ -1608,7 +1614,8 @@ class Test(NEOThreadedTest):
         r = []
         def tpc_finish(*args, **kw):
             for storage in cluster.storage_list:
-                r.append(len(storage.dm.getUnfinishedTIDDict()))
+                with storage.dm.lock:
+                    r.append(len(storage.dm.getUnfinishedTIDDict()))
             raise NEOStorageError
         if 1:
             t, c = cluster.getTransaction()
@@ -1618,7 +1625,8 @@ class Test(NEOThreadedTest):
                 self.tic()
             self.assertEqual(r, [1, 1])
             for storage in cluster.storage_list:
-                self.assertFalse(storage.dm.getUnfinishedTIDDict())
+                with storage.dm.lock:
+                    self.assertFalse(storage.dm.getUnfinishedTIDDict())
             t.begin()
             self.assertNotIn('x', c.root())
 
@@ -1677,16 +1685,20 @@ class Test(NEOThreadedTest):
                 s0.start()
                 # s0 died with unfinished data, and before processing the
                 # Truncate packet from the master.
-                self.assertFalse(s0.dm.getTruncateTID())
-                self.assertEqual(s1.dm.getTruncateTID(), truncate_tid)
+                with s0.ignoreDmLock() as dm:
+                    self.assertFalse(dm.getTruncateTID())
+                with s1.ignoreDmLock() as dm:
+                    self.assertEqual(dm.getTruncateTID(), truncate_tid)
                 self.tic()
                 self.assertEqual(calls, [1, 1])
                 self.assertEqual(getClusterState(), ClusterStates.RECOVERING)
             s1.resetNode()
             with Patch(s1.dm, truncate=dieFirst(1)):
                 s1.start()
-                self.assertFalse(s0.dm.getLastIDs()[0])
-                self.assertEqual(s1.dm.getLastIDs()[0], r._p_serial)
+                with s0.ignoreDmLock() as dm:
+                    self.assertFalse(dm.getLastIDs()[0])
+                with s1.ignoreDmLock() as dm:
+                    self.assertEqual(dm.getLastIDs()[0], r._p_serial)
                 self.tic()
                 self.assertEqual(calls, [1, 2])
                 self.assertEqual(getClusterState(), ClusterStates.RUNNING)
@@ -1695,7 +1707,8 @@ class Test(NEOThreadedTest):
             self.assertEqual(r._p_serial, truncate_tid)
             self.assertEqual(1, u64(c._storage.new_oid()))
             for s in cluster.storage_list:
-                self.assertEqual(s.dm.getLastIDs()[0], truncate_tid)
+                with s.dm.lock:
+                    self.assertEqual(s.dm.getLastIDs()[0], truncate_tid)
         # Warn user about noop truncation.
         self.assertRaises(SystemExit, cluster.neoctl.truncate, truncate_tid)
 
@@ -1814,14 +1827,14 @@ class Test(NEOThreadedTest):
 
     @with_cluster(storage_count=2, partitions=2)
     def testPruneOrphan(self, cluster):
-        if 1:
-            cluster.importZODB()(3)
-            bad = []
-            ok = []
-            def data_args(value):
-                return makeChecksum(value), ZERO_OID, value, 0, None
-            node_list = []
-            for i, s in enumerate(cluster.storage_list):
+        cluster.importZODB()(3)
+        bad = []
+        ok = []
+        def data_args(value):
+            return makeChecksum(value), ZERO_OID, value, 0, None
+        node_list = []
+        for i, s in enumerate(cluster.storage_list):
+            with s.dm.lock:
                 node_list.append(s.uuid)
                 if i:
                     s.dm.holdData(*data_args('boo'))
@@ -1830,18 +1843,18 @@ class Test(NEOThreadedTest):
                     s.dm.storeData(*data_args('!' * i))
                 bad.append(s.getDataLockInfo())
                 s.dm.commit()
-            def check(dry_run, expected):
-                cluster.neoctl.repair(node_list, bool(dry_run))
-                for e, s in zip(expected, cluster.storage_list):
-                    while 1:
-                        self.tic()
-                        if s.dm._background_worker._orphan is None:
-                            break
-                        time.sleep(.1)
-                    self.assertEqual(e, s.getDataLockInfo())
-            check(1, bad)
-            check(0, ok)
-            check(1, ok)
+        def check(dry_run, expected):
+            cluster.neoctl.repair(node_list, bool(dry_run))
+            for e, s in zip(expected, cluster.storage_list):
+                while 1:
+                    self.tic()
+                    if s.dm._background_worker._orphan is None:
+                        break
+                    time.sleep(.1)
+                self.assertEqual(e, s.getDataLockInfo())
+        check(1, bad)
+        check(0, ok)
+        check(1, ok)
 
     @with_cluster(replicas=1)
     def testLateConflictOnReplica(self, cluster):
@@ -2406,7 +2419,8 @@ class Test(NEOThreadedTest):
         self.assertEqual([22, 5, 9], [r[x].value for x in 'abc'])
         self.assertEqual(end.pop(3), [1])
         self.assertEqual(sorted(end), [1, 2])
-        self.assertFalse(s1.dm.getOrphanList())
+        with s1.dm.lock:
+            self.assertFalse(s1.dm.getOrphanList())
 
     @with_cluster(replicas=1)
     def testNotifyReplicated2(self, cluster):
@@ -2640,7 +2654,8 @@ class Test(NEOThreadedTest):
         self.assertEqual(c1.root()['b'].value, 6)
         self.assertPartitionTable(cluster, 'UU|UU')
         self.assertEqual(end, {0: [2, 2, 'AskStoreTransaction']})
-        self.assertFalse(s1.dm.getOrphanList())
+        with s1.dm.lock:
+            self.assertFalse(s1.dm.getOrphanList())
 
     @with_cluster(start_cluster=0, master_count=3)
     def testElection(self, cluster):
@@ -2756,17 +2771,18 @@ class Test(NEOThreadedTest):
         for i in 0, 1:
             dm = cluster.storage_list[i].dm
             oid, tid = big_id_list[i]
-            for j, expected in (
-                    (1 - i, (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs())),
-                    (i, (u64(tid), (tid, oid)))):
-                oid, tid = big_id_list[j]
-                # Somehow we abuse 'storeTransaction' because we ask it to
-                # write data for unassigned partitions. This is not checked
-                # so for the moment, the test works.
-                dm.storeTransaction(tid, ((oid, None, None),),
-                                    ((oid,), '', '', '', 0, tid), False)
-                self.assertEqual(expected,
-                    (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs()))
+            with dm.lock:
+                for j, expected in (
+                        (1 - i, (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs())),
+                        (i, (u64(tid), (tid, oid)))):
+                    oid, tid = big_id_list[j]
+                    # Somehow we abuse 'storeTransaction' because we ask it to
+                    # write data for unassigned partitions. This is not checked
+                    # so for the moment, the test works.
+                    dm.storeTransaction(tid, ((oid, None, None),),
+                                        ((oid,), '', '', '', 0, tid), False)
+                    self.assertEqual(expected,
+                        (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs()))
 
     def testStorageUpgrade(self):
         path = os.path.join(os.path.dirname(__file__),
@@ -2775,10 +2791,11 @@ class Test(NEOThreadedTest):
         dump_dict = {}
         def switch(s):
             dm = s.dm
-            dm.commit()
-            dump_dict[s.uuid] = dm.dump()
-            with open(path % (s.getAdapter(), s.uuid)) as f:
-                dm.restore(f.read())
+            with dm.lock:
+                dm.commit()
+                dump_dict[s.uuid] = dm.dump()
+                with open(path % (s.getAdapter(), s.uuid)) as f:
+                    dm.restore(f.read())
         with NEOCluster(storage_count=3, partitions=3, replicas=1,
                         name=self._testMethodName) as cluster:
             s1, s2, s3 = cluster.storage_list

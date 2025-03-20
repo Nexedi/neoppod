@@ -268,7 +268,8 @@ class ImporterTests(NEOThreadedTest):
             storage._cache.clear()
             finalCheck(r)
             if dm._writeback:
-                dm.commit()
+                with cluster.storage.ignoreDmLock():
+                    dm.commit()
                 dm._writeback.wait()
         if dm._writeback:
             db = ZODB.DB(FileStorage(fs_path, read_only=True))
@@ -374,7 +375,8 @@ class ImporterTests(NEOThreadedTest):
             # TODO: Add a storage option that only does this and exits.
             #       Such command would also check that there's no data after
             #       what's already imported.
-            s.dm.setConfiguration('zodb', None)
+            with s.ignoreDmLock() as dm:
+                dm.setConfiguration('zodb', None)
             s.stop()
             cluster.join((s,))
             s.resetNode()

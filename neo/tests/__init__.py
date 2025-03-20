@@ -81,8 +81,6 @@ DB_INSTALL = os.getenv('NEO_DB_INSTALL', 'mysql_install_db')
 DB_MYSQLD = os.getenv('NEO_DB_MYSQLD', '/usr/sbin/mysqld')
 DB_MYCNF = os.getenv('NEO_DB_MYCNF')
 
-DatabaseManager.TEST_IDENT = thread.get_ident()
-
 adapter = os.getenv('NEO_TESTS_ADAPTER')
 if adapter:
     from neo.storage.database import getAdapterKlass

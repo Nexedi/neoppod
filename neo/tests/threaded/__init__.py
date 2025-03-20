@@ -42,6 +42,7 @@ from neo.lib.protocol import ZERO_OID, ZERO_TID, MAX_TID, uuid_str, \
     ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
 from neo.master.recovery import  RecoveryManager
+from neo.storage.database.importer import ImporterDatabaseManager
 from .. import (getTempDirectory, setupMySQL,
     ImporterConfigParser, NeoTestBase, Patch,
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX)
@@ -455,7 +456,7 @@ class MasterApplication(ServerNode, neo.master.app.Application):
 
 class StorageApplication(ServerNode, neo.storage.app.Application):
 
-    dm = type('', (), {'close': lambda self: None})()
+    dm = type('', (), {'close': lambda self: None, 'lock': threading.RLock()})()
 
     def _afterRun(self):
         super(StorageApplication, self)._afterRun()
@@ -467,6 +468,10 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         if self.master_conn:
             self.master_conn.close()
 
+    def close(self):
+        with self.dm.lock:
+            super(StorageApplication, self).close()
+
     def loadConfiguration(self):
         with Patch(logging, name=self.node_name):
             super(StorageApplication, self).loadConfiguration()
@@ -474,26 +479,46 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
     def getAdapter(self):
         return self._init_args['adapter']
 
+    @contextmanager
+    def ignoreDmLock(self, only_importer=False):
+        dm = self.dm
+        if isinstance(dm, ImporterDatabaseManager):
+            _dm = dm.db
+        elif only_importer:
+            with dm.lock:
+                yield dm
+            return
+        else:
+            _dm = dm
+        l = threading.RLock()
+        l.acquire()
+        with Patch(_dm, lock=l):
+            yield dm
+
     def getDataLockInfo(self):
         dm = self.dm
-        index = tuple(dm.query("SELECT id, hash, compression FROM data"))
-        assert set(dm._uncommitted_data).issubset(x[0] for x in index)
-        get = dm._uncommitted_data.get
-        return {(str(h), c & 0x7f): get(i, 0) for i, h, c in index}
+        with dm.lock:
+            index = tuple(dm.query("SELECT id, hash, compression FROM data"))
+            assert set(dm._uncommitted_data).issubset(x[0] for x in index)
+            get = dm._uncommitted_data.get
+            return {(str(h), c & 0x7f): get(i, 0) for i, h, c in index}
 
     def sqlCount(self, table):
-        (r,), = self.dm.query("SELECT COUNT(*) FROM " + table)
+        with self.dm.lock:
+            (r,), = self.dm.query("SELECT COUNT(*) FROM " + table)
         return r
 
     def checksumPartition(self, partition, max_tid=MAX_TID):
         dm = self.dm
         args = ZERO_TID, max_tid, None, partition
         trans = hashlib.md5()
-        for tid in dm.getReplicationTIDList(*args):
-            trans.update(dumps(dm.getTransaction(tid)))
-        obj = hashlib.md5()
-        for tid, oid in dm.getReplicationObjectList(*args, min_oid=ZERO_OID):
-            obj.update(dumps(dm.fetchObject(oid, tid)))
+        with dm.lock:
+            for tid in dm.getReplicationTIDList(*args):
+                trans.update(dumps(dm.getTransaction(tid)))
+            obj = hashlib.md5()
+            for tid, oid in dm.getReplicationObjectList(*args,
+                                                        min_oid=ZERO_OID):
+                obj.update(dumps(dm.fetchObject(oid, tid)))
         return trans.hexdigest(), obj.hexdigest()
 
 class ClientApplication(Node, neo.client.app.Application):

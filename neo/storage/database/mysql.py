@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, re, string, struct, sys, thread, time, weakref
+import os, re, string, struct, sys, time, weakref
 from binascii import a2b_hex
 from collections import defaultdict, OrderedDict
 from functools import wraps
@@ -221,11 +221,10 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
     @auto_reconnect
     def query(self, query):
         """Query data from a database."""
-        assert self.lock._is_owned() or self.TEST_IDENT == thread.get_ident()
+        assert self.lock._is_owned()
         if LOG_QUERIES:
-            logging.debug('querying %s...', getPrintableQuery(query
-                    .split('\n', 1)[0][:70]
-                ))
+            logging.debug('[%s] querying %s...',
+                id(self), getPrintableQuery(query.split('\n', 1)[0][:70]))
         conn = self.conn
         conn.query(query)
         if query.startswith("SELECT "):
