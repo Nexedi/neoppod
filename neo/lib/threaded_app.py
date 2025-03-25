@@ -85,13 +85,15 @@ class ThreadedApplication(BaseApplication):
 
     def _run(self):
         poll = self.em.poll
-        while 1:
-            try:
-                while 1:
-                    poll(1)
-            except Exception:
+        try:
+            while 1:
+                poll(1)
+        except BaseException as e:
+            if not isinstance(e, SystemExit) or e.code:
+                logging.exception('Pre-mortem data:')
                 self.log()
-                logging.error("poll raised, retrying", exc_info=1)
+                logging.flush()
+            raise
 
     def getHandlerData(self):
         return self._thread_container.answer
