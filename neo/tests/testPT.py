@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from neo.lib.protocol import NodeStates, CellStates
 from neo.lib.pt import Cell, PartitionTable, PartitionTableException
 from . import NeoUnitTestBase
@@ -386,7 +385,3 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertEqual(len(row_4), 0)
         # unknown row
         self.assertRaises(IndexError,  pt.getRow, 5)
-
-if __name__ == '__main__':
-    unittest.main()
-

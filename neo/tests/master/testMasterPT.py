@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import random, time, unittest
+import random, time
 from collections import Counter, defaultdict
 from .. import NeoUnitTestBase
 from neo.lib import logging
@@ -381,7 +381,3 @@ class MasterPartitionTableTests(NeoUnitTestBase):
                 pt.clear()
                 pt.make(sn2)
                 self.assertPartitionTable(pt, expected)
-
-if __name__ == '__main__':
-    unittest.main()
-

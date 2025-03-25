@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from . import Mock, NeoUnitTestBase
 from neo.lib.exception import PacketMalformedError, UnexpectedPacketError, \
     NotReadyError, ProtocolError
@@ -61,8 +60,3 @@ class HandlerTests(NeoUnitTestBase):
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
-
-
-
-if __name__ == '__main__':
-    unittest.main()

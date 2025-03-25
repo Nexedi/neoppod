@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from .. import MockObject, NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.client import ClientOperationHandler
@@ -68,6 +67,3 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         dm.findUndoTID.side_effect = (None, None, False),
         self.operation.askObjectUndoSerial(conn, tid, ltid, undone_tid, oid_list)
         self.checkErrorPacket(conn)
-
-if __name__ == "__main__":
-    unittest.main()

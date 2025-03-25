@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from . import NEOCluster, NEOFunctionalTest
 from neo.lib.protocol import NodeStates
 
@@ -136,10 +135,3 @@ class MasterTests(NEOFunctionalTest):
                 NodeStates.RUNNING)
         # Check that the primary master didn't change.
         self.assertEqual(self.neo.getPrimary(), first_master_uuid)
-
-def test_suite():
-    return unittest.makeSuite(MasterTests)
-
-if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
-

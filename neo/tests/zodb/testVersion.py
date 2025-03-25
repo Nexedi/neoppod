@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from ZODB.tests.VersionStorage import VersionStorage
 from ZODB.tests.TransactionalUndoVersionStorage import \
          TransactionalUndoVersionStorage
@@ -25,8 +24,3 @@ from . import ZODBTestCase
 class VersionTests(ZODBTestCase, StorageTestBase, VersionStorage,
         TransactionalUndoVersionStorage):
     pass
-
-if __name__ == "__main__":
-    suite = unittest.makeSuite(VersionTests, 'check')
-    unittest.main(defaultTest='suite')
-

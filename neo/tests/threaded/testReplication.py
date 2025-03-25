@@ -19,7 +19,6 @@ import random, sys, threading, time
 import transaction
 from ZODB.POSException import (
     POSKeyError, ReadOnlyError, StorageTransactionError)
-import unittest
 from collections import defaultdict
 from functools import wraps
 from itertools import product
@@ -1328,7 +1327,3 @@ class ReplicationTests(NEOThreadedTest):
                     if clear_cache:
                         storage._cache.clear()
                 self.assertRaises(POSKeyError, storage.load, oid, '')
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, unittest
+import os
 from .. import getTempDirectory, DB_PREFIX
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database.sqlite import SQLiteDatabaseManager
@@ -38,6 +38,3 @@ class StorageSQLiteTests(StorageDBTests):
         db.close()
 
 del StorageDBTests
-
-if __name__ == "__main__":
-    unittest.main()

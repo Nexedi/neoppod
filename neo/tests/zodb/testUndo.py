@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from ZODB.tests.StorageTestBase import StorageTestBase
 from ZODB.tests.TransactionalUndoStorage import TransactionalUndoStorage
 from ZODB.tests.ConflictResolution import ConflictResolvingTransUndoStorage
@@ -49,10 +48,3 @@ class AltUndoTests(UndoTests):
     def _tearDown(self, success):
         self.__patch.revert()
         super(AltUndoTests, self)._tearDown(success)
-
-if __name__ == "__main__":
-    suite = unittest.TestSuite((
-        unittest.makeSuite(UndoTests, 'check'),
-        unittest.makeSuite(AltUndoTests, 'check'),
-        ))
-    unittest.main(defaultTest='suite')

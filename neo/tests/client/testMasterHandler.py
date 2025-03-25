@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from .. import Mock, NeoUnitTestBase
 from neo.client.handlers.master import PrimaryAnswersHandler
 from neo.client.exception import NEOStorageError
@@ -29,7 +28,3 @@ class MasterHandlerTests(NeoUnitTestBase):
         self.assertRaises(NEOStorageError, self.handler.answerPack, None, False)
         # Check it doesn't raise
         self.handler.answerPack(None, True)
-
-if __name__ == '__main__':
-    unittest.main()
-

@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 import socket
 from . import NeoUnitTestBase
 from neo.lib.util import parseNodeAddress
@@ -39,7 +38,3 @@ class UtilTests(NeoUnitTestBase):
         local_address = lambda port: (('127.0.0.1', port), ('::1', port))
         self.assertIn(parseNodeAddress('localhost'), local_address(0))
         self.assertIn(parseNodeAddress('localhost:10'), local_address(10))
-
-if __name__ == "__main__":
-    unittest.main()
-

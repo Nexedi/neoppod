@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from ZODB.tests.IteratorStorage import IteratorStorage
 from ZODB.tests.IteratorStorage import ExtendedIteratorStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
@@ -24,8 +23,3 @@ from . import ZODBTestCase
 class IteratorTests(ZODBTestCase, StorageTestBase, IteratorStorage,
         ExtendedIteratorStorage):
     pass
-
-if __name__ == "__main__":
-    suite = unittest.makeSuite(IteratorTests, 'check')
-    unittest.main(defaultTest='suite')
-

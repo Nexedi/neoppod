@@ -21,7 +21,6 @@ import sys
 import threading
 import time
 import transaction
-import unittest
 from collections import defaultdict
 from contextlib import contextmanager
 from thread import get_ident
@@ -2978,7 +2977,3 @@ class Test(NEOThreadedTest):
             with self.assertRaises(exception.NEOStorageWrongChecksum) as cm:
                 cluster.client.load(ZERO_OID)
             self.assertEqual(tid, cm.exception.args[1])
-
-
-if __name__ == "__main__":
-    unittest.main()

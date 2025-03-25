@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from ZODB.tests.PackableStorage import \
     PackableStorageWithOptionalGC, PackableUndoStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
@@ -37,8 +36,3 @@ class PackableTests(ZODBTestCase, StorageTestBase,
             return orig(t)
         with Patch(self._storage, pack=pack):
             super(PackableTests, self).checkPackAllRevisionsNoGC()
-
-if __name__ == "__main__":
-    suite = unittest.makeSuite(PackableTests, 'check')
-    unittest.main(defaultTest='suite')
-

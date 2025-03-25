@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import unittest
 import ZODB
 
 from ZODB.tests.RecoveryStorage import RecoveryStorage
@@ -42,8 +41,3 @@ class RecoveryTests(ZODBTestCase, StorageTestBase, RecoveryStorage):
         self._dst_db.close()
         self._dst.cleanup()
         self.neo_dst.stop()
-
-if __name__ == "__main__":
-    suite = unittest.makeSuite(RecoveryTests, 'check')
-    unittest.main(defaultTest='suite')
-

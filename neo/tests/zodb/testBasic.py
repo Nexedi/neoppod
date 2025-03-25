@@ -46,8 +46,3 @@ class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
     # until it is allowed to return the new last TID.
     check_tid_ordering_w_commit = unittest.skip("ZODB PR #316")(
         BasicStorage.check_tid_ordering_w_commit)
-
-if __name__ == "__main__":
-    suite = unittest.makeSuite(BasicTests, 'check')
-    unittest.main(defaultTest='suite')
-

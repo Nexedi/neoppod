@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys, unittest
+import sys
 from cStringIO import StringIO
 from . import NeoUnitTestBase, Patch
 
@@ -35,6 +35,3 @@ class ScriptTests(NeoUnitTestBase):
             with self.assertRaises(SystemExit) as cm:
                 check(script, ['--help'])
             self.assertFalse(cm.exception.code)
-
-if __name__ == '__main__':
-    unittest.main()

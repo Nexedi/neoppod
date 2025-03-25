@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import shutil
-import unittest
 from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterDB
 from . import Mock, MockObject, NeoUnitTestBase, getTempDirectory
@@ -251,7 +250,3 @@ class MasterDBTests(NeoUnitTestBase):
             self.assertNotIn(address2, MasterDB(db_file))
         finally:
             shutil.rmtree(directory)
-
-if __name__ == '__main__':
-    unittest.main()
-

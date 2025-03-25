@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-import random, thread, threading, unittest
+import random, thread, threading
 from bisect import bisect
 from collections import defaultdict, deque
 from contextlib import contextmanager
@@ -695,7 +695,3 @@ class GCTests(NEOThreadedTest):
         tid = newTid(tid)
         changeset.commit(tid)
         self.assertFalse(changeset.orphans(None))
-
-
-if __name__ == "__main__":
-    unittest.main()

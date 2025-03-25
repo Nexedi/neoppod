@@ -132,6 +132,3 @@ class StorageMySQLdbRocksDBTests(StorageMySQLdbTests):
     test_lockDatabase = None
 
 del StorageDBTests
-
-if __name__ == "__main__":
-    unittest.main()

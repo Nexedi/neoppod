@@ -16,7 +16,6 @@
 
 from __future__ import print_function
 import os
-import unittest
 import transaction
 import ZODB
 import socket
@@ -278,10 +277,3 @@ class ClientTests(NEOFunctionalTest):
         # request an oid, should be greater than mine
         oid = st1.new_oid()
         self.assertTrue(oid > my_oid)
-
-def test_suite():
-    return unittest.makeSuite(ClientTests)
-
-if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
-

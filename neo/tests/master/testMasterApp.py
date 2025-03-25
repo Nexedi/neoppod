@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from .. import NeoUnitTestBase
 from neo.lib.protocol import Packets
 from neo.master.app import Application
@@ -81,7 +80,3 @@ class MasterAppTests(NeoUnitTestBase):
         self.checkNotifyNodeInformation(client_conn)
         self.checkNoPacketSent(master_conn)
         self.checkNotifyNodeInformation(storage_conn)
-
-if __name__ == '__main__':
-    unittest.main()
-

@@ -148,7 +148,3 @@ class ZODBURITests(unittest.TestCase):
                 os.environ = envsave
             self.assertMultiLineEqual(zconf, zconf_ok)
             self.assertEqual(dbkw, dbkw_ok)
-
-
-if __name__ == '__main__':
-    unittest.main()

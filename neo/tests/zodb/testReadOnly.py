@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from ZODB.tests.ReadOnlyStorage import ReadOnlyStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
@@ -22,8 +21,3 @@ from . import ZODBTestCase
 
 class ReadOnlyTests(ZODBTestCase, StorageTestBase, ReadOnlyStorage):
     pass
-
-if __name__ == "__main__":
-    suite = unittest.makeSuite(ReadOnlyTests, 'check')
-    unittest.main(defaultTest='suite')
-

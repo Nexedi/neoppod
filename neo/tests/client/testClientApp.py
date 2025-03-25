@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from ZODB.POSException import StorageTransactionError
 from .. import Mock, MockObject, NeoUnitTestBase, buildUrlFromString
 from neo.client.app import Application
@@ -91,7 +90,3 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertRaises(StorageTransactionError, app.undo, tid, txn)
         # no packet sent
         self.checkNoPacketSent(app.master_conn)
-
-if __name__ == '__main__':
-    unittest.main()
-

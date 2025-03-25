@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from functools import partial
-import unittest
 import transaction
 from neo.lib.protocol import NodeStates
 from neo.neoctl.app import TerminalNeoCTL
@@ -180,10 +179,3 @@ class ClusterTests(NEOFunctionalTest):
         storages[1].stop()
         self.neo.expectDown(storages[0])
         self.neo.expectDown(storages[1])
-
-def test_suite():
-    return unittest.makeSuite(ClusterTests)
-
-if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
-

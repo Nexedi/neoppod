@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from ZODB.tests.HistoryStorage import HistoryStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
@@ -22,8 +21,3 @@ from . import ZODBTestCase
 
 class HistoryTests(ZODBTestCase, StorageTestBase, HistoryStorage):
     pass
-
-if __name__ == "__main__":
-    suite = unittest.makeSuite(HistoryTests, 'check')
-    unittest.main(defaultTest='suite')
-

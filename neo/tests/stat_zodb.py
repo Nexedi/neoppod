@@ -155,7 +155,3 @@ def main():
            "\n%% of new object / transaction: %s"
            "\n# of transactions: %s"
            % ((u"µ",) + s[0] + s[1] + s[2] + s[3:]))
-
-
-if __name__ == "__main__":
-    sys.exit(main())

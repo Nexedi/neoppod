@@ -425,7 +425,3 @@ class ImporterTests(NEOThreadedTest):
                 check() # imported, Importer getObject
             self.tic()
             check() # imported, direct getObject
-
-
-if __name__ == "__main__":
-    unittest.main()

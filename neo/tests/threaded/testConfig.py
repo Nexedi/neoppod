@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from contextlib import contextmanager
 from ZConfig import ConfigurationError
 from ZODB.config import databaseFromString
@@ -58,6 +57,3 @@ class ConfigTests(NEOThreadedTest):
         for compress in valid:
             with self._db(cluster, compress=compress) as db:
                 self.assertEqual((0,0,''), db.storage.app.compress(''))
-
-if __name__ == "__main__":
-    unittest.main()

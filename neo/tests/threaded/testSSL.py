@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from neo.lib.connection import ClientConnection, ListeningConnection
 from neo.lib.protocol import Packets
 from .. import Patch, SSL
@@ -91,7 +90,3 @@ class SSLTests(SSLMixin, test.Test):
 class SSLReplicationTests(SSLMixin, testReplication.ReplicationTests):
     # do not repeat slowest tests with SSL
     testBackupNodeLost = testBackupNormalCase = None
-
-
-if __name__ == "__main__":
-    unittest.main()

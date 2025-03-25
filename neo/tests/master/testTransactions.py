@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from struct import pack
 from .. import MockObject, NeoUnitTestBase
 from neo.lib.protocol import NodeTypes
@@ -62,6 +61,3 @@ class testTransactionManager(NeoUnitTestBase):
         tm.begin(node1, 0, tid1)
         self.assertEqual(1, len(list(tm.clientLost(node1))))
         self.assertNotIn(tid1, tm)
-
-if __name__ == '__main__':
-    unittest.main()

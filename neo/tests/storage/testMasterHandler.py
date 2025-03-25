@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 from .. import Mock, MockObject, NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
@@ -78,6 +77,3 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
                           conn, *args)
         self.assertEqual(app.pt.getID(), ptid)
         m.assert_not_called()
-
-if __name__ == "__main__":
-    unittest.main()
