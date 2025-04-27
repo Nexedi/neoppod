@@ -238,6 +238,8 @@ class ClientTests(NEOFunctionalTest):
         # BUG: The following check is sometimes done whereas the import is not
         #      finished, resulting in a failure because getReplicationTIDList
         #      is not implemented by the Importer backend.
+        #      As a workaround, we sleep a little.
+        import time; time.sleep(.1)
         self.assertEqual(dump, self.__dump(neo_db.storage, list))
 
     def testIPv6Client(self):
