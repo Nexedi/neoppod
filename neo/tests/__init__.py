@@ -16,13 +16,16 @@
 
 from __future__ import print_function
 import __builtin__
+import atexit
 import errno
 import functools
 import gc
 import os
 import random
+import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -40,6 +43,7 @@ except ImportError:
 from functools import wraps
 from inspect import isclass
 from itertools import islice
+from os import pathsep
 from mock import MagicMock, Mock, NonCallableMock
 from neo.lib import debug, event, logging
 from neo.lib.protocol import NodeTypes, Packet, Packets, UUID_NAMESPACES
@@ -114,30 +118,111 @@ def buildUrlFromString(address):
         pass
     return address
 
+def _libc():
+    from ctypes import CDLL, get_errno, POINTER, Structure, util, \
+        c_char_p, c_int, c_ulong, c_uint32
+    libc = CDLL(util.find_library('c'), use_errno=True)
+    libc_mount = libc.mount
+    libc_mount.argtypes = c_char_p, c_char_p, c_char_p, c_ulong, c_char_p
+    def mount(source, target, filesystemtype, mountflags, data):
+        if libc_mount(source, target, filesystemtype, mountflags, data):
+            e = get_errno()
+            raise OSError(e, os.strerror(e))
+    libc_unshare = libc.unshare
+    libc_unshare.argtypes = c_int,
+    def unshare(flags):
+        if libc_unshare(flags):
+            e = get_errno()
+            raise OSError(e, os.strerror(e))
+    class cap_user_header(Structure):
+        _fields_ = ("version", c_uint32), ("pid", c_int)
+    class cap_user_data(Structure):
+        _fields_ = (("effective", c_uint32),
+                    ("permitted", c_uint32),
+                    ("inheritable", c_uint32))
+    libc_capset = libc.capset
+    libc_capset.argtypes = POINTER(cap_user_header), POINTER(cap_user_data)
+    def capset3(pid, effective, permitted, inheritable):
+        if libc_capset(cap_user_header(0x20080522, pid),
+                       cap_user_data(effective, permitted, inheritable)):
+            e = get_errno()
+            raise OSError(e, os.strerror(e))
+    return mount, unshare, capset3
+
+def private_tmpfs(path, opt):
+    mount, unshare, capset3 = _libc()
+    CLONE_NEWNS   = 0x00020000
+    CLONE_NEWUSER = 0x10000000
+    uid = os.getuid()
+    gid = os.getgid()
+    unshare(CLONE_NEWUSER |CLONE_NEWNS)
+    with open('/proc/self/setgroups', 'w') as f:
+        f.write('deny')
+    with open('/proc/self/uid_map', 'w') as f:
+        f.write('%s %s 1' % (uid, uid))
+    with open('/proc/self/gid_map', 'w') as f:
+        f.write('%s %s 1' % (gid, gid))
+    data = 'mode=%o' % stat.S_IMODE(os.stat(path).st_mode)
+    if opt:
+        data += ',' + opt
+    mount('tmpfs', path, 'tmpfs', 0, data)
+    capset3(os.getpid(), 0, 0, 0)
+
 def getTempDirectory():
     """get the current temp directory or a new one"""
+    def maybe_tmpfs(src):
+        try:
+            dst = os.environ.pop('NEO_PRIVATE_TMPFS')
+        except KeyError:
+            return
+        x = dst.split(pathsep)
+        if len(x) > 1:
+            dst, opt = x
+        else:
+            opt = None
+        private_tmpfs(src, opt)
+        atexit.register(save, dst)
     try:
         temp_dir = os.environ['TEMP']
     except KeyError:
         neo_dir = os.path.join(tempfile.gettempdir(), 'neo_tests')
+        try:
+            os.mkdir(neo_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        def save(dst):
+            shutil.move(temp_dir, os.path.join(dst, temp_name))
+            last(dst)
+        maybe_tmpfs(neo_dir)
         while True:
             temp_name = repr(time())
             temp_dir = os.path.join(neo_dir, temp_name)
             try:
-                os.makedirs(temp_dir)
+                os.mkdir(temp_dir)
                 break
             except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
-        last = os.path.join(neo_dir, "last")
-        try:
-            os.remove(last)
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
-        os.symlink(temp_name, last)
+        def last(neo_dir):
+            last = os.path.join(neo_dir, "last")
+            try:
+                os.remove(last)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+            os.symlink(temp_name, last)
+        last(neo_dir)
         os.environ['TEMP'] = temp_dir
         print('Using temp directory', temp_dir)
+    else:
+        def save(dst):
+            # We use shutil.move to minimize peak usage of RAM.
+            os.mkdir(dst)
+            shutil.copymode(temp_dir, dst)
+            for x in os.listdir(temp_dir):
+                shutil.move(os.path.join(temp_dir, x), os.path.join(dst, x))
+        maybe_tmpfs(temp_dir)
     return temp_dir
 
 def setupMySQL(db_list, clear_databases=True):
