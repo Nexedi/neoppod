@@ -228,8 +228,8 @@ def getTempDirectory():
 def setupMySQL(db_list, clear_databases=True):
     if mysql_pool:
         return mysql_pool.setup(db_list, clear_databases)
-    from neo.storage.database.mysql import \
-        Connection, InternalOrOperationalError, BAD_DB_ERROR
+    from neo.storage.database.mysql import fetch_all, MySQLDatabaseManager, \
+        Connection, InternalOrOperationalError, BAD_DB_ERROR, SQL_DATADIR
     user = DB_USER
     password = ''
     kw = {'unix_socket': os.path.expanduser(DB_SOCKET)} if DB_SOCKET else {}
@@ -248,6 +248,16 @@ def setupMySQL(db_list, clear_databases=True):
                     continue
                 conn.query('DROP DATABASE `%s`' % database)
             conn.query('CREATE DATABASE `%s`' % database)
+        # Return a fake dev_path for DatabaseManager.getTopologyPath
+        # if the actual datadir is in MySQL's private FS.
+        conn.query(SQL_DATADIR)
+        datadir = fetch_all(conn)[0][1]
+        try:
+            os.stat(datadir)
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
+            MySQLDatabaseManager._getDevPath = lambda self: getTempDirectory()
     return '{}:{}@%s{}'.format(user, password, DB_SOCKET).__mod__
 
 class MySQLPool(object):

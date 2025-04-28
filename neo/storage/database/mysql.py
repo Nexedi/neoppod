@@ -56,6 +56,10 @@ from neo.lib.exception import NonReadableCell, UndoPackError
 from neo.lib.interfaces import implements
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH, MAX_TID
 
+# BBB: MySQL is moving to Performance Schema.
+SQL_DATADIR = ("SELECT * FROM information_schema.global_variables"
+               " WHERE variable_name='datadir'")
+
 
 class MysqlError(DatabaseFailure):
 
@@ -245,9 +249,7 @@ class MySQLDatabaseManager(MVCCDatabaseManager):
         return self.conn.escape_string
 
     def _getDevPath(self):
-        # BBB: MySQL is moving to Performance Schema.
-        return self.query("SELECT * FROM information_schema.global_variables"
-                          " WHERE variable_name='datadir'")[0][1]
+        return self.query(SQL_DATADIR)[0][1]
 
     def erase(self):
         self.query("DROP TABLE IF EXISTS"
