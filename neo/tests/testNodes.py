@@ -19,7 +19,7 @@ from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterDB
 from . import Mock, MockObject, NeoUnitTestBase, getTempDirectory
 from time import time
-from os import chmod, mkdir, rmdir
+from os import chmod, mkdir
 from os.path import join, exists
 
 class NodesTests(NeoUnitTestBase):
@@ -197,7 +197,7 @@ class MasterDBTests(NeoUnitTestBase):
         try:
             self.assertRaises(IOError, MasterDB, db_file)
         finally:
-            rmdir(directory)
+            shutil.rmtree(directory)
 
     def testLaterAccessRights(self):
         """
