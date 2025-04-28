@@ -38,6 +38,7 @@ else:
     from pymysql.connections import Connection
     from pymysql import __version__ as binding_version, DataError, \
         IntegrityError, InternalError, OperationalError, ProgrammingError
+    # BBB: https://github.com/PyMySQL/PyMySQL/pull/823 (< 0.10.0)
     InternalOrOperationalError = InternalError, OperationalError
     from pymysql.constants.CR import (
         CR_SERVER_GONE_ERROR as SERVER_GONE_ERROR,

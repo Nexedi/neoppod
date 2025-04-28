@@ -144,7 +144,7 @@ def setupMySQL(db_list, clear_databases=True):
     if mysql_pool:
         return mysql_pool.setup(db_list, clear_databases)
     from neo.storage.database.mysql import \
-        Connection, OperationalError, BAD_DB_ERROR
+        Connection, InternalOrOperationalError, BAD_DB_ERROR
     user = DB_USER
     password = ''
     kw = {'unix_socket': os.path.expanduser(DB_SOCKET)} if DB_SOCKET else {}
@@ -153,14 +153,15 @@ def setupMySQL(db_list, clear_databases=True):
         for database in db_list:
             try:
                 conn.select_db(database)
-                if not clear_databases:
-                    continue
-                conn.query('DROP DATABASE `%s`' % database)
-            except OperationalError as e:
+            except InternalOrOperationalError as e:
                 if e.args[0] != BAD_DB_ERROR:
                     raise
                 conn.query('GRANT ALL ON `%s`.* TO "%s"@"localhost" IDENTIFIED'
                            ' BY "%s"' % (database, user, password))
+            else:
+                if not clear_databases:
+                    continue
+                conn.query('DROP DATABASE `%s`' % database)
             conn.query('CREATE DATABASE `%s`' % database)
     return '{}:{}@%s{}'.format(user, password, DB_SOCKET).__mod__
 
