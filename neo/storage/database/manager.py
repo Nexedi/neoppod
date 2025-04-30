@@ -95,16 +95,18 @@ class BackgroundWorker(object):
     def operational(self, app):
         assert app.em.lock.locked()
         try:
-            with self._maybeResume(app):
-                pass
-            app.dm.lock.release()
-            yield
+            try:
+                with self._maybeResume(app):
+                    pass
+                app.dm.lock.release()
+                yield
+            finally:
+                thread = self._thread
+                if thread is not None:
+                    self._stop = True
+                    logging.info("waiting for background tasks to interrupt")
+                    self._join(app, thread)
         finally:
-            thread = self._thread
-            if thread is not None:
-                self._stop = True
-                logging.info("waiting for background tasks to interrupt")
-                self._join(app, thread)
             locked = app.dm.lock.acquire(0)
             assert locked
             self._pack_set.clear()
