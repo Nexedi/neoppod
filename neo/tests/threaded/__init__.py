@@ -306,6 +306,25 @@ class TestSerialized(Serialized):
         return self._epoll.poll(timeout)
 
 
+class PatchedRLock(object):
+
+    def __init__(self, lock):
+        self.__lock = lock
+        self.__owner = thread.get_ident()
+
+    @property
+    def __enter__(self):
+        assert self.__owner != thread.get_ident()
+        return self.__lock.__enter__
+
+    @property
+    def __exit__(self):
+        return self.__lock.__exit__
+
+    def _is_owned(self):
+        return self.__owner == thread.get_ident() or self.__lock._is_owned()
+
+
 class FakeSMTP(list):
 
     close = connect = lambda *_: None
@@ -490,9 +509,7 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
             return
         else:
             _dm = dm
-        l = threading.RLock()
-        l.acquire()
-        with Patch(_dm, lock=l):
+        with Patch(_dm, lock=PatchedRLock(_dm.lock)):
             yield dm
 
     def getDataLockInfo(self):
