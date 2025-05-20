@@ -28,9 +28,6 @@ class StorageDBTests(NeoUnitTestBase):
 
     _last_ttid = ZERO_TID
 
-    def setUp(self):
-        NeoUnitTestBase.setUp(self)
-
     @property
     def db(self):
         try:
@@ -454,6 +451,7 @@ class StorageDBTests(NeoUnitTestBase):
                 for x in string.digits
             ], range(0, 10))
             db2 = copy(db)
+            self.addCleanup(db2.close)
             for x in (3, 9, 4), (4, 7, 6):
                 self.assertIsNone(db2._pruneData(x))
             db.commit()

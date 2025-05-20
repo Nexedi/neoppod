@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from contextlib import closing
 import transaction
 from persistent import Persistent
 
@@ -65,21 +66,21 @@ class StorageTests(NEOFunctionalTest):
         db.close()
 
     def __checkDatabase(self, db_name):
-        db = self.neo.getSQLConnection(db_name)
         # wait for the sql transaction to be committed
         def callback(last_try):
             db.commit() # to get a fresh view
             # One revision per object and two for the root, before and after
             (object_number,), = db.query('SELECT count(*) FROM obj')
             return object_number == OBJECT_NUMBER + 2, object_number
-        self.neo.expectCondition(callback)
-        # no more temporarily objects
-        (t_objects,), = db.query('SELECT count(*) FROM tobj')
-        self.assertEqual(t_objects, 0)
-        # One object more for the root
-        query = 'SELECT count(*) FROM (SELECT * FROM obj GROUP BY oid) AS t'
-        (objects,), = db.query(query)
-        self.assertEqual(objects, OBJECT_NUMBER + 1)
+        with closing(self.neo.getSQLConnection(db_name)) as db:
+            self.neo.expectCondition(callback)
+            # no more temporarily objects
+            (t_objects,), = db.query('SELECT count(*) FROM tobj')
+            self.assertEqual(t_objects, 0)
+            # One object more for the root
+            query = 'SELECT count(*) FROM (SELECT * FROM obj GROUP BY oid) AS t'
+            (objects,), = db.query(query)
+            self.assertEqual(objects, OBJECT_NUMBER + 1)
         # Check object content
         db, conn = self.neo.getZODBConnection()
         root = conn.root()
