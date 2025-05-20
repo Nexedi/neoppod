@@ -21,6 +21,7 @@ from contextlib import contextmanager
 from copy import copy
 from time import time
 from neo.lib import logging, util
+from neo.lib.connection import ConnectionClosed
 from neo.lib.exception import NonReadableCell
 from neo.lib.interfaces import abstract, requires
 from neo.lib.protocol import CellStates, MAX_TID, ZERO_TID
@@ -191,6 +192,11 @@ class BackgroundWorker(object):
                             dm2 = copy(dm)
             finally:
                 dm is dm2 or dm2.close()
+        except ConnectionClosed:
+            # e.g. when notifying the master about a completed pack
+            # Safe to ignore because the main thread
+            # should get the same exception.
+            logging.info('', exc_info=True)
         except SystemExit:
             pass
         except:
