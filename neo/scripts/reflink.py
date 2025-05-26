@@ -777,499 +777,503 @@ def main(args=None):
 
     command = args.command
     bootstrap = command == "bootstrap"
-    changeset = Changeset(openStorage(args.refs),
-                          args.tid if bootstrap else None)
+    if 1:
+        changeset = Changeset(openStorage(args.refs),
+                              args.tid if bootstrap else None)
 
-    if command == "dump":
-        tid = args.tid
-        changeset.dump(None if tid is None else p64(tid))
-        return
+        if command == "dump":
+            tid = args.tid
+            changeset.dump(None if tid is None else p64(tid))
+            return
 
-    tid = changeset.storage.lastTransaction()
+        tid = changeset.storage.lastTransaction()
 
-    if bootstrap:
-        changeset.commit(inc64(tid))
-        print("Bootstrap at %s UTC. You can now use the 'run' command."
-              % TimeStamp(p64(args.tid)))
-        return
+        if bootstrap:
+            changeset.commit(inc64(tid))
+            print("Bootstrap at %s UTC. You can now use the 'run' command."
+                  % TimeStamp(p64(args.tid)))
+            return
 
-    if args.main:
-        main_storage = openStorage(args.main)
-        for iface in (ZODB.interfaces.IStorageIteration,
-                      ZODB.interfaces.IExternalGC):
-            if not iface.providedBy(main_storage):
-                return "Main storage shall implement " + iface.__name__
+        if args.main:
+            main_storage = openStorage(args.main)
+            for iface in (ZODB.interfaces.IStorageIteration,
+                          ZODB.interfaces.IExternalGC):
+                if not iface.providedBy(main_storage):
+                    return "Main storage shall implement " + iface.__name__
 
-    if command == "path":
-        x = args.tid
-        if x is None:
-            tid = inc64(tid)
+        if command == "path":
+            x = args.tid
+            if x is None:
+                tid = inc64(tid)
+            else:
+                tid = p64(x + 1)
+                x = p64(x)
+            def find_global(*args):
+                obj.extend(args)
+            with changeset.historical(x):
+                for oid in reversed(changeset.path(p64(args.oid))):
+                    obj = [hex(u64(oid))]
+                    if args.main:
+                        data = main_storage.loadBefore(oid, tid)[0]
+                        PersistentUnpickler(find_global, None,
+                                            BytesIO(data)).load()
+                    print(*obj)
+            return
+
+        bootstrap = changeset.bootstrap
+        if command == 'gc':
+            if bootstrap and not (bootstrap[1] is None and args.dry_run):
+                return "can not GC: bootstrapping"
+            commit_interval = 0
+            exit_before_gc = no_gc = False
+            exit_after_gc = True
         else:
-            tid = p64(x + 1)
-            x = p64(x)
-        def find_global(*args):
-            obj.extend(args)
-        with changeset.historical(x):
-            for oid in reversed(changeset.path(p64(args.oid))):
-                obj = [hex(u64(oid))]
-                if args.main:
-                    data = main_storage.loadBefore(oid, tid)[0]
-                    PersistentUnpickler(find_global, None,
-                                        BytesIO(data)).load()
-                print(*obj)
-        return
+            assert command == "run", command
+            commit_interval = args.commit_interval
+            if commit_interval <= 0:
+                parser.error("--commit-interval must be strictly positive.")
+            exit_before_gc = args.exit_before_gc
+            exit_after_gc = args.exit_after_gc
+            no_gc = args.no_gc
+            x = args.pack_neo
+            if x:
+                changeset.pack(tidFromTime(x))
+        job_count = args.jobs
+        if job_count <= 0:
+            parser.error("--jobs must be strictly positive.")
+        max_txn_size = args.max_txn_size
+        if not 0 < max_txn_size <= MAX_TXN_SIZE:
+            parser.error("--max_txn_size value not in [1..%s]." % MAX_TXN_SIZE)
+        period = args.period
+        if period < 0:
+            parser.error("--period must be positive.")
 
-    bootstrap = changeset.bootstrap
-    if command == 'gc':
-        if bootstrap and not (bootstrap[1] is None and args.dry_run):
-            return "can not GC: bootstrapping"
-        commit_interval = 0
-        exit_before_gc = no_gc = False
-        exit_after_gc = True
-    else:
-        assert command == "run", command
-        commit_interval = args.commit_interval
-        if commit_interval <= 0:
-            parser.error("--commit-interval must be strictly positive.")
-        exit_before_gc = args.exit_before_gc
-        exit_after_gc = args.exit_after_gc
-        no_gc = args.no_gc
-        x = args.pack_neo
-        if x:
-            changeset.pack(tidFromTime(x))
-    job_count = args.jobs
-    if job_count <= 0:
-        parser.error("--jobs must be strictly positive.")
-    max_txn_size = args.max_txn_size
-    if not 0 < max_txn_size <= MAX_TXN_SIZE:
-        parser.error("--max_txn_size value not in [1..%s]." % MAX_TXN_SIZE)
-    period = args.period
-    if period < 0:
-        parser.error("--period must be positive.")
+        full = args.full
+        if full:
+            checkAPI(changeset.storage)
 
-    full = args.full
-    if full:
-        checkAPI(changeset.storage)
+        dry_run = args.dry_run
+        if dry_run:
+            dry_run_stats = defaultdict(list)
+            def find_global(*args):
+                dry_run_stats[args].append(oid)
+            uid_dict = {}
+            load_broken = lambda *args: Broken
+            load_persistent = lambda *args: None
 
-    dry_run = args.dry_run
-    if dry_run:
-        dry_run_stats = defaultdict(list)
-        def find_global(*args):
-            dry_run_stats[args].append(oid)
-        uid_dict = {}
-        load_broken = lambda *args: Broken
-        load_persistent = lambda *args: None
+        del args, command, parser
 
-    del args, command, parser
+        queue = Queue(3)
+        exc_info = [] # Py3
+        def checkExc():
+            if exc_info:
+                etype, value, tb = exc_info
+                raise etype, value, tb
 
-    queue = Queue(3)
-    exc_info = [] # Py3
-    def checkExc():
-        if exc_info:
-            etype, value, tb = exc_info
-            raise etype, value, tb
-
-    if bootstrap and bootstrap[1] is not None:
-        @apply
-        def next_oid():
-            tid, oid = map(p64, bootstrap)
-            load = partial(main_storage.loadBefore, tid=inc64(tid))
-            iter_oids = main_storage.app.oids(tid, oid)
-            if job_count == 1:
-                def loadThread():
-                    put = queue.put
+        if bootstrap and bootstrap[1] is not None:
+            @apply
+            def next_oid():
+                tid, oid = map(p64, bootstrap)
+                load = partial(main_storage.loadBefore, tid=inc64(tid))
+                iter_oids = main_storage.app.oids(tid, oid)
+                if job_count == 1:
+                    def loadThread():
+                        put = queue.put
+                        try:
+                            for oid in iter_oids:
+                                put((oid, load(oid)[0]))
+                        except:
+                            exc_info[:] = sys.exc_info()
+                        put(None)
+                    t = threading.Thread(target=loadThread)
+                    t.daemon = True
+                    t.start()
+                    return queue.get
+                job_queue = Queue(2 * job_count)
+                Lock = threading.Lock
+                def loadThread(iter_lock=Lock(), put=job_queue.put):
                     try:
-                        for oid in iter_oids:
-                            put((oid, load(oid)[0]))
+                        while True:
+                            l = Lock()
+                            with l:
+                                with iter_lock:
+                                    if exc_info:
+                                        return
+                                    oid = next(iter_oids)
+                                    r = [oid, None, l]
+                                    put(r)
+                                r[1] = load(oid)[0]
+                    except StopIteration:
+                        pass
                     except:
                         exc_info[:] = sys.exc_info()
                     put(None)
-                t = threading.Thread(target=loadThread)
-                t.daemon = True
-                t.start()
-                return queue.get
-            job_queue = Queue(2 * job_count)
-            Lock = threading.Lock
-            def loadThread(iter_lock=Lock(), put=job_queue.put):
-                try:
-                    while True:
-                        l = Lock()
-                        with l:
-                            with iter_lock:
-                                if exc_info:
-                                    return
-                                oid = next(iter_oids)
-                                r = [oid, None, l]
-                                put(r)
-                            r[1] = load(oid)[0]
-                except StopIteration:
-                    pass
-                except:
-                    exc_info[:] = sys.exc_info()
-                put(None)
-            for t in xrange(job_count):
-                t = threading.Thread(target=loadThread)
-                t.daemon = True
-                t.start()
-            def next_oid(get=job_queue.get):
-                r = get()
-                if r:
-                    r[2].acquire()
-                    return r[:2]
-            return next_oid
-        next_commit = time() + commit_interval
-        while True:
-            r = next_oid()
-            if r is None:
-                checkExc()
-                break
-            oid, data = r
-            try:
-                referents = set(referencesf(data))
-            except Exception:
-                logger.warning("Corrupted record %x@%x", u64(oid), bootstrap[0])
-                referents = set()
-            else:
-                referents.discard(oid)
-            src = changeset.get(oid)
-            src.referents = referents
-            for referent in referents:
-                insort(changeset.get(referent).referrers, oid)
-            x = time()
-            if next_commit <= x:
-                tid = inc64(tid)
-                changeset.bootstrap = bootstrap[0], u64(oid) + 1
-                changeset.commit(tid, "oid=%x" % u64(oid))
-                next_commit = x + commit_interval
-        changeset.bootstrap = bootstrap[0], None
-        tid = p64(bootstrap[0])
-        changeset.commit(tid)
-        del next_oid
-
-    if job_count == 1:
-        def iter_orphans(iter_oids, load):
-            for i, oid in iter_oids:
-                try:
-                    data, serial = load(oid)
-                except POSKeyError:
-                    data = serial = None
-                yield i, oid, data, serial
-    else:
-        def iter_orphans(iter_oids, load):
-            job_queue = Queue(2 * job_count)
-            Lock = threading.Lock
-            def loadThread(iter_lock=Lock(),
-                           put=job_queue.put):
-                try:
-                    while True:
-                        l = Lock()
-                        with l:
-                            with iter_lock:
-                                if exc_info:
-                                    return
-                                i, oid = next(iter_oids)
-                                r = [l, i, oid]
-                                put(r)
-                            try:
-                                r += load(oid)
-                            except POSKeyError:
-                                r += None, None
-                except StopIteration:
-                    pass
-                except:
-                    exc_info[:] = sys.exc_info()
-                put(None)
-            threads = []
-            try:
                 for t in xrange(job_count):
                     t = threading.Thread(target=loadThread)
                     t.daemon = True
                     t.start()
-                    threads.append(t)
-                get = job_queue.get
-                while True:
+                def next_oid(get=job_queue.get):
                     r = get()
-                    if r is None:
-                        break
-                    r[0].acquire()
-                    yield r[1:]
-            finally:
-                iter_oids = iter(())
-                try:
-                    while True:
-                        get(False)
-                except Empty:
-                    pass
-                for t in threads:
-                    t.join()
-            checkExc()
-
-    invalidation_listener = InvalidationListener(main_storage, tid)
-
-    if commit_interval:
-        deleted_dict = {}
-        def iterTrans(x):
-            put = queue.put
-            try:
-                for x in x:
-                    tid = x.tid
-                    put(tid)
-                    try:
-                        x = deleted_dict.pop(tid)
-                    except KeyError:
-                        for x in x:
-                            put((x.oid, x.data))
-                    else:
-                        for x in x:
-                            put((x, None))
-                    put(None)
-            except:
-                exc_info[:] = sys.exc_info()
-            put(None)
-
-    if not no_gc:
-        gc_lock_name = "\0reflink-%s" % os.getpid()
-    next_gc = period and TimeStamp(changeset.last_gc).timeTime() + period
-    next_commit = time() + commit_interval
-    while True:
-        if commit_interval:
-            thread = threading.Thread(target=iterTrans,
-                args=(main_storage.iterator(inc64(tid)),))
-            thread.daemon = True
-            thread.start()
+                    if r:
+                        r[2].acquire()
+                        return r[:2]
+                return next_oid
+            next_commit = time() + commit_interval
             while True:
-                x = queue.get()
-                if x is None:
+                r = next_oid()
+                if r is None:
                     checkExc()
                     break
-                tid = x
-                # logger.debug("tid=%x", u64(tid))
-                check_orphan = {}
-                check_keep = set()
-                check_deleted = []
+                oid, data = r
+                try:
+                    referents = set(referencesf(data))
+                except Exception:
+                    logger.warning("Corrupted record %x@%x",
+                                   u64(oid), bootstrap[0])
+                    referents = set()
+                else:
+                    referents.discard(oid)
+                src = changeset.get(oid)
+                src.referents = referents
+                for referent in referents:
+                    insort(changeset.get(referent).referrers, oid)
+                x = time()
+                if next_commit <= x:
+                    tid = inc64(tid)
+                    changeset.bootstrap = bootstrap[0], u64(oid) + 1
+                    changeset.commit(tid, "oid=%x" % u64(oid))
+                    next_commit = x + commit_interval
+            changeset.bootstrap = bootstrap[0], None
+            tid = p64(bootstrap[0])
+            changeset.commit(tid)
+            del next_oid
+
+        if job_count == 1:
+            def iter_orphans(iter_oids, load):
+                for i, oid in iter_oids:
+                    try:
+                        data, serial = load(oid)
+                    except POSKeyError:
+                        data = serial = None
+                    yield i, oid, data, serial
+        else:
+            def iter_orphans(iter_oids, load):
+                job_queue = Queue(2 * job_count)
+                Lock = threading.Lock
+                def loadThread(iter_lock=Lock(),
+                               put=job_queue.put):
+                    try:
+                        while True:
+                            l = Lock()
+                            with l:
+                                with iter_lock:
+                                    if exc_info:
+                                        return
+                                    i, oid = next(iter_oids)
+                                    r = [l, i, oid]
+                                    put(r)
+                                try:
+                                    r += load(oid)
+                                except POSKeyError:
+                                    r += None, None
+                    except StopIteration:
+                        pass
+                    except:
+                        exc_info[:] = sys.exc_info()
+                    put(None)
+                threads = []
+                try:
+                    for t in xrange(job_count):
+                        t = threading.Thread(target=loadThread)
+                        t.daemon = True
+                        t.start()
+                        threads.append(t)
+                    get = job_queue.get
+                    while True:
+                        r = get()
+                        if r is None:
+                            break
+                        r[0].acquire()
+                        yield r[1:]
+                finally:
+                    iter_oids = iter(())
+                    try:
+                        while True:
+                            get(False)
+                    except Empty:
+                        pass
+                    for t in threads:
+                        t.join()
+                checkExc()
+
+        invalidation_listener = InvalidationListener(main_storage, tid)
+
+        if commit_interval:
+            deleted_dict = {}
+            def iterTrans(x):
+                put = queue.put
+                try:
+                    for x in x:
+                        tid = x.tid
+                        put(tid)
+                        try:
+                            x = deleted_dict.pop(tid)
+                        except KeyError:
+                            for x in x:
+                                put((x.oid, x.data))
+                        else:
+                            for x in x:
+                                put((x, None))
+                        put(None)
+                except:
+                    exc_info[:] = sys.exc_info()
+                put(None)
+
+        if not no_gc:
+            gc_lock_name = "\0reflink-%s" % os.getpid()
+        next_gc = period and TimeStamp(changeset.last_gc).timeTime() + period
+        next_commit = time() + commit_interval
+        while True:
+            if commit_interval:
+                thread = threading.Thread(target=iterTrans,
+                    args=(main_storage.iterator(inc64(tid)),))
+                thread.daemon = True
+                thread.start()
                 while True:
                     x = queue.get()
                     if x is None:
                         checkExc()
                         break
-                    oid, data = x
-                    # logger.debug("  oid=%x", u64(oid))
-                    src = changeset.get(oid)
-                    old_set = src.referents
-                    if data is None:
-                        # logger.debug("    deleted")
-                        if src.prev_orphan:
-                            changeset.keep(src)
-                        elif bootstrap:
-                            check_deleted.append(oid)
-                        new_set = set()
-                    else:
-                        if not (src.prev_orphan or old_set or src.referrers
-                                or oid == z64 or bootstrap):
-                            # After a pack, an oid may be
-                            # orphan from its creation.
-                            check_orphan[oid] = src
-                        try:
-                            new_set = set(referencesf(data))
-                        except Exception:
-                            logger.warning("Corrupted record %x@%x",
-                                           u64(oid), u64(tid))
+                    tid = x
+                    # logger.debug("tid=%x", u64(tid))
+                    check_orphan = {}
+                    check_keep = set()
+                    check_deleted = []
+                    while True:
+                        x = queue.get()
+                        if x is None:
+                            checkExc()
+                            break
+                        oid, data = x
+                        # logger.debug("  oid=%x", u64(oid))
+                        src = changeset.get(oid)
+                        old_set = src.referents
+                        if data is None:
+                            # logger.debug("    deleted")
+                            if src.prev_orphan:
+                                changeset.keep(src)
+                            elif bootstrap:
+                                check_deleted.append(oid)
                             new_set = set()
                         else:
-                            new_set.discard(oid)
-                    if new_set == old_set:
-                        continue
-                    src.referents = new_set
-                    for referent in new_set - old_set:
-                        # logger.debug("  + %x", u64(referent))
-                        dst = changeset.get(referent)
-                        insort(dst.referrers, oid)
-                        if dst.prev_orphan:
-                            check_keep.add(dst)
-                    old_set.difference_update(new_set)
-                    for referent in old_set:
-                        # logger.debug("  - %x", u64(referent))
-                        dst = changeset.get(referent)
-                        dst.referrers.remove(oid)
-                        if not (dst.prev_orphan
-                                or referent == z64 or bootstrap):
-                            check_orphan[referent] = dst
-                x = inc64(tid)
-                for obj in check_keep:
-                    if not obj.maybeOrphan():
-                        changeset.keep(obj)
-                for oid, obj in check_orphan.iteritems():
-                    if obj.maybeOrphan():
-                        assert not (obj.prev_orphan or obj.next_orphan), oid
-                        if not obj.referents:
+                            if not (src.prev_orphan or old_set or src.referrers
+                                    or oid == z64 or bootstrap):
+                                # After a pack, an oid may be
+                                # orphan from its creation.
+                                check_orphan[oid] = src
                             try:
-                                if main_storage.loadBefore(oid, x) is None:
-                                    continue
-                            except POSKeyError:
-                                continue
-                        obj.prev_orphan = z64
-                        prev_orphan = changeset.get(z64)
-                        next_orphan = prev_orphan.next_orphan
-                        if next_orphan:
-                            changeset.get(next_orphan).prev_orphan = oid
-                            obj.next_orphan = next_orphan
-                        prev_orphan.next_orphan = oid
-                for oid in check_deleted:
-                    changeset.deleted(oid)
-                del check_keep, check_deleted, check_orphan
-
-                x = time()
-                if next_commit <= x:
-                    changeset.commit(tid)
-                    next_commit = x + commit_interval
-            thread.join()
-            assert not deleted_dict, list(deleted_dict)
-
-        x = time()
-        timeout = next_gc - x
-        if timeout <= 0 or not commit_interval:
-            timeout = None
-            if (full or changeset.orphan or bootstrap) and not no_gc:
-                if changeset.buckets:
-                    next_commit = x + commit_interval
-                    changeset.commit(tid)
-                assert tid == changeset.storage.lastTransaction()
-                if exit_before_gc:
-                    break
-                if full or bootstrap:
-                    logger.info('Full GC...')
-                    gc = changeset.full
-                else:
-                    logger.info('Incremental GC...')
-                    gc = changeset.orphans
-                gc_tid = tid if bootstrap or not period else \
-                    tidFromTime(time() - period)
-                if gc_tid < tid:
-                    if gc_tid < changeset.last_gc:
-                        logger.warning(
-                            "Doing GC at a TID (0x%x) older than"
-                            " the previous one (0x%x)",
-                            u64(gc_tid), u64(changeset.last_gc))
-                    orphans = gc(gc_tid)
-                    if orphans:
-                        changeset.abort()
-                        x = gc(None)
-                        orphans &= x
-                        if x and not orphans:
-                            next_gc = TimeStamp(tid).timeTime() + period
-                            timeout = max(0, next_gc - time())
-                        del x
-                else:
-                    gc_tid = tid
-                    orphans = gc(None)
-                if isinstance(orphans, set):
-                    orphans = sorted(orphans)
-                logger.info('  found %s OID(s) to delete', len(orphans))
-                log_remaining = False
-                count = 0
-                while orphans:
-                    if log_remaining:
-                        logger.info('  %s remaining...', len(orphans))
-                    else:
-                        log_remaining = True
-                    with closing(socket.socket(socket.AF_UNIX,
-                                               socket.SOCK_STREAM)) as s:
-                        try:
-                            s.connect(gc_lock_name)
-                            s.recv(1)
-                        except socket.error:
-                            pass
-                    deleted = OidArray([]) # only used to speed up
-                    txn = TransactionMetaData(
-                        description=TXN_GC_DESC % u64(gc_tid))
-                    main_storage.tpc_begin(txn)
-                    try:
-                        for i, oid, data, serial in iter_orphans(
-                                enumerate(orphans, 1), main_storage.load):
-                            if serial is None:
-                                if full:
-                                    changeset.deleted(oid)
-                                continue
-                            if gc_tid < serial:
-                                count = None
-                                break
-                            main_storage.deleteObject(oid, serial, txn)
-                            deleted.append(oid)
-                            if dry_run:
-                                oid = u64(oid)
-                                try:
-                                    x = PersistentUnpickler(find_global,
-                                        load_persistent, BytesIO(data))
-                                    x.load()
-                                except Exception:
-                                    assert data is not None, oid
-                                    dry_run_stats[
-                                        ('corrupted',) if data else ('empty',)
-                                        ].append(oid)
-                                else:
-                                    x.find_global = load_broken
-                                    try:
-                                        uid_dict[oid] = x.load()['uid']
-                                    except Exception:
-                                        pass
-                            count += 1
-                            if count == max_txn_size:
-                                del orphans[:i]
-                                break
-                        else:
-                            orphans = None
-                        if count:
-                            logger.info('  tpc_vote (%s delete(s))...', count)
-                            main_storage.tpc_vote(txn)
-                            if dry_run:
-                                count = None
-                                with os.fdopen(os.open(dry_run,
-                                        os.O_WRONLY | os.O_CREAT | os.O_EXCL, # Py3
-                                        0o666), 'w') as f:
-                                    for x in sorted(dry_run_stats):
-                                        y = []
-                                        for oid in dry_run_stats.pop(x):
-                                            uid = uid_dict.get(oid)
-                                            y.append(
-                                                '%x' % oid if uid is None else
-                                                '%x(%x)' % (oid, uid))
-                                        print(len(y), '.'.join(x), *y,
-                                              sep=',', file=f)
-                                return
-                            logger.info('  tpc_finish...')
-                            main_storage.tpc_finish(txn,
-                                invalidation_listener.tpc_finish)
-                            x = changeset.last_gc = \
-                                invalidation_listener.last_gc
-                            if commit_interval:
-                                deleted_dict[x] = deleted
-                            next_commit = 0
-                            if period:
-                                # We don't want future `gc(gc_tid)` to waste
-                                # time with OIDs that are already deleted.
-                                next_gc = TimeStamp(x).timeTime() + period
+                                new_set = set(referencesf(data))
+                            except Exception:
+                                logger.warning("Corrupted record %x@%x",
+                                               u64(oid), u64(tid))
+                                new_set = set()
+                            else:
+                                new_set.discard(oid)
+                        if new_set == old_set:
                             continue
-                    except ConflictError:
-                        count = None
-                    finally:
-                        if count:
-                            count = 0
-                        else:
-                            main_storage.tpc_abort(txn)
-                        del deleted
-                    break
-                del orphans
-                if count == 0:
-                    if bootstrap:
-                        bootstrap = changeset.bootstrap = None
-                        logger.info("Bootstrap completed")
-                        next_commit = 0
-                    if exit_after_gc:
-                        break
-            if not commit_interval:
-                break
+                        src.referents = new_set
+                        for referent in new_set - old_set:
+                            # logger.debug("  + %x", u64(referent))
+                            dst = changeset.get(referent)
+                            insort(dst.referrers, oid)
+                            if dst.prev_orphan:
+                                check_keep.add(dst)
+                        old_set.difference_update(new_set)
+                        for referent in old_set:
+                            # logger.debug("  - %x", u64(referent))
+                            dst = changeset.get(referent)
+                            dst.referrers.remove(oid)
+                            if not (dst.prev_orphan
+                                    or referent == z64 or bootstrap):
+                                check_orphan[referent] = dst
+                    x = inc64(tid)
+                    for obj in check_keep:
+                        if not obj.maybeOrphan():
+                            changeset.keep(obj)
+                    for oid, obj in check_orphan.iteritems():
+                        if obj.maybeOrphan():
+                            assert not (obj.prev_orphan or obj.next_orphan), oid
+                            if not obj.referents:
+                                try:
+                                    if main_storage.loadBefore(oid, x) is None:
+                                        continue
+                                except POSKeyError:
+                                    continue
+                            obj.prev_orphan = z64
+                            prev_orphan = changeset.get(z64)
+                            next_orphan = prev_orphan.next_orphan
+                            if next_orphan:
+                                changeset.get(next_orphan).prev_orphan = oid
+                                obj.next_orphan = next_orphan
+                            prev_orphan.next_orphan = oid
+                    for oid in check_deleted:
+                        changeset.deleted(oid)
+                    del check_keep, check_deleted, check_orphan
 
-        next_commit += invalidation_listener.wait(tid, timeout)
+                    x = time()
+                    if next_commit <= x:
+                        changeset.commit(tid)
+                        next_commit = x + commit_interval
+                thread.join()
+                assert not deleted_dict, list(deleted_dict)
+
+            x = time()
+            timeout = next_gc - x
+            if timeout <= 0 or not commit_interval:
+                timeout = None
+                if (full or changeset.orphan or bootstrap) and not no_gc:
+                    if changeset.buckets:
+                        next_commit = x + commit_interval
+                        changeset.commit(tid)
+                    assert tid == changeset.storage.lastTransaction()
+                    if exit_before_gc:
+                        break
+                    if full or bootstrap:
+                        logger.info('Full GC...')
+                        gc = changeset.full
+                    else:
+                        logger.info('Incremental GC...')
+                        gc = changeset.orphans
+                    gc_tid = tid if bootstrap or not period else \
+                        tidFromTime(time() - period)
+                    if gc_tid < tid:
+                        if gc_tid < changeset.last_gc:
+                            logger.warning(
+                                "Doing GC at a TID (0x%x) older than"
+                                " the previous one (0x%x)",
+                                u64(gc_tid), u64(changeset.last_gc))
+                        orphans = gc(gc_tid)
+                        if orphans:
+                            changeset.abort()
+                            x = gc(None)
+                            orphans &= x
+                            if x and not orphans:
+                                next_gc = TimeStamp(tid).timeTime() + period
+                                timeout = max(0, next_gc - time())
+                            del x
+                    else:
+                        gc_tid = tid
+                        orphans = gc(None)
+                    if isinstance(orphans, set):
+                        orphans = sorted(orphans)
+                    logger.info('  found %s OID(s) to delete', len(orphans))
+                    log_remaining = False
+                    count = 0
+                    while orphans:
+                        if log_remaining:
+                            logger.info('  %s remaining...', len(orphans))
+                        else:
+                            log_remaining = True
+                        with closing(socket.socket(socket.AF_UNIX,
+                                                   socket.SOCK_STREAM)) as s:
+                            try:
+                                s.connect(gc_lock_name)
+                                s.recv(1)
+                            except socket.error:
+                                pass
+                        deleted = OidArray([]) # only used to speed up
+                        txn = TransactionMetaData(
+                            description=TXN_GC_DESC % u64(gc_tid))
+                        main_storage.tpc_begin(txn)
+                        try:
+                            for i, oid, data, serial in iter_orphans(
+                                    enumerate(orphans, 1), main_storage.load):
+                                if serial is None:
+                                    if full:
+                                        changeset.deleted(oid)
+                                    continue
+                                if gc_tid < serial:
+                                    count = None
+                                    break
+                                main_storage.deleteObject(oid, serial, txn)
+                                deleted.append(oid)
+                                if dry_run:
+                                    oid = u64(oid)
+                                    try:
+                                        x = PersistentUnpickler(find_global,
+                                            load_persistent, BytesIO(data))
+                                        x.load()
+                                    except Exception:
+                                        assert data is not None, oid
+                                        dry_run_stats[
+                                            ('corrupted',) if data else
+                                            ('empty',)
+                                            ].append(oid)
+                                    else:
+                                        x.find_global = load_broken
+                                        try:
+                                            uid_dict[oid] = x.load()['uid']
+                                        except Exception:
+                                            pass
+                                count += 1
+                                if count == max_txn_size:
+                                    del orphans[:i]
+                                    break
+                            else:
+                                orphans = None
+                            if count:
+                                logger.info('  tpc_vote (%s delete(s))...',
+                                            count)
+                                main_storage.tpc_vote(txn)
+                                if dry_run:
+                                    count = None
+                                    with os.fdopen(os.open(dry_run,
+                                            os.O_WRONLY | os.O_CREAT | os.O_EXCL, # Py3
+                                            0o666), 'w') as f:
+                                        for x in sorted(dry_run_stats):
+                                            y = []
+                                            for oid in dry_run_stats.pop(x):
+                                                uid = uid_dict.get(oid)
+                                                y.append(
+                                                    '%x' % oid if uid is None
+                                                    else '%x(%x)' % (oid, uid))
+                                            print(len(y), '.'.join(x), *y,
+                                                  sep=',', file=f)
+                                    return
+                                logger.info('  tpc_finish...')
+                                main_storage.tpc_finish(txn,
+                                    invalidation_listener.tpc_finish)
+                                x = changeset.last_gc = \
+                                    invalidation_listener.last_gc
+                                if commit_interval:
+                                    deleted_dict[x] = deleted
+                                next_commit = 0
+                                if period:
+                                    # We don't want future `gc(gc_tid)` to waste
+                                    # time with OIDs that are already deleted.
+                                    next_gc = TimeStamp(x).timeTime() + period
+                                continue
+                        except ConflictError:
+                            count = None
+                        finally:
+                            if count:
+                                count = 0
+                            else:
+                                main_storage.tpc_abort(txn)
+                            del deleted
+                        break
+                    del orphans
+                    if count == 0:
+                        if bootstrap:
+                            bootstrap = changeset.bootstrap = None
+                            logger.info("Bootstrap completed")
+                            next_commit = 0
+                        if exit_after_gc:
+                            break
+                if not commit_interval:
+                    break
+
+            next_commit += invalidation_listener.wait(tid, timeout)
 
 
 if __name__ == '__main__':
