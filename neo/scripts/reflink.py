@@ -153,14 +153,15 @@ def checkAPI(storage):
             " reflink ZODB, which is required for a full GC (or a dump)."
             " Only NEO is known to have this non-standard API.")
 
-def openStorage(uri):
+def openStorage(uri, close_list):
     scheme = uri[:uri.find(':')]
     for ep in iter_entry_points('zodburi.resolvers'):
         if ep.name == scheme:
             factory, dbkw = ep.load()(uri)
             if dbkw:
                 raise ValueError("Unexpected database options: %r" % dbkw)
-            return factory()
+            close_list.append(factory())
+            return close_list[-1]
     raise KeyError('No resolver found for uri: %s' % uri)
 
 def inc64(tid):
@@ -777,8 +778,9 @@ def main(args=None):
 
     command = args.command
     bootstrap = command == "bootstrap"
-    if 1:
-        changeset = Changeset(openStorage(args.refs),
+    close_list = [] # PY3: contextlib.ExitStack
+    try:
+        changeset = Changeset(openStorage(args.refs, close_list),
                               args.tid if bootstrap else None)
 
         if command == "dump":
@@ -795,7 +797,7 @@ def main(args=None):
             return
 
         if args.main:
-            main_storage = openStorage(args.main)
+            main_storage = openStorage(args.main, close_list)
             for iface in (ZODB.interfaces.IStorageIteration,
                           ZODB.interfaces.IExternalGC):
                 if not iface.providedBy(main_storage):
@@ -1274,6 +1276,10 @@ def main(args=None):
                     break
 
             next_commit += invalidation_listener.wait(tid, timeout)
+
+    finally:
+        while close_list:
+            close_list.pop().close()
 
 
 if __name__ == '__main__':
