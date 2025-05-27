@@ -248,10 +248,11 @@ class Process(object):
                 del self._coverage_fd
 
     def kill(self, sig=signal.SIGTERM):
-        if self.pid:
-            logging.info('kill pid %u', self.pid)
+        pid = self.pid
+        if pid:
+            logging.info('kill pid %r sig %r', pid, sig)
             try:
-                pdb.kill(self.pid, sig)
+                pdb.kill(pid, sig)
             except OSError:
                 traceback.print_last()
         else:
@@ -272,12 +273,25 @@ class Process(object):
     def wait(self):
         if self.pid == 0:
             raise AlreadyStopped
-        result = os.WEXITSTATUS(os.waitpid(self.pid, 0)[1])
+        result = [] # nonlocal
+        def test():
+            pid, status = os.waitpid(self.pid, os.WNOHANG)
+            if pid == self.pid:
+                result.append(status)
+                return True
+        if pdb.wait(test, DELAY_SAFETY_MARGIN):
+            result = os.WEXITSTATUS(*result)
+        else:
+            self.kill(signal.SIGKILL)
+            os.waitpid(self.pid, 0)
+            result = -1
         self.pid = 0
         self.child_coverage()
         if result:
-            raise NodeProcessError('%r %r %r exited with status %r' % (
-                self.command, self.args, self.arg_dict, result))
+            raise NodeProcessError('%r %r %r %s' % (
+                self.command, self.args, self.arg_dict,
+                "had to be SIGKILL'ed" if result < 0 else
+                "exited with status %r" % result))
         return result
 
     def stop(self):
@@ -611,7 +625,6 @@ class NEOCluster(object):
         return current_try
 
     def expectCondition(self, condition, timeout=0, on_fail=None):
-        end = time.time() + timeout + DELAY_SAFETY_MARGIN
         opaque_history = [None]
         def test():
             reached, opaque = condition(opaque_history[-1])
