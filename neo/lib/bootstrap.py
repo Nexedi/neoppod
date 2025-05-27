@@ -70,6 +70,13 @@ class BootstrapManager(EventHandler):
                 while self.current:
                     if self.current.isIdentified():
                         return self.current, self.current.getConnection()
+                    # This normally processes at most one packet. This is
+                    # important if this packet is AcceptIdentification:
+                    # then we return and the caller changes the handler
+                    # before processing the next packet.
+                    # However, if the connection is lost we may try to process
+                    # all pending packets (Connection._closure), leading
+                    # to harmless 'unexpected packet' errors in logs.
                     poll(1)
             except PrimaryElected as e:
                 if self.current:

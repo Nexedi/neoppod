@@ -492,7 +492,14 @@ class NodeManager(EventQueue):
             # For the first notification, we receive a full list of nodes from
             # the master. Remove all unknown nodes from a previous connection.
             for node in self._node_set.difference(added_list):
-                if not node.isStorage() or app.pt.dropNode(node):
+                if not node.isStorage() or (
+                    # Once identified, the first 2 packets are
+                    # NotifyNodeInformation and SendPartitionTable.
+                    # If the connection is lost whereas only the first one
+                    # was processed, we may end up here on reconnection,
+                    # still without any loaded PT.
+                    app.pt is None or app.pt.dropNode(node)
+                ):
                     self.remove(node)
         self.log()
         self.executeQueuedEvents()
