@@ -121,8 +121,9 @@ class RecoveryManager(MasterHandler):
         logging.info('startup allowed')
 
         for node in node_list:
-            assert node.isPending(), node
+            assert node.isStorage() and node.isPending(), node
             node.setRunning()
+        storage_count = len(node_list)
 
         for node in app.nm.getMasterList():
             if not (node is app._node or node.isIdentified()):
@@ -138,6 +139,7 @@ class RecoveryManager(MasterHandler):
 
         if pt.getID() is None:
             logging.info('creating a new partition table')
+            del node_list[storage_count:]
             pt.make(node_list)
             self._notifyAdmins(Packets.SendPartitionTable(
                 pt.getID(), pt.getReplicas(), pt.getRowList()))
