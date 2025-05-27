@@ -29,6 +29,26 @@ from . import DatabaseFailure
 
 READABLE = CellStates.UP_TO_DATE, CellStates.FEEDING
 
+class released(object):
+    """
+    XXX: Probably not perfect, in that signals raising SystemExit or
+         KeyboardInterrupt may interrupt the context manager, e.g. at the
+         beginning of __exit__, leaving the lock unreleased.
+         See also "Protecting finally clauses of interruptions" discussion at
+             https://mail.python.org/archives/list/python-ideas@python.org/thread/KNYL43NHCBMLC5GU2NBVLX2LGNGIWGGW/
+         Maybe only important for functional tests.
+    """
+
+    def __init__(self, lock):
+        self.release = lock.release
+        self.acquire = lock.acquire
+
+    def __enter__(self):
+        self.release()
+
+    def __exit__(self, t, v, tb):
+        self.acquire()
+
 def fallback(func):
     setattr(Fallback, func.__name__, func)
     return abstract(func)
@@ -66,10 +86,8 @@ class BackgroundWorker(object):
                 assert hasattr(self, attr)
 
     def _join(self, app, thread):
-        l = app.em.lock
-        l.release()
-        thread.join()
-        l.acquire()
+        with released(app.em.lock):
+            thread.join()
         del self._thread
         self._delattr('_packing', '_processing', '_stop')
         exc_info = self._exc_info
@@ -384,13 +402,8 @@ class BackgroundWorker(object):
         if processing == offset:
             if not lock.acquire(0):
                 assert min_tid == ZERO_TID # newly assigned
-                dm_lock = app.dm.lock
-                em_lock = app.em.lock
-                dm_lock.release()
-                em_lock.release()
-                lock.acquire()
-                em_lock.acquire()
-                dm_lock.acquire()
+                with released(app.dm.lock), released(app.em.lock):
+                    lock.acquire()
             lock.release()
 
     @contextmanager
