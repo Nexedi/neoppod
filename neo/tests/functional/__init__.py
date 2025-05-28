@@ -394,7 +394,7 @@ class NEOCluster(object):
         self.process_dict = OrderedDict()
         self.temp_dir = temp_dir
         self.port_allocator = PortAllocator()
-        admin_port = self.port_allocator.allocate(address_type, local_ip)
+        self.admin_port = self.port_allocator.allocate(address_type, local_ip)
         self.cluster_name = name or 'neo_%s' % random.randint(0, 100)
         master_node_list = [self.port_allocator.allocate(address_type, local_ip)
                             for i in xrange(master_count)]
@@ -414,10 +414,7 @@ class NEOCluster(object):
                              0, adapter=adapter, database=self.db_template(db),
                              **storage_kw)
         # create admin node
-        self._newProcess(NodeTypes.ADMIN, logger and 'admin', admin_port)
-        # create neoctl
-        self.neoctl = NeoCTL((self.local_ip, admin_port),
-                             ssl_credentials=self.SSL)
+        self._newProcess(NodeTypes.ADMIN, logger and 'admin', self.admin_port)
 
     def _newProcess(self, node_type, logfile=None, port=None, **kw):
         self.uuid_dict[node_type] = uuid = 1 + self.uuid_dict.get(node_type, 0)
@@ -441,6 +438,8 @@ class NEOCluster(object):
             for process in process_list:
                 if process not in except_storages:
                     process.start()
+        self.neoctl = NeoCTL((self.local_ip, self.admin_port),
+                             ssl_credentials=self.SSL)
         # wait for the admin node availability
         def test():
             try:
@@ -513,6 +512,8 @@ class NEOCluster(object):
             for zodb_storage in self.zodb_storage_list:
                 zodb_storage.close()
             self.zodb_storage_list = []
+        self.neoctl.close()
+        del self.neoctl
         if clear_databases:
             for db in self.db_list:
                 dm = buildDatabaseManager(self.adapter, (self.db_template(db),))
@@ -749,7 +750,6 @@ class NEOCluster(object):
         self.expectCondition(expected_storage_not_known, *args, **kw)
 
     def __del__(self):
-        self.neoctl.close()
         if self.cleanup_on_delete:
             os.removedirs(self.temp_dir)
 
