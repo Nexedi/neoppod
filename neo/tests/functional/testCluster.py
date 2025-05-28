@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
+import sys
 from functools import partial
 import transaction
 from neo import *
@@ -107,6 +109,9 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
 
     def testElectionWithManyMasters(self):
+        if six.PY3 and sys.implementation.name == 'pypy': # XXX
+            NEOCluster.SSL = None
+            print("SSL disabled (too broken on PyPy3 for this test)")
         MASTER_COUNT = 20
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
             partitions=10, replicas=0, master_count=MASTER_COUNT,
