@@ -47,26 +47,6 @@ class MasterTests(NEOFunctionalTest):
         self.neo.expectDead(master)
         self.assertRaises(SystemExit, neoctl.killNode, primary_uuid)
 
-    def testStoppingPrimaryWithTwoSecondaries(self):
-        # Wait for masters to stabilize
-        self.neo.expectAllMasters(MASTER_NODE_COUNT)
-
-        # Kill
-        killed_uuid_list = self.neo.killPrimary()
-        # Test sanity check.
-        self.assertEqual(len(killed_uuid_list), 1)
-        uuid = killed_uuid_list[0]
-        # Check the state of the primary we just killed
-        self.neo.expectMasterState(uuid, (None, NodeStates.DOWN))
-        # BUG: The following check expects neoctl to reconnect before
-        #      the election finishes.
-        self.assertEqual(self.neo.getPrimary(), None)
-        # Check that a primary master arose.
-        self.neo.expectPrimary(timeout=10)
-        # Check that the uuid really changed.
-        new_uuid = self.neo.getPrimary()
-        self.assertNotEqual(new_uuid, uuid)
-
     def testStoppingPrimaryWithOneSecondary(self):
         self.neo.expectAllMasters(MASTER_NODE_COUNT,
                 state=NodeStates.RUNNING)

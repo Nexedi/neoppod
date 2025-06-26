@@ -46,6 +46,7 @@ from neo.client.handlers.storage import _DeadlockPacket
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.pt import PartitionTable
+from neo.neoctl.neoctl import NotReadyException
 from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
@@ -2661,6 +2662,7 @@ class Test(NEOThreadedTest):
         m0, m1, m2 = cluster.master_list
         cluster.start(master_list=(m0,), recovering=True)
         getClusterState = cluster.neoctl.getClusterState
+        getPrimary = cluster.neoctl.getPrimary
         m0.em.removeReader(m0.listening_conn)
         m1.start()
         self.tic()
@@ -2689,13 +2691,20 @@ class Test(NEOThreadedTest):
         self.assertTrue(m0.primary)
         self.assertFalse(m2.primary)
         stop(m0)
+        self.assertRaises(NotReadyException, getPrimary)
         self.tic()
         self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+        self.assertEqual(getPrimary(), m2.uuid)
         self.assertTrue(m2.primary)
         # Check for proper update of node ids on first NotifyNodeInformation.
         stop(m2)
         m0.start()
+        updates = []
         def update(orig, app, timestamp, node_list):
+            updates.append(len(node_list))
+            # Make sure m2 is processed first. Its nid changes from M3 to M2
+            # and we want to cover that the correct Node object is updated
+            # (the one that is found by addr).
             orig(app, timestamp, sorted(node_list, reverse=1))
         with Patch(cluster.storage.nm, update=update):
             with ConnectionFilter() as f:
@@ -2705,7 +2714,9 @@ class Test(NEOThreadedTest):
                 self.tic()
                 m2.start()
                 self.tic()
+            self.assertEqual(updates, [])
             self.tic()
+            self.assertEqual(updates, [4, 1]) # 3M+S, S
         self.assertEqual(getClusterState(), ClusterStates.RUNNING)
         self.assertTrue(m0.primary)
         self.assertFalse(m2.primary)
