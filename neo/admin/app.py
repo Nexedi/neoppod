@@ -47,12 +47,10 @@ class Monitor(object):
         self.monitor_changed = False
         self.pt_summary = None
 
-    def askLastIds(self, conn,
-            _askLastTransaction=Packets.AskLastTransaction(),
-            _askRecovery=Packets.AskRecovery()):
+    def askLastIds(self, conn):
         if self.cluster_state == ClusterStates.BACKINGUP:
-            conn.ask(_askRecovery)
-        conn.ask(_askLastTransaction)
+            conn.ask(Packets.AskRecovery())
+        conn.ask(Packets.AskLastTransaction())
 
     @property
     def operational(self):

@@ -129,7 +129,10 @@ class HandlerSwitcher(object):
             if klass and isinstance(packet, klass) or packet.isError():
                 handler.packetReceived(connection, packet, kw)
             else:
-                logging.error('Unexpected answer %r in %r', packet, connection)
+                # See WARNING about answer/ask in Connection.
+                logging.error('Unexpected answer %r in %r (expected: %s)',
+                              packet, connection,
+                              getattr(klass, '__name__', None))
                 if not connection.isClosed():
                     connection.answer(Errors.ProtocolError(
                         'Unexpected answer: %r' % packet))
@@ -570,6 +573,12 @@ class Connection(BaseConnection):
             self.buffering = False
             self.em.addWriter(self)
         logging.packet(self, packet, True)
+
+    # WARNING: Do not reuse a packet between threads, to prevent the packet
+    #          id from being altered before the packet is sent/registered.
+    #          For example, we used to cache AskLastTransaction() as a
+    #          private keyword parameter of Monitor.askLastIds() but that
+    #          broke threaded tests that run several admin nodes.
 
     def send(self, packet, msg_id=None):
         """ Then a packet with a new ID """
