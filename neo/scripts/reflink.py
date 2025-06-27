@@ -188,6 +188,11 @@ class InvalidationListener(object):
                 return
             self.last_tid = ltid
 
+    def __del__(self):
+        r, w = self._new_pipe
+        os.close(r)
+        os.close(w)
+
     def invalidateCache(self):
         raise NotImplementedError
 
