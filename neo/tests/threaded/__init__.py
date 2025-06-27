@@ -162,20 +162,16 @@ class Serialized(object):
 
     @classmethod
     @contextmanager
-    def until(cls, patched=None, **patch):
+    def until(cls, patched, **patch):
         if cls._disabled:
-            if patched is None:
-                yield int
-            else:
-                l = threading.Lock()
-                l.acquire()
-                (name, patch), = patch.iteritems()
-                def release():
-                    p.revert()
-                    l.release()
-                with Patch(patched, **{name: lambda *args, **kw:
-                        patch(release, *args, **kw)}) as p:
-                    yield l.acquire
+            l = threading.Lock()
+            l.acquire()
+            (name, patch), = patch.iteritems()
+            def release():
+                p.revert()
+                l.release()
+            with Patch(patched, **{name: partial(patch, release)}) as p:
+                yield l.acquire
         else:
             yield cls.tic
 
@@ -921,15 +917,18 @@ class NEOCluster(object):
             master_list = self.master_list
         if storage_list is None:
             storage_list = self.storage_list
-        def sendPartitionTable(release, orig, *args):
-            orig(*args)
-            release()
+        def sendPartitionTable(release, orig, handler, *args):
+            orig(handler, *args)
+            if self.name == handler.app.name:
+                release()
         def dispatch(release, orig, handler, *args):
             orig(handler, *args)
-            node_list = handler.app.nm.getStorageList(only_identified=True)
-            if len(node_list) == len(storage_list) and not any(
-                    node.getConnection().isPending() for node in node_list):
-                release()
+            app = handler.app
+            if self.name == app.name:
+                node_list = app.nm.getStorageList(only_identified=True)
+                if len(node_list) == len(storage_list) and not any(
+                        node.getConnection().isPending() for node in node_list):
+                    release()
         expected_state = (ClusterStates.RECOVERING,) if recovering else (
             ClusterStates.RUNNING, ClusterStates.BACKINGUP)
         def notifyClusterInformation(release, orig, handler, conn, state):
