@@ -402,7 +402,7 @@ class GCTests(NEOThreadedTest):
             self.assertLess(x, end)
 
         cluster.neoctl.truncate(tid1)
-        self.tic()
+        self.waitUntil(cluster.master.getLastTransaction, tid1)
 
         with NEOCluster() as reflink_cluster:
             reflink_cluster.start()

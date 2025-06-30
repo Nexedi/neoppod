@@ -192,7 +192,13 @@ class Serialized(object):
             p.set_trace(sys._getframe(3))
 
     @classmethod
-    def tic(cls, step=-1, check_timeout=(), quiet=False,
+    def log(cls, depth=1):
+        x = sys._getframe(depth)
+        x = x.f_code.co_filename, x.f_lineno
+        logging.info('tic (%s:%u) ...', *x)
+
+    @classmethod
+    def tic(cls, step=-1, check_timeout=(), quiet=False, stop=None,
             # BUG: We overuse epoll as a way to know if there are pending
             #      network messages. Sometimes, and this is more visible with
             #      a single-core CPU, other threads are still busy and haven't
@@ -201,20 +207,22 @@ class Serialized(object):
             #      We also increase SocketConnector.SOMAXCONN in tests so that
             #      a connection attempt is never delayed inside the kernel.
             timeout=0):
+        if stop is not None:
+            stop_timeout = time.time() + 5
         if cls._disabled:
-            if timeout:
+            assert step == -1 and not (check_timeout or stop is None)
+            quiet or cls.log(2)
+            while True:
+                timeout += .001
                 time.sleep(timeout)
-            return
+                if stop():
+                    return
+                if stop_timeout < time.time():
+                    return True
         # If you're in a pdb here, 'n' switches to another thread
         # (the following lines are not supposed to be debugged into)
         with cls._tic_lock, cls.pdb():
-            if not quiet:
-                f = sys._getframe(1)
-                try:
-                    logging.info('tic (%s:%u) ...',
-                        f.f_code.co_filename, f.f_lineno)
-                finally:
-                    del f
+            quiet or cls.log(2)
             if cls._busy:
                 with cls._busy_cond:
                     while cls._busy:
@@ -225,18 +233,23 @@ class Serialized(object):
                 del app
             while step:
                 event_list = cls._epoll.poll(timeout)
-                if not event_list:
+                if event_list:
+                    step -= 1
+                    event_list.sort(key=cls._sort_key)
+                    next_lock = cls._sched_lock
+                    for fd, event in event_list:
+                        self = cls._fd_dict[fd]
+                        self._release_next = next_lock.release
+                        next_lock = self._lock
+                    del self
+                    next_lock.release()
+                    cls._sched_lock.acquire()
+                elif stop is None or stop():
                     break
-                step -= 1
-                event_list.sort(key=cls._sort_key)
-                next_lock = cls._sched_lock
-                for fd, event in event_list:
-                    self = cls._fd_dict[fd]
-                    self._release_next = next_lock.release
-                    next_lock = self._lock
-                del self
-                next_lock.release()
-                cls._sched_lock.acquire()
+                elif stop_timeout < time.time():
+                    return True
+                else:
+                    timeout += .001
 
     def __init__(self, app, busy=True):
         if self._disabled:
@@ -1060,13 +1073,15 @@ class NEOCluster(object):
             state = self.getNodeState(node)
             assert state == NodeStates.RUNNING, state
 
-    def join(self, thread_list, timeout=5):
-        timeout += time.time()
-        while thread_list:
-            # Map with repr before that threads become unprintable.
-            assert time.time() < timeout, map(repr, thread_list)
-            Serialized.tic(timeout=.001)
-            thread_list = [t for t in thread_list if t.is_alive()]
+    def join(self, thread_list):
+        thread_list = list(thread_list) # nonlocal
+        def stop():
+            alive = [t for t in thread_list if t.is_alive()]
+            thread_list[:] = alive
+            return not alive
+        if Serialized.tic(stop=stop, timeout=.001):
+             # Map with repr before that threads become unprintable.
+             raise RuntimeError(map(repr, thread_list))
 
     def getNodeState(self, node):
         uuid = node.uuid
@@ -1184,6 +1199,14 @@ class NEOThreadedTest(NeoTestBase):
                 db.execute("VACUUM")
 
     tic = Serialized.tic
+
+    def waitUntil(self, func, expected):
+        assert Serialized._disabled # is it meaningfull if enabled?
+        nonlocal_ = [None]
+        def stop():
+            r = nonlocal_[0] = func()
+            return r == expected
+        self.assertFalse(self.tic(stop=stop), (nonlocal_[0], expected))
 
     @contextmanager
     def getLoopbackConnection(self):
