@@ -288,6 +288,10 @@ class Process(object):
         self.pid = 0
         self.child_coverage()
         if result:
+            # BUG: Unfortunately, we have random failures because there's no
+            #      easy way to have atomic sections (e.g. when starting a
+            #      thread) or protect finally clauses (see PEP 419) and the
+            #      child process may not exit properly.
             raise NodeProcessError('%r %r %r %s' % (
                 self.command, self.args, self.arg_dict,
                 "had to be SIGKILL'ed" if result < 0 else
