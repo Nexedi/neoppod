@@ -325,6 +325,14 @@ Environment Variables:
                               NEO_TEST_ZODB_FUNCTIONAL).
   NEO_TESTS_ADAPTER           Default is SQLite for threaded clusters,
                               MySQL otherwise.
+  NEO_PRIVATE_TMPFS           path[:opt] where:
+                              - path: where to save temporary files at exit;
+                              - opt: optional mount options for the private
+                                tmpfs that is used as temporary directory for
+                                tests.
+                              If TEMP is set, path must not exist.
+  TEMP                        Path to use for temporary files.
+                              Default is $TMPDIR/neo_tests/<epoch as float>
 
   MySQL specific:
     NEO_DB_SOCKET             default: libmysqlclient.so default
