@@ -2,7 +2,7 @@
     - Clarify the use of each error codes:
       - NOT_READY removed (connection kept opened until ready)
       - Split PROTOCOL_ERROR (BAD IDENTIFICATION, ...)
-    - Add docstrings (think of doctests)
+    - More docstrings?
 
   Code
 
@@ -60,15 +60,6 @@
       not degrade performance for client nodes. But when there's only 1 storage
       left for a partition, it may be wanted to guarantee a minimum speed to
       avoid complete data loss if another failure happens too early.
-    - Find a way not to always start replication from the beginning. Currently,
-      a temporarily down nodes can't replicate from where it was interrupted,
-      which is an issue on big databases. (SPEED)
-    - Pack segmentation & throttling (HIGH AVAILABILITY)
-      In its current implementation, pack runs in one call on all storage nodes
-      at the same time, which locks down the whole cluster. This task should
-      be split in chunks and processed in "background" on storage nodes.
-      Packing throttling should probably be at the lowest possible priority
-      (below interactive use and below replication).
     - Verify data checksum on reception (FUNCTIONALITY)
       In current implementation, client generates a checksum before storing,
       which is only checked upon load. This doesn't prevent from storing
@@ -112,9 +103,12 @@
     - Add ctl command to list last transactions, like fstail for FileStorage.
 
     Tests
-    - Split neo/tests/threaded/test.py
-    - Use another mock library: Python 3.3+ has unittest.mock, which is
-      available for earlier versions at https://pypi.python.org/pypi/mock
+    - Almost all tests are prone to random failures due to 2 issues that
+      don't affect usage in production. Depending on the machine, it may be
+      very difficult to reproduce. See BUG notes in:
+      - Serialized.tic (neo/tests/threaded/__init__.py)
+      - Process.wait (neo/tests/functional/__init__.py)
+    - Split neo/tests/threaded/test.py ?
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might
