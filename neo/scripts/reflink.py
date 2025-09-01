@@ -796,7 +796,7 @@ def main(args=None):
         tid = changeset.storage.lastTransaction()
 
         if bootstrap:
-            changeset.commit(inc64(tid))
+            changeset.commit(inc64(tid), command)
             print("Bootstrap at %s UTC. You can now use the 'run' command."
                   % TimeStamp(p64(args.tid)))
             return
