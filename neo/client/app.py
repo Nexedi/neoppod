@@ -51,13 +51,13 @@ MAX_FAILURE_AGE = 600
 
 TXN_PACK_DESC = b'IStorage.pack'
 
+# Check if run in Zope
 try:
-    from Signals.Signals import SignalHandler
+  import zope
+  import signal
+  signal.signal(signal.SIGUSR2, lambda *_: logging.reopen())
 except ImportError:
-    SignalHandler = None
-if SignalHandler:
-    import signal
-    SignalHandler.registerHandler(signal.SIGUSR2, logging.reopen)
+  pass
 
 class Application(ThreadedApplication):
     """The client node application."""
