@@ -27,6 +27,7 @@ import ZConfig
 import os
 from cStringIO import StringIO
 from collections import OrderedDict
+from urllib import unquote
 from urlparse import urlsplit, parse_qsl
 
 # neo_zconf_options returns set of zconfig options supported by NEO storage
@@ -63,7 +64,7 @@ def _resolve_uri(uri):
 
     neokw = OrderedDict()
     neokw['master_nodes'] = ' '.join(master_list)
-    neokw['name'] = name
+    neokw['name'] = unquote(name)
     def setopt(k, v):
         if k in ('master_nodes', 'name'):
             raise ValueError("invalid uri: %s : invalid option %s" % (uri, k))
