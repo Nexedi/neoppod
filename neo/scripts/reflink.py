@@ -144,6 +144,12 @@ if six.PY3:
     else:
         loads = partial(loads, strict_map_key=False)
 
+    # Backward compatibility with pickles produced by Python 2,
+    # to always fetch references as bytes.
+    from ZODB._compat import Unpickler
+    Unpickler.__init__ = (lambda __init__: lambda self, f: __init__(
+        self, f, encoding='bytes'))(Unpickler.__base__.__init__)
+
 try:
     from ZODB.Connection import TransactionMetaData
 except ImportError: # BBB: ZODB < 5
