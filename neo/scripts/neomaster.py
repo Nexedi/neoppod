@@ -29,3 +29,6 @@ def main(args=None):
     # and then, load and run the application
     app = Application(config)
     app.run()
+
+if __name__ == '__main__':
+    main()

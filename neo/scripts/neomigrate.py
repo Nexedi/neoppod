@@ -76,3 +76,6 @@ class NEOMigrate(object):
 def main(args=None):
     config = NEOMigrate.option_parser.parse(args)
     NEOMigrate(config).run()
+
+if __name__ == '__main__':
+    main()

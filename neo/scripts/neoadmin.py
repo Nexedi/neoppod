@@ -30,3 +30,5 @@ def main(args=None):
     app = Application(config)
     app.run()
 
+if __name__ == '__main__':
+    main()

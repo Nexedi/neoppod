@@ -30,3 +30,6 @@ def main(args=None):
     app = Application(config)
     if not config.get('reset'):
         app.run()
+
+if __name__ == '__main__':
+    main()

@@ -39,3 +39,6 @@ def main(args=None):
     r = app.execute(config['cmd'])
     if r is not None:
         print(r)
+
+if __name__ == '__main__':
+    main()
