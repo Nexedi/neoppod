@@ -104,6 +104,7 @@ TODO:
 
 from __future__ import print_function
 import argparse, errno, logging, os, socket, sys, threading
+from neo import *
 from array import array
 from bisect import insort
 from collections import defaultdict
@@ -115,7 +116,6 @@ from operator import attrgetter, call
 from six.moves.queue import Empty, Queue
 from select import error as select_error, select
 from time import gmtime, sleep, time
-from neo import *
 
 from msgpack import Packer, loads, version as msgpack_version
 from pkg_resources import iter_entry_points
