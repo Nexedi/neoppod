@@ -26,6 +26,13 @@ from zlib import decompress
 import six
 
 try:
+    import lzma
+except ImportError: # Py2 without https://pypi.org/project/pyliblzma/
+    xzcat = 'xzcat'
+else:
+    xzcat = lzma.LZMAFile
+
+try:
     import zstd
 except ImportError:
     zstdcat = 'zstdcat'
@@ -35,7 +42,7 @@ else:
         with open(path, 'rb') as f:
             return BytesIO(zstd.decompress(f.read()))
 
-comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat', zst=zstdcat)
+comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz=xzcat, zst=zstdcat)
 
 color_dict = dict(
     DEBUG=34,         # darkblue
