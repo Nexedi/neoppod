@@ -107,7 +107,7 @@ class Application(BaseApplication):
     def __init__(self, config):
         super(Application, self).__init__(
             config.get('ssl_credentials'), config.get('dynamic_master_list'))
-        self.tm = TransactionManager(self.onTransactionCommitted)
+        self.tm = TransactionManager(self)
         self.pm = PackManager()
 
         self.name = config['cluster']

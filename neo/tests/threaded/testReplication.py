@@ -289,8 +289,8 @@ class ReplicationTests(NEOThreadedTest):
                     logging.info("event=%s", event)
                     counts = [0]
                     if event == 5:
-                        p = Patch(upstream.master.tm,
-                            _on_commit=onTransactionCommitted)
+                        p = Patch(upstream.master,
+                            onTransactionCommitted=onTransactionCommitted)
                     else:
                         primary_dict = defaultdict(list)
                         for k, v in sorted(six.iteritems(backup.master.backup_app

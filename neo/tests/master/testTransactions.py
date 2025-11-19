@@ -18,6 +18,7 @@ from struct import pack
 from .. import MockObject, NeoUnitTestBase
 from neo.lib.protocol import NodeTypes
 from neo.lib.util import packTID, unpackTID, addTID
+from neo.master.app import Application
 from neo.master.transactions import TransactionManager
 
 class testTransactionManager(NeoUnitTestBase):
@@ -55,7 +56,7 @@ class testTransactionManager(NeoUnitTestBase):
 
     def testClientDisconectsAfterBegin(self):
         client_uuid1, node1 = self.makeNode(NodeTypes.CLIENT)
-        tm = TransactionManager(None)
+        tm = TransactionManager(Application(self.getMasterConfiguration()))
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tm.begin(node1, 0, tid1)

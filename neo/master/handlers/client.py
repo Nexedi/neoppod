@@ -61,8 +61,7 @@ class ClientServiceHandler(MasterHandler):
         return self.app.tm
 
     def failedVote(self, conn, *args):
-        app = self.app
-        conn.answer((Errors.Ack if app.tm.vote(app, *args) else
+        conn.answer((Errors.Ack if self.app.tm.vote(*args) else
                      Errors.IncompleteTransaction)())
 
     def askFinishTransaction(self, conn, ttid, oid_list,
@@ -73,7 +72,6 @@ class ClientServiceHandler(MasterHandler):
             if tid is None or not ZERO_TID < tid <= app.getLastTransaction():
                 raise ProtocolError("invalid pack time")
         tid, node_list = app.tm.prepare(
-            app,
             ttid,
             oid_list,
             deleted,

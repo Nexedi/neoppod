@@ -24,6 +24,8 @@ from .handlers import BaseServiceHandler
 
 class VerificationManager(BaseServiceHandler):
 
+    _last_tid = ZERO_TID
+
     def __init__(self, app):
         self._locked_dict = {}
         self._voted_dict = defaultdict(set)
@@ -69,7 +71,7 @@ class VerificationManager(BaseServiceHandler):
         # - just before they return the last tid/oid
         self._askStorageNodesAndWait(Packets.AskLastIDs(),
             app.nm.getStorageList(only_identified=True))
-        app.setLastTransaction(app.tm.getLastTID())
+        app.setLastTransaction(self._last_tid)
         # Just to not return meaningless information in AnswerRecovery.
         app.truncate_tid = None
         # Set up pack manager.
@@ -142,8 +144,9 @@ class VerificationManager(BaseServiceHandler):
 
     def answerLastIDs(self, conn, ltid, loid, ftid):
         self._uuid_set.remove(conn.getUUID())
+        if None is not ltid > self._last_tid:
+            self._last_tid = ltid
         tm = self.app.tm
-        tm.setLastTID(ltid)
         tm.setLastOID(loid)
         tm.setFirstTID(ftid)
 

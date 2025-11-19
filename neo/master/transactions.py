@@ -21,7 +21,7 @@ from neo import *
 from neo.lib import logging
 from neo.lib.exception import ProtocolError
 from neo.lib.handler import DelayEvent, EventQueue
-from neo.lib.protocol import uuid_str, ZERO_OID, ZERO_TID, MAX_TID
+from neo.lib.protocol import uuid_str, ZERO_OID, MAX_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
 class Transaction(object):
@@ -118,8 +118,8 @@ class TransactionManager(EventQueue):
         Manage current transactions
     """
 
-    def __init__(self, on_commit):
-        self._on_commit = on_commit
+    def __init__(self, app):
+        self.app = app
         self.reset()
 
     def reset(self):
@@ -127,7 +127,6 @@ class TransactionManager(EventQueue):
         # ttid -> transaction
         self._ttid_dict = {}
         self._last_oid = ZERO_OID
-        self._last_tid = ZERO_TID
         self._first_tid = MAX_TID
         # avoid the overhead of min_tid on every _unlockPending
         self._unlockPending = self._firstUnlockPending
@@ -190,7 +189,7 @@ class TransactionManager(EventQueue):
         fast-forwarding to future dates.
         """
         tid = tidFromTime(time())
-        min_tid = self._last_tid
+        min_tid = self.getLastTID()
         if tid <= min_tid:
             tid = addTID(min_tid, 1)
         if ttid is not None:
@@ -202,21 +201,20 @@ class TransactionManager(EventQueue):
                     tid = addTID(tid, divisor)
                 assert u64(tid) % divisor == remainder, (dump(tid), remainder)
                 assert min_tid < tid, (dump(min_tid), dump(tid))
-        self._last_tid = tid
-        return self._last_tid
+        return tid
 
     def getLastTID(self):
         """
             Returns the last TID used
         """
-        return self._last_tid
-
-    def setLastTID(self, tid):
-        """
-            Set the last TID, keep the previous if lower
-        """
-        if None is not tid > self._last_tid:
-            self._last_tid = tid
+        ttid_dict = self._ttid_dict
+        if ttid_dict:
+            if self._queue:
+                tid = ttid_dict[self._queue[-1]].tid
+                if tid:
+                    return max(max(ttid_dict), tid)
+            return max(ttid_dict)
+        return self.app.last_transaction
 
     def hasPending(self):
         """
@@ -242,19 +240,18 @@ class TransactionManager(EventQueue):
         if tid is None:
             # No TID requested, generate a temporary one
             tid = self._nextTID()
-        elif tid <= self._last_tid:
+        elif tid <= self.getLastTID():
             raise ProtocolError(
                 "new TID must be greater than the last committed one")
         else:
             # Use of specific TID requested, queue it immediately and update
             # last TID.
             self._queue.append(tid)
-            self._last_tid = tid
         txn = self._ttid_dict[tid] = Transaction(node, storage_readiness, tid)
         logging.debug('Begin %s', txn)
         return tid
 
-    def vote(self, app, ttid, uuid_list):
+    def vote(self, ttid, uuid_list):
         """
             Check that the transaction can be voted
             when the client reports failed nodes.
@@ -262,10 +259,10 @@ class TransactionManager(EventQueue):
         txn = self[ttid]
         # The client does not know which nodes are not expected to have
         # transactions in full. Let's filter out them.
-        failed = app.getStorageReadySet(txn.storage_readiness)
+        failed = self.app.getStorageReadySet(txn.storage_readiness)
         failed.intersection_update(uuid_list)
         if failed:
-            operational = app.pt.operational
+            operational = self.app.pt.operational
             if not operational(failed):
                 # No way to commit this transaction because there are
                 # non-replicated storage nodes with failed stores.
@@ -283,11 +280,12 @@ class TransactionManager(EventQueue):
             txn.failed = failed
         return True
 
-    def prepare(self, app, ttid, oid_list, deleted, checked, msg_id):
+    def prepare(self, ttid, oid_list, deleted, checked, msg_id):
         """
             Prepare a transaction to be finished
         """
         txn = self[ttid]
+        app = self.app
         pt = app.pt
 
         failed = txn.failed
@@ -391,14 +389,14 @@ class TransactionManager(EventQueue):
         is required is when some storages are already busy by other tasks.
         """
         queue = self._queue
-        self._on_commit(self._ttid_dict.pop(queue.popleft()))
+        self.app.onTransactionCommitted(self._ttid_dict.pop(queue.popleft()))
         while queue:
             ttid = queue[0]
             txn = self._ttid_dict[ttid]
             if txn.locking:
                 break
             del queue[0], self._ttid_dict[ttid]
-            self._on_commit(txn)
+            self.app.onTransactionCommitted(txn)
         self.executeQueuedEvents()
 
     def clientLost(self, node):
