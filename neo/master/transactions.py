@@ -24,6 +24,11 @@ from neo.lib.handler import DelayEvent, EventQueue
 from neo.lib.protocol import uuid_str, ZERO_OID, MAX_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
+BeginWithTIDError = ProtocolError(
+    "There can't be concurrent transactions"
+    " when a TID is specified for any of them.")
+
+
 class Transaction(object):
     """
         A pending transaction
@@ -237,17 +242,26 @@ class TransactionManager(EventQueue):
         """
             Generate a new TID
         """
+        ttid_dict = self._ttid_dict
         if tid is None:
-            # No TID requested, generate a temporary one
+            if (1 == len(ttid_dict) == len(self._queue)
+                and not next(six.itervalues(ttid_dict)).tid):
+                # We actually tolerate if an ongoing transaction with a
+                # specified TID is being finished, because it's safe and the
+                # condition is simpler.
+                raise BeginWithTIDError
+            # No TID specified, generate a temporary one
             tid = self._nextTID()
-        elif tid <= self.getLastTID():
+        elif ttid_dict:
+            raise BeginWithTIDError
+        elif tid <= self.app.last_transaction:
             raise ProtocolError(
                 "new TID must be greater than the last committed one")
         else:
             # Use of specific TID requested, queue it immediately and update
             # last TID.
             self._queue.append(tid)
-        txn = self._ttid_dict[tid] = Transaction(node, storage_readiness, tid)
+        txn = ttid_dict[tid] = Transaction(node, storage_readiness, tid)
         logging.debug('Begin %s', txn)
         return tid
 
