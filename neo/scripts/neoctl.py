@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 from neo.lib import logging
 
 def main(args=None):

@@ -102,7 +102,7 @@ TODO:
   Changeset.orphans method).
 """
 
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import argparse, errno, logging, os, socket, sys, threading
 from neo import *
 from array import array
