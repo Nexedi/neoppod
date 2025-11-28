@@ -707,6 +707,7 @@ class GCTests(NEOThreadedTest):
     def test8(self, cluster):
         faketime = start = time()
         N = 3
+        tids = []
         with Patch(transactions, time=lambda orig: faketime):
             t, conn = cluster.getTransaction()
             r = conn.root()
@@ -714,10 +715,11 @@ class GCTests(NEOThreadedTest):
             faketime += 1; t.commit()
             del r.x
             faketime += 1; t.commit()
+            tids.append(cluster.last_tid)
             for i in range(N):
                 r._p_changed = 1
                 faketime += 1; t.commit()
-        ltid = cluster.last_tid
+        tids.append(cluster.last_tid)
         faketime = [start] # nonlocal
         def iterator(orig, *args):
             txn = next(orig(*args))
@@ -730,4 +732,6 @@ class GCTests(NEOThreadedTest):
                 args = ['-v', reflink_cluster.zurl(), 'run',
                         '-p', str(N), cluster.zurl()]
                 self.reflinkUntilIdle(args)
-        self.assertLess(ltid, cluster.last_tid)
+            tids.append(cluster.last_tid)
+            self.assertEqual(tids, [x.tid
+                for x in reflink_cluster.client.iterator()])

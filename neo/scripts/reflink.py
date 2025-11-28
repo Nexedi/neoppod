@@ -1184,12 +1184,9 @@ def main(args=None):
                         orphans = gc(gc_tid)
                         if orphans:
                             changeset.abort()
-                            x = gc(None)
-                            orphans &= x
-                            if x and not orphans:
-                                next_gc = TimeStamp(tid).timeTime() + period
-                                timeout = max(0, next_gc - time())
-                            del x
+                            orphans &= gc(None)
+                        next_gc = TimeStamp(tid).timeTime() + period
+                        timeout = max(0, next_gc - time())
                     else:
                         gc_tid = tid
                         orphans = gc(None)
