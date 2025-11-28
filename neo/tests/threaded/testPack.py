@@ -735,3 +735,4 @@ class GCTests(NEOThreadedTest):
             tids.append(cluster.last_tid)
             self.assertEqual(tids, [x.tid
                 for x in reflink_cluster.client.iterator()])
+        self.assertEqual(add64(tids[1], 1), tids[2])

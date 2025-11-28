@@ -196,6 +196,8 @@ class TransactionManager(EventQueue):
         tid = tidFromTime(time())
         min_tid = self.getLastTID()
         if tid <= min_tid:
+            if ttid == min_tid:
+                return ttid
             tid = addTID(min_tid, 1)
         if ttid is not None:
             remainder = u64(ttid) % divisor
