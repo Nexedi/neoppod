@@ -512,7 +512,7 @@ class Changeset(object):
         load = partial(storage.loadBefore, tid=inc64(tid))
         try:
             self._load = lambda oid: load(oid)[:2]
-            yield
+            yield not load(z64)
         finally:
             self._load = storage.load
             self.abort()
@@ -573,9 +573,11 @@ class Changeset(object):
         # XXX: A heuristic is used for performance reasons. It would be wiser
         #      and maybe not significantly slower to always check connectivity
         #      with oid 0.
-        with self.historical(tid):
-            get = self.get
+        with self.historical(tid) as no_z64:
             orphans = set()
+            if no_z64:
+                return orphans
+            get = self.get
             check_orphan = set()
             check_cycle = []
             keep = {}

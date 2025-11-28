@@ -19,7 +19,7 @@ import random, six.moves._thread as _thread, threading
 from bisect import bisect
 from collections import defaultdict, deque
 from contextlib import contextmanager
-from itertools import count
+from itertools import count, islice
 from logging import NullHandler
 from six.moves.queue import Queue
 from time import time
@@ -27,11 +27,13 @@ import transaction
 from persistent import Persistent
 from ZODB.POSException import POSKeyError, ReadOnlyError, UndoError
 from ZODB.utils import newTid
+from neo.client.app import Application as ClientApplication
 from neo.client.exception import NEOStorageError, NEOUndoPackError
 from neo.client.Storage import Storage
 from neo.lib import logging
 from neo.lib.protocol import ClusterStates, Packets, ZERO_TID
-from neo.lib.util import add64, p64, u64
+from neo.lib.util import add64, p64, u64, timeFromTID
+from neo.master import transactions
 from neo.scripts import reflink
 from neo.storage.database.manager import BackgroundWorker
 from .. import consume, Patch, Random, TransactionalResource
@@ -619,6 +621,13 @@ class GCTests(NEOThreadedTest):
     def test5(self):
         self.test4(2)
 
+    def reflinkUntilIdle(self, args):
+        class _wait(Exception):
+            def __init__(self, *_):
+                raise self
+        with Patch(reflink.InvalidationListener, _wait=_wait):
+            self.assertRaises(_wait, reflink.main, args)
+
     @with_cluster()
     def test6(self, cluster):
         t, conn = cluster.getTransaction()
@@ -633,15 +642,11 @@ class GCTests(NEOThreadedTest):
         del r.x
         t.commit()
 
-        class _wait(Exception):
-            def __init__(self, *_):
-                raise self
         with NEOCluster() as reflink_cluster:
             reflink_cluster.start()
             args = ['-v', reflink_cluster.zurl(), 'run',
                     '-m', '1', '-p', '0', '-i', '1e-9', cluster.zurl()]
-            with Patch(reflink.InvalidationListener, _wait=_wait):
-                self.assertRaises(_wait, reflink.main, args)
+            self.reflinkUntilIdle(args)
             cluster.emptyCache(conn)
             t.begin()
             for x in a, b:
@@ -697,3 +702,32 @@ class GCTests(NEOThreadedTest):
         tid = newTid(tid)
         changeset.commit(tid)
         self.assertFalse(changeset.orphans(None))
+
+    @with_cluster()
+    def test8(self, cluster):
+        faketime = start = time()
+        N = 3
+        with Patch(transactions, time=lambda orig: faketime):
+            t, conn = cluster.getTransaction()
+            r = conn.root()
+            r.x = PCounter()
+            faketime += 1; t.commit()
+            del r.x
+            faketime += 1; t.commit()
+            for i in range(N):
+                r._p_changed = 1
+                faketime += 1; t.commit()
+        ltid = cluster.last_tid
+        faketime = [start] # nonlocal
+        def iterator(orig, *args):
+            txn = next(orig(*args))
+            faketime[0] = timeFromTID(txn.tid) + .5
+            yield txn
+        with NEOCluster() as reflink_cluster:
+            reflink_cluster.start()
+            with Patch(ClientApplication, iterator=iterator), \
+                 Patch(reflink, time=lambda orig: faketime[0]):
+                args = ['-v', reflink_cluster.zurl(), 'run',
+                        '-p', str(N), cluster.zurl()]
+                self.reflinkUntilIdle(args)
+        self.assertLess(ltid, cluster.last_tid)
