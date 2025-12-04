@@ -75,13 +75,13 @@ DB truncation as easy as possible, avoiding any conflict if the main DB has
 consecutive TIDs (t0+1==t1). In other words, this tool never commits aside from
 the analysis of a transaction of the main DB.
 
-Warning: External GC is not compatible with the ZODB undo feature, because
-there isn't any data GC transaction with transactions that orphaned the deleted
-OIDs. IOW, if A loses its reference to B in t1, causing B to be orphan, and the
-GC deletes B in t2, then nothing will prevent undoing t1 alone and A would have
-a dangling reference. As a workaround, this tool can be run with a grace
-period to prevent the GC from deleting too quickly: during this period, undoing
-remains safe.
+Warning: External GC is not compatible with the ZODB undo feature, because such
+GC only modifies orphaned OIDs, which are usually untouched by the transaction
+that orphaned them. IOW, if A loses its reference to B in t1, causing B to be
+orphan, and the GC deletes B in t2, then nothing will prevent undoing t1 alone
+and A would have a dangling reference. As a workaround, this tool can be run
+with a grace period to prevent the GC from deleting too quickly: during this
+period, undoing remains safe.
 
 Warning: This tool does not track explicitly whether an oid exists or not,
 Possible cases:
@@ -89,9 +89,14 @@ Possible cases:
 - When bootstrapping, an existing OID always has an entry, possibly empty.
 - During a normal operation, an OID without any referrer should have an entry
   by being part of the possibly-orphan list.
-- An entry with only referrers mean nothing: the OID may exist or not.
+- An entry with only referrers means nothing: the OID may exist or not.
   If considered orphan, GC tries to delete it and ignore if it's already
   non-existent.
+
+Warning: If we ignore a temporary exception (Py2/Py3 compat), this is a
+standalone tool that imports nothing (directly) from the 'neo' module,
+and it should work for any ZODB implementation (we use a new ZODB API that
+should be pushed upstream).
 
 TODO:
 - Extend the NEO protocol with a mecanism to prevent packing at a TID that
@@ -104,7 +109,7 @@ TODO:
 
 from __future__ import absolute_import, print_function
 import argparse, errno, logging, os, socket, sys, threading
-from neo import *
+from neo import * # BBB: Py2/Py3 compat (see above warning)
 from array import array
 from bisect import insort
 from collections import defaultdict
