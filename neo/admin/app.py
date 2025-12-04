@@ -40,6 +40,8 @@ from neo.lib.util import datetimeFromTID, dump
 utf8raw = Charset('utf-8')
 utf8raw.body_encoding = utf8raw.header_encoding = None
 
+MONITOR_TIMEOUT = 60
+
 
 class Monitor(object):
 
@@ -295,6 +297,13 @@ class Application(BaseApplication, Monitor):
             self.em.setTimeout(None, None)
             self._notify(self.operational)
 
+    def _networkTimeout(self):
+        for name in list(self.notifying):
+            if name:
+                self.backup_dict[name].conn.close()
+        if self.notifying:
+            self.master_conn.close()
+
     def _notify(self, ask_ids=True):
         if ask_ids:
             self.askLastIds(self.master_conn)
@@ -303,6 +312,7 @@ class Application(BaseApplication, Monitor):
                 if monitor.operational:
                     monitor.askLastIds(monitor.conn)
                     notifying.add(name)
+            self.em.setTimeout(time() + MONITOR_TIMEOUT, self._networkTimeout)
         if self.notifying or self.cluster_state is None is not self.master_conn:
             return
         severity = [], [], []
@@ -397,6 +407,8 @@ class Application(BaseApplication, Monitor):
             self.notifying.remove(name)
         except KeyError:
             return
+        if not self.notifying:
+            self.em.setTimeout(None, None)
         self._notify(False)
 
     def sendPartitionTable(self, conn, min_offset, max_offset, uuid):
