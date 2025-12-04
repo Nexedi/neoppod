@@ -770,6 +770,12 @@ def main(args=None):
         help="Tracked ZODB, for class information.")
 
     s = parsers.add_parser('run',
+        description="During a GC, the list of deleted OIDs is kept in RAM"
+                    " and it's used later to iterate faster over the resulting"
+                    " GC transactions. For performance reasons, after a"
+                    " substantial GC, it is therefore advised to wait for all"
+                    " the GC transactions to be processed before interrupting"
+                    " this tool.",
         help="Track references and GC automatically. This is the main command."
              " GCs are performed when there's no new transaction to process.",
              **kw)
@@ -779,7 +785,7 @@ def main(args=None):
         help="Exit before a GC."
              " This option must be used when tracking a NEO DB in backup mode.")
     _('-1', '--exit-after-gc', action='store_true',
-        help="Exit after a GC.")
+        help="Exit after a GC. Warning: see command description.")
     _('-N', '--no-gc', action='store_true',
         help="Only track references.")
     _ = s.add_argument
@@ -1297,7 +1303,12 @@ def main(args=None):
                     if count == 0:
                         if bootstrap:
                             bootstrap = changeset.bootstrap = None
-                            logger.info("Bootstrap completed")
+                            logger.info("Bootstrap completed, now running"
+                                " normally. Warning: this new state will be"
+                                " saved persistently at the next commit:"
+                                " you probably want to wait for it before"
+                                " interrupting this tool, or it would go back"
+                                " to do at least the initial full GC.")
                             next_commit = 0
                         if exit_after_gc:
                             break
