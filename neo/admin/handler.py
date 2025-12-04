@@ -16,6 +16,7 @@
 
 from neo import *
 from neo.lib import logging
+from neo.lib.connection import ConnectionClosed
 from neo.lib.exception import NotReadyError, PrimaryFailure, ProtocolError
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import uuid_str, NodeTypes, Packets
@@ -122,7 +123,10 @@ class MasterEventHandler(EventHandler):
         if forward is None:
             super(MasterEventHandler, self).dispatch(conn, packet, kw)
         else:
-            forward.send(packet, kw['msg_id'])
+            try:
+                forward.send(packet, kw['msg_id'])
+            except ConnectionClosed:
+                pass
 
     def answerClusterState(self, conn, state):
         self.app.updateMonitorInformation(None, cluster_state=state)
