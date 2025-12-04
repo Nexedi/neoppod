@@ -373,6 +373,19 @@ class MySQLPool(object):
 mysql_pool = MySQLPool() if DB_MYCNF else None
 
 
+def reserveEphemeralPort(address_type, local_ip):
+    # This uses the TIME_WAIT trick (60s).
+    # See also https://github.com/Yelp/ephemeral-port-reserve
+    with closing(socket.socket(address_type, socket.SOCK_STREAM)) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind((local_ip, 0))
+        s.listen(1)
+        sockname = s.getsockname()
+        with closing(socket.socket(address_type, socket.SOCK_STREAM)) as s2:
+            s2.connect(sockname)
+            s.accept()[0].close()
+    return sockname[1]
+
 def ImporterConfigParser(adapter, zodb, **kw):
     cfg = ConfigParser()
     cfg.add_section("neo")

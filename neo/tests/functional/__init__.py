@@ -19,7 +19,6 @@ import errno
 import os
 import sys
 import time
-import socket
 import signal
 import random
 import sqlite3
@@ -40,8 +39,8 @@ from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump, setproctitle
 from .. import (ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SSL,
-    buildUrlFromString, cluster, getTempDirectory, setupMySQL,
-    ImporterConfigParser, NeoTestBase, Patch)
+    buildUrlFromString, cluster, getTempDirectory, reserveEphemeralPort,
+    setupMySQL, ImporterConfigParser, NeoTestBase, Patch)
 from neo.client.Storage import Storage
 from neo.storage.database import manager, buildDatabaseManager
 
@@ -90,52 +89,6 @@ class AlreadyStopped(Exception):
 
 class NotFound(Exception):
     pass
-
-class PortAllocator(object):
-
-    def __init__(self):
-        self.socket_list = []
-        self.tried_port_set = set()
-
-    def allocate(self, address_type, local_ip):
-        min_port = n = 16384
-        max_port = min_port + n
-        tried_port_set = self.tried_port_set
-        while True:
-            s = socket.socket(address_type, socket.SOCK_STREAM)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # Find an unreserved port.
-            while True:
-                # Do not let the system choose the port to avoid conflicts
-                # with other software. IOW, use a range different than:
-                # - /proc/sys/net/ipv4/ip_local_port_range on Linux
-                # - what IANA recommends (49152 to 65535)
-                port = random.randrange(min_port, max_port)
-                if port not in tried_port_set:
-                    tried_port_set.add(port)
-                    try:
-                        s.bind((local_ip, port))
-                        break
-                    except socket.error as e:
-                        if e.errno != errno.EADDRINUSE:
-                            raise
-                elif len(tried_port_set) >= n:
-                    raise RuntimeError("No free port")
-            # Reserve port.
-            try:
-                s.listen(1)
-                self.socket_list.append(s)
-                return port
-            except socket.error as e:
-                if e.errno != errno.EADDRINUSE:
-                    raise
-
-    def release(self):
-        for s in self.socket_list:
-            s.close()
-        self.__init__()
-
-    __del__ = release
 
 
 class Process(object):
@@ -398,10 +351,9 @@ class NEOCluster(object):
         # connection retries, we also patch CONNECT_LIMIT in NEOFunctionalTest.
         self.process_dict = OrderedDict()
         self.temp_dir = temp_dir
-        self.port_allocator = PortAllocator()
-        self.admin_port = self.port_allocator.allocate(address_type, local_ip)
+        self.admin_port = reserveEphemeralPort(address_type, local_ip)
         self.cluster_name = name or 'neo_%s' % random.randint(0, 100)
-        master_node_list = [self.port_allocator.allocate(address_type, local_ip)
+        master_node_list = [reserveEphemeralPort(address_type, local_ip)
                             for i in range(master_count)]
         self.master_nodes = ' '.join('%s:%s' % (
                 buildUrlFromString(self.local_ip), x, )
@@ -438,7 +390,6 @@ class NEOCluster(object):
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
         assert len(self.process_dict)
-        self.port_allocator.release()
         for process_list in six.itervalues(self.process_dict):
             for process in process_list:
                 if process not in except_storages:

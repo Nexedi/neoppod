@@ -22,7 +22,7 @@ from neo.lib.protocol import NodeTypes
 from neo.lib.util import datetimeFromTID, timeFromTID, p64, u64
 from neo.storage.app import DATABASE_MANAGERS, \
     Application as StorageApplication
-from neo.tests import getTempDirectory, mysql_pool
+from neo.tests import getTempDirectory, mysql_pool, reserveEphemeralPort
 from neo.tests.ConflictFree import ConflictFreeLog
 from neo.tests.functional import AlreadyStopped, NEOCluster, Process
 from neo.tests.stress import StressApplication
@@ -318,8 +318,7 @@ class NEOCluster(NEOCluster):
 
     def _newProcess(self, node_type, logfile=None, port=None, **kw):
         super(NEOCluster, self)._newProcess(node_type, logfile,
-            port or self.port_allocator.allocate(
-                self.address_type, self.local_ip),
+            port or reserveEphemeralPort(self.address_type, self.local_ip),
             **kw)
 
 

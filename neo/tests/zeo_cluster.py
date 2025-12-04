@@ -4,8 +4,9 @@ import signal
 import tempfile
 import ZEO.runzeo
 from ZEO.ClientStorage import ClientStorage as _ClientStorage
-from . import buildUrlFromString, ADDRESS_TYPE, IP_VERSION_FORMAT_DICT
-from .functional import AlreadyStopped, PortAllocator, Process
+from . import buildUrlFromString, reserveEphemeralPort, \
+    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT
+from .functional import AlreadyStopped, Process
 
 class ZEOProcess(Process):
 
@@ -28,14 +29,12 @@ class ZEOCluster(object):
     def start(self):
         self.zodb_storage_list = []
         local_ip = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE]
-        port_allocator = PortAllocator()
-        port = port_allocator.allocate(ADDRESS_TYPE, local_ip)
+        port = reserveEphemeralPort(ADDRESS_TYPE, local_ip)
         self.address = buildUrlFromString(local_ip), port
         temp_dir = tempfile.mkdtemp(prefix='neo_')
         print('Using temp directory', temp_dir)
         self.zeo = ZEOProcess(address='%s:%s' % self.address,
                               filename=os.path.join(temp_dir, 'Data.fs'))
-        port_allocator.release()
         self.zeo.start()
 
     def stop(self):
