@@ -47,7 +47,7 @@ from neo.lib.protocol import ZERO_OID, ZERO_TID, MAX_TID, uuid_str, \
 from neo.lib.util import cached_property, parseMasterList, p64
 from neo.master.recovery import  RecoveryManager
 from neo.storage.database.importer import ImporterDatabaseManager
-from .. import (getTempDirectory, setupMySQL,
+from .. import (getTempDirectory, setupMySQL, reserveEphemeralPort,
     ImporterConfigParser, NeoTestBase, Patch,
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX)
 
@@ -859,12 +859,14 @@ class NEOCluster(object):
         Serialized.stop()
 
     started = False
+    monitor_reflink = None
 
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
                        compress=True, backup_count=0, backup_initially=False,
-                       importer=None, autostart=None, dedup=False, name=None):
+                       importer=None, autostart=None, dedup=False, name=None,
+                       monitor_reflink=False):
         self.name = name or self._allocateName()
         self.backup_list = [self._allocateName() for x in range(backup_count)]
         self.compress = compress
@@ -909,6 +911,10 @@ class NEOCluster(object):
         kw['monitor_email'] = self.name,
         if backup_count:
             kw['monitor_backup'] = self.backup_list
+        if monitor_reflink:
+            ip = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE]
+            self.monitor_reflink = reserveEphemeralPort(ADDRESS_TYPE, ip)
+            kw['reflink'] = ip, self.monitor_reflink
         self.admin_list = [AdminApplication(**kw)]
 
     def __repr__(self):

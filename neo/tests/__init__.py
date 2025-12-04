@@ -128,7 +128,8 @@ IP_VERSION_FORMAT_DICT = {
 ADDRESS_TYPE = socket.AF_INET
 
 SSL = os.path.dirname(__file__) + os.sep
-SSL = SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"
+SSL, SSL2 = (SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"), \
+            (SSL + "ca2.crt", SSL + "node2.crt", SSL + "node2.key")
 
 logging.default_root_handler.handle = lambda record: None
 

@@ -108,7 +108,7 @@ TODO:
 """
 
 from __future__ import absolute_import, print_function
-import argparse, errno, logging, os, socket, sys, threading
+import argparse, errno, logging, os, ssl, socket, sys, threading
 from neo import * # BBB: Py2/Py3 compat (see above warning)
 from array import array
 from bisect import insort
@@ -116,10 +116,13 @@ from collections import defaultdict
 from contextlib import closing, contextmanager
 from datetime import timedelta
 from functools import partial
+from six.moves import http_client
+from six.moves.BaseHTTPServer import BaseHTTPRequestHandler
 from io import BytesIO
 from operator import attrgetter, call
 from six.moves.queue import Empty, Queue
 from select import error as select_error, select
+from six.moves.socketserver import ThreadingTCPServer
 from time import gmtime, sleep, time
 
 from msgpack import Packer, loads, version as msgpack_version
@@ -693,6 +696,41 @@ class Changeset(object):
                 x = iter(self.get(oid).referrers)
 
 
+class MonitorServer(ThreadingTCPServer):
+
+    allow_reuse_address = daemon_threads = True
+
+    def __init__(self, address_family, server_address):
+        self.address_family = address_family
+        ThreadingTCPServer.__init__(self,
+            server_address, MonitorRequestHandler, False)
+
+
+class MonitorRequestHandler(BaseHTTPRequestHandler):
+
+    sys_version = 'neoppod.git/reflink (%s)' \
+        % BaseHTTPRequestHandler.sys_version
+
+    def log_error(self, *args):
+        self.__log(logger.warning, *args)
+
+    def log_message(self, *args):
+        self.__log(logger.info, *args)
+
+    def __log(self, log, format, *args):
+        log("[monitor] %s - %s", self.client_address[0], format % args) # PY3: self.address_string()
+
+    def do_GET(self):
+        if self.path != '/':
+            return self.send_error(http_client.NOT_FOUND)
+        r = hex(u64(self.server.getLastProcessedTID())).encode()
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.send_header("Content-Length", str(len(r)))
+        self.end_headers()
+        self.wfile.write(r)
+
+
 class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
 
     def _format_action(self, action):
@@ -706,6 +744,24 @@ class ArgumentDefaultsHelpFormatter(argparse.HelpFormatter):
                 action.help = default
         return super(ArgumentDefaultsHelpFormatter, self)._format_action(action)
 
+
+def parseBindAddress(value):
+    if not value:
+        raise argparse.ArgumentTypeError
+    family = socket.AF_INET6
+    if value[0] == '[':
+        host, port = value[1:].split(']')
+        if port[:1] != ':':
+            raise argparse.ArgumentTypeError
+        port = port[1:]
+    elif ':' in value:
+        host, port = value.split(':')
+        family = socket.AF_INET
+    else:
+        host = '::1'
+        port = value
+    return family, socket.getaddrinfo(
+        host, port, family, socket.SOCK_STREAM)[0][4][:2]
 
 def main(args=None):
     if args is None:
@@ -819,6 +875,9 @@ def main(args=None):
     period(86400,
         " For performance reasons, this revision won't be older than the"
         " previous GC commit so GCs may be delayed this number of seconds.")
+    _('--monitor', type=parseBindAddress, metavar="[IP:]PORT",
+        help="Local address to bind to for monitoring (see admin's --reflink)"
+             " (default IP: [::1]).")
 
     args = parser.parse_args(args)
 
@@ -892,6 +951,43 @@ def main(args=None):
             commit_interval = args.commit_interval
             if commit_interval <= 0:
                 parser.error("--commit-interval must be strictly positive.")
+            if args.monitor:
+                monitor_tid = z64
+                monitor = MonitorServer(*args.monitor)
+                monitor.getLastProcessedTID = lambda: monitor_tid
+                try:
+                    ssl_credentials = main_storage.app.ssl_credentials
+                except AttributeError:
+                    pass
+                else: # NEO using SSL
+                    context = ssl.create_default_context(
+                        ssl.Purpose.CLIENT_AUTH, cafile=ssl_credentials[0])
+                    context.verify_flags |= ssl.VERIFY_X509_STRICT # BBB: Python < 3.13
+                    context.load_cert_chain(*ssl_credentials[1:])
+                    monitor.socket = context.wrap_socket(monitor.socket, True)
+                close_list.append(monitor.socket)
+                monitor.server_bind()
+                monitor.server_activate()
+                monitor_shutdown, x = os.pipe()
+                close_list.append(os.fdopen(x, 'w'))
+                def monitor_serve():
+                    try:
+                        rfds = monitor, monitor_shutdown
+                        while True:
+                            try:
+                                r = select(rfds, (), ())[0]
+                            except (OSError, select_error) as e: # PY2
+                                if e.args[0] != errno.EINTR:
+                                    raise
+                            if monitor_shutdown in r:
+                                break
+                            if monitor in r:
+                                monitor._handle_request_noblock()
+                    finally:
+                        os.close(monitor_shutdown)
+                x = threading.Thread(target=monitor_serve)
+                x.daemon = True
+                x.start()
             exit_before_gc = args.exit_before_gc
             exit_after_gc = args.exit_after_gc
             no_gc = args.no_gc
@@ -1068,6 +1164,7 @@ def main(args=None):
         invalidation_listener = InvalidationListener(main_storage, tid)
 
         if commit_interval:
+            monitor_tid = tid
             deleted_dict = {}
             def iterTrans(x):
                 put = queue.put
@@ -1179,6 +1276,7 @@ def main(args=None):
                         changeset.deleted(oid)
                     del check_keep, check_deleted, check_orphan
 
+                    monitor_tid = tid
                     x = time()
                     if next_commit <= x:
                         changeset.commit(tid)

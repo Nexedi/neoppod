@@ -15,12 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import getpass, os
+import getpass, os, threading
 from collections import Counter
+from contextlib import closing
 from email.charset import Charset
 from email.message import Message
 from email.utils import formataddr, formatdate
-from socket import getfqdn
+from six.moves import http_client
+from socket import getfqdn, error as socket_error
 from time import time
 from traceback import format_exc
 from neo import *
@@ -34,12 +36,14 @@ from neo.lib.bootstrap import BootstrapManager
 from neo.lib.protocol import \
     CellStates, ClusterStates, Errors, NodeTypes, Packets
 from neo.lib.debug import register as registerLiveDebugger
-from neo.lib.util import datetimeFromTID, dump
+from neo.lib.util import datetimeFromTID, dump, p64, parseNodeAddress
 
 utf8raw = Charset('utf-8')
 utf8raw.body_encoding = utf8raw.header_encoding = None
 
+MONITOR_REFLINK = object()
 MONITOR_TIMEOUT = 60
+REFLINK_MAXLAG = 3600
 
 
 class Monitor(object):
@@ -130,11 +134,16 @@ class Application(BaseApplication, Monitor):
         hint = ' (the option can be repeated)'
         _ = _.group('admin')
         _.float('monitor-maxlag', default=float(Backup.max_lag),
+            metavar='SECONDS',
             help='warn if a backup cluster is too late at replicating upstream')
         _('monitor-email', multiple=True,
             help='recipient email for notifications' + hint)
         _('monitor-backup', multiple=True,
             help='name of backup cluster to monitor' + hint)
+        _('reflink', parse=parseNodeAddress,
+            help='address of reflink process')
+        _.float('reflink-maxlag', metavar='SECONDS', default=REFLINK_MAXLAG,
+            help='warn if a reflink cluster is too late at tracking upstream')
         _('smtp', metavar='HOST[:PORT]',
             help='SMTP for email notifications')
         _.bool('smtp-tls',
@@ -157,6 +166,8 @@ class Application(BaseApplication, Monitor):
         for x in config.get('monitor_backup', ()):
             backup_dict[x] = x = Backup()
             x.max_lag = max_lag
+        self.monitor_reflink = config.get('reflink')
+        self.reflink_maxlag = config.get('reflink_maxlag', REFLINK_MAXLAG)
         self.email_list = config.get('monitor_email', ())
         if self.email_list:
             self.smtp_host = config.get('smtp') or 'localhost'
@@ -299,10 +310,27 @@ class Application(BaseApplication, Monitor):
 
     def _networkTimeout(self):
         for name in list(self.notifying):
-            if name:
+            if name is MONITOR_REFLINK:
+                self.reflink_conn.close()
+                self.monitor_reflink_thread.join()
+                self.maybeNotify(name) # we can't wait for wakeup event
+            elif name:
                 self.backup_dict[name].conn.close()
         if self.notifying:
             self.master_conn.close()
+
+    def _monitorReflink(self):
+        try:
+            self.reflink_tid = None
+            with closing(self.reflink_conn) as conn:
+                conn.request("GET", "/")
+                with closing(conn.getresponse()) as r:
+                    if r.status == http_client.OK:
+                        self.reflink_tid = p64(int(r.read(), 0))
+        except socket_error:
+            pass
+        finally:
+            self.em.wakeup(lambda: self.maybeNotify(MONITOR_REFLINK))
 
     def _notify(self, ask_ids=True):
         if ask_ids:
@@ -312,6 +340,17 @@ class Application(BaseApplication, Monitor):
                 if monitor.operational:
                     monitor.askLastIds(monitor.conn)
                     notifying.add(name)
+            if self.monitor_reflink:
+                self.reflink_conn = http_client.HTTPConnection(
+                    *self.monitor_reflink
+                ) if self.ssl is None else http_client.HTTPSConnection(
+                    *self.monitor_reflink, context=self.ssl
+                )
+                notifying.add(MONITOR_REFLINK)
+                t = self.monitor_reflink_thread = threading.Thread(
+                    target=self._monitorReflink)
+                t.daemon = True
+                t.start()
             self.em.setTimeout(time() + MONITOR_TIMEOUT, self._networkTimeout)
         if self.notifying or self.cluster_state is None is not self.master_conn:
             return
@@ -326,6 +365,17 @@ class Application(BaseApplication, Monitor):
             body = NOT_CONNECTED_MESSAGE
         else:
             upstream, body = self.formatSummary()
+            if self.monitor_reflink and \
+               self.cluster_state == ClusterStates.RUNNING:
+                tid = self.reflink_tid
+                if tid:
+                    lag = (upstream[0] - datetimeFromTID(tid)).total_seconds()
+                    x = self.reflink_maxlag < lag
+                    tid = '%s (lag=%s)' % (dump(tid), lag)
+                else:
+                    x = 2
+                severity[x].append('reflink')
+                body += '; relfink_tid=%s' % tid
             body = [body]
             for name, backup in six.iteritems(self.backup_dict):
                 body += '', name, '    ' + backup.formatSummary(upstream)[1]
@@ -404,6 +454,8 @@ class Application(BaseApplication, Monitor):
             self.notifying.remove(name)
         except KeyError:
             return
+        if name is MONITOR_REFLINK:
+            del self.reflink_conn, self.monitor_reflink_thread
         if not self.notifying:
             self.em.setTimeout(None, None)
         self._notify(False)

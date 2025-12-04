@@ -15,13 +15,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-import random, six.moves._thread as _thread, threading
+import random, re, six.moves._thread as _thread, threading
 from bisect import bisect
 from collections import defaultdict, deque
 from contextlib import contextmanager
 from itertools import count, islice
 from logging import NullHandler
 from six.moves.queue import Queue
+from six.moves.urllib.parse import urlsplit, urlunsplit
 from time import time
 import transaction
 from persistent import Persistent
@@ -36,7 +37,8 @@ from neo.lib.util import add64, p64, u64, timeFromTID
 from neo.master import transactions
 from neo.scripts import reflink
 from neo.storage.database.manager import BackgroundWorker
-from .. import consume, Patch, Random, TransactionalResource
+from .. import consume, reserveEphemeralPort, \
+    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, Patch, Random, TransactionalResource
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, with_cluster
 from neo import *
 
@@ -301,6 +303,10 @@ class PackTests(NEOThreadedTest):
         self.assertPopulated(c)
 
 
+class ReflinkCluster(NEOCluster):
+    pass
+
+
 class GCTests(NEOThreadedTest):
 
     @classmethod
@@ -309,8 +315,18 @@ class GCTests(NEOThreadedTest):
         reflink.logging_handler = NullHandler()
         reflink.print = lambda *args, **kw: None
 
-    @with_cluster(serialized=False, name='main')
+    @with_cluster(serialized=False, name='main', monitor_reflink=True)
     def test1(self, cluster):
+        def getMonitorReflink(
+                _match=re.compile('RUNNING; .+; relfink_tid=(.+)').match):
+            warning, problem, message = cluster.neoctl.getMonitorInformation()
+            return (2 if 'reflink' in problem else
+                    1 if 'reflink' in warning else
+                    0), _match(message).group(1) # PY3: [1]
+        def getReflinkLag(_match=re.compile(r'.+ \(lag=(.+)\)$').match): #PY3: fullmatch
+            severity, tid = getMonitorReflink()
+            self.assertLess(severity, 2)
+            return severity, float(_match(tid).group(1)) # PY3: [1]
         def check(*objs):
             cluster.emptyCache(conn)
             t.begin()
@@ -321,29 +337,38 @@ class GCTests(NEOThreadedTest):
                     self.assertRaises(POSKeyError, ob._p_activate)
         def commit(orig, *args):
             orig(*args)
-            committed.release()
+            committed.set()
             track.acquire()
             if stop:
                 _thread.exit()
         commit_patch = Patch(reflink.Changeset, commit=commit)
         def reflink_run():
-          from traceback import print_exc
-          reflink.main(['-v', reflink_cluster.zurl(), 'run',
-                          '-p', '0', '-i', '1e-9',
-                          cluster.zurl()])
-        committed = threading.Lock()
+            ip = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE]
+            if ':' in ip:
+                ip = '[%s]' % ip
+            reflink.main(['-v', reflink_cluster.zurl(), 'run',
+                '--monitor', '%s:%u' % (ip, cluster.monitor_reflink),
+                '-p', '0', '-i', '1e-9', cluster.zurl()])
+        def wait_reflink_commit():
+            while not committed.wait(timeout=1):
+                reflink_thread.join(0)
+                self.assertTrue(reflink_thread.is_alive())
+            committed.clear()
+        committed = threading.Event() # PY3: use Lock
         track = threading.Lock()
-        with commit_patch, committed, track, NEOCluster(name='reflink') as reflink_cluster:
+        with commit_patch, track, \
+             ReflinkCluster(name='reflink') as reflink_cluster:
             stop = False
             start = time()
             reflink_cluster.start()
+            self.assertEqual(getMonitorReflink(), (2, 'None'))
             reflink_thread = self.newThread(reflink_run)
             t, conn = cluster.getTransaction()
-            committed.acquire()
+            wait_reflink_commit()
             r = conn.root()[''] = PCounter()
             t.commit()
             track.release()
-            committed.acquire()
+            wait_reflink_commit()
 
             b = PCounter()
             c = PCounter()
@@ -355,7 +380,7 @@ class GCTests(NEOThreadedTest):
             b.x = l[0]
             t.commit()
             track.release()
-            committed.acquire()
+            wait_reflink_commit()
 
             l.append(PCounter())
             l[0].x = l[2], l[1]
@@ -367,27 +392,33 @@ class GCTests(NEOThreadedTest):
             d.x = z
             t.commit()
             track.release()
-            committed.acquire()
+            wait_reflink_commit()
 
             all_ = [b, c, d, y, z]
             all_ += l
 
             # GC commit
             track.release()
-            committed.acquire()
+            wait_reflink_commit()
             check(b, d, y, z, *l)
             tid0 = cluster.last_tid
 
             r.x = d
             t.commit()
+            severity, lag = getReflinkLag()
+            self.assertEqual(severity, 0)
+            self.assertNotEqual(lag, 0)
+            with Patch(cluster.admin, reflink_maxlag=lag/2):
+                self.assertEqual(getReflinkLag(), (1, lag))
             track.release()
-            committed.acquire()
+            wait_reflink_commit()
 
+            self.assertEqual(getReflinkLag(), (0, 0))
             tid1 = cluster.last_tid
             self.assertEqual(tid1, reflink_cluster.last_tid)
             # GC commit
             track.release()
-            committed.acquire()
+            wait_reflink_commit()
             final = d, z
             check(*final)
 
@@ -408,18 +439,18 @@ class GCTests(NEOThreadedTest):
         cluster.neoctl.truncate(tid1)
         self.waitUntil(cluster.master.getLastTransaction, tid1)
 
-        with NEOCluster() as reflink_cluster:
+        with ReflinkCluster() as reflink_cluster:
             reflink_cluster.start()
             loid = cluster.master.tm.getLastOID()
             reflink.main([reflink_cluster.zurl(), 'bootstrap', hex(u64(tid0))])
             stop = False
-            with commit_patch, committed, track:
+            with commit_patch, track:
                 reflink_thread = self.newThread(reflink_run)
-                committed.acquire()
+                wait_reflink_commit()
 
                 for i in range(-u64(loid), 2):
                     track.release()
-                    committed.acquire()
+                    wait_reflink_commit()
                     if not i:
                         self.assertEqual(tid1, reflink_cluster.last_tid)
                 check(*final)
@@ -529,7 +560,7 @@ class GCTests(NEOThreadedTest):
         client.wait_for_pack = True
         client.pack(tid)
 
-        with NEOCluster() as reflink_cluster:
+        with ReflinkCluster() as reflink_cluster:
             reflink_cluster.start()
             args = ['-v', reflink_cluster.zurl(), 'run',
                     '-p', '0', '-1', cluster.zurl()]
@@ -546,6 +577,11 @@ class GCTests(NEOThreadedTest):
 
     def test3(self):
         self.test2(True)
+
+    def add_read_only(self, url):
+        x = urlsplit(url)
+        q = x.query
+        return urlunsplit(x._replace(query=(q and q + '&') + 'read_only=true'))
 
     @with_cluster()
     def test4(self, cluster, jobs=None):
@@ -571,13 +607,13 @@ class GCTests(NEOThreadedTest):
                 if maybeAbort(tid):
                     raise Exception.__new__(cls)
                 return tid
-        with NEOCluster() as reflink_cluster:
+        with ReflinkCluster() as reflink_cluster:
             reflink_cluster.start()
             args = ['-v', reflink_cluster.zurl(), 'bootstrap', hex(u64(tid0))]
             reflink.main(args)
             args[2:] = 'run', '-m', '1', '-p', '0', cluster.zurl()
             fgc_args = args[:2]
-            fgc_args += 'gc', '-f', args[-1] + '?read_only=true'
+            fgc_args += 'gc', '-f', self.add_read_only(args[-1])
             if jobs:
                 fgc_args[4:4] = args[5:5] = '-j', str(jobs)
             with Patch(Storage, tpc_finish=tpc_finish):
@@ -642,7 +678,7 @@ class GCTests(NEOThreadedTest):
         del r.x
         t.commit()
 
-        with NEOCluster() as reflink_cluster:
+        with ReflinkCluster() as reflink_cluster:
             reflink_cluster.start()
             args = ['-v', reflink_cluster.zurl(), 'run',
                     '-m', '1', '-p', '0', '-i', '1e-9', cluster.zurl()]
@@ -652,7 +688,7 @@ class GCTests(NEOThreadedTest):
             for x in a, b:
                 self.assertRaises(POSKeyError, x._p_activate)
             gc_args = args[:2]
-            gc_args += 'gc', args[-1] + '?read_only=true'
+            gc_args += 'gc', self.add_read_only(args[-1])
             reflink.main(gc_args)
 
     @with_cluster()
@@ -725,7 +761,7 @@ class GCTests(NEOThreadedTest):
             txn = next(orig(*args))
             faketime[0] = timeFromTID(txn.tid) + .5
             yield txn
-        with NEOCluster() as reflink_cluster:
+        with ReflinkCluster() as reflink_cluster:
             reflink_cluster.start()
             with Patch(ClientApplication, iterator=iterator), \
                  Patch(reflink, time=lambda orig: faketime[0]):

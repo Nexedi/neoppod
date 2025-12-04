@@ -16,8 +16,9 @@
 
 from neo.lib.connection import ClientConnection, ListeningConnection
 from neo.lib.protocol import Packets
-from .. import Patch, SSL
-from . import NEOCluster, test, testReplication
+from .. import Patch, SSL, SSL2
+from . import NEOCluster, test, testPack, testReplication
+from .testPack import GCTests, ReflinkCluster
 
 
 class SSLMixin(object):
@@ -26,10 +27,12 @@ class SSLMixin(object):
     def setUpClass(cls):
         super(SSLMixin, cls).setUpClass()
         NEOCluster.SSL = SSL
+        ReflinkCluster.SSL = SSL2
 
     @classmethod
     def tearDownClass(cls):
         NEOCluster.SSL = None
+        del ReflinkCluster.SSL
         super(SSLMixin, cls).tearDownClass()
 
 
@@ -90,3 +93,6 @@ class SSLTests(SSLMixin, test.Test):
 class SSLReplicationTests(SSLMixin, testReplication.ReplicationTests):
     # do not repeat slowest tests with SSL
     testBackupNodeLost = testBackupNormalCase = None
+
+class SSLGCTests(SSLMixin, GCTests):
+    pass
