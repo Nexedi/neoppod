@@ -26,8 +26,7 @@ from traceback import format_exc
 from neo import *
 from neo.lib import logging
 from neo.lib.app import BaseApplication, buildOptionParser
-from neo.lib.connection import ClientConnection, ListeningConnection, \
-    ConnectionClosed
+from neo.lib.connection import ClientConnection, ListeningConnection
 from neo.lib.exception import PrimaryFailure
 from .handler import AdminEventHandler, BackupHandler, MasterEventHandler, \
     UpstreamAdminHandler, NOT_CONNECTED_MESSAGE
@@ -45,10 +44,9 @@ MONITOR_TIMEOUT = 60
 
 class Monitor(object):
 
-    def __init__(self):
-        self.down = 0
-        self.monitor_changed = False
-        self.pt_summary = None
+    monitor_changed = False
+    down = 0
+    pt_summary = None
 
     def askLastIds(self, conn):
         if self.cluster_state == ClusterStates.BACKINGUP:
@@ -176,7 +174,6 @@ class Application(BaseApplication, Monitor):
                 email_from = None
             self.email_from = formataddr(("NEO " + self.name, email_from))
         self.smtp_exc = None
-        self.notifying = set()
 
         logging.debug('IP address is %s, port is %d',
                       *decodeAddress(self.server))
@@ -191,6 +188,7 @@ class Application(BaseApplication, Monitor):
         self.upstream_admin_handler = UpstreamAdminHandler(self)
         self.cluster_state = None
         self.upstream_admin = self.upstream_admin_conn = None
+        self.asking_monitor_information = []
         self.reset()
         registerLiveDebugger(on_log=self.log)
 
@@ -199,10 +197,9 @@ class Application(BaseApplication, Monitor):
         super(Application, self).close()
 
     def reset(self):
-        Monitor.__init__(self)
-        self.asking_monitor_information = []
         self.master_conn = None
         self.master_node = None
+        self.notifying = set()
 
     def run(self):
         try:
@@ -223,13 +220,16 @@ class Application(BaseApplication, Monitor):
         handler = AdminEventHandler(self)
         self.listening_conn = ListeningConnection(self, handler, self.server)
 
-        while self.cluster_state != ClusterStates.STOPPING:
+        while True:
             self.connectToPrimary()
             try:
                 while True:
                     self.em.poll(1)
             except PrimaryFailure:
                 logging.error('primary master is down')
+            if self.cluster_state == ClusterStates.STOPPING:
+                break
+            self.updateMonitorInformation(None, cluster_state=None)
         self.listening_conn.close()
         while not self.em.isIdle():
             self.em.poll(1)
@@ -243,7 +243,7 @@ class Application(BaseApplication, Monitor):
         Note that I do not accept any connection from non-master nodes
         at this stage.
         """
-        self.cluster_state = None
+        assert self.cluster_state is None, self.cluster_state
         # search, find, connect and identify to the primary master
         backup_list = map(str2bytes, self.backup_dict)
         bootstrap = BootstrapManager(self, NodeTypes.ADMIN, self.server,
@@ -396,11 +396,8 @@ class Application(BaseApplication, Monitor):
             severity[my_severity].insert(0, None)
             p = Packets.AnswerMonitorInformation(severity[1], severity[2], body)
             for conn, msg_id in neoctl:
-                try:
-                    conn.send(p, msg_id)
-                except ConnectionClosed:
-                    pass
-            del self.asking_monitor_information[:]
+                conn.send(p, msg_id)
+            del neoctl[:]
 
     def maybeNotify(self, name):
         try:

@@ -19,7 +19,7 @@ from neo.lib import logging
 from neo.lib.connection import ConnectionClosed
 from neo.lib.exception import NotReadyError, PrimaryFailure, ProtocolError
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import uuid_str, NodeTypes, Packets
+from neo.lib.protocol import uuid_str, ErrorCodes, NodeTypes, Packets
 from neo.lib.pt import PartitionTable
 
 NOT_CONNECTED_MESSAGE = 'Not connected to a primary master.'
@@ -47,8 +47,11 @@ def AdminEventHandlerType(name, bases, d):
             Packets.TweakPartitionTable,
         ):
         d[x.handler_method_name] = forward_ask(x)
-    return type(name, bases, {k: v if k[0] == '_' else check_connection(v)
-                              for k, v in six.iteritems(d)})
+    return type(name, bases, {
+        k: v if k[0] == '_' or k in ('connectionClosed', 'connectionFailed')
+            else check_connection(v)
+        for k, v in six.iteritems(d)
+    })
 AdminEventHandlerType.__prepare__ = lambda *_: {} # PY3: only for six
 
 class AdminEventHandler(six.with_metaclass(AdminEventHandlerType, EventHandler)):
@@ -58,6 +61,14 @@ class AdminEventHandler(six.with_metaclass(AdminEventHandlerType, EventHandler))
         if self.app.master_conn is None:
             raise NotReadyError(NOT_CONNECTED_MESSAGE)
         return True
+
+    def connectionClosed(self, conn):
+        super(AdminEventHandler, self).connectionClosed(conn)
+        asking_monitor_information = self.app.asking_monitor_information
+        for i, x in enumerate(asking_monitor_information):
+            if x[0] is conn:
+                del asking_monitor_information[i]
+                break
 
     def requestIdentification(self, conn, node_type, uuid, address, name, *_):
         if node_type != NodeTypes.ADMIN:
@@ -127,6 +138,9 @@ class MasterEventHandler(EventHandler):
                 forward.send(packet, kw['msg_id'])
             except ConnectionClosed:
                 pass
+            if packet.isError() and \
+                    packet.getArgs()[0] == ErrorCodes.PROTOCOL_ERROR:
+                forward.abort()
 
     def answerClusterState(self, conn, state):
         self.app.updateMonitorInformation(None, cluster_state=state)
