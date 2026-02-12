@@ -345,17 +345,20 @@ class Changeset(object):
             self._bootstrap = None
         else:
             version = bucket.get('__reflink_version__')
-            if version == 1:
+            changed = version != VERSION
+            if changed:
+                if version != 1:
+                    raise Exception(
+                        "unsupported reflink DB version %r (expected %r)"
+                        % (version, VERSION))
                 for k in '__reflink_last_gc__', '__reflink_last_pack__':
                     if k in bucket:
                         bucket[k] = u64(bucket[k])
-                version = bucket['__reflink_version__'] = 2
-            if version != VERSION:
-                raise Exception("unsupported reflink DB version %r"
-                                " (expected %r)" % (version, VERSION))
+                bucket['__reflink_version__'] = VERSION
             self._bootstrap = bucket.get('__reflink_bootstrap__')
             if bootstrap is None:
-                buckets.clear()
+                if not changed:
+                    buckets.clear()
             elif self._bootstrap is None or self._bootstrap[1] != 0:
                 raise Exception("can not bootstrap: DB is not empty")
         if bootstrap is not None:
