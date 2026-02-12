@@ -188,6 +188,21 @@ def inc64(tid):
 def tidFromTime(t):
     return TimeStamp(*gmtime(t)[:5]+(t%60,)).raw()
 
+def iterator(storage, start):
+    # WKRD: IStorageIteration.iterator(stop=None) should continue to iterate as
+    #       new transactions are committed, and only exit if there's no new one
+    #       (regardless of the last TID at the beginning of the iteration).
+    #       Anyway, FileStorage currently logs wrong warnings in such scenario.
+    #       The old behaviour would still be available by passing:
+    #         stop=storage.lastTransaction()
+    while True:
+        stop = storage.lastTransaction()
+        if stop < start:
+            break
+        for txn in storage.iterator(start, stop):
+            yield txn
+        start = inc64(stop)
+
 
 class InvalidationListener(object):
 
@@ -1079,7 +1094,7 @@ def main(args=None):
         while True:
             if commit_interval:
                 thread = threading.Thread(target=iterTrans,
-                    args=(main_storage.iterator(inc64(tid)),))
+                    args=(iterator(main_storage, inc64(tid)),))
                 thread.daemon = True
                 thread.start()
                 while True:
