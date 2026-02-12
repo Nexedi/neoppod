@@ -807,7 +807,7 @@ def main(args=None):
     _('-N', '--no-gc', action='store_true',
         help="Only track references.")
     _ = s.add_argument
-    _('-i', '--commit-interval', type=float, metavar="SECONDS", default=10,
+    _('-i', '--commit-interval', type=float, metavar="SECONDS", default=60,
         help="Commit every SECONDS of work.")
     _('--pack-neo', type=float, metavar="EPOCH",
         help="Pack time in seconds since the epoch. This argument is ignored"
