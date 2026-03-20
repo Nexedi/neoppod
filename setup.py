@@ -123,7 +123,7 @@ setup(
         ],
     },
     install_requires = [
-        'msgpack>=0.5.6',
+        'msgpack>=0.6.2',
         'python-dateutil', # neolog --from
         ],
     extras_require = extras_require,
