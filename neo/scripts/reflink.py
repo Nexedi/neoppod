@@ -811,10 +811,11 @@ def main(args=None):
         help="Commit every SECONDS of work.")
     _('--pack-neo', type=float, metavar="EPOCH",
         help="Pack time in seconds since the epoch. This argument is ignored"
-             " during bootstrap and it is only to pack the refs DB when it is"
-             " run by NEO. Other IStorage implementations don't store pack"
-             " commands in transactions and pack() can be used as long as it's"
-             " done without GC.")
+             " during bootstrap. Packing a refs NEO DB must only be done"
+             " using this option because NEO pack implies a transaction and"
+             " modifying the DB outside this tool would break it. For other"
+             " IStorage implementations, it can be packed the usual way,"
+             " as long as it's done without GC.")
     period(86400,
         " For performance reasons, this revision won't be older than the"
         " previous GC commit so GCs may be delayed this number of seconds.")
