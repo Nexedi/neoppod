@@ -1165,6 +1165,9 @@ def main(args=None):
 
         if commit_interval:
             monitor_tid = tid
+            if tid != z64 and not any(main_storage.iterator(tid, tid)):
+                return ("Last analyzed TID is 0x%x but it can't be found"
+                        " anymore in the main ZODB" % u64(tid))
             deleted_dict = {}
             def iterTrans(x):
                 put = queue.put

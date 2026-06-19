@@ -690,6 +690,18 @@ class GCTests(NEOThreadedTest):
             gc_args = args[:2]
             gc_args += 'gc', self.add_read_only(args[-1])
             reflink.main(gc_args)
+            tid1 = cluster.last_tid
+            r._p_changed = 1
+            t.commit()
+            tid2 = cluster.last_tid
+            args[5:7] = '-N',
+            self.reflinkUntilIdle(args)
+            cluster.neoctl.truncate(tid1)
+            self.tic()
+            t, conn = cluster.getTransaction()
+            r._p_changed = 1
+            t.commit()
+            self.assertIn(hex(u64(tid2)), reflink.main(args))
 
     @with_cluster()
     def test7(self, cluster):
