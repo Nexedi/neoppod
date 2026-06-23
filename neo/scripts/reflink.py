@@ -118,6 +118,7 @@ from datetime import timedelta
 from functools import partial
 from six.moves import http_client
 from six.moves.BaseHTTPServer import BaseHTTPRequestHandler
+from six.moves.urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from io import BytesIO
 from operator import attrgetter, call
 from six.moves.queue import Empty, Queue
@@ -129,9 +130,10 @@ from msgpack import Packer, loads, version as msgpack_version
 from pkg_resources import iter_entry_points
 import ZODB
 from persistent.TimeStamp import TimeStamp
+from transaction.interfaces import TransientError
 from ZODB._compat import PersistentUnpickler
 from ZODB.broken import Broken
-from ZODB.POSException import ConflictError, POSKeyError
+from ZODB.POSException import ConflictError, POSKeyError, StorageError
 from ZODB.serialize import referencesf
 from ZODB.utils import p64, u64, z64
 
@@ -207,7 +209,11 @@ def iterator(storage, start):
         start = inc64(stop)
 
 
-class InvalidationListener(object):
+class DummyInvalidationListener(object):
+
+    invalidated_cache = 0
+
+class InvalidationListener(DummyInvalidationListener):
 
     def __init__(self, storage, tid):
         self.last_gc = tid
@@ -230,7 +236,9 @@ class InvalidationListener(object):
         os.close(w)
 
     def invalidateCache(self):
-        raise NotImplementedError
+        self.invalidate(None, ()) # dummy to wake up if needed (_wait)
+        self.invalidated_cache += 1
+        raise StorageError
 
     def invalidate(self, transaction_id, oids, version=''):
         with self._lock:
@@ -893,6 +901,15 @@ def main(args=None):
     if args.verbose:
         logger.setLevel(logging.INFO)
 
+    while True:
+        try:
+            return _main(args, parser)
+        except TransientError:
+            logger.warning("transient error: restarting...", exc_info=True)
+
+
+def _main(args, parser):
+    invalidation_listener = DummyInvalidationListener()
     command = args.command
     bootstrap = command == "bootstrap"
     close_list = [] # PY3: contextlib.ExitStack
@@ -914,7 +931,12 @@ def main(args=None):
             return
 
         if args.main:
-            main_storage = openStorage(args.main, close_list)
+            uri = urlsplit(args.main)
+            if uri.scheme in ("neo", "neos"):
+                query = parse_qsl(uri.query)
+                query.append(("immediate-reconnection", "true"))
+                uri = uri._replace(query=urlencode(query))
+            main_storage = openStorage(urlunsplit(uri), close_list)
             for iface in (ZODB.interfaces.IStorageIteration,
                           ZODB.interfaces.IExternalGC):
                 if not iface.providedBy(main_storage):
@@ -1437,7 +1459,13 @@ def main(args=None):
 
             next_commit += invalidation_listener.wait(tid, timeout)
 
+    except Exception as e:
+        if invalidation_listener.invalidated_cache:
+            assert invalidation_listener.invalidated_cache == 1
+            raise TransientError("invalidated cache (%s)" % e)
+        raise
     finally:
+        invalidation_listener.invalidateCache = lambda: None
         while close_list:
             close_list.pop().close()
 

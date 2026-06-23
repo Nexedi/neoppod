@@ -39,7 +39,8 @@ from neo.scripts import reflink
 from neo.storage.database.manager import BackgroundWorker
 from .. import consume, reserveEphemeralPort, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, Patch, Random, TransactionalResource
-from . import ConnectionFilter, NEOCluster, NEOThreadedTest, with_cluster
+from . import ConnectionFilter, LockLock, \
+    NEOCluster, NEOThreadedTest, with_cluster
 from neo import *
 
 class PCounter(Persistent):
@@ -677,7 +678,9 @@ class GCTests(NEOThreadedTest):
         assert a._p_oid < b._p_oid
         del r.x
         t.commit()
-
+        def _wait(orig, *args):
+            ll()
+            return orig(*args)
         with ReflinkCluster() as reflink_cluster:
             reflink_cluster.start()
             args = ['-v', reflink_cluster.zurl(), 'run',
@@ -695,13 +698,14 @@ class GCTests(NEOThreadedTest):
             t.commit()
             tid2 = cluster.last_tid
             args[5:7] = '-N',
-            self.reflinkUntilIdle(args)
-            cluster.neoctl.truncate(tid1)
-            self.tic()
-            t, conn = cluster.getTransaction()
-            r._p_changed = 1
-            t.commit()
-            self.assertIn(hex(u64(tid2)), reflink.main(args))
+            with LockLock() as ll, Patch(reflink.InvalidationListener,
+                                         _wait=_wait):
+                reflink_thread = self.newThread(reflink.main, args)
+                ll()
+                cluster.neoctl.truncate(tid1)
+                self.tic()
+            # exit with a error message due to missing TID in the tracked DB
+            self.assertIn(hex(u64(tid2)), reflink_thread.join())
 
     @with_cluster()
     def test7(self, cluster):

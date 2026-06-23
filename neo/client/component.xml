@@ -62,7 +62,9 @@
       <description>
         Control how to react after being disconnected from the master.
         By default, it only reconnects on demand, by a worker thread.
-        But if true, it retries endlessly to remain connected.
+        But if true, it retries endlessly to remain connected. For example,
+        this option is enabled automatically by the reflink tool because it's
+        required to keep being notified of invalidations from the tracked DB.
       </description>
     </key>
     <key name="ca" datatype="existing-file">
