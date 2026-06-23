@@ -26,18 +26,19 @@ from ZODB.POSException import (
     ConflictError, ReadConflictError, ReadOnlyError, UndoError)
 
 from neo.lib import logging
+from neo.lib.bootstrap import MTBootstrapManager
 from neo.lib.compress import decompress_list, getCompress
 from neo.lib.protocol import NodeTypes, Packets, \
     INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_OID, ZERO_TID
 from neo.lib.util import makeChecksum, dump
-from neo.lib.locking import Empty, Lock
+from neo.lib.locking import Empty, Lock, SimpleQueue
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.exception import NodeNotReady
 from . import TransactionMetaData
 from .exception import (NEOStorageError, NEOStorageCreationUndoneError,
     NEOStorageReadRetry, NEOStorageNotFoundError, NEOStorageWrongChecksum,
     NEOPrimaryMasterLost)
-from .handlers import storage, master
+from .handlers import AnswerBaseMixin, storage, master
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
 from .transactions import TransactionContainer
@@ -59,13 +60,16 @@ if SignalHandler:
     import signal
     SignalHandler.registerHandler(signal.SIGUSR2, logging.reopen)
 
+
+class BootstrapManager(AnswerBaseMixin, MTBootstrapManager):
+    pass
+
+
 class Application(ThreadedApplication):
     """The client node application."""
 
-    # For tests only. Do not touch. We want tpc_finish to always recover when
-    # the transaction is really committed, no matter for how long the master
-    # is unreachable.
-    max_reconnection_to_master = float('inf')
+    from .exception import NEOStorageStopped as StorageStopped
+
     # For tests only. See end of pack() method.
     wait_for_pack = False
 
@@ -88,7 +92,6 @@ class Application(ThreadedApplication):
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
         self.storage_handler = storage.StorageAnswersHandler(self)
         self.primary_handler = master.PrimaryAnswersHandler(self)
-        self.primary_bootstrap_handler = master.PrimaryBootstrapHandler(self)
         self.notifications_handler = master.PrimaryNotificationsHandler( self)
         self._txn_container = TransactionContainer()
         # Lock definition :
@@ -99,10 +102,8 @@ class Application(ThreadedApplication):
         self._oid_lock_release = lock.release
         # _cache_lock is used for the client cache
         self._cache_lock = Lock()
-        # _connecting_to_master_node is used to prevent simultaneous master
+        # _connecting_to_storage_node is used to prevent simultaneous storage
         # node connection attempts
-        self._connecting_to_master_node = Lock()
-        # same for storage nodes
         self._connecting_to_storage_node = Lock()
         self._node_failure_dict = {}
         self.compress = getCompress(compress)
@@ -111,11 +112,13 @@ class Application(ThreadedApplication):
 
     def __getattr__(self, attr):
         if attr in ('last_tid', 'pt'):
-            self._getMasterConnection()
-            # XXX: There's still a risk that we get disconnected from the
-            #      master at this precise moment and for 'pt', we'd raise
-            #      AttributeError. Should we catch it and loop until it
-            #      succeeds?
+            while True:
+                conn = self._getMasterConnection()
+                try:
+                    return self.__getattribute__(attr)
+                except AttributeError:
+                    if not conn.isClosed():
+                        raise
         return self.__getattribute__(attr)
 
     def log(self):
@@ -179,91 +182,24 @@ class Application(ThreadedApplication):
         return self._ask(self._getMasterConnection(), packet,
             handler=self.primary_handler, **kw)
 
-    def _getMasterConnection(self):
-        """ Connect to the primary master node on demand """
-        # For performance reasons, get 'master_conn' without locking.
-        result = self.master_conn
-        if result is None:
-            # If not connected, 'master_conn' must be tested again while we have
-            # the lock, to avoid concurrent threads reconnecting.
-            with self._connecting_to_master_node:
-                result = self.master_conn
-                if result is None:
-                    self.new_oids = ()
-                    result = self.master_conn = self._connectToPrimaryNode()
-        return result
-
     def _connectToPrimaryNode(self):
         """
             Lookup for the current primary master node
         """
-        logging.debug('connecting to primary master...')
-        self.start()
-        index = -1
-        fail_count = 0
-        ask = self._ask
-        handler = self.primary_bootstrap_handler
-        conn = None
-        try:
-            while 1:
-                self.ignore_invalidations = True
-                # Get network connection to primary master
-                while fail_count < self.max_reconnection_to_master:
-                    self.nm.reset()
-                    if self.primary_master_node is not None:
-                        # If I know a primary master node, pinpoint it.
-                        node = self.primary_master_node
-                        self.primary_master_node = None
-                    else:
-                        # Otherwise, check one by one.
-                        master_list = self.nm.getMasterList()
-                        if not master_list:
-                            # XXX: On shutdown, it already happened that this
-                            #      list is empty, leading to ZeroDivisionError.
-                            #      This looks a minor issue so let's wait to
-                            #      have more information.
-                            logging.error('%r', self.__dict__)
-                        index = (index + 1) % len(master_list)
-                        node = master_list[index]
-                    # Connect to master
-                    conn = MTClientConnection(self,
-                        self.notifications_handler,
-                        node=node,
-                        dispatcher=self.dispatcher)
-                    p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                        self.uuid, None, self.name, None,
-                        {'read_only': True} if self.read_only else {})
-                    try:
-                        ask(conn, p, handler=handler)
-                    except ConnectionClosed:
-                        conn = None
-                        fail_count += 1
-                    else:
-                        self.primary_master_node = node
-                        break
-                else:
-                    raise NEOPrimaryMasterLost(
-                        "Too many connection failures to the primary master")
-                logging.info('Connected to %s', self.primary_master_node)
-                try:
-                    # Request identification and required informations to be
-                    # operational. Might raise ConnectionClosed so that the new
-                    # primary can be looked-up again.
-                    logging.info('Initializing from master')
-                    ask(conn, Packets.AskLastTransaction(None), handler=handler)
-                    if self.pt.operational():
-                        break
-                except ConnectionClosed:
-                    conn = self.primary_master_node = None
-                    logging.error('Connection to %s lost',
-                                  self.trying_master_node)
-                fail_count += 1
-        except:
-            if conn is not None:
-                conn.close()
-            raise
-        logging.info("Connected and ready")
-        return conn
+        node, conn = BootstrapManager(self, NodeTypes.CLIENT,
+            dispatcher=self.dispatcher,
+            **{'read_only': True} if self.read_only else {}
+            ).getPrimaryConnection()
+        logging.info('Connected to %s', node)
+        self.ignore_invalidations = True
+        conn.setHandler(self.notifications_handler)
+        conn.ask(Packets.AskLastTransaction(None), queue=SimpleQueue())
+        poll = self.em.poll
+        while True:
+            poll(1)
+            if not self.ignore_invalidations:
+                assert self.pt.operational()
+                return conn
 
     def getStorageConnection(self, node):
         conn = node._connection # XXX
@@ -275,12 +211,13 @@ class Application(ThreadedApplication):
         return conn
 
     def _connectToStorageNode(self, node):
-        if self.master_conn is None:
+        id_timestamp = self.id_timestamp
+        if id_timestamp is None:
             raise NEOPrimaryMasterLost
         conn = MTClientConnection(self, self.storage_event_handler, node,
                                   dispatcher=self.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
-            self.uuid, None, self.name, self.id_timestamp, {})
+            self.uuid, None, self.name, id_timestamp, {})
         try:
             self._ask(conn, p, handler=self.storage_bootstrap_handler)
         except ConnectionClosed:

@@ -32,7 +32,7 @@ from neo import *
 from neo.storage.transactions import TransactionManager, ConflictError
 from neo.lib.connection import ConnectionClosed, \
     ClientConnection, ServerConnection, MTClientConnection
-from neo.lib.exception import StoppedOperation
+from neo.lib.exception import PrimaryFailure, StoppedOperation
 from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, ErrorCodes,
@@ -70,10 +70,10 @@ class Test(NEOThreadedTest):
 
     def testBasicStore(self, dedup=False):
         with NEOCluster(dedup=dedup) as cluster:
-            cluster.start()
-            storage = cluster.getZODBStorage()
-            storage.sync()
-            storage.app.max_reconnection_to_master = 0
+          cluster.start()
+          storage = cluster.getZODBStorage()
+          storage.sync()
+          with Patch(storage.app, connected=None):
             compress = storage.app.compress._compress
             data_info = {}
             compressible = b'x' * 20
@@ -273,7 +273,7 @@ class Test(NEOThreadedTest):
     def testStorageDataLockWithDeduplication(self, dedup=False):
         self.testStorageDataLock(True)
 
-    @with_cluster()
+    @with_cluster(immediate_reconnection=False)
     def testStorageDataLock2(self, cluster):
         storage = cluster.getZODBStorage()
         def t(data):
@@ -288,8 +288,13 @@ class Test(NEOThreadedTest):
         s.stop()
         cluster.join((s,))
         s.resetNode()
-        storage.app.max_reconnection_to_master = 0
-        self.assertRaises(NEOPrimaryMasterLost, storage.tpc_vote, t1)
+        client = storage.app
+        # Here, we just want to check that tpc_vote tries to reconnect to the
+        # master. The current implementation would be to retry forever until
+        # it succeeds. Here, let's just patch to abort on first attempt.
+        # We actually don't care which exception is raised.
+        with Patch(client, connected=None):
+            self.assertRaises(client.StorageStopped, storage.tpc_vote, t1)
         with self.expectedFailure(): \
         self.assertFalse(s.dm.getOrphanList())
 
@@ -638,13 +643,10 @@ class Test(NEOThreadedTest):
         self.tic()
         self.assertPartitionTable(cluster, 'UUO', s1)
 
-    @with_cluster()
+    @with_cluster(immediate_reconnection=False)
     def testStartOperation(self, cluster):
         t, c = cluster.getTransaction()
         c.root()._p_changed = 1
-        cluster.storage.stop()
-        cluster.join(cluster.storage_list)
-        cluster.storage.resetNode()
         delayed = []
         def delayConnection(conn, packet):
             return conn in delayed
@@ -655,6 +657,9 @@ class Test(NEOThreadedTest):
         def askBeginTransaction(orig, *args):
             f.discard(delayConnection)
             orig(*args)
+        cluster.storage.stop()
+        cluster.join(cluster.storage_list)
+        cluster.storage.resetNode()
         with ConnectionFilter() as f, \
              Patch(InitializationHandler, startOperation=startOperation), \
              Patch(cluster.master.client_service_handler,
@@ -858,7 +863,7 @@ class Test(NEOThreadedTest):
                 self.tic()
             self.assertEqual(r, [1, 0])
 
-    @with_cluster()
+    @with_cluster(immediate_reconnection=False)
     def testStorageUpgrade1(self, cluster):
         storage = cluster.storage
         # Disable migration steps that aren't idempotent.
@@ -987,8 +992,7 @@ class Test(NEOThreadedTest):
         t2, c2 = cluster.getTransaction()
         c2.root()['2'] = None
         t2 = self.newPausedThread(t2.commit)
-        with Patch(cluster.client, _connectToPrimaryNode=lambda *_:
-                self.fail("unexpected reconnection to master")):
+        with Patch(cluster.client, connected=None):
             t1.commit()
         self.assertRaises(ConnectionClosed, t2.join)
         # all nodes except clients should exit
@@ -1501,7 +1505,7 @@ class Test(NEOThreadedTest):
         """
         def delayAnswerLockInformation(conn, packet):
             if isinstance(packet, Packets.AnswerInformationLocked):
-                cluster.client.master_conn.close()
+                cluster.client.closeMasterConnection()
                 return True
         def askFinalTID(orig, *args):
             s2m.remove(delayAnswerLockInformation)
@@ -1510,11 +1514,10 @@ class Test(NEOThreadedTest):
             s2m.remove(delayAnswerLockInformation)
             self.tic()
             return orig(ttid)
-        def _connectToPrimaryNode(orig):
-            conn = orig()
+        def reconnect(orig):
+            orig()
             self.tic()
             s2m.remove(delayAnswerLockInformation)
-            return conn
         if 1:
             t, c = cluster.getTransaction()
             r = c.root()
@@ -1542,8 +1545,8 @@ class Test(NEOThreadedTest):
             # to the storage node.
             with cluster.storage.filterConnection(cluster.master) as s2m, \
                  cluster.master.filterConnection(cluster.storage) as m2s:
-                s2m.add(delayAnswerLockInformation, Patch(cluster.client,
-                    _connectToPrimaryNode=_connectToPrimaryNode))
+                s2m.add(delayAnswerLockInformation, Patch(
+                    cluster.client.connected, wait=reconnect))
                 m2s.delayNotifyUnlockInformation()
                 t.commit() # the final TID is returned by the storage (tm)
             t.begin()
@@ -1591,7 +1594,8 @@ class Test(NEOThreadedTest):
         cluster.db
         with cluster.master.filterConnection(cluster.storage) as m2s:
             delayNotifyInformation = m2s.delayNotifyNodeInformation()
-            cluster.client.master_conn.close()
+            uuid = cluster.client.uuid
+            cluster.client.close()
             with cluster.newClient() as client:
                 with Patch(IdentificationHandler,
                            requestIdentification=requestIdentification):
@@ -1604,6 +1608,7 @@ class Test(NEOThreadedTest):
                     l.acquire() # new client up
                 load.join()
                 self.assertEqual(idle, [1, 1, 0])
+                self.assertEqual(uuid, client.uuid)
 
     @with_cluster(start_cluster=0, storage_count=3, autostart=3)
     def testAutostart(self, cluster):
@@ -1653,7 +1658,7 @@ class Test(NEOThreadedTest):
                 cluster.start()
                 self.assertFalse(p.applied)
 
-    @with_cluster(replicas=1)
+    @with_cluster(immediate_reconnection=False, replicas=1)
     def testTruncate(self, cluster):
         calls = [0, 0]
         def dieFirst(i):
@@ -1751,13 +1756,17 @@ class Test(NEOThreadedTest):
             if isinstance(packet, Packets.AskObject):
                 m2c.close()
                 #return True
-        if 1:
-            t, c = cluster.getTransaction()
-            m2c, = cluster.master.getConnectionList(cluster.client)
-            cluster.emptyCache(c)
-            if not hasattr(sys, 'getrefcount'): # PyPy
-                # See persistent commit ff64867cca3179b1a6379c93b6ef90db565da36c
-                import gc; gc.collect()
+        t, c = cluster.getTransaction()
+        m2c, = cluster.master.getConnectionList(cluster.client)
+        cluster.emptyCache(c)
+        if not hasattr(sys, 'getrefcount'): # PyPy
+            # See persistent commit ff64867cca3179b1a6379c93b6ef90db565da36c
+            import gc; gc.collect()
+        uuid = cluster.client.uuid
+        def connectionClosed(orig, conn): # delay reconnection to master
+            self.assertRaises(PrimaryFailure, orig, conn)
+        with Patch(cluster.client.notifications_handler,
+                   connectionClosed=connectionClosed):
             # Make the master disconnects the client when the latter is about
             # to send a AskObject packet to the storage node.
             with cluster.client.filterConnection(cluster.storage) as c2s:
@@ -1767,11 +1776,13 @@ class Test(NEOThreadedTest):
                 # Should it change, the clients would have to disconnect on
                 # their own.
                 self.assertRaises(TransientError, getattr, c, "root")
-            uuid = cluster.client.uuid
             # Let's use a second client to steal the node id of the first one.
             with cluster.newClient() as client:
                 client.sync()
                 self.assertEqual(uuid, client.uuid)
+                @cluster.client.em.wakeup # resume reconnection to master
+                def _():
+                    raise PrimaryFailure
                 # The client reconnects successfully to the master and storage,
                 # with a different node id. This time, we get a different error
                 # if it's only disconnected from the storage.
@@ -2881,7 +2892,6 @@ class Test(NEOThreadedTest):
             p.revert()
             self.assertFalse(s0m.isClosed())
             f.remove(delay)
-            self.tic()
             return orig()
         with Patch(cluster.client, _connectToPrimaryNode=reconnect) as p, \
              s0.filterConnection(cluster.master) as f, cluster.moduloTID(0):

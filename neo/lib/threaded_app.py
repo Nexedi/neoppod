@@ -18,7 +18,8 @@ import six.moves._thread as _thread, threading, weakref
 from . import debug, logging
 from .app import BaseApplication
 from .dispatcher import Dispatcher
-from .locking import SimpleQueue
+from .exception import PrimaryFailure
+from .locking import Event, SimpleQueue, Lock
 
 class app_set(weakref.WeakSet):
 
@@ -43,36 +44,39 @@ class ThreadContainer(threading.local):
 class ThreadedApplication(BaseApplication):
     """The client node application."""
 
-    uuid = None
+    connected = uuid = None
+    # A shared lock should be fine because we don't care about perf here.
+    close_lock = threading.Lock()
+    immediate_reconnection = False
 
-    def __init__(self, master_nodes, name, **kw):
+    def __init__(self, master_nodes, name, immediate_reconnection=False, **kw):
         super(ThreadedApplication, self).__init__(**kw)
+        if immediate_reconnection:
+            self.immediate_reconnection = True
         self.poll_thread = threading.Thread(target=self.run, name=name)
         self.poll_thread.daemon = True
         # Internal Attributes common to all thread
         self.name = name
         self.dispatcher = Dispatcher()
-        self.master_conn = None
         self.nm.createMasters(master_nodes)
+        self.connected = Event()
 
         # Internal attribute distinct between thread
         self._thread_container = ThreadContainer()
         app_set.add(self) # to register self.on_log
 
     def close(self):
-        # Clear all connection
-        self.master_conn = None
-        if self.poll_thread.is_alive():
-            for conn in self.em.getConnectionList():
-                conn.close()
-            # Stop polling thread
-            logging.debug('Stopping %s', self.poll_thread)
-            self.em.wakeup(_thread.exit)
-        else:
-            super(ThreadedApplication, self).close()
-
-    def start(self):
-        self.poll_thread.is_alive() or self.poll_thread.start()
+        with self.close_lock:
+            try:
+                t = self.poll_thread
+            except AttributeError:
+                return
+            if t.is_alive():
+                logging.debug('Stopping %s', t)
+                self.em.wakeup(_thread.exit)
+            else:
+                assert not hasattr(self, 'master_conn')
+                super(ThreadedApplication, self).close()
 
     def run(self):
         logging.debug("Started %s", self.poll_thread)
@@ -80,20 +84,53 @@ class ThreadedApplication(BaseApplication):
             with self.em.wakeup_fd():
                 self._run()
         finally:
-            super(ThreadedApplication, self).close()
+            with self.close_lock:
+                super(ThreadedApplication, self).close()
             logging.debug("Poll thread stopped")
 
     def _run(self):
         poll = self.em.poll
         try:
             while 1:
-                poll(1)
+                try:
+                    self.master_conn = self._connectToPrimaryNode()
+                    logging.info("Connected and ready")
+                    self.connected.set()
+                    while 1:
+                        poll(1)
+                except PrimaryFailure:
+                    pass
         except BaseException as e:
             if not isinstance(e, SystemExit) or e.code:
                 logging.exception('Pre-mortem data:')
                 self.log()
                 logging.flush()
             raise
+        finally:
+            self.connected.set() # release worked threads
+            del self.connected
+
+    def _getMasterConnection(self):
+        try:
+            return self.master_conn
+        except AttributeError:
+            with self.close_lock:
+                start = self.__dict__ and not self.poll_thread.is_alive()
+                if start:
+                    self.poll_thread.start()
+            while True:
+                connected = self.connected
+                if not connected:
+                    raise self.StorageStopped
+                if not (start or self.immediate_reconnection):
+                    @self.em.wakeup
+                    def _():
+                        raise PrimaryFailure
+                connected.wait()
+                try:
+                    return self.master_conn
+                except AttributeError:
+                    start = False
 
     def getHandlerData(self):
         return self._thread_container.answer

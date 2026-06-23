@@ -18,10 +18,14 @@ from neo.lib import handler
 from ..exception import NEOStorageError
 from ZODB.POSException import ReadOnlyError
 
-class AnswerBaseHandler(handler.AnswerBaseHandler): # XXX
+class AnswerBaseMixin:
 
     def protocolError(self, conn, message):
         raise NEOStorageError("protocol error: %s" % message)
 
     def readOnlyAccess(self, conn, message):
         raise ReadOnlyError(message)
+
+
+class AnswerBaseHandler(AnswerBaseMixin, handler.AnswerBaseHandler):
+    pass

@@ -58,6 +58,13 @@
         likely to fail and an empty record is returned.
       </description>
     </key>
+    <key name="immediate-reconnection" datatype="boolean">
+      <description>
+        Control how to react after being disconnected from the master.
+        By default, it only reconnects on demand, by a worker thread.
+        But if true, it retries endlessly to remain connected.
+      </description>
+    </key>
     <key name="ca" datatype="existing-file">
       <description>
         Certificate authority in PEM format.

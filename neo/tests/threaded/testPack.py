@@ -259,7 +259,7 @@ class PackTests(NEOThreadedTest):
             result.append(tids(r[x]._p_oid))
         self.assertEqual(expected, result)
 
-    @with_cluster(partitions=2, storage_count=2)
+    @with_cluster(immediate_reconnection=False, partitions=2, storage_count=2)
     def testDisablePack(self, cluster):
         s0, s1 = cluster.sortStorageList()
         def reset0(**kw):

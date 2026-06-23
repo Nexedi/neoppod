@@ -178,6 +178,38 @@ else:
     Semaphore = threading.Semaphore
 
 
+class Event(object):
+    """Simplified version of threading.Event with support for:
+    - NEO_VERBOSE_LOCKING
+    - easy monkey-patching by threaded tests
+    """
+
+    def __init__(self):
+        self._cond = threading.Condition(Lock())
+        self._flag = False
+
+    def __repr__(self):
+        return "<%s@%x: %sset>" % (
+            self.__class__.__name__, id(self),
+            '' if self._flag else 'un')
+
+    def set(self):
+        with self._cond:
+            self._flag = True
+            self._cond.notify_all()
+
+    def clear(self):
+        with self._cond:
+            self._flag = False
+
+    def wait(self):
+        with self._cond:
+            signaled = self._flag
+            if not signaled:
+                signaled = self._cond.wait()
+            return signaled
+
+
 class SimpleQueue(object):
     """
     Similar to Queue.Queue but with simpler locking scheme, reducing lock

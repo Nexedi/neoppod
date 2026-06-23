@@ -36,12 +36,13 @@ import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.admin.handler import MasterEventHandler
 from neo.client import Storage
+from neo.client.exception import NEOPrimaryMasterLost
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, \
     ClientConnection, Connection, ConnectionClosed, ListeningConnection
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
-from neo.lib.locking import SimpleQueue, Empty
+from neo.lib.locking import Event, SimpleQueue, Empty
 from neo.lib.protocol import ZERO_OID, ZERO_TID, MAX_TID, uuid_str, \
     ClusterStates, Enum, NodeStates, NodeTypes, Packets, formatAddress
 from neo.lib.util import cached_property, parseMasterList, p64
@@ -202,6 +203,18 @@ class Serialized(object):
         logging.info('tic (%s:%u) ...', *x)
 
     @classmethod
+    def loop(cls, stop):
+        # XXX: redundant with tic(stop) ?
+        assert not cls._disabled
+        for i in TIC_LOOP:
+            r = stop()
+            if r:
+                return r
+            cls.tic(step=1, quiet=True, timeout=.001)
+        ConnectionFilter.log()
+        raise Exception("tic is looping forever")
+
+    @classmethod
     def tic(cls, step=-1, check_timeout=(), quiet=False, stop=None,
             # BUG: We overuse epoll as a way to know if there are pending
             #      network messages. Sometimes, and this is more visible with
@@ -211,7 +224,7 @@ class Serialized(object):
             #      We also increase SocketConnector.SOMAXCONN in tests so that
             #      a connection attempt is never delayed inside the kernel.
             timeout=0):
-        if stop is not None:
+        if stop is not None: # XXX: see loop() method
             stop_timeout = time.time() + 5
         if cls._disabled:
             assert step == -1 and not (check_timeout or stop is None)
@@ -309,13 +322,7 @@ class TestSerialized(Serialized):
 
     def poll(self, timeout):
         if timeout:
-            for x in TIC_LOOP:
-                r = self._epoll.poll(0)
-                if r:
-                    return r
-                Serialized.tic(step=1, timeout=.001)
-            ConnectionFilter.log()
-            raise Exception("tic is looping forever")
+            Serialized.loop(partial(self._epoll.poll, 0))
         return self._epoll.poll(timeout)
 
 
@@ -568,25 +575,13 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
 
 class ClientApplication(Node, neo.client.app.Application):
 
-    max_reconnection_to_master = 10
-
-    def __init__(self, master_nodes, name, **kw):
-        super(ClientApplication, self).__init__(master_nodes, name, **kw)
-        self.poll_thread.node_name = name
-        # Smaller cache to speed up tests that checks behaviour when it's too
-        # small. See also NEOCluster.cache_size
-        self._cache.max_size //= 1024
-
     def _run(self):
         try:
+            Serialized(self)
             super(ClientApplication, self)._run()
         finally:
             if isinstance(self.em.epoll, Serialized):
                 self.em.epoll.exit()
-
-    def start(self):
-        isinstance(self.em.epoll, Serialized) or Serialized(self)
-        super(ClientApplication, self).start()
 
     def getConnectionList(self, *peers):
         for peer in peers:
@@ -607,6 +602,12 @@ class ClientApplication(Node, neo.client.app.Application):
             if conn is not None:
                 conn.setReconnectionNoDelay()
                 conn.close()
+
+    def closeMasterConnection(self, wait=False):
+        conn = self.master_conn
+        self.em.wakeup(conn.close)
+        if wait:
+            Serialized.loop(conn.isClosed)
 
     def registeredInDispatcher(self, conn):
         """Check if a connection is registered into message table."""
@@ -779,7 +780,22 @@ class NEOCluster(object):
 
     SSL = None
 
-    def __init__(orig, self): # temporary definition for SimpleQueue patch
+    def ClientApplication__init__(orig, self, master_nodes, name, **kw):
+        # This is a monkey-patch for reflink, which does not use above subclass.
+        orig(self, master_nodes, name, **kw)
+        connected = self.connected
+        def wait():
+            if Serialized._disabled:
+                return type(connected).wait(connected)
+            logging.info('<ClientApplication>.connected.wait()')
+            Serialized.loop(lambda: connected._flag)
+        connected.wait = wait
+        self.poll_thread.node_name = name
+        # Smaller cache to speed up tests that checks behaviour when it's too
+        # small. See also NEOCluster.cache_size
+        self._cache.max_size //= 1024
+
+    def SimpleQueue__init__(orig, self):
         orig(self)
         if Serialized._disabled:
             return
@@ -787,16 +803,11 @@ class NEOCluster(object):
         def _lock(blocking=True):
             if blocking:
                 logging.info('<SimpleQueue>._lock.acquire()')
-                for i in TIC_LOOP:
-                    if lock(False):
-                        return True
-                    Serialized.tic(step=1, quiet=True, timeout=.001)
-                ConnectionFilter.log()
-                raise Exception("tic is looping forever")
+                Serialized.loop(partial(lock, False))
             return lock(False)
         self._lock = _lock
     if hasattr(SimpleQueue, 'get_nowait'):
-        def __init__(orig, self):
+        def SimpleQueue__init__(orig, self):
             orig(self)
             if Serialized._disabled:
                 return
@@ -808,17 +819,17 @@ class NEOCluster(object):
                     if not blocking:
                         raise
                 logging.info('<SimpleQueue>.get()')
-                for i in TIC_LOOP:
+                @Serialized.loop
+                def _():
                     try:
                         return _get(False)
                     except Empty:
-                        Serialized.tic(step=1, quiet=True, timeout=.001)
-                ConnectionFilter.log()
-                raise Exception("tic is looping forever")
+                        pass
             self.get = get
     _patches = (
         Patch(BaseConnection, getTimeout=lambda orig, self: None),
-        Patch(SimpleQueue, __init__=__init__),
+        Patch(neo.client.app.Application, __init__=ClientApplication__init__),
+        Patch(SimpleQueue, __init__=SimpleQueue__init__),
         Patch(SocketConnector, CONNECT_LIMIT=0),
         Patch(SocketConnector, SOMAXCONN=128), # see Serialized.tic comment
         Patch(SocketConnector, _bind=lambda orig, self, addr: orig(self, BIND)),
@@ -866,10 +877,11 @@ class NEOCluster(object):
                        storage_count=None, db_list=None, clear_databases=True,
                        compress=True, backup_count=0, backup_initially=False,
                        importer=None, autostart=None, dedup=False, name=None,
-                       monitor_reflink=False):
+                       immediate_reconnection=True, monitor_reflink=False):
         self.name = name or self._allocateName()
         self.backup_list = [self._allocateName() for x in range(backup_count)]
         self.compress = compress
+        self.immediate_reconnection = immediate_reconnection
         self.num_partitions = partitions
         master_list = [MasterApplication.newAddress()
                        for _ in range(master_count)]
@@ -956,10 +968,14 @@ class NEOCluster(object):
     ###
 
     def __enter__(self):
+        self._patch()
         return self
 
     def __exit__(self, t, v, tb):
-        self.stop(None)
+        try:
+            self.stop(None)
+        finally:
+            self._unpatch()
 
     def zurl(self):
         q = [] if self.compress else [('compress', 'false')]
@@ -976,7 +992,7 @@ class NEOCluster(object):
 
     def start(self, storage_list=None, master_list=None, recovering=False):
         self.started = True
-        self._patch()
+        self._patch() # for ZODB tests (threaded tests needs them earlier)
         self.resetNeoCTL()
         if master_list is None:
             master_list = self.master_list
@@ -1072,6 +1088,7 @@ class NEOCluster(object):
 
     def _newClient(self, **kw):
         kw.setdefault('compress', self.compress)
+        kw.setdefault('immediate_reconnection', self.immediate_reconnection)
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
                                  ssl_credentials=self.SSL, **kw)
 
@@ -1131,6 +1148,9 @@ class NEOCluster(object):
             alive = [t for t in thread_list if t.is_alive()]
             thread_list[:] = alive
             return not alive
+        # A common cause for an endless loop here is that the client
+        # keep reconnecting to the master. This behaviour can be disabled
+        # with immediate_reconnection=False.
         if Serialized.tic(stop=stop, timeout=.001):
              # Map with repr before that threads become unprintable.
              raise RuntimeError(list(map(repr, thread_list)))

@@ -366,7 +366,8 @@ class ImporterTests(NEOThreadedTest):
         c.db().close()
         importer = {'zodb': [('root', cfg)]}
         # Start NEO cluster with transparent import.
-        with NEOCluster(importer=importer, partitions=2) as cluster:
+        with NEOCluster(importer=importer, partitions=2,
+                        immediate_reconnection=False) as cluster:
             s = cluster.storage
             l = threading.Lock()
             l.acquire()

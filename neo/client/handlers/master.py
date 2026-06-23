@@ -17,7 +17,7 @@
 
 from neo import *
 from neo.lib import logging
-from neo.lib.exception import PrimaryElected
+from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import MTEventHandler
 from neo.lib.pt import MTPartitionTable as PartitionTable
 from neo.lib.protocol import NodeStates
@@ -25,20 +25,8 @@ from . import AnswerBaseHandler
 from ..exception import NEOStorageError
 
 
-class PrimaryBootstrapHandler(AnswerBaseHandler):
-    """ Bootstrap handler used when looking for the primary master """
-
-    def answerLastTransaction(*args):
-        pass
-
 class PrimaryNotificationsHandler(MTEventHandler):
     """ Handler that process the notifications from the primary master """
-
-    def notPrimaryMaster(self, *args):
-        try:
-            super(PrimaryNotificationsHandler, self).notPrimaryMaster(*args)
-        except PrimaryElected as e:
-            self.app.primary_master_node, = e.args
 
     def answerLastTransaction(self, conn, ltid):
         app = self.app
@@ -46,7 +34,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
         if app_last_tid != ltid:
             # Either we're connecting or we already know the last tid
             # via invalidations.
-            assert app.master_conn is None, app.master_conn
+            assert not hasattr(app, 'master_conn'), app.master_conn
             with app._cache_lock:
                 if app_last_tid < ltid:
                     app._cache.clear_current()
@@ -88,18 +76,24 @@ class PrimaryNotificationsHandler(MTEventHandler):
 
     def connectionClosed(self, conn):
         app = self.app
-        if app.master_conn is not None:
+        app.id_timestamp = None
+        if hasattr(app, 'master_conn'):
             msg = "connection to primary master node closed"
             logging.critical(msg)
-            app.master_conn = None
+            connected = app.connected
+            if connected:
+                connected.clear()
+            del app.master_conn
             for txn_context in app.txn_contexts():
                 txn_context.error = msg
+            app.new_oids = ()
         try:
             app.__dict__.pop('pt').clear()
         except KeyError:
             pass
-        app.primary_master_node = None
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
+        if app.connected and app.immediate_reconnection:
+            raise PrimaryFailure
 
     def stopOperation(self, conn):
         logging.critical("master node ask to stop operation")
@@ -169,9 +163,6 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
     def answerPack(self, conn, status):
         if not status:
             raise NEOStorageError('Already packing')
-
-    def answerLastTransaction(self, conn, ltid):
-        pass
 
     def answerFinalTID(self, conn, tid):
         self.app.setHandlerData(tid)

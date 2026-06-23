@@ -19,13 +19,19 @@ from . import logging
 from .exception import PrimaryElected
 from .handler import EventHandler
 from .protocol import Packets
-from .connection import ClientConnection
+from .connection import ClientConnection, MTClientConnection
 
 
 class BootstrapManager(EventHandler):
     """
     Manage the bootstrap stage, lookup for the primary master then connect to it
     """
+
+    Connection = ClientConnection
+    _ask = Connection.ask
+    if six.PY2:
+        _ask = _ask.__func__
+    _ask = staticmethod(_ask)
 
     def __init__(self, app, node_type, server=None, **extra):
         """
@@ -43,8 +49,8 @@ class BootstrapManager(EventHandler):
 
     def connectionCompleted(self, conn):
         EventHandler.connectionCompleted(self, conn)
-        conn.ask(Packets.RequestIdentification(self.node_type, self.uuid,
-            self.server, self.app.name, None, self.extra))
+        self._ask(conn, Packets.RequestIdentification(self.node_type,
+            self.uuid, self.server, self.app.name, None, self.extra))
 
     def connectionFailed(self, conn):
         EventHandler.connectionFailed(self, conn)
@@ -90,8 +96,17 @@ class BootstrapManager(EventHandler):
                 master_list = app.nm.getMasterList()
                 index = (index + 1) % len(master_list)
                 self.current = master_list[index]
-            ClientConnection(app, self, self.current)
+            self.Connection(app, self, self.current)
             # Note that the connection may be already closed. This happens when
             # the kernel reacts so quickly to a closed port that 'connect'
             # fails on the first call. In such case, poll(1) would deadlock
             # if there's no other connection to timeout.
+
+
+class MTBootstrapManager(BootstrapManager):
+
+    def __init__(self, *args, **kw):
+        dispatcher = kw.pop('dispatcher')
+        self.Connection = lambda *args, **kw: MTClientConnection(
+            dispatcher=dispatcher, *args, **kw)
+        super(MTBootstrapManager, self).__init__(*args, **kw)

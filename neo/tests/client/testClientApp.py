@@ -77,6 +77,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid = self.makeTID()
         txn = TransactionMetaData()
         app.master_conn = Mock()
-        self.assertRaises(StorageTransactionError, app.undo, tid, txn)
-        # no packet sent
-        self.checkNoPacketSent(app.master_conn)
+        try:
+            self.assertRaises(StorageTransactionError, app.undo, tid, txn)
+            # no packet sent
+            self.checkNoPacketSent(app.master_conn)
+        finally:
+            del app.master_conn

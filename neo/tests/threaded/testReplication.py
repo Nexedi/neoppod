@@ -1090,7 +1090,7 @@ class ReplicationTests(NEOThreadedTest):
         s = cluster.storage_list[1]
         self.assertRaises(SystemExit, cluster.neoctl.dropNode, s.uuid)
 
-    @backup_test()
+    @backup_test(upstream_kw={'immediate_reconnection':False})
     def testUpstreamStartWithDownstreamRunning(self, backup):
         upstream = backup.upstream
         upstream.getTransaction() # "initial database creation" commit
@@ -1111,7 +1111,8 @@ class ReplicationTests(NEOThreadedTest):
         self.assertEqual(upstream.neoctl.getClusterState(),
                          ClusterStates.RECOVERING)
 
-    @with_cluster(partitions=5, replicas=2, storage_count=3)
+    @with_cluster(partitions=5, replicas=2, storage_count=3,
+                  immediate_reconnection=False)
     def testCheckReplicas(self, cluster, corrupted_state=False):
         from neo.storage import checker
         def corrupt(offset):
@@ -1165,7 +1166,7 @@ class ReplicationTests(NEOThreadedTest):
         B = backup
         U = B.upstream
         Z = U.getZODBStorage()
-        with B.newClient() as client, self.assertRaises(ReadOnlyError):
+        with B.newClient() as client, self.assertRaises(client.StorageStopped):
             client.last_tid
         #Zb = B.getZODBStorage(read_only=True) # XXX see below about invalidations
 

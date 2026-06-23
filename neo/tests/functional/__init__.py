@@ -495,7 +495,6 @@ class NEOCluster(object):
 
     def getZODBStorage(self, **kw):
         result = Storage(**self.getClientConfig(**kw))
-        result.app.max_reconnection_to_master = 10
         self.zodb_storage_list.append(result)
         return result
 
