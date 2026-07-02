@@ -250,7 +250,7 @@ class Application(ThreadedApplication):
                     # operational. Might raise ConnectionClosed so that the new
                     # primary can be looked-up again.
                     logging.info('Initializing from master')
-                    ask(conn, Packets.AskLastTransaction(), handler=handler)
+                    ask(conn, Packets.AskLastTransaction(None), handler=handler)
                     if self.pt.operational():
                         break
                 except ConnectionClosed:

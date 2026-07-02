@@ -55,7 +55,7 @@ class Monitor(object):
     def askLastIds(self, conn):
         if self.cluster_state == ClusterStates.BACKINGUP:
             conn.ask(Packets.AskRecovery())
-        conn.ask(Packets.AskLastTransaction())
+        conn.ask(Packets.AskLastTransaction(None))
 
     @property
     def operational(self):

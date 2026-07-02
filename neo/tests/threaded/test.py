@@ -35,8 +35,9 @@ from neo.lib.connection import ConnectionClosed, \
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
-from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
-    Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
+from neo.lib.protocol import (CellStates, ClusterStates, ErrorCodes,
+    NodeStates, NodeTypes, Packets, Packet, uuid_str,
+    ZERO_OID, ZERO_TID, MAX_TID)
 from .. import Patch, TransactionalResource, getTransactionMetaData
 from . import ClientApplication, ConnectionFilter, LockLock, NEOCluster, \
     NEOThreadedTest, RandomConflictDict, Serialized, ThreadId, with_cluster
@@ -52,6 +53,7 @@ from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
 from neo.storage.handlers.initialization import InitializationHandler
+from neo.storage.handlers.master import MasterOperationHandler
 
 class PCounter(Persistent):
     value = 0
@@ -2989,3 +2991,37 @@ class Test(NEOThreadedTest):
             with self.assertRaises(exception.NEOStorageWrongChecksum) as cm:
                 cluster.client.load(ZERO_OID)
             self.assertEqual(tid, cm.exception.args[1])
+
+    @with_cluster(storage_count=2, replicas=1)
+    def testCheckTID(self, cluster):
+        t, c = cluster.getTransaction()
+        c.root()._p_changed = 1
+        t.commit()
+        t1 = cluster.last_tid
+        c.root()._p_changed = 1
+        t.commit()
+        t2 = cluster.last_tid
+        neoctl = cluster.neoctl
+        self.assertEqual(t2, neoctl.getLastTransaction(t1))
+        with self.assertRaises(RuntimeError) as cm:
+            neoctl.getLastTransaction(add64(t1, 1))
+        cls, code, message = cm.exception.args[0]
+        self.assertEqual(code, ErrorCodes.TID_NOT_FOUND)
+        self.assertIn('missing', message)
+        self.tic() # let admin reconnect
+        def checkTID(orig, handler, conn, tid):
+            p.revert()
+            conn.close()
+        with Patch(MasterOperationHandler, checkTID=checkTID) as p:
+            self.assertEqual(t2, neoctl.getLastTransaction(t1))
+            self.assertFalse(p.applied)
+        def checkTID(orig, tid, conn, checked):
+            orig(tid, conn, checked)
+            conn.close()
+        with Patch(cluster.master, checkTID=checkTID), \
+             self.assertRaises(RuntimeError) as cm:
+            neoctl.getLastTransaction(t1)
+        cls, code, message = cm.exception.args[0]
+        self.assertEqual(code, ErrorCodes.PROTOCOL_ERROR)
+        self.tic()
+        self.assertEqual(neoctl.getClusterState(), ClusterStates.RUNNING)

@@ -114,6 +114,7 @@ class Application(BaseApplication):
         self.server = config['bind']
         self.autostart = config.get('autostart')
 
+        self.check_tid_dict = {}
         self.storage_ready_dict = {}
         self.storage_starting_set = set()
         for master_address in config.get('masters', ()):
@@ -679,3 +680,15 @@ class Application(BaseApplication):
         except ValueError:
             return
         self.pm.notifyCompleted(pack_id)
+
+    def checkTID(self, tid, conn, checked):
+        check_tid_dict = self.check_tid_dict
+        try:
+            checked_dict = check_tid_dict[tid][1]
+        except KeyError:
+            pt = self.pt
+            node = pt.getCellList(pt.getPartition(tid), True)[0].getNode()
+            node.ask(Packets.CheckTID(tid), tid=tid)
+            checked_dict = {}
+            check_tid_dict[tid] = [node, checked_dict]
+        checked_dict[conn] = conn.getPeerId(), checked

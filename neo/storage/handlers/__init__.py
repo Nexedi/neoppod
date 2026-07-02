@@ -38,6 +38,10 @@ class BaseHandler(EventHandler):
     def abortTransaction(self, conn, ttid, _):
         self.notifyTransactionFinished(conn, ttid, None)
 
+    def checkTID(self, conn, tid):
+        conn.answer(Packets.CheckedTID(
+            self.app.dm.getTransaction(tid, True) is not None))
+
 
 class BaseMasterHandler(BaseHandler):
 

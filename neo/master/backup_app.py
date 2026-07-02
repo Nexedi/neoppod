@@ -122,7 +122,9 @@ class BackupApplication(object):
                     self.ignore_invalidations = True
                     self.ignore_pack_notifications = True
                     conn.setHandler(BackupHandler(self))
-                    conn.ask(Packets.AskLastTransaction())
+                    tid = app.getLastTransaction()
+                    conn.ask(Packets.AskLastTransaction(
+                        None if tid == ZERO_TID else tid))
                     assert app.backup_tid == pt.getBackupTid()
                     min_tid = add64(app.backup_tid, 1)
                     p = app.pm.packs

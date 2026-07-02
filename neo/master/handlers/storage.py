@@ -54,6 +54,19 @@ class StorageServiceHandler(BaseServiceHandler):
             # else, like STOPPING, during cleanup (__del__/close).
             and app.listening_conn):
             app.backup_app.nodeLost(node)
+        for tid, checking in six.iteritems(app.check_tid_dict):
+            if checking[0] is node:
+                _ = checking[0] = app.pt.getCellList(app.pt.getPartition(tid),
+                                                     True)[0].getNode()
+                _.ask(Packets.CheckTID(tid), tid=tid)
+
+    def checkedTID(self, conn, exists, tid):
+        try:
+            checked_dict = self.app.check_tid_dict.pop(tid)[1]
+        except KeyError:
+            return
+        for conn, (msg_id, checked) in six.iteritems(checked_dict):
+            checked(conn, msg_id, None if exists else tid)
 
     def askUnfinishedTransactions(self, conn, offset_list):
         app = self.app

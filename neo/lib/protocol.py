@@ -33,7 +33,7 @@ except ImportError:
 
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes.
-PROTOCOL_VERSION = 5
+PROTOCOL_VERSION = 6
 # By encoding the handshake packet with msgpack, the whole NEO stream can be
 # decoded with msgpack. The first byte is 0x92, which is different from TLS
 # Handshake (0x16).
@@ -820,6 +820,12 @@ class Packets(six.with_metaclass(PacketRegistryFactory, dict)):
 
         :nodes: C -> M; ctl -> A -> M
         """, poll_thread=True)
+
+    CheckTID, CheckedTID = request("""
+        Ask whether a TID exists in the database.
+
+        :nodes: * -> S
+        """)
 
     AskCheckCurrentSerial, AnswerCheckCurrentSerial = request("""
         Check if given serial is current for the given oid, and lock it so that

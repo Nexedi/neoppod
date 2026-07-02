@@ -14,18 +14,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo import six
 from ..app import monotonic_time
 from ..pack import RequestOld
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import Packets, ZERO_TID
+from neo.lib.protocol import Errors, Packets, ZERO_TID
+from neo.lib.util import dump
+
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
     def connectionLost(self, conn, new_state=None):
-        self._connectionLost(conn, self.app.nm.getByUUID(conn.getUUID()))
+        app = self.app
+        for tid, (_, checked_dict) in list(six.iteritems(app.check_tid_dict)):
+            try:
+                del checked_dict[conn]
+            except KeyError:
+                continue
+            if not checked_dict:
+                del app.check_tid_dict[tid]
+        self._connectionLost(conn, app.nm.getByUUID(conn.getUUID()))
 
     def askClusterState(self, conn):
         state = self.app.getClusterState()
@@ -42,9 +53,28 @@ class MasterHandler(EventHandler):
         tm = self.app.tm
         conn.answer(Packets.AnswerLastIDs(tm.getLastTID(), tm.getLastOID(), tm.getFirstTID()))
 
-    def askLastTransaction(self, conn):
-        conn.answer(Packets.AnswerLastTransaction(
-            self.app.getLastTransaction()))
+    def _getLastTransaction(self):
+        return self.app.getLastTransaction()
+
+    def _askLastTransaction(self, conn, msg_id, tid):
+        ltid = self._getLastTransaction()
+        if tid:
+            conn.send(Errors.TidNotFound(
+                "%s missing (ltid=%s)" % (dump(tid), dump(ltid))
+                ), msg_id)
+            conn.abort()
+        else:
+            conn.send(Packets.AnswerLastTransaction(ltid), msg_id)
+
+    def askLastTransaction(self, conn, check_tid):
+        if check_tid:
+            ltid = self._getLastTransaction()
+            if ltid == check_tid:
+                check_tid = None
+            elif ltid > check_tid:
+                self.app.checkTID(check_tid, conn, self._askLastTransaction)
+                return
+        self._askLastTransaction(conn, conn.getPeerId(), check_tid)
 
     def _askPackOrders(self, conn, pack_id, only_first_approved):
         app = self.app
