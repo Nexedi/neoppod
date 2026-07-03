@@ -26,11 +26,10 @@ class SecondaryHandler(MasterHandler):
     def handlerSwitched(self, conn, new):
         pass
 
-    def _connectionLost(self, conn):
-        app = self.app
-        node = app.nm.getByUUID(conn.getUUID())
-        node.setDown()
-        app.broadcastNodesInformation([node])
+    def _connectionLost(self, conn, node):
+        if node is not None:
+            node.setDown()
+            self.app.broadcastNodesInformation([node])
 
 
 class ElectionHandler(SecondaryHandler):
@@ -46,10 +45,14 @@ class ElectionHandler(SecondaryHandler):
         super(ElectionHandler, self).connectionFailed(conn)
         self.connectionLost(conn)
 
+    def connectionLost(self, *args):
+        if self.app.listening_conn: # if running
+            self._connectionLost()
+
     def _acceptIdentification(self, node):
         raise PrimaryElected(node)
 
-    def _connectionLost(self, *args):
+    def _connectionLost(self):
         if self.app.primary: # not switching to secondary role
             self.app._current_manager.try_secondary = True
 
@@ -71,7 +74,7 @@ class PrimaryHandler(ElectionHandler):
     def _acceptIdentification(self, node):
         assert self.app.primary_master is node, (self.app.primary_master, node)
 
-    def _connectionLost(self, conn):
+    def _connectionLost(self):
         node = self.app.primary_master
         # node is None when switching to primary role
         if node and not node.isConnected(True):

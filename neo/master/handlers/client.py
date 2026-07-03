@@ -28,16 +28,16 @@ class ClientServiceHandler(MasterHandler):
         assert new
         super(ClientServiceHandler, self).handlerSwitched(conn, new)
 
-    def _connectionLost(self, conn):
+    def _connectionLost(self, conn, node):
         # cancel its transactions and forgot the node
         app = self.app
-        node = app.nm.getByUUID(conn.getUUID())
-        assert node is not None, conn
         app.pm.clientLost(conn)
-        for x in app.tm.clientLost(node):
-            app.notifyTransactionAborted(*x)
-        node.setUnknown()
-        app.broadcastNodesInformation([node])
+        if node is not None:
+            assert app.listening_conn # running
+            for x in app.tm.clientLost(node):
+                app.notifyTransactionAborted(*x)
+            node.setUnknown()
+            app.broadcastNodesInformation([node])
 
     def askBeginTransaction(self, conn, tid):
         """

@@ -66,8 +66,7 @@ class AdministrationHandler(MasterHandler):
                     app.notifyUpstreamAdmin(node.getAddress())
                     break
 
-    def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByUUID(conn.getUUID())
+    def _connectionLost(self, conn, node):
         if node is not None:
             self.app.nm.remove(node)
 

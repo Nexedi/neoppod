@@ -25,8 +25,7 @@ class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
     def connectionLost(self, conn, new_state=None):
-        if self.app.listening_conn: # if running
-            self._connectionLost(conn)
+        self._connectionLost(conn, self.app.nm.getByUUID(conn.getUUID()))
 
     def askClusterState(self, conn):
         state = self.app.getClusterState()
