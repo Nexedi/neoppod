@@ -33,12 +33,6 @@ class TerminalNeoCTL(TerminalNeoCTL):
 
 class ClusterTests(NEOFunctionalTest):
 
-    def _tearDown(self, success):
-        if hasattr(self, "neo"):
-            self.neo.stop()
-            del self.neo
-        NEOFunctionalTest._tearDown(self, success)
-
     def testClusterStartup(self):
         neo = self.neo = NEOCluster(['test_neo1', 'test_neo2'], replicas=1,
                          temp_dir=self.getTempDirectory())

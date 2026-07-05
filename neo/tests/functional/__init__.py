@@ -721,9 +721,14 @@ class NEOFunctionalTest(NeoTestBase):
         self.__patch.apply()
 
     def _tearDown(self, success):
-        self.__patch.revert()
-        super(NEOFunctionalTest, self)._tearDown(success)
-        NEOCluster.SSL = None
+        try:
+            if hasattr(self, "neo"):
+                self.neo.stop()
+                del self.neo
+        finally:
+            self.__patch.revert()
+            super(NEOFunctionalTest, self)._tearDown(success)
+            NEOCluster.SSL = None
 
     def setupLog(self):
         logging.setup(os.path.join(self.getTempDirectory(), 'test.log'))

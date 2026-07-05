@@ -28,10 +28,6 @@ class MasterTests(NEOFunctionalTest):
                 temp_dir=self.getTempDirectory())
         self.neo.run()
 
-    def _tearDown(self, success):
-        self.neo.stop()
-        NEOFunctionalTest._tearDown(self, success)
-
     def testStoppingSecondaryMaster(self):
         # Wait for masters to stabilize
         self.neo.expectAllMasters(MASTER_NODE_COUNT, NodeStates.RUNNING)

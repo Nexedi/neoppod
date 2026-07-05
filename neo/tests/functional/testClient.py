@@ -55,11 +55,6 @@ class ClientTests(NEOFunctionalTest):
             temp_dir=self.getTempDirectory()
         )
 
-    def _tearDown(self, success):
-        self.neo.stop()
-        del self.neo
-        NEOFunctionalTest._tearDown(self, success)
-
     def __setup(self):
         self.neo.start()
         self.neo.expectClusterRunning()

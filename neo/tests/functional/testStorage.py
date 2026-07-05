@@ -32,12 +32,6 @@ OBJECT_NUMBER = 100
 
 class StorageTests(NEOFunctionalTest):
 
-    def _tearDown(self, success):
-        if hasattr(self, "neo"):
-            self.neo.stop()
-            del self.neo
-        NEOFunctionalTest._tearDown(self, success)
-
     def __setup(self, storage_number=2, pending_number=0, replicas=1,
             partitions=10, master_count=2):
         # create a neo cluster
