@@ -469,7 +469,7 @@ class DatabaseManager(object):
     """
 
     ENGINES = ()
-    UNSAFE = False
+    FOREIGN_KEYS = UNSAFE = False
 
     __lockFile = None
     LOCK = "neostorage"

@@ -435,7 +435,7 @@ Environment Variables:
 
 def main(args=None):
     from neo.storage.database.manager import DatabaseManager
-    DatabaseManager.UNSAFE = True
+    DatabaseManager.FOREIGN_KEYS = DatabaseManager.UNSAFE = True
     runner = TestRunner()
     runner.run()
     return sys.exit(not runner.was_successful())

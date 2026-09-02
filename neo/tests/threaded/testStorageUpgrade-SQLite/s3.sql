@@ -19,7 +19,8 @@ CREATE TABLE obj (
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (partition, tid, oid));
+                 PRIMARY KEY (partition, tid, oid),
+                 FOREIGN KEY(data_id) REFERENCES data(id));
 CREATE TABLE pt (
                  rid INTEGER NOT NULL,
                  nid INTEGER NOT NULL,
@@ -37,7 +38,8 @@ CREATE TABLE tobj (
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (tid, oid)
+                 PRIMARY KEY (tid, oid),
+                 FOREIGN KEY(data_id) REFERENCES data(id)
             ) WITHOUT ROWID
             ;
 CREATE TABLE trans (

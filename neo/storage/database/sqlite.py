@@ -108,6 +108,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         if self.UNSAFE:
             pragmas.setdefault('synchronous', 'OFF')
             pragmas.setdefault('journal_mode', 'MEMORY')
+        pragmas.setdefault('foreign_keys', 'ON' if self.FOREIGN_KEYS else 'OFF')
 
     def _close(self):
         self.conn.close()
@@ -165,7 +166,7 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def erase(self):
         for t in ('config', 'pt', 'pack', 'trans',
-                  'obj', 'data', 'ttrans', 'tobj'):
+                  'obj', 'ttrans', 'tobj', 'data'):
             self.query('DROP TABLE IF EXISTS ' + t)
 
     def nonempty(self, table):
@@ -272,7 +273,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (partition, oid, tid)
+                 PRIMARY KEY (partition, oid, tid),
+                 FOREIGN KEY(data_id) REFERENCES data(id)
             ) WITHOUT ROWID
             """
         index_dict['obj'] = (
@@ -309,7 +311,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (tid, oid)
+                 PRIMARY KEY (tid, oid),
+                 FOREIGN KEY(data_id) REFERENCES data(id)
             ) WITHOUT ROWID
             """
 
