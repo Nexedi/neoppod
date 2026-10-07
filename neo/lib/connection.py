@@ -310,7 +310,7 @@ class ListeningConnection(BaseConnection):
                                 encodeAddress(addr))
         if self._ssl:
             conn.connecting = True
-            connector.ssl(self._ssl, conn._connected)
+            connector.ssl(self._ssl.context, conn._connected)
             # Nothing to send as long as we haven't received a ClientHello
             # message.
         else:
@@ -692,7 +692,7 @@ class ClientConnection(Connection):
     def _maybeConnected(self):
         self.writable = self.lockWrapper(super(ClientConnection, self).writable)
         if self._ssl:
-            self.connector.ssl(self._ssl, self._connected)
+            self.connector.ssl(self._ssl.context, self._connected)
         else:
             self._connected()
 
