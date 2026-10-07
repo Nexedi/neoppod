@@ -712,6 +712,17 @@ class MonitorServer(ThreadingTCPServer):
         self.address_family = address_family
         ThreadingTCPServer.__init__(self,
             server_address, MonitorRequestHandler, False)
+        self._socket = self.socket # for SSL reloading
+
+    def close(self):
+        self.socket.close()
+
+    def initSSL(self, neo_ssl):
+        context = ssl.create_default_context(
+            ssl.Purpose.CLIENT_AUTH, cafile=neo_ssl.ca)
+        context.verify_flags |= ssl.VERIFY_X509_STRICT # BBB: Python < 3.13
+        context.load_cert_chain(neo_ssl.cert, neo_ssl.key)
+        self.socket = context.wrap_socket(self._socket, True)
 
 
 class MonitorRequestHandler(BaseHTTPRequestHandler):
@@ -976,18 +987,20 @@ def _main(args, parser):
             if args.monitor:
                 monitor_tid = z64
                 monitor = MonitorServer(*args.monitor)
+                close_list.append(monitor)
                 monitor.getLastProcessedTID = lambda: monitor_tid
                 try:
-                    ssl_credentials = main_storage.app.ssl_credentials
+                    neo_ssl = main_storage.app.ssl
+                    initContext = neo_ssl.initContext
                 except AttributeError:
                     pass
                 else: # NEO using SSL
-                    context = ssl.create_default_context(
-                        ssl.Purpose.CLIENT_AUTH, cafile=ssl_credentials[0])
-                    context.verify_flags |= ssl.VERIFY_X509_STRICT # BBB: Python < 3.13
-                    context.load_cert_chain(*ssl_credentials[1:])
-                    monitor.socket = context.wrap_socket(monitor.socket, True)
-                close_list.append(monitor.socket)
+                    context = neo_ssl.callback(monitor.initSSL)
+                    @close_list.append
+                    class _:
+                        close = staticmethod(partial(
+                            context.__exit__, None, None, None))
+                    context.__enter__()
                 monitor.server_bind()
                 monitor.server_activate()
                 monitor_shutdown, x = os.pipe()

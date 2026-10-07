@@ -14,10 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import errno, os, socket
+import six.moves._thread as _thread
 from neo.lib.connection import ClientConnection, ListeningConnection
+from neo.lib.connector import SocketConnector
+from neo.lib.handler import EventHandler
 from neo.lib.protocol import Packets
-from .. import Patch, SSL, SSL2
-from . import NEOCluster, test, testPack, testReplication
+from .. import getTempDirectory, Patch, SSL, SSL2
+from . import BIND, MasterApplication, NEOCluster, \
+    test, testPack, testReplication
 from .testPack import GCTests, ReflinkCluster
 
 
@@ -89,6 +94,82 @@ class SSLTests(SSLMixin, test.Test):
                  self.getLoopbackConnection() as conn:
                 while not conn.isClosed():
                     conn.em.poll(1)
+
+    def testReloadSSL(self):
+        def makeApp():
+            socket_path = os.path.join(tmp, "ssl-reload%s.sock" % len(app))
+            reload_sock.append(socket_path)
+            app.append(MasterApplication(replicas=0, partitions=1,
+                address=BIND, ssl_credentials=ssl + (socket_path,)))
+            return app[-1]
+        def select(credentials):
+            for src, dst in zip(credentials, ssl):
+                try:
+                    os.remove(dst)
+                except OSError as e:
+                    if e.errno != errno.ENOENT:
+                        raise
+                os.symlink(src, dst)
+        class Handler(EventHandler):
+            completed = failed = 0
+            def connectionCompleted(self, conn):
+                self.completed += 1
+            def connectionFailed(self, conn):
+                self.failed += 1
+        def check(expect_failed):
+            conn = ClientConnection(c, handler, node)
+            try:
+                completed = handler.completed
+                failed = handler.failed
+                while True:
+                    app[1].em.poll(1)
+                    if (completed != handler.completed
+                        or failed != handler.failed):
+                        break
+            finally:
+                conn.close()
+            self.assertEqual(handler.completed, completed + 1 - expect_failed)
+            self.assertEqual(handler.failed, failed + expect_failed)
+        def reloadSSL(i):
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(reload_sock[i])
+            self.assertFalse(s.recv(1))
+            s.close()
+        tmp = os.path.join(getTempDirectory(), self.id())
+        os.mkdir(tmp)
+        ssl = tuple(os.path.join(tmp, os.path.basename(x)) for x in SSL)
+        select(SSL)
+        reload_sock = []
+        app = []
+        try:
+            s = makeApp()
+            s.listening_conn = ListeningConnection(s, EventHandler(s), s.server)
+            @self.newThread
+            def t():
+                while True:
+                    s.em.poll(1)
+            with Patch(SocketConnector, CONNECT_LIMIT=0):
+                try:
+                    c = makeApp()
+                    handler = Handler(c)
+                    node = c.nm.createMaster(
+                        address=s.listening_conn.getAddress(), uuid=s.uuid)
+                    check(0)
+                    select(SSL2)
+                    check(0)
+                    reloadSSL(0)
+                    check(1)
+                    t2 = self.newThread(reloadSSL, 1)
+                    c.em.poll(1)
+                    t2.join()
+                    check(0)
+                finally:
+                    s.em.wakeup(_thread.exit)
+                    t.join()
+        finally:
+            for x in app:
+                x.close()
+
 
 class SSLReplicationTests(SSLMixin, testReplication.ReplicationTests):
     # do not repeat slowest tests with SSL
