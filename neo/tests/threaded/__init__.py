@@ -437,6 +437,13 @@ class ServerNode(six.with_metaclass(ServerNodeType, Node)):
         threading.Thread.__init__(self)
         self.daemon = True
         self.node_name = '%s_%u' % (self.node_type, port)
+        if cluster:
+            ssl = kw['ssl_credentials']
+            if ssl:
+                self.ssl_reload = '\0neo.tests[%s]:%s/%s' % (
+                    os.getpid(), cluster.name, self.node_name)
+                # PY3: ... = *ssl, ...
+                kw['ssl_credentials'] = ssl + (self.ssl_reload,)
         kw.update(cluster=name, bind=address,
             masters=master_nodes and parseMasterList(master_nodes))
         super(ServerNode, self).__init__(kw)
