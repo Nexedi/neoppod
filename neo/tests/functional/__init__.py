@@ -36,7 +36,7 @@ from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib import logging
 from neo.lib.connector import SocketConnector
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
-    UUID_NAMESPACES
+    UUID_NAMESPACES, uuid_str
 from neo.lib.util import dump, setproctitle
 from .. import (ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SSL,
     buildUrlFromString, cluster, getTempDirectory, reserveEphemeralPort,
@@ -270,6 +270,9 @@ class NEOProcess(Process):
         except ImportError:
             raise NotFound(command + ' not found')
         self.setUUID(kw.pop('uuid', None))
+        x = kw.get('ssl-reload')
+        if x:
+            self.ssl_reload = '\0' + x[1:] if x.startswith('@') else x
         super(NEOProcess, self).__init__(command, *args, **kw)
 
     def _args(self):
@@ -384,8 +387,17 @@ class NEOCluster(object):
             kw['bind'] = '%s:%u' % (buildUrlFromString(self.local_ip), port)
         if self.SSL:
             kw['ca'], kw['cert'], kw['key'] = self.SSL
+            kw['ssl-reload'] = '@neo.tests[%s]:%s/%s' % (
+                os.getpid(), self.cluster_name, uuid_str(uuid))
         self.process_dict.setdefault(node_type, []).append(
             NEOProcess(command_dict[node_type], uuid=uuid, **kw))
+
+    def newNeoCTL(self):
+        neoctl = self.__dict__.pop('neoctl', None)
+        if neoctl:
+            neoctl.close()
+        self.neoctl = NeoCTL((str2bytes(self.local_ip), self.admin_port),
+                             ssl_credentials=self.SSL)
 
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
@@ -394,8 +406,7 @@ class NEOCluster(object):
             for process in process_list:
                 if process not in except_storages:
                     process.start()
-        self.neoctl = NeoCTL((str2bytes(self.local_ip), self.admin_port),
-                             ssl_credentials=self.SSL)
+        self.newNeoCTL()
         # wait for the admin node availability
         def test():
             try:
