@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import socket, ssl, threading
+from contextlib import contextmanager
 from neo import *
 from . import logging, util
 from .config import OptionList
@@ -45,8 +46,50 @@ def buildOptionParser(cls):
     _('ca',  help="(SSL) certificate authority in PEM format")
     _('cert', help="(SSL) certificate in PEM format")
     _('key', help="(SSL) private key in PEM format")
+    parser.unix('ssl-reload', metavar="SOCK",
+        help="(SSL) UNIX socket name, abstract if starting with '@' character"
+             " (replaced with '\\0'), path name otherwise")
     cls._buildOptionParser()
     return cls
+
+
+class SSL(object):
+
+    def __init__(self, *args):
+        self._cb = []
+        self.ca, self.cert, self.key = args
+        self.version, version_name = max((getattr(ssl, k), k)
+            for k in dir(ssl) if k.startswith("PROTOCOL_TLSv"))
+        self.initContext()
+        logging.info("TLS %s enabled",
+            float(version_name[13:].replace("_", ".")))
+
+    def initContext(self):
+        context = ssl.SSLContext(self.version)
+        context.options |= (0
+            | ssl.OP_CIPHER_SERVER_PREFERENCE
+            | ssl.OP_NO_COMPRESSION
+            )
+        context.set_ciphers(ssl._RESTRICTED_SERVER_CIPHERS)
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.load_verify_locations(self.ca)
+        context.load_cert_chain(self.cert, self.key)
+        # BBB: VERIFY_X509_STRICT is set by default on Python >= 3.13
+        context.verify_flags |= ssl.VERIFY_X509_STRICT | (
+            context.cert_store_stats()['crl'] and ssl.VERIFY_CRL_CHECK_LEAF)
+        SSLContext_verify(context)
+        self.context = context
+        for cb in self._cb:
+            cb(self)
+
+    @contextmanager
+    def callback(self, cb):
+        self._cb.append(cb)
+        try:
+            cb(self)
+            yield
+        finally:
+            self._cb.remove(cb)
 
 
 class BaseApplication(object):
@@ -59,9 +102,10 @@ class BaseApplication(object):
                 config.pop('ca', None),
                 config.pop('cert', None),
                 config.pop('key', None),
+                config.pop('ssl_reload', None),
             )
             if any(ssl):
-                config['ssl_credentials'] = ssl
+                config['ssl_credentials'] = ssl if ssl[3] else ssl[:3]
             return config
 
     server = None
@@ -84,34 +128,24 @@ class BaseApplication(object):
             help='path of the file containing dynamic master node list')
 
     def __init__(self, ssl_credentials=None, dynamic_master_list=None):
+        reload_ssl = None
         if ssl_credentials:
-            if not all(ssl_credentials):
+            ssl = ssl_credentials[:3]
+            if not all(ssl):
                 raise ValueError("To enable encryption, 3 files must be"
                     " provided: the CA certificate, and the certificate"
                     " of this node with its private key.")
-            # remember ca/cert/key, so that zstor_2zurl in wendelin.core could
-            # retrieve them and fully reconstruct neos:// url of the storage
-            ca, cert, key = self.ssl_credentials = ssl_credentials
-            version, version_name = max((getattr(ssl, k), k)
-                for k in dir(ssl) if k.startswith("PROTOCOL_TLSv"))
-            self.ssl = context = ssl.SSLContext(version)
-            context.options |= (0
-                | ssl.OP_CIPHER_SERVER_PREFERENCE
-                | ssl.OP_NO_COMPRESSION
-                )
-            context.set_ciphers(ssl._RESTRICTED_SERVER_CIPHERS)
-            context.verify_mode = ssl.CERT_REQUIRED
-            context.load_verify_locations(ca)
-            context.load_cert_chain(cert, key)
-            # BBB: VERIFY_X509_STRICT is set by default on Python >= 3.13
-            context.verify_flags |= ssl.VERIFY_X509_STRICT | (
-                context.cert_store_stats()['crl'] and ssl.VERIFY_CRL_CHECK_LEAF)
-            SSLContext_verify(context)
-            logging.info("TLS %s enabled for %s",
-                float(version_name[13:].replace("_", ".")), self)
+            self.ssl = SSL(*ssl)
+            if len(ssl_credentials) > 3:
+                reload_ssl = ssl_credentials[3], self.ssl.initContext
         self._handlers = {}
-        self.em = EventManager()
+        self.em = EventManager(reload_ssl)
         self.nm = NodeManager(dynamic_master_list)
+
+    @property
+    def ssl_credentials(self): # BBB: for zstor_2zurl in wendelin.core
+        ssl = self.ssl
+        return ssl.ca, ssl.cert, ssl.key
 
     # XXX: Do not implement __del__ unless all references to the Application
     #      become weak.

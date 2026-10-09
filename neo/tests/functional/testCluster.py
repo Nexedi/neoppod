@@ -19,8 +19,9 @@ import sys
 from functools import partial
 import transaction
 from neo import *
-from neo.lib.protocol import NodeStates
+from neo.lib.protocol import ClusterStates, NodeStates
 from neo.neoctl.app import TerminalNeoCTL
+from neo.neoctl.neoctl import NotReadyException
 from . import NEOCluster, NEOFunctionalTest
 
 class TerminalNeoCTL(TerminalNeoCTL):
@@ -179,3 +180,17 @@ class ClusterTests(NEOFunctionalTest):
         storages[1].stop()
         self.neo.expectDown(storages[0])
         self.neo.expectDown(storages[1])
+
+    def testReloadSSL(self):
+        tmp = self.getTempDirectory()
+        ssl_selector = self.sslSelector(tmp)
+        NEOCluster.SSL = next(ssl_selector)
+        self.neo = NEOCluster((), temp_dir=tmp)
+        admin, = self.neo.getAdminProcessList()
+        self.neo.run()
+        next(ssl_selector)
+        self.neo.newNeoCTL()
+        getClusterState = self.neo.neoctl.getClusterState
+        self.assertRaises(NotReadyException, getClusterState)
+        self.sslReload(admin.ssl_reload)
+        self.assertEqual(getClusterState(), ClusterStates.RECOVERING)
