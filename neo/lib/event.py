@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import fcntl, os
+import fcntl, os, socket
 from collections import deque
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from operator import call
 from signal import set_wakeup_fd
 from time import time
@@ -43,15 +43,23 @@ def nonblock(fd):
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
 
+    _reload_ssl = None,
     _timeout = None
 
-    def __init__(self):
+    def __init__(self, reload_ssl=None):
         self.connection_dict = {}
         self.reader_set = set()
         self.writer_set = set()
         self.epoll = epoll()
         self._pending_processing = deque()
         self._trigger_list = []
+        if reload_ssl:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.setblocking(0)
+            s.bind(reload_ssl[0])
+            s.listen(1)
+            self.epoll.register(s, EPOLLIN)
+            self._reload_ssl = s.fileno(), s, reload_ssl[1]
         r, w = os.pipe()
         self._wakeup_rfd = r
         self._wakeup_wfd = w
@@ -79,6 +87,9 @@ class EpollEventManager(object):
         os.close(self._wakeup_rfd)
         for c in list(self.connection_dict.values()):
             c.close()
+        reload_ssl = self._reload_ssl
+        if len(reload_ssl) > 1:
+            reload_ssl[1].close()
         self.epoll.close()
         del self.__dict__
 
@@ -267,6 +278,10 @@ class EpollEventManager(object):
                                             action_list.pop(0)()
                                     finally:
                                         del action_list[:]
+                            elif fd == self._reload_ssl[0]:
+                                with closing(self._reload_ssl[1].accept()[0]):
+                                    self._reload_ssl[2]()
+                                logging.info("SSL Context reloaded")
                             continue
                         if conn.readable():
                             pending_processing.append(conn)

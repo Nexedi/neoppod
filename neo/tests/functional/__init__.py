@@ -36,7 +36,7 @@ from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib import logging
 from neo.lib.connector import SocketConnector
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
-    UUID_NAMESPACES
+    UUID_NAMESPACES, uuid_str
 from neo.lib.util import dump, setproctitle
 from .. import (ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SSL,
     buildUrlFromString, cluster, getTempDirectory, reserveEphemeralPort,
@@ -384,6 +384,8 @@ class NEOCluster(object):
             kw['bind'] = '%s:%u' % (buildUrlFromString(self.local_ip), port)
         if self.SSL:
             kw['ca'], kw['cert'], kw['key'] = self.SSL
+            kw['ssl-reload'] = os.path.join(self.temp_dir,
+                '%s_%s.sock' % (self.cluster_name, uuid_str(uuid)))
         self.process_dict.setdefault(node_type, []).append(
             NEOProcess(command_dict[node_type], uuid=uuid, **kw))
 

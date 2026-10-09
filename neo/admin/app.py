@@ -344,7 +344,7 @@ class Application(BaseApplication, Monitor):
                 self.reflink_conn = http_client.HTTPConnection(
                     *self.monitor_reflink
                 ) if self.ssl is None else http_client.HTTPSConnection(
-                    *self.monitor_reflink, context=self.ssl
+                    *self.monitor_reflink, context=self.ssl.context
                 )
                 notifying.add(MONITOR_REFLINK)
                 t = self.monitor_reflink_thread = threading.Thread(
