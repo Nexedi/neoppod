@@ -15,7 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import socket, ssl, threading
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
+from hashlib import sha1
 from neo import *
 from . import logging, util
 from .config import OptionList
@@ -35,8 +36,10 @@ def SSLContext_verify(context):
     t = threading.Thread(target=t)
     t.daemon = True
     t.start()
-    context.wrap_socket(c).close()
+    with closing(context.wrap_socket(c)) as conn:
+        cert = conn.getpeercert(True)
     t.join()
+    return cert
 
 def buildOptionParser(cls):
     parser = cls.option_parser = cls.OptionList()
@@ -77,10 +80,11 @@ class SSL(object):
         # BBB: VERIFY_X509_STRICT is set by default on Python >= 3.13
         context.verify_flags |= ssl.VERIFY_X509_STRICT | (
             context.cert_store_stats()['crl'] and ssl.VERIFY_CRL_CHECK_LEAF)
-        SSLContext_verify(context)
+        cert = SSLContext_verify(context)
         self.context = context
         for cb in self._cb:
             cb(self)
+        return sha1(cert).digest()
 
     @contextmanager
     def callback(self, cb):

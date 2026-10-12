@@ -279,9 +279,18 @@ class EpollEventManager(object):
                                     finally:
                                         del action_list[:]
                             elif fd == self._reload_ssl[0]:
-                                with closing(self._reload_ssl[1].accept()[0]):
-                                    self._reload_ssl[2]()
-                                logging.info("SSL Context reloaded")
+                                with closing(self._reload_ssl[1].accept()[0]) \
+                                        as conn:
+                                    try:
+                                        fingerprint = self._reload_ssl[2]()
+                                    except Exception:
+                                        logging.exception(
+                                            "Issue reloading SSL certificates")
+                                    else:
+                                        logging.info(
+                                            "SSL certificates reloaded")
+                                        conn.setblocking(1)
+                                        conn.send(fingerprint)
                             continue
                         if conn.readable():
                             pending_processing.append(conn)

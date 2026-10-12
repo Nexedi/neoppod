@@ -36,6 +36,7 @@ try:
     from configparser import ConfigParser
 except ImportError:
     from ConfigParser import SafeConfigParser as ConfigParser
+from binascii import a2b_hex
 from contextlib import closing, contextmanager
 from functools import total_ordering, wraps
 from inspect import isclass
@@ -487,9 +488,10 @@ class NeoTestBase(unittest.TestCase):
             raise _ExpectedFailure((type(cm.exception), None, None))
 
     def sslReload(self, path):
+        expected = a2b_hex("3d43d48978b394b59db6c0355c781e9bef332ee6")
         with closing(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as s:
             s.connect(path)
-            self.assertFalse(s.recv(1))
+            self.assertEqual(expected, s.recv(len(expected) + 1))
 
     def sslSelector(self, tmp):
         links = tuple(os.path.join(tmp, os.path.basename(x)) for x in SSL)

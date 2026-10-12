@@ -180,9 +180,10 @@ provided that nodes are started with the `ssl-reload` option.
 Then reloading for a node is done by just establishing a connection
 to the specified socket for this node::
 
-  socat - UNIX:path_to_reload_socket
+  socat - UNIX:path_to_reload_socket |od -t x1
 
-The connection is automatically closed once the reloading is effective.
+If successful, the socket sends the SHA1 fingerprint of the reloaded
+certificate. In any case, the connection is automatically closed.
 
 Pack
 ----
