@@ -155,6 +155,10 @@ class OptionGroup(object):
     def bool(self, *args, **kw):
         self._options.append(BoolOption(*args, **kw))
 
+    def unix(self, *args, **kw):
+        self(type=lambda value: '\0' + value[1:] if value.startswith('@') else
+                os.path.expanduser(value), *args, **kw)
+
 class Argument(Option):
 
     def _asArgparse(self, parser, option_list):

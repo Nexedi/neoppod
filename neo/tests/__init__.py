@@ -486,6 +486,22 @@ class NeoTestBase(unittest.TestCase):
             # XXX: passing sys.exc_info() causes deadlocks
             raise _ExpectedFailure((type(cm.exception), None, None))
 
+    def sslReload(self, path):
+        expected = b"3d43d48978b394b59db6c0355c781e9bef332ee6"
+        with closing(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as s:
+            s.connect(path)
+            self.assertEqual(expected, s.recv(len(expected) + 1))
+
+    def sslSelector(self, tmp):
+        links = tuple(os.path.join(tmp, os.path.basename(x)) for x in SSL)
+        for ssl in SSL, SSL2:
+            for x in zip(ssl, links):
+                os.symlink(*x)
+            yield links
+            for x in links:
+                os.remove(x)
+
+
 class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """
 

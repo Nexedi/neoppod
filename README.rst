@@ -173,8 +173,17 @@ without fallback to older versions. A "SSL: WRONG_VERSION_NUMBER" error means
 that a node runs in an older environment (Python + OpenSSL) than others.
 
 Note also that you can't mix non-SSL nodes and SSL nodes, even between a
-upstream cluster and a backup one. In doing so, connections can get stuck,
-or fail with malformed packets or SSL handshake errors.
+upstream cluster and a backup one.
+
+Certificates can be reloaded without having to restart processes,
+provided that nodes are started with the `ssl-reload` option.
+Then reloading for a node is done by just establishing a connection
+to the specified socket for this node::
+
+  socat - UNIX:path_to_reload_socket; echo
+
+If successful, the socket sends the SHA1 fingerprint of the reloaded
+certificate (40 chars). In any case, the connection is automatically closed.
 
 Pack
 ----
@@ -189,7 +198,7 @@ Only 1 log file per process
 
 Having multiple log file per process is not implemented yet. This limitation is
 mainly visible because client configuration offers an option to specify a log
-file whereas NEO events are logged in the one that's specificied last.
+file whereas NEO events are logged in the one that's specified last.
 This is not considered an issue so far because each event in the log contains
 the id & cluster of the node that emitted it.
 
