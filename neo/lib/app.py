@@ -61,8 +61,8 @@ class SSL(object):
     def __init__(self, *args):
         self._cb = []
         self.ca, self.cert, self.key = args
-        self.version, version_name = max((getattr(ssl, k), k)
-            for k in dir(ssl) if k.startswith("PROTOCOL_TLSv"))
+        version_name = "PROTOCOL_TLSv1_2" # PY3: deprecated
+        self.version = getattr(ssl, version_name)
         self.initContext()
         logging.info("TLS %s enabled",
             float(version_name[13:].replace("_", ".")))
