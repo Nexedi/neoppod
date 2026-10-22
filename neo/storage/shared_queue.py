@@ -71,7 +71,6 @@ class Queue(object):
         pos = self._pos
         size = self._size
         lock, get_lock, put_lock = self._locks
-        left = 0
         while 1:
             for data in unpacker:
                 yield data
