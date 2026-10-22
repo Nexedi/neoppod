@@ -63,7 +63,8 @@ class Queue(object):
             for x in iq:
                 ...
         """
-        unpacker = Unpacker(use_list=False, raw=True)
+        unpacker = Unpacker(use_list=False, raw=True,
+                            max_buffer_size=0 if six.PY3 else 2 ** 31 - 1)
         feed = unpacker.feed
         max_size = self._max_size
         array = self._array
