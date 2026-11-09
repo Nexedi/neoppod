@@ -69,17 +69,23 @@
     </key>
     <key name="ca" datatype="existing-file">
       <description>
-        Certificate authority in PEM format.
+        (SSL) Certificate authority in PEM format.
       </description>
     </key>
     <key name="cert" datatype="existing-file">
       <description>
-        Certificate in PEM format.
+        (SSL) Certificate in PEM format.
       </description>
     </key>
     <key name="key" datatype="existing-file">
       <description>
-        Private key in PEM format.
+        (SSL) Private key in PEM format.
+      </description>
+    </key>
+    <key name="ssl-reload" datatype=".unix">
+      <description>
+        (SSL) UNIX socket name, abstract if starting with '@' character
+        (replaced with '\0'), path name otherwise.
       </description>
     </key>
   </sectiontype>

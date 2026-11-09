@@ -33,6 +33,7 @@ import ZODB
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
+from neo.client.config import unix
 from neo.lib import logging
 from neo.lib.connector import SocketConnector
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
@@ -505,6 +506,9 @@ class NEOCluster(object):
         return kw
 
     def getZODBStorage(self, **kw):
+        if self.SSL:
+            kw['ssl_reload'] = unix('@neo.tests[%s]:%s/client%s' % (
+                os.getpid(), self.cluster_name, len(self.zodb_storage_list)))
         result = Storage(**self.getClientConfig(**kw))
         self.zodb_storage_list.append(result)
         return result

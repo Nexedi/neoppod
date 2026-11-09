@@ -98,10 +98,8 @@ class SSLTests(SSLMixin, test.Test):
     def testReloadSSL(self):
         socket_prefix = '\0neo.tests[%s]:' % os.getpid()
         def makeApp(name):
-            name = socket_prefix + name
-            reload_sock.append(name)
             app.append(MasterApplication(replicas=0, partitions=1,
-                address=BIND, ssl_credentials=ssl + (name,)))
+                address=BIND, ssl_credentials=ssl + (socket_prefix + name,)))
             return app[-1]
         class Handler(EventHandler):
             completed = failed = 0
@@ -127,7 +125,6 @@ class SSLTests(SSLMixin, test.Test):
         os.mkdir(tmp)
         ssl_selector = self.sslSelector(tmp)
         ssl = next(ssl_selector)
-        reload_sock = []
         app = []
         try:
             s = makeApp('server')
@@ -145,9 +142,9 @@ class SSLTests(SSLMixin, test.Test):
                     check(0)
                     next(ssl_selector)
                     check(0)
-                    self.sslReload(reload_sock[0])
+                    self.sslReload(app[0])
                     check(1)
-                    t2 = self.newThread(self.sslReload, reload_sock[1])
+                    t2 = self.newThread(self.sslReload, app[1])
                     c.em.poll(1)
                     t2.join()
                     check(0)

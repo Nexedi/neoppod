@@ -52,7 +52,7 @@ try:
     from ZODB._compat import BytesIO
 except ImportError:
     from io import BytesIO
-from neo.lib import debug, event, logging
+from neo.lib import app, debug, event, logging
 from neo.lib.protocol import NodeTypes, Packet, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property
 from neo.storage.database.manager import DatabaseManager
@@ -487,6 +487,8 @@ class NeoTestBase(unittest.TestCase):
             raise _ExpectedFailure((type(cm.exception), None, None))
 
     def sslReload(self, path):
+        if isinstance(path, app.BaseApplication):
+            path = path.em._reload_ssl[1].getsockname()
         expected = b"3d43d48978b394b59db6c0355c781e9bef332ee6"
         with closing(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as s:
             s.connect(path)

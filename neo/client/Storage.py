@@ -52,9 +52,10 @@ class Storage(BaseStorage.BaseStorage,
             logging.setup(logfile)
         BaseStorage.BaseStorage.__init__(self, 'NEOStorage(%s)' % (name, ))
         if _app is None:
-            ssl = [kw.pop(x, None) for x in ('ca', 'cert', 'key')]
+            ssl = [kw.pop(x, None) for x in ('ca', 'cert', 'key', 'ssl_reload')]
             _app = Application(master_nodes, name, compress=compress,
-                               ssl_credentials=ssl if any(ssl) else None, **kw)
+                               ssl_credentials=None if not any(ssl) else
+                                               ssl if ssl[3] else ssl[:3], **kw)
         self.app = _app
         if __debug__ and self._is_read_only:
             # For ZODB checkWriteMethods:

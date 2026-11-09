@@ -31,3 +31,9 @@ def compress(value):
     except ValueError:
         from neo.lib.compress import parseOption
     return parseOption(value)
+
+def unix(value):
+    if value.startswith('@'):
+        return '\0' + value[1:]
+    from ZConfig.datatypes import existing_dirpath
+    return existing_dirpath(value)

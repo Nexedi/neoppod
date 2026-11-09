@@ -17,6 +17,7 @@
 from __future__ import print_function
 import sys
 from functools import partial
+from itertools import chain
 import transaction
 from neo import *
 from neo.lib.protocol import ClusterStates, NodeStates
@@ -185,12 +186,19 @@ class ClusterTests(NEOFunctionalTest):
         tmp = self.getTempDirectory()
         ssl_selector = self.sslSelector(tmp)
         NEOCluster.SSL = next(ssl_selector)
-        self.neo = NEOCluster((), temp_dir=tmp)
-        admin, = self.neo.getAdminProcessList()
-        self.neo.run()
+        self.neo = NEOCluster(('test_neo1',), temp_dir=tmp)
+        self.neo.start()
+        client = self.neo.getZODBStorage().app
+        client.sync()
         next(ssl_selector)
         self.neo.newNeoCTL()
         getClusterState = self.neo.neoctl.getClusterState
         self.assertRaises(NotReadyException, getClusterState)
-        self.sslReload(admin.ssl_reload)
-        self.assertEqual(getClusterState(), ClusterStates.RECOVERING)
+        for node in chain(self.neo.getAdminProcessList(),
+                          self.neo.getStorageProcessList()):
+            self.sslReload(node.ssl_reload)
+        self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+        node, = client.nm.getStorageList()
+        self.assertIsNone(client.getStorageConnection(node))
+        self.sslReload(client)
+        self.assertIsNotNone(client.getStorageConnection(node))
