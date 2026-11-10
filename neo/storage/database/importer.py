@@ -550,8 +550,10 @@ class ImporterDatabaseManager(DatabaseManager):
                     ((x[0] for x in object_list),) + txn,
                     False)
                 self.releaseData(data_id_list)
-                logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
-                    util.dump(tid), txn[0], txn[1], len(object_list))
+                logging.debug(
+                    "TXN %s imported (user=%r, desc=%r, len(oid)=%s) (%s)",
+                    util.dump(tid), txn[0], txn[1], len(object_list),
+                    util.datetimeFromTID(tid))
                 del object_list[:], data_id_list[:]
                 if self._last_commit + 1 < time.time():
                     self.commit()
