@@ -92,6 +92,7 @@ class Log(object):
         q = self._db.execute
         try:
             q("BEGIN")
+            self._reload()
             yield
             date = self._filter_from
             if date and max(self._log_date, self._packet_date) < date:
@@ -121,7 +122,6 @@ class Log(object):
                     pass
             try:
                 p = next(np)
-                self._reload(p[0])
             except StopIteration:
                 p = None
             except sqlite3.DatabaseError as e:
@@ -162,12 +162,15 @@ class Log(object):
                 name = cluster + '/' + name
         return name
 
-    def _reload(self, date):
+    def _reload(self, date=None):
         q = self._db.execute
-        date, text = next(q("SELECT * FROM protocol WHERE date<=?"
-                            " ORDER BY date DESC", (date,)))
-        if self._protocol_date == date:
-            return
+        if date is None:
+            date, text = next(q("SELECT * FROM protocol ORDER BY date"))
+        else:
+            date, text = next(q("SELECT * FROM protocol WHERE date<=?"
+                                " ORDER BY date DESC", (date,)))
+            if self._protocol_date == date:
+                return
         self._protocol_date = date
         g = {}
         exec(bz2.decompress(text), g)
