@@ -430,7 +430,8 @@ class ImporterDatabaseManager(DatabaseManager):
                     query erase getPartitionTable iterAssignedCells
                     updateCellTID getUnfinishedTIDDict dropUnfinishedData
                     abortTransaction storeTransaction lockTransaction
-                    loadData storeData getOrphanList _pruneData deferCommit
+                    loadData storeData getOrphanList _pruneData
+                    commitFromTimeToTime deferCommit
                     _getDevPath dropPartitionsTemporary lock
                     getPackedIDs _getPartitionPacked
                     _getPackOrders storePackOrder signPackOrders
@@ -555,8 +556,7 @@ class ImporterDatabaseManager(DatabaseManager):
                     util.dump(tid), txn[0], txn[1], len(object_list),
                     util.datetimeFromTID(tid))
                 del object_list[:], data_id_list[:]
-                if self._last_commit + 1 < time.time():
-                    self.commit()
+                self.commitFromTimeToTime()
                 self.zodb_tid = u64(tid)
             yield
         if process:
