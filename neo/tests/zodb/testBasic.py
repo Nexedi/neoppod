@@ -18,7 +18,7 @@ import time
 import unittest
 from ZODB.tests.BasicStorage import BasicStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
-
+from neo import *
 from . import ZODBTestCase
 from .. import Patch, threaded
 
@@ -41,9 +41,10 @@ class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
                 orig(self)
         return test
 
-    # The test expects that both load & lastTransaction would be blocked
+    # The test expected that both load & lastTransaction would be blocked
     # as long as the tpc_finish callback has not finished, taking more
     # than .1 second. ZODB 5.6.0 clarified that lastTransaction() can
     # return immediately with the previous last TID rather than blocking
     # until it is allowed to return the new last TID.
-    test_tid_ordering_w_commit = unittest.skip("ZODB PR #316")
+    if six.PY2: # PY3 has no reason to use ZODB < 5.7
+        test_tid_ordering_w_commit = unittest.skip("ZODB PR #316")
