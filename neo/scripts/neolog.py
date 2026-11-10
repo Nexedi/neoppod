@@ -103,23 +103,10 @@ class Log(object):
                 log_args = self._log_date,
                 packet_args = self._packet_date,
                 date = " WHERE date>?"
-            old = "SELECT date, name, NULL, NULL, %s FROM %s" + date
-            new = ("SELECT date, name, cluster, nid, %s"
+            sql = ("SELECT date, name, cluster, nid, %s"
                    " FROM %s LEFT JOIN node ON node=id" + date)
-            log = 'level, pathname, lineno, msg'
-            pkt = 'msg_id, code, peer, body'
-            try:
-                nl = q(new % (log, 'log'), log_args)
-            except sqlite3.OperationalError:
-                nl = q(old % (log, 'log'), log_args)
-                np = q(old % (pkt, 'packet'), packet_args)
-            else:
-                np = q(new % (pkt, 'packet'), packet_args)
-                try:
-                    nl = chain(q(old % (log, 'log1'), log_args), nl)
-                    np = chain(q(old % (pkt, 'packet1'), packet_args), np)
-                except sqlite3.OperationalError:
-                    pass
+            nl = q(sql % (('level, pathname, lineno, msg'), 'log'), log_args)
+            np = q(sql % (('msg_id, code, peer, body'), 'packet'), packet_args)
             try:
                 p = next(np)
             except StopIteration:
